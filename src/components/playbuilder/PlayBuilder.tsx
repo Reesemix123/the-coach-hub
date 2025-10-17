@@ -1,4 +1,4 @@
-// src/components/playbuilder/PlayBuilder.tsx (COMPLETE REFACTORED)
+// src/components/playbuilder/PlayBuilder.tsx (COMPLETE WITH UPDATES)
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -13,8 +13,7 @@ import {
   RUNNING_HOLES,
   getAssignmentOptions,
   POSITION_GROUPS,
-  calculateMotionEndpoint,
-  getDefensivePositionFromConfig
+  calculateMotionEndpoint
 } from '@/config/footballConfig';
 import {
   validateOffensiveFormation,
@@ -41,7 +40,7 @@ interface Player {
   side: 'offense' | 'defense';
   assignment?: string;
   blockType?: string;
-  blockResponsibility?: string;
+  blockDirection?: { x: number; y: number }; // NEW: Draggable block direction
   isPrimary?: boolean;
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
   motionDirection?: 'toward-center' | 'away-from-center';
@@ -95,6 +94,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   const [routes, setRoutes] = useState<Route[]>([]);
   const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null);
   const [draggedMotionEndpoint, setDraggedMotionEndpoint] = useState<string | null>(null);
+  const [draggedBlockDirection, setDraggedBlockDirection] = useState<string | null>(null); // NEW
   
   // Route drawing state
   const [isDrawingRoute, setIsDrawingRoute] = useState(false);
@@ -155,7 +155,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         side: existingPlay.diagram.odk === 'defense' ? 'defense' : 'offense',
         assignment: p.assignment,
         blockType: p.blockType,
-        blockResponsibility: p.blockResponsibility,
+        blockDirection: p.blockDirection,
         isPrimary: p.isPrimary || false,
         motionType: p.motionType || 'None',
         motionDirection: p.motionDirection || 'toward-center',
@@ -173,7 +173,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         ...p,
         assignment: undefined,
         blockType: undefined,
-        blockResponsibility: undefined,
+        blockDirection: undefined,
         isPrimary: false
       })));
     }
@@ -373,29 +373,50 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   const updatePlayerBlockType = (playerId: string, blockType: string) => {
     setPlayers(prev =>
       prev.map(p =>
-        p.id === playerId ? { ...p, blockType } : p
+        p.id === playerId ? { ...p, blockType, blockDirection: undefined } : p
       )
     );
   };
 
-  const updatePlayerBlockResponsibility = (playerId: string, blockResponsibility: string) => {
+  // NEW: Apply block type to all linemen
+  const applyBlockTypeToAll = (blockType: string) => {
+    setPlayers(prev =>
+      prev.map(p => {
+        const group = getPositionGroup(p.position);
+        if (group === 'linemen') {
+          return { ...p, blockType, blockDirection: undefined };
+        }
+        return p;
+      })
+    );
+  };
+
+  // NEW: Update block direction
+  const updatePlayerBlockDirection = (playerId: string, direction: { x: number; y: number }) => {
     setPlayers(prev =>
       prev.map(p =>
-        p.id === playerId ? { ...p, blockResponsibility } : p
+        p.id === playerId ? { ...p, blockDirection: direction } : p
       )
     );
   };
 
+  // UPDATED: Check if player is on LOS when setting motion
   const updatePlayerMotionType = (playerId: string, motionType: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
+
+    // Check if player is on line of scrimmage (within 5 pixels tolerance)
+    const lineOfScrimmage = 200;
+    const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
 
     const endpoint = motionType === 'None' 
       ? undefined 
       : calculateMotionEndpoint(
           { x: player.x, y: player.y },
           motionType,
-          player.motionDirection || 'toward-center'
+          player.motionDirection || 'toward-center',
+          350,
+          isOnLOS
         );
 
     setPlayers(prev =>
@@ -411,14 +432,21 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
+  // UPDATED: Check if player is on LOS when setting motion direction
   const updatePlayerMotionDirection = (playerId: string, direction: 'toward-center' | 'away-from-center') => {
     const player = players.find(p => p.id === playerId);
     if (!player || !player.motionType || player.motionType === 'None') return;
 
+    // Check if player is on LOS
+    const lineOfScrimmage = 200;
+    const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
+
     const endpoint = calculateMotionEndpoint(
       { x: player.x, y: player.y },
       player.motionType,
-      direction
+      direction,
+      350,
+      isOnLOS
     );
 
     setPlayers(prev =>
@@ -460,16 +488,20 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     return getAssignmentOptions(player.position, playType === 'Run' ? 'run' : 'pass');
   };
 
-  // Drag handlers
-  const handleMouseDown = (playerId: string, isMotionEndpoint: boolean = false) => {
+  // UPDATED: Drag handlers with block direction support
+  const handleMouseDown = (playerId: string, isMotionEndpoint: boolean = false, isBlockDirection: boolean = false) => {
     if (isDrawingRoute) return;
-    if (isMotionEndpoint) {
+    
+    if (isBlockDirection) {
+      setDraggedBlockDirection(playerId);
+    } else if (isMotionEndpoint) {
       setDraggedMotionEndpoint(playerId);
     } else {
       setDraggedPlayer(playerId);
     }
   };
 
+  // UPDATED: Handle mouse move with block direction dragging
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
 
@@ -491,12 +523,22 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
             : p
         )
       );
+    } else if (draggedBlockDirection) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedBlockDirection 
+            ? { ...p, blockDirection: { x, y } } 
+            : p
+        )
+      );
     }
-  }, [draggedPlayer, draggedMotionEndpoint]);
+  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection]);
 
+  // UPDATED: Handle mouse up
   const handleMouseUp = () => {
     setDraggedPlayer(null);
     setDraggedMotionEndpoint(null);
+    setDraggedBlockDirection(null);
   };
 
   // Custom route drawing
@@ -602,7 +644,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         label: p.label,
         assignment: p.assignment,
         blockType: p.blockType,
-        blockResponsibility: p.blockResponsibility,
+        blockDirection: p.blockDirection,
         isPrimary: p.isPrimary,
         motionType: p.motionType,
         motionDirection: p.motionDirection,
@@ -675,7 +717,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     setTimeout(() => savePlay(), 100);
   };
 
-  // Helper function: Get hole position for ball carrier arrow
+  // UPDATED: Get hole position with extended holes 7 & 8
   const getHolePosition = (hole: string): { x: number; y: number } => {
     const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
     const sortedLinemen = [...linemen].sort((a, b) => a.x - b.x);
@@ -717,77 +759,43 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         if (rt) return { x: rt.x + 30, y: holeY };
         return { x: centerX + 100, y: holeY };
       case '7':
-        return { x: sortedLinemen[0].x - 60, y: holeY };
+        // UPDATED: Extended far left to near sideline (120 pixels wider)
+        return { x: sortedLinemen[0].x - 120, y: holeY };
       case '8':
-        return { x: sortedLinemen[sortedLinemen.length - 1].x + 60, y: holeY };
+        // UPDATED: Extended far right to near sideline (120 pixels wider)
+        return { x: sortedLinemen[sortedLinemen.length - 1].x + 120, y: holeY };
       default:
         return { x: centerX, y: holeY };
     }
   };
 
-  // Helper function: Get blocking arrow direction
+  // UPDATED: Get blocking arrow direction - use draggable direction or default
   const getBlockingArrowDirection = (player: Player): { endX: number; endY: number } | null => {
-    if (!player.blockType && !player.blockResponsibility) return null;
+    if (!player.blockType) return null;
 
     const baseLength = 35;
     const centerX = player.motionEndpoint?.x || player.x;
     const centerY = player.motionEndpoint?.y || player.y;
-    
-    if (player.blockType === 'Pull') {
-      let direction = 0;
-      if (player.blockResponsibility?.toLowerCase().includes('left')) {
-        direction = -1;
-      } else if (player.blockResponsibility?.toLowerCase().includes('right')) {
-        direction = 1;
-      } else {
-        direction = 1;
-      }
+
+    // If player has a custom block direction (dragged), use that
+    if (player.blockDirection) {
       return {
-        endX: centerX + (baseLength * 2 * direction),
-        endY: centerY
+        endX: player.blockDirection.x,
+        endY: player.blockDirection.y
       };
     }
 
-    if (player.blockResponsibility) {
-      const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
-      const center = linemen.find(p => p.position === 'C');
-      const lg = linemen.find(p => p.position === 'LG');
-      const rg = linemen.find(p => p.position === 'RG');
-      const lt = linemen.find(p => p.position === 'LT');
-      const rt = linemen.find(p => p.position === 'RT');
-      
-      const defenderPos = getDefensivePositionFromConfig(player.blockResponsibility, {
-        lineOfScrimmage: 200,
-        centerX: center?.x || 350,
-        center,
-        lg,
-        rg,
-        lt,
-        rt,
-        responsibility: player.blockResponsibility.toLowerCase()
-      });
-      
-      if (defenderPos) {
-        const dx = defenderPos.x - centerX;
-        const dy = defenderPos.y - centerY;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        const endX = centerX + (dx / distance) * baseLength;
-        const endY = centerY + (dy / distance) * baseLength;
-        
-        return { endX, endY };
-      }
-    }
-
-    let angle = -45;
+    // Otherwise, use default directions based on block type
+    let angle = -45; // Default angle for Run Block
     
-    if (player.blockType) {
-      const blockTypeLower = player.blockType.toLowerCase();
-      if (blockTypeLower === 'down') angle = -60;
-      else if (blockTypeLower === 'reach') angle = -30;
-      else if (blockTypeLower === 'scoop') angle = -60;
-      else if (blockTypeLower === 'combo') angle = -70;
-    }
+    if (player.blockType === 'Pass Block') {
+      angle = -90; // Straight up for pass block
+    } else if (player.blockType === 'Pull') {
+  // UPDATED: Start arrow going backward (135° or -135°) so it's visible and easy to grab
+  // This puts it BEHIND the player, away from other linemen
+  const isLeftSide = centerX < 350;
+  angle = isLeftSide ? 135 : -135; // Backward angle instead of horizontal
+}
 
     const radians = (angle * Math.PI) / 180;
     return {
@@ -835,6 +843,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
+  // UPDATED: Render blocking arrow with draggable endpoint
   const renderBlockingArrow = (player: Player) => {
     const arrowEnd = getBlockingArrowDirection(player);
     if (!arrowEnd) return null;
@@ -866,10 +875,25 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
           stroke="#888888"
           strokeWidth="2"
         />
+        {/* NEW: Draggable endpoint circle */}
+        <circle
+          cx={arrowEnd.endX}
+          cy={arrowEnd.endY}
+          r="6"
+          fill="#888888"
+          stroke="#ffffff"
+          strokeWidth="2"
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            handleMouseDown(player.id, false, true);
+          }}
+        />
       </g>
     );
   };
 
+  // UPDATED: Render motion arrow with curved path for LOS players
   const renderMotionArrow = (player: Player) => {
     if (!player.motionType || player.motionType === 'None' || !player.motionEndpoint) return null;
 
@@ -877,6 +901,22 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     const startY = player.y;
     const endX = player.motionEndpoint.x;
     const endY = player.motionEndpoint.y;
+
+    // Check if player is on LOS
+    const lineOfScrimmage = 200;
+    const isOnLOS = Math.abs(startY - lineOfScrimmage) <= 5;
+
+    // If on LOS, create curved path that arcs backward
+    let pathD;
+    if (isOnLOS) {
+      // Create quadratic curve that arcs backward
+      const controlY = startY + 15; // Arc back ~1.5 yards
+      const controlX = (startX + endX) / 2;
+      pathD = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+    } else {
+      // Straight line for players not on LOS
+      pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
+    }
 
     return (
       <g key={`motion-${player.id}`}>
@@ -892,11 +932,9 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
             <path d="M 0 0 L 6 3 L 0 6 z" fill="#888888" />
           </marker>
         </defs>
-        <line
-          x1={startX}
-          y1={startY}
-          x2={endX}
-          y2={endY}
+        <path
+          d={pathD}
+          fill="none"
           stroke="#888888"
           strokeWidth="2"
           strokeDasharray="5,5"
@@ -912,7 +950,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
           className="cursor-move"
           onMouseDown={(e) => {
             e.stopPropagation();
-            handleMouseDown(player.id, true);
+            handleMouseDown(player.id, true, false);
           }}
         />
       </g>
@@ -1182,7 +1220,8 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
               <OffensiveLineSection
                 players={linemen}
                 onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={updatePlayerBlockResponsibility}
+                onApplyBlockTypeToAll={applyBlockTypeToAll}
+                onUpdateBlockDirection={updatePlayerBlockDirection}
               />
 
               <BacksSection
@@ -1193,7 +1232,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 assignmentOptions={getAssignmentOptionsForPlayer}
                 onUpdateAssignment={updatePlayerAssignment}
                 onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={updatePlayerBlockResponsibility}
+                onUpdateBlockResponsibility={(id, resp) => {}} // Deprecated
                 onUpdateMotionType={updatePlayerMotionType}
                 onUpdateMotionDirection={updatePlayerMotionDirection}
                 onTogglePrimary={togglePrimaryReceiver}
@@ -1204,7 +1243,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 assignmentOptions={getAssignmentOptionsForPlayer}
                 onUpdateAssignment={updatePlayerAssignment}
                 onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={updatePlayerBlockResponsibility}
+                onUpdateBlockResponsibility={(id, resp) => {}} // Deprecated
                 onUpdateMotionType={updatePlayerMotionType}
                 onUpdateMotionDirection={updatePlayerMotionDirection}
                 onTogglePrimary={togglePrimaryReceiver}

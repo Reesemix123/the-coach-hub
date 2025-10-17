@@ -330,32 +330,32 @@ export const PASSING_ROUTES = [
   'Draw Route (Custom)'
 ] as const;
 
-/**
- * Running back routes/assignments
- */
-export const RB_ASSIGNMENTS = [
-  // Run plays
-  '0 (A-Gap Right)',
-  '1 (A-Gap Left)',
-  '2 (B-Gap Left)',
-  '3 (B-Gap Right)',
-  '4 (C-Gap Left)',
-  '5 (C-Gap Right)',
-  '6 (D-Gap Left)',
-  '7 (D-Gap Right)',
-  '8 (Off Tackle Left)',
-  '9 (Off Tackle Right)',
-  // Pass plays
-  'Pass Pro',
-  'Swing',
-  'Wheel',
-  'Flat',
-  'Angle',
-  'Seam',
-  'Screen',
-  'Chip & Release'
-] as const;
 
+/**
+ * Unified skill position assignments for RB/QB/WR/TE
+ * Available on BOTH run and pass plays - coach decides usage
+ * Eliminates artificial restrictions, enables creative play design
+ */
+export const SKILL_POSITION_ASSIGNMENTS = [
+  // Pass Routes
+  'Go/Streak/9',
+  'Post',
+  'Corner',
+  'Comeback',
+  'Curl',
+  'Out',
+  'In/Dig',
+  'Slant',
+  'Hitch',
+  'Flat',
+  'Wheel',
+  'Seam',
+  'Fade',
+  
+  // Actions
+  'Block',  // Then specify block type via dropdown
+  'Draw Route (Custom)'
+] as const;
 /**
  * Position group categorization
  */
@@ -1318,26 +1318,27 @@ export function getAttributeOptions(odk: 'offense' | 'defense' | 'specialTeams')
 export function getAssignmentOptions(position: string, playType: 'run' | 'pass'): string[] {
   const positionUpper = position.toUpperCase();
   
+  // Offensive Linemen: Only blocking assignments
   if (POSITION_GROUPS.linemen.includes(position)) {
     return [...BLOCKING_ASSIGNMENTS];
   }
   
+  // QB/RB/FB/TB: Unified skill position assignments (routes + block)
+  // Coach decides what makes sense for their play design
   if (POSITION_GROUPS.backs.includes(position)) {
-    return [...RB_ASSIGNMENTS];
+    return [...SKILL_POSITION_ASSIGNMENTS];
   }
   
+  // WR/TE/Receivers: Same unified assignments
   if (POSITION_GROUPS.receivers.includes(position) || 
       positionUpper.includes('WR') || 
       positionUpper.includes('TE') ||
       ['X', 'Y', 'Z', 'SL', 'SR', 'SE', 'FL'].includes(positionUpper)) {
-    if (playType === 'run') {
-      return [...RUNNING_HOLES, 'Block'];
-    } else {
-      return [...PASSING_ROUTES];
-    }
+    return [...SKILL_POSITION_ASSIGNMENTS];
   }
   
-  return [...PASSING_ROUTES];
+  // Fallback: return skill position assignments
+  return [...SKILL_POSITION_ASSIGNMENTS];
 }
 
 export function validatePlayAttributes(attributes: Partial<PlayAttributes>): boolean {
@@ -1358,7 +1359,7 @@ export const FOOTBALL_CONFIG = {
     blockResponsibilities: BLOCK_RESPONSIBILITIES,
     runningHoles: RUNNING_HOLES,
     passingRoutes: PASSING_ROUTES,
-    rbAssignments: RB_ASSIGNMENTS
+    skillPositionAssignments: SKILL_POSITION_ASSIGNMENTS
   },
   formations: {
     offensive: OFFENSIVE_FORMATIONS,
