@@ -252,19 +252,13 @@ export const PLAY_RESULTS = {
 // ============================================
 
 /**
- * Blocking assignments for offensive linemen (TYPE/SCHEME of block)
+ * Simplified blocking assignments for offensive linemen
+ * UPDATED: Simplified to 3 core blocking types with draggable direction
  */
 export const BLOCKING_ASSIGNMENTS = [
-  'Man',
-  'Zone',
-  'Combo',
-  'Pull',
-  'Down',
-  'Reach',
-  'Scoop',
-  'Pass Pro',
-  'Slide Left',
-  'Slide Right'
+  'Run Block',
+  'Pass Block',
+  'Pull'
 ] as const;
 
 /**
@@ -288,7 +282,7 @@ export const BLOCK_RESPONSIBILITIES = [
 
 /**
  * Running holes (gap numbering system)
- * CORRECTED: Standard high school hole numbering
+ * UPDATED: Extended holes 7 and 8 closer to sidelines
  * Odd = Left side, Even = Right side
  * 1 = Between Center and Left Guard
  * 2 = Between Center and Right Guard
@@ -296,8 +290,8 @@ export const BLOCK_RESPONSIBILITIES = [
  * 4 = Between Right Guard and Right Tackle
  * 5 = Outside Left Tackle
  * 6 = Outside Right Tackle
- * 7 = Far left (wide)
- * 8 = Far right (wide)
+ * 7 = Far left (wide - extended to sideline)
+ * 8 = Far right (wide - extended to sideline)
  */
 export const RUNNING_HOLES = [
   '1 (C-LG gap)',
@@ -306,8 +300,8 @@ export const RUNNING_HOLES = [
   '4 (RG-RT gap)',
   '5 (Outside LT)',
   '6 (Outside RT)',
-  '7 (Far Left)',
-  '8 (Far Right)'
+  '7 (Far Left - Wide)',
+  '8 (Far Right - Wide)'
 ] as const;
 
 /**
@@ -597,9 +591,9 @@ export const OFFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'RB', x: 300, y: 260, label: 'RB' }
   ]
 };
+
 // ============================================
 // DEFENSIVE ALIGNMENT SYSTEM
-// Add this section to footballConfig.ts after POSITION_GROUPS
 // ============================================
 
 /**
@@ -613,39 +607,20 @@ export interface OffensiveLineReference {
   rg?: { x: number; y: number };
   lt?: { x: number; y: number };
   rt?: { x: number; y: number };
-  responsibility: string; // lowercase responsibility string
+  responsibility: string;
 }
 
 /**
  * Defensive alignment configuration
- * Each alignment defines:
- * - matchTerms: Keywords that identify this alignment from block responsibility
- * - description: What this alignment means
- * - getPosition: Function that calculates field position relative to offensive line
  */
 export interface DefensiveAlignment {
   matchTerms: string[];
   description: string;
-  depth: number; // Yards off line of scrimmage
+  depth: number;
   getPosition: (ref: OffensiveLineReference) => { x: number; y: number };
 }
 
-/**
- * DEFENSIVE ALIGNMENTS CONFIGURATION
- * 
- * This maps defensive responsibilities to actual field positions.
- * Positions are calculated relative to offensive linemen for accuracy.
- * 
- * COACHING REFERENCE:
- * - Techniques (0, 1, 2i, 3, 4i, 5, 6, 7, 9): DL alignment relative to OL
- * - Gaps (A, B, C, D): Spaces between offensive linemen
- * - Levels: 1st (DL), 2nd (LB), 3rd (DB)
- * 
- * Y-axis: Lower values = deeper in defense (away from LOS at y=200)
- */
 export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
-  // ========== DEFENSIVE LINE TECHNIQUES ==========
-  
   NOSE: {
     matchTerms: ['nose', 'nt', '0-tech', '0 tech'],
     description: 'Nose Tackle - Head up on center (0-technique)',
@@ -661,14 +636,12 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
     description: 'Defensive Tackle - Inside shoulder of guard (A-gap)',
     depth: 1.5,
     getPosition: (ref) => {
-      // Determine side from responsibility
       if (ref.responsibility.includes('left') || ref.responsibility.includes('lg')) {
         return {
           x: (ref.lg?.x || ref.centerX - 40) - 10,
           y: ref.lineOfScrimmage - 15
         };
       }
-      // Default to right
       return {
         x: (ref.rg?.x || ref.centerX + 40) + 10,
         y: ref.lineOfScrimmage - 15
@@ -699,14 +672,12 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
     description: 'Defensive Tackle - Outside shoulder of guard (B-gap)',
     depth: 1.5,
     getPosition: (ref) => {
-      // Check for explicit side designation
       if (ref.responsibility.includes('left') || ref.responsibility.includes('lg') || ref.responsibility.includes('ldt')) {
         return {
           x: (ref.lg?.x || ref.centerX - 40) - 20,
           y: ref.lineOfScrimmage - 15
         };
       }
-      // Default to right (most common 3-tech)
       return {
         x: (ref.rg?.x || ref.centerX + 40) + 20,
         y: ref.lineOfScrimmage - 15
@@ -743,7 +714,6 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
           y: ref.lineOfScrimmage - 15
         };
       }
-      // Default to right
       return {
         x: (ref.rt?.x || ref.centerX + 80) + 20,
         y: ref.lineOfScrimmage - 15
@@ -816,15 +786,12 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
           y: ref.lineOfScrimmage - 10
         };
       }
-      // Default to right
       return {
         x: (ref.rt?.x || ref.centerX + 80) + 40,
         y: ref.lineOfScrimmage - 10
       };
     }
   },
-
-  // ========== GAP ASSIGNMENTS ==========
 
   A_GAP: {
     matchTerms: ['a-gap', 'a gap', 'agap', 'playside a', 'backside a'],
@@ -898,8 +865,6 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
     }
   },
 
-  // ========== LINEBACKERS (2ND LEVEL) ==========
-
   MIKE_LB: {
     matchTerms: ['mike', 'mlb', 'middle linebacker'],
     description: 'Mike Linebacker - Middle, 5-7 yards deep',
@@ -950,8 +915,6 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
     })
   },
 
-  // ========== DEFENSIVE BACKS (3RD LEVEL) ==========
-
   FREE_SAFETY: {
     matchTerms: ['free safety', 'free', 'fs', 'single high'],
     description: 'Free Safety - Deep middle, 10-12 yards',
@@ -983,7 +946,6 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
           y: ref.lineOfScrimmage - 90
         };
       }
-      // Default to right
       return {
         x: 600,
         y: ref.lineOfScrimmage - 90
@@ -1002,17 +964,12 @@ export const DEFENSIVE_ALIGNMENTS: Record<string, DefensiveAlignment> = {
   }
 };
 
-/**
- * Helper function to get defensive position using the config
- * This replaces hardcoded position calculations
- */
 export function getDefensivePositionFromConfig(
   responsibility: string,
   offensiveLineRef: OffensiveLineReference
 ): { x: number; y: number } | null {
   const resp = responsibility.toLowerCase();
 
-  // Try to find matching alignment in config
   for (const alignment of Object.values(DEFENSIVE_ALIGNMENTS)) {
     const matches = alignment.matchTerms.some(term => resp.includes(term.toLowerCase()));
     
@@ -1027,10 +984,6 @@ export function getDefensivePositionFromConfig(
   return null;
 }
 
-/**
- * Get all defensive alignments for a specific level (DL, LB, DB)
- * Useful for UI/educational features
- */
 export function getDefensiveAlignmentsByLevel(level: 'DL' | 'LB' | 'DB'): DefensiveAlignment[] {
   return Object.values(DEFENSIVE_ALIGNMENTS).filter(alignment => {
     if (level === 'DL') return alignment.depth <= 2;
@@ -1040,16 +993,12 @@ export function getDefensiveAlignmentsByLevel(level: 'DL' | 'LB' | 'DB'): Defens
   });
 }
 
-/**
- * Get all possible defensive techniques/alignments
- * Useful for populating dropdowns or educational content
- */
 export function getAllDefensiveTechniques(): string[] {
   return Object.values(DEFENSIVE_ALIGNMENTS).map(a => a.description);
 }
+
 // ============================================
 // FORMATION METADATA FOR COACHES
-// Provides usage guidance and stats
 // ============================================
 
 export const FORMATION_METADATA = {
@@ -1173,22 +1122,18 @@ export const FORMATION_METADATA = {
 };
 
 // ============================================
-// ACCURATE DEFENSIVE FORMATIONS
-// ALL DEFENSIVE PLAYERS: y < 200 (beyond LOS)
+// DEFENSIVE FORMATIONS
 // ============================================
 
 export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '4-3 Base': [
-    // Defensive Line (close to LOS but beyond it)
     { position: 'DE', x: 180, y: 185, label: 'DE' },
     { position: 'DT', x: 270, y: 185, label: 'DT' },
     { position: 'DT', x: 330, y: 185, label: 'DT' },
     { position: 'DE', x: 420, y: 185, label: 'DE' },
-    // Linebackers (5 yards off LOS)
     { position: 'SAM', x: 140, y: 160, label: 'SAM' },
     { position: 'MIKE', x: 300, y: 160, label: 'MIKE' },
     { position: 'WILL', x: 460, y: 160, label: 'WILL' },
-    // Secondary (8-12 yards off)
     { position: 'CB', x: 70, y: 135, label: 'CB' },
     { position: 'CB', x: 530, y: 135, label: 'CB' },
     { position: 'FS', x: 300, y: 95, label: 'FS' },
@@ -1196,16 +1141,13 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   ],
   
   '3-4 Base': [
-    // Defensive Line
     { position: 'DE', x: 240, y: 185, label: 'DE' },
     { position: 'NT', x: 300, y: 185, label: 'NT' },
     { position: 'DE', x: 360, y: 185, label: 'DE' },
-    // Linebackers
     { position: 'OLB', x: 100, y: 160, label: 'OLB' },
     { position: 'ILB', x: 260, y: 160, label: 'ILB' },
     { position: 'ILB', x: 340, y: 160, label: 'ILB' },
     { position: 'OLB', x: 500, y: 160, label: 'OLB' },
-    // Secondary
     { position: 'CB', x: 70, y: 135, label: 'CB' },
     { position: 'CB', x: 530, y: 135, label: 'CB' },
     { position: 'FS', x: 300, y: 95, label: 'FS' },
@@ -1213,15 +1155,12 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   ],
   
   'Nickel (4-2-5)': [
-    // Defensive Line
     { position: 'DE', x: 180, y: 185, label: 'DE' },
     { position: 'DT', x: 270, y: 185, label: 'DT' },
     { position: 'DT', x: 330, y: 185, label: 'DT' },
     { position: 'DE', x: 420, y: 185, label: 'DE' },
-    // Linebackers (only 2)
     { position: 'MLB', x: 270, y: 160, label: 'MLB' },
     { position: 'MLB', x: 330, y: 160, label: 'MLB' },
-    // Secondary (5 DBs)
     { position: 'CB', x: 70, y: 145, label: 'CB' },
     { position: 'CB', x: 530, y: 145, label: 'CB' },
     { position: 'NB', x: 180, y: 155, label: 'NB' },
@@ -1231,14 +1170,12 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
 };
 
 // ============================================
-// SPECIAL TEAMS FORMATIONS (ALL 5)
-// Kicking team: y >= 200, Receiving team: y < 200
+// SPECIAL TEAMS FORMATIONS
 // ============================================
 
 export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
   'Kickoff': [
     { position: 'K', x: 300, y: 300, label: 'K' },
-    // Coverage team (all at or behind LOS)
     { position: 'L5', x: 80, y: 250, label: 'L5' },
     { position: 'L4', x: 160, y: 250, label: 'L4' },
     { position: 'L3', x: 240, y: 250, label: 'L3' },
@@ -1252,7 +1189,6 @@ export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
   ],
   
   'Kick Return': [
-    // Return team (all beyond opponent's LOS)
     { position: 'L5', x: 80, y: 155, label: 'L5' },
     { position: 'L4', x: 160, y: 155, label: 'L4' },
     { position: 'L3', x: 240, y: 155, label: 'L3' },
@@ -1262,50 +1198,39 @@ export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
     { position: 'R2', x: 420, y: 155, label: 'R2' },
     { position: 'R3', x: 480, y: 155, label: 'R3' },
     { position: 'R4', x: 540, y: 155, label: 'R4' },
-    // Deep returners
     { position: 'KR1', x: 250, y: 75, label: 'KR1' },
     { position: 'KR2', x: 350, y: 75, label: 'KR2' }
   ],
   
   'Punt': [
-    // Punt team (all at or behind LOS)
     { position: 'LS', x: 300, y: 200, label: 'LS' },
     { position: 'LG', x: 260, y: 200, label: 'LG' },
     { position: 'RG', x: 340, y: 200, label: 'RG' },
     { position: 'LT', x: 220, y: 200, label: 'LT' },
     { position: 'RT', x: 380, y: 200, label: 'RT' },
-    // Gunners on LOS
     { position: 'LW', x: 100, y: 200, label: 'LW' },
     { position: 'RW', x: 500, y: 200, label: 'RW' },
-    // Up backs (behind LOS)
     { position: 'LU', x: 230, y: 230, label: 'LU' },
     { position: 'RU', x: 370, y: 230, label: 'RU' },
-    // Personal protector
     { position: 'PP', x: 300, y: 250, label: 'PP' },
-    // Punter (15 yards back)
     { position: 'P', x: 300, y: 320, label: 'P' }
   ],
   
   'Punt Return': [
-    // Return team (all beyond opponent's LOS)
     { position: 'RL', x: 100, y: 175, label: 'RL' },
     { position: 'LL', x: 220, y: 175, label: 'LL' },
     { position: 'LC', x: 280, y: 175, label: 'LC' },
     { position: 'RC', x: 320, y: 175, label: 'RC' },
     { position: 'RR', x: 380, y: 175, label: 'RR' },
     { position: 'RR2', x: 500, y: 175, label: 'RR2' },
-    // Rushers
     { position: 'VL', x: 250, y: 190, label: 'VL' },
     { position: 'VR', x: 350, y: 190, label: 'VR' },
-    // Jammers (on gunners)
     { position: 'JL', x: 100, y: 195, label: 'JL' },
     { position: 'JR', x: 500, y: 195, label: 'JR' },
-    // Punt returner
     { position: 'PR', x: 300, y: 95, label: 'PR' }
   ],
   
   'Field Goal': [
-    // FG team (all at or behind LOS)
     { position: 'LS', x: 300, y: 200, label: 'LS' },
     { position: 'LG', x: 270, y: 200, label: 'LG' },
     { position: 'RG', x: 330, y: 200, label: 'RG' },
@@ -1313,12 +1238,9 @@ export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
     { position: 'RT', x: 360, y: 200, label: 'RT' },
     { position: 'LE', x: 210, y: 200, label: 'LE' },
     { position: 'RE', x: 390, y: 200, label: 'RE' },
-    // Wings
     { position: 'LW', x: 180, y: 200, label: 'LW' },
     { position: 'RW', x: 420, y: 200, label: 'RW' },
-    // Holder (7 yards back)
     { position: 'H', x: 300, y: 255, label: 'H' },
-    // Kicker (behind holder)
     { position: 'K', x: 290, y: 265, label: 'K' }
   ]
 };
@@ -1327,9 +1249,6 @@ export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
 // ATTRIBUTE SCHEMA FOR DATABASE
 // ============================================
 
-/**
- * TypeScript type for play attributes stored in database
- */
 export interface PlayAttributes {
   odk: 'offense' | 'defense' | 'specialTeams';
   formation: string;
@@ -1457,33 +1376,16 @@ export const FOOTBALL_CONFIG = {
 
 // ============================================
 // MOTION CONFIGURATION
-// Add this entire section to the END of footballConfig.ts
-// (After DEFENSIVE_ALIGNMENTS and all helper functions)
 // ============================================
 
-/**
- * Pre-snap motion types with coaching definitions
- */
 export interface MotionType {
   name: string;
   description: string;
-  defaultEndpointOffset: { x: number; y: number }; // Relative to player start
-  isLegalAtSnap: boolean; // Can motion continue through snap?
-  requiresSet: boolean; // Must come to set before snap?
+  defaultEndpointOffset: { x: number; y: number };
+  isLegalAtSnap: boolean;
+  requiresSet: boolean;
 }
 
-/**
- * MOTION TYPES CONFIGURATION
- * 
- * Defines all legal pre-snap motion with football-accurate rules.
- * Each motion has a default endpoint offset that can be dragged by coach.
- * 
- * NFHS/High School Rules:
- * - One player in motion at snap (max)
- * - Must be set 1 second before motion
- * - Motion at snap must be parallel or backward (not toward LOS)
- * - Motion player must be off the line of scrimmage
- */
 export const MOTION_TYPES: Record<string, MotionType> = {
   NONE: {
     name: 'None',
@@ -1496,63 +1398,63 @@ export const MOTION_TYPES: Record<string, MotionType> = {
   JET: {
     name: 'Jet',
     description: 'Fast lateral motion toward center, timed to arrive at snap. Threatens sweep or creates bunch.',
-    defaultEndpointOffset: { x: 0, y: 0 }, // Will be calculated toward center
-    isLegalAtSnap: true, // Motion is parallel, legal
+    defaultEndpointOffset: { x: 0, y: 0 },
+    isLegalAtSnap: true,
     requiresSet: true
   },
 
   ORBIT: {
     name: 'Orbit',
     description: 'Arcing loop behind QB, exiting to opposite side. Sets up swing/wheel or backfield misdirection.',
-    defaultEndpointOffset: { x: 0, y: 30 }, // Behind QB, will flip based on direction
-    isLegalAtSnap: true, // Ends parallel/backward
+    defaultEndpointOffset: { x: 0, y: 30 },
+    isLegalAtSnap: true,
     requiresSet: true
   },
 
   ACROSS: {
     name: 'Across',
     description: 'Short lateral move across formation (in front of QB) to re-stack or flip strength.',
-    defaultEndpointOffset: { x: 100, y: 0 }, // Lateral across formation
-    isLegalAtSnap: true, // Parallel motion
+    defaultEndpointOffset: { x: 100, y: 0 },
+    isLegalAtSnap: true,
     requiresSet: true
   },
 
   RETURN: {
     name: 'Return',
     description: 'Fake motion that starts then returns to final spot before snap. Misleads defense rotations.',
-    defaultEndpointOffset: { x: 0, y: 0 }, // Returns to original or nearby spot
-    isLegalAtSnap: false, // Must be set at snap
+    defaultEndpointOffset: { x: 0, y: 0 },
+    isLegalAtSnap: false,
     requiresSet: true
   },
 
   SHIFT: {
     name: 'Shift',
     description: 'Static realignment. Player moves to new position, then comes fully set (1 sec) before snap.',
-    defaultEndpointOffset: { x: 80, y: 0 }, // Generic shift position
-    isLegalAtSnap: false, // Must be set at snap (it's a shift, not motion)
+    defaultEndpointOffset: { x: 80, y: 0 },
+    isLegalAtSnap: false,
     requiresSet: true
   }
 };
 
-/**
- * Motion direction context
- */
 export type MotionDirection = 'toward-center' | 'away-from-center';
 
 /**
  * Calculate motion endpoint based on type and direction
+ * UPDATED: Players on LOS arc backward 1 yard before lateral motion
  * 
  * @param playerStart - Player's starting position {x, y}
  * @param motionType - Type of motion (Jet, Orbit, etc.)
  * @param direction - Direction of motion (toward-center or away-from-center)
  * @param centerX - X coordinate of field center (default 350)
+ * @param isOnLOS - Whether player is on line of scrimmage (default false)
  * @returns Calculated endpoint position {x, y}
  */
 export function calculateMotionEndpoint(
   playerStart: { x: number; y: number },
   motionType: string,
   direction: MotionDirection,
-  centerX: number = 350
+  centerX: number = 350,
+  isOnLOS: boolean = false
 ): { x: number; y: number } {
   const motion = MOTION_TYPES[motionType.toUpperCase()];
   if (!motion || motionType === 'None') {
@@ -1561,107 +1463,88 @@ export function calculateMotionEndpoint(
 
   const isLeftOfCenter = playerStart.x < centerX;
   const offset = motion.defaultEndpointOffset;
+  
+  // If player is on LOS, arc backward 1 yard (10 pixels ≈ 1 yard)
+  const archBackward = isOnLOS ? 10 : 0;
 
   switch (motionType) {
     case 'Jet':
-      // Jet toward center
       if (direction === 'toward-center') {
         return {
           x: isLeftOfCenter ? playerStart.x + 120 : playerStart.x - 120,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       } else {
-        // Away from center
         return {
           x: isLeftOfCenter ? playerStart.x - 80 : playerStart.x + 80,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       }
 
     case 'Orbit':
-      // Loop behind QB
       if (direction === 'toward-center') {
         return {
           x: isLeftOfCenter ? centerX + 80 : centerX - 80,
-          y: playerStart.y + 30
+          y: playerStart.y + 30 + archBackward
         };
       } else {
         return {
           x: isLeftOfCenter ? playerStart.x - 60 : playerStart.x + 60,
-          y: playerStart.y + 40
+          y: playerStart.y + 40 + archBackward
         };
       }
 
     case 'Across':
-      // Short lateral across formation
       if (direction === 'toward-center') {
         return {
           x: centerX,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       } else {
         return {
           x: isLeftOfCenter ? playerStart.x - 80 : playerStart.x + 80,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       }
 
     case 'Return':
-      // Return to similar spot (slight adjustment)
       return {
         x: direction === 'toward-center' 
           ? playerStart.x + (isLeftOfCenter ? 30 : -30)
           : playerStart.x + (isLeftOfCenter ? -20 : 20),
-        y: playerStart.y
+        y: playerStart.y + archBackward
       };
 
     case 'Shift':
-      // Static shift to new position
       if (direction === 'toward-center') {
         return {
           x: isLeftOfCenter ? playerStart.x + 80 : playerStart.x - 80,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       } else {
         return {
           x: isLeftOfCenter ? playerStart.x - 80 : playerStart.x + 80,
-          y: playerStart.y
+          y: playerStart.y + archBackward
         };
       }
 
     default:
       return {
         x: playerStart.x + offset.x,
-        y: playerStart.y + offset.y
+        y: playerStart.y + offset.y + archBackward
       };
   }
 }
 
-/**
- * Get motion types that are legal for a given position
- * Linemen cannot be in motion
- * 
- * @param position - Player position code (e.g., 'LT', 'WR', 'RB')
- * @returns Array of legal motion type names
- */
 export function getLegalMotionTypes(position: string): string[] {
-  // Linemen cannot be in motion
   const linemen = ['LT', 'LG', 'C', 'RG', 'RT'];
   if (linemen.includes(position)) {
     return ['None'];
   }
 
-  // All other positions can use any motion
   return Object.keys(MOTION_TYPES);
 }
 
-/**
- * Check if motion is legal at snap (for validation)
- * Return and Shift must be set at snap
- * 
- * @param motionType - Type of motion
- * @returns true if motion can continue through snap
- */
 export function isMotionLegalAtSnap(motionType: string): boolean {
   const motion = MOTION_TYPES[motionType.toUpperCase()];
   return motion ? motion.isLegalAtSnap : true;

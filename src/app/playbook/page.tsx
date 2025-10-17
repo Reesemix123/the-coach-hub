@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
-import PlayBuilder from '@/components/PlayBuilder';
+import { PlayBuilder } from '@/components/playbuilder';
 
 interface Team {
   id: string;
