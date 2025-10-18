@@ -223,12 +223,20 @@ export default function SetupPage() {
                         <h3 className="text-xl font-semibold text-gray-900">{team.name}</h3>
                         <p className="text-sm text-gray-600 mt-1">{team.level || 'High School'}</p>
                       </div>
-                      <button
-                        onClick={() => deleteTeam(team.id, team.name)}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/teams/${team.id}`}
+                          className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                        >
+                          View Details
+                        </Link>
+                        <button
+                          onClick={() => deleteTeam(team.id, team.name)}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

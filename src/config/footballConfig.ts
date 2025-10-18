@@ -1608,81 +1608,6 @@ export function applyCoverageToFormation(
     return player;
   });
 }
-// ============================================
-// SPECIAL TEAMS FORMATIONS
-// ============================================
-
-export const SPECIAL_TEAMS_FORMATIONS: FormationConfig = {
-  'Kickoff': [
-    { position: 'K', x: 300, y: 300, label: 'K' },
-    { position: 'L5', x: 80, y: 250, label: 'L5' },
-    { position: 'L4', x: 160, y: 250, label: 'L4' },
-    { position: 'L3', x: 240, y: 250, label: 'L3' },
-    { position: 'L2', x: 280, y: 250, label: 'L2' },
-    { position: 'L1', x: 320, y: 250, label: 'L1' },
-    { position: 'R1', x: 360, y: 250, label: 'R1' },
-    { position: 'R2', x: 420, y: 250, label: 'R2' },
-    { position: 'R3', x: 480, y: 250, label: 'R3' },
-    { position: 'R4', x: 540, y: 250, label: 'R4' },
-    { position: 'R5', x: 620, y: 250, label: 'R5' }
-  ],
-  
-  'Kick Return': [
-    { position: 'L5', x: 80, y: 155, label: 'L5' },
-    { position: 'L4', x: 160, y: 155, label: 'L4' },
-    { position: 'L3', x: 240, y: 155, label: 'L3' },
-    { position: 'L2', x: 280, y: 155, label: 'L2' },
-    { position: 'L1', x: 320, y: 155, label: 'L1' },
-    { position: 'R1', x: 360, y: 155, label: 'R1' },
-    { position: 'R2', x: 420, y: 155, label: 'R2' },
-    { position: 'R3', x: 480, y: 155, label: 'R3' },
-    { position: 'R4', x: 540, y: 155, label: 'R4' },
-    { position: 'KR1', x: 250, y: 75, label: 'KR1' },
-    { position: 'KR2', x: 350, y: 75, label: 'KR2' }
-  ],
-  
-  'Punt': [
-    { position: 'LS', x: 300, y: 200, label: 'LS' },
-    { position: 'LG', x: 260, y: 200, label: 'LG' },
-    { position: 'RG', x: 340, y: 200, label: 'RG' },
-    { position: 'LT', x: 220, y: 200, label: 'LT' },
-    { position: 'RT', x: 380, y: 200, label: 'RT' },
-    { position: 'LW', x: 100, y: 200, label: 'LW' },
-    { position: 'RW', x: 500, y: 200, label: 'RW' },
-    { position: 'LU', x: 230, y: 230, label: 'LU' },
-    { position: 'RU', x: 370, y: 230, label: 'RU' },
-    { position: 'PP', x: 300, y: 250, label: 'PP' },
-    { position: 'P', x: 300, y: 320, label: 'P' }
-  ],
-  
-  'Punt Return': [
-    { position: 'RL', x: 100, y: 175, label: 'RL' },
-    { position: 'LL', x: 220, y: 175, label: 'LL' },
-    { position: 'LC', x: 280, y: 175, label: 'LC' },
-    { position: 'RC', x: 320, y: 175, label: 'RC' },
-    { position: 'RR', x: 380, y: 175, label: 'RR' },
-    { position: 'RR2', x: 500, y: 175, label: 'RR2' },
-    { position: 'VL', x: 250, y: 190, label: 'VL' },
-    { position: 'VR', x: 350, y: 190, label: 'VR' },
-    { position: 'JL', x: 100, y: 195, label: 'JL' },
-    { position: 'JR', x: 500, y: 195, label: 'JR' },
-    { position: 'PR', x: 300, y: 95, label: 'PR' }
-  ],
-  
-  'Field Goal': [
-    { position: 'LS', x: 300, y: 200, label: 'LS' },
-    { position: 'LG', x: 270, y: 200, label: 'LG' },
-    { position: 'RG', x: 330, y: 200, label: 'RG' },
-    { position: 'LT', x: 240, y: 200, label: 'LT' },
-    { position: 'RT', x: 360, y: 200, label: 'RT' },
-    { position: 'LE', x: 210, y: 200, label: 'LE' },
-    { position: 'RE', x: 390, y: 200, label: 'RE' },
-    { position: 'LW', x: 180, y: 200, label: 'LW' },
-    { position: 'RW', x: 420, y: 200, label: 'RW' },
-    { position: 'H', x: 300, y: 255, label: 'H' },
-    { position: 'K', x: 290, y: 265, label: 'K' }
-  ]
-};
 
 // ============================================
 // ATTRIBUTE SCHEMA FOR DATABASE
@@ -1786,7 +1711,110 @@ export function validatePlayAttributes(attributes: Partial<PlayAttributes>): boo
   }
   return true;
 }
+// Special Teams Formations Configuration
+export const SPECIAL_TEAMS_FORMATIONS = {
+  'Kickoff': [
+    { position: 'K', label: 'K', x: 350, y: 200 },
+    { position: 'KL1', label: 'L1', x: 290, y: 200 },
+    { position: 'KL2', label: 'L2', x: 240, y: 200 },
+    { position: 'KL3', label: 'L3', x: 190, y: 200 },
+    { position: 'KL4', label: 'L4', x: 140, y: 200 },
+    { position: 'KL5', label: 'L5', x: 90, y: 200 },
+    { position: 'KR1', label: 'R1', x: 410, y: 200 },
+    { position: 'KR2', label: 'R2', x: 460, y: 200 },
+    { position: 'KR3', label: 'R3', x: 510, y: 200 },
+    { position: 'KR4', label: 'R4', x: 560, y: 200 },
+    { position: 'KR5', label: 'R5', x: 610, y: 200 },
+  ],
+  'Kick Return': [
+    { position: 'R', label: 'R', x: 350, y: 60 },
+    { position: 'R2', label: 'R2', x: 380, y: 90 },
+    { position: 'FL1', label: 'FL1', x: 210, y: 180 },
+    { position: 'FL2', label: 'FL2', x: 280, y: 180 },
+    { position: 'FL3', label: 'FL3', x: 350, y: 180 },
+    { position: 'FL4', label: 'FL4', x: 420, y: 180 },
+    { position: 'FL5', label: 'FL5', x: 490, y: 180 },
+    { position: 'SL1', label: 'SL1', x: 280, y: 130 },
+    { position: 'SL2', label: 'SL2', x: 350, y: 130 },
+    { position: 'SL3', label: 'SL3', x: 420, y: 130 },
+  ],
+  'Punt': [
+    { position: 'LS', label: 'LS', x: 350, y: 200 },
+    { position: 'LG', label: 'LG', x: 330, y: 200 },
+    { position: 'RG', label: 'RG', x: 370, y: 200 },
+    { position: 'LT', label: 'LT', x: 305, y: 200 },
+    { position: 'RT', label: 'RT', x: 395, y: 200 },
+    { position: 'WingL', label: 'WL', x: 275, y: 195 },
+    { position: 'WingR', label: 'WR', x: 425, y: 195 },
+    { position: 'PP', label: 'PP', x: 350, y: 160 },
+    { position: 'P', label: 'P', x: 350, y: 60 },
+    { position: 'GunnerL', label: 'GL', x: 150, y: 200 },
+    { position: 'GunnerR', label: 'GR', x: 550, y: 200 },
+  ],
+  'Punt Return': [
+    { position: 'R', label: 'R', x: 350, y: 60 },
+    { position: 'R2', label: 'R2', x: 380, y: 90 },
+    { position: 'JamL', label: 'JL', x: 150, y: 195 },
+    { position: 'JamR', label: 'JR', x: 550, y: 195 },
+    { position: 'Box1', label: 'B1', x: 250, y: 195 },
+    { position: 'Box2', label: 'B2', x: 300, y: 195 },
+    { position: 'Box3', label: 'B3', x: 350, y: 195 },
+    { position: 'Box4', label: 'B4', x: 400, y: 195 },
+    { position: 'Box5', label: 'B5', x: 450, y: 195 },
+    { position: 'Box6', label: 'B6', x: 500, y: 195 },
+  ],
+  'Field Goal': [
+    { position: 'LS', label: 'LS', x: 350, y: 200 },
+    { position: 'LG', label: 'LG', x: 330, y: 200 },
+    { position: 'RG', label: 'RG', x: 370, y: 200 },
+    { position: 'LT', label: 'LT', x: 305, y: 200 },
+    { position: 'RT', label: 'RT', x: 395, y: 200 },
+    { position: 'TEL', label: 'TL', x: 275, y: 200 },
+    { position: 'TER', label: 'TR', x: 425, y: 200 },
+    { position: 'Holder', label: 'H', x: 345, y: 130 },
+    { position: 'Kicker', label: 'K', x: 355, y: 115 },
+  ],
+};
 
+export const SPECIAL_TEAMS_PLAYS = {
+  'Kickoff': [
+    'Deep Center',
+    'Deep Left', 
+    'Deep Right',
+    'Squib Middle',
+    'Squib Left',
+    'Squib Right',
+    'Onside Center',
+    'Onside Left',
+    'Onside Right',
+  ],
+  'Kick Return': [
+    'Return Left',
+    'Return Middle',
+    'Return Right',
+    'Onside Recovery Left',
+    'Onside Recovery Middle',
+    'Onside Recovery Right',
+  ],
+  'Punt': [
+    'Deep Middle',
+    'Directional Left',
+    'Directional Right',
+  ],
+  'Punt Return': [
+    'Return Left',
+    'Return Middle',
+    'Return Right',
+    'Rush/Block',
+  ],
+  'Field Goal': [
+    'Standard Field Goal',
+  ],
+};
+
+export const isOffensiveStyleSpecialTeam = (teamType: string): boolean => {
+  return ['Kickoff', 'Punt', 'Field Goal'].includes(teamType);
+};
 export const FOOTBALL_CONFIG = {
   common: COMMON_ATTRIBUTES,
   offensive: OFFENSIVE_ATTRIBUTES,
@@ -2030,6 +2058,8 @@ export const isDefensiveLineman = (position: string): boolean => {
 export const isLinebacker = (position: string): boolean => {
   return LINEBACKER_POSITIONS.includes(position as any);
 };
+// Add this BEFORE the final closing brace/export
+
 
 export const isDefensiveBack = (position: string): boolean => {
   return DEFENSIVE_BACK_POSITIONS.includes(position as any);
