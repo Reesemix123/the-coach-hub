@@ -1,4 +1,4 @@
-// src/components/playbuilder/PlayBuilder.tsx (COMPLETE WITH UPDATES)
+// src/components/playbuilder/PlayBuilder.tsx (COMPLETE WITH DEFENSIVE SYSTEM)
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -13,7 +13,10 @@ import {
   RUNNING_HOLES,
   getAssignmentOptions,
   POSITION_GROUPS,
-  calculateMotionEndpoint
+  calculateMotionEndpoint,
+  applyCoverageToFormation,
+  COVERAGES,
+  BLITZ_GAPS
 } from '@/config/footballConfig';
 import {
   validateOffensiveFormation,
@@ -30,6 +33,9 @@ import { OffensiveLineSection } from './OffensiveLineSection';
 import { BacksSection } from './BacksSection';
 import { ReceiversSection } from './ReceiversSection';
 import { ValidationModal } from './ValidationModal';
+import { DefensiveLineSection } from './DefensiveLineSection';
+import { LinebackersSection } from './LinebackersSection';
+import { DBSection } from './DBSection';
 
 interface Player {
   id: string;
@@ -40,11 +46,16 @@ interface Player {
   side: 'offense' | 'defense';
   assignment?: string;
   blockType?: string;
-  blockDirection?: { x: number; y: number }; // NEW: Draggable block direction
+  blockDirection?: { x: number; y: number };
   isPrimary?: boolean;
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
   motionDirection?: 'toward-center' | 'away-from-center';
   motionEndpoint?: { x: number; y: number };
+  coverageRole?: string;
+  coverageDepth?: number;
+  coverageDescription?: string;
+  blitzGap?: string;
+  zoneEndpoint?: { x: number; y: number };
 }
 
 interface Route {
@@ -86,15 +97,14 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   
   // Defensive attributes
   const [coverage, setCoverage] = useState(existingPlay?.attributes.coverage || '');
-  const [blitzType, setBlitzType] = useState(existingPlay?.attributes.blitzType || '');
-  const [front, setFront] = useState(existingPlay?.attributes.front || '');
   
   // Diagram state
   const [players, setPlayers] = useState<Player[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null);
   const [draggedMotionEndpoint, setDraggedMotionEndpoint] = useState<string | null>(null);
-  const [draggedBlockDirection, setDraggedBlockDirection] = useState<string | null>(null); // NEW
+  const [draggedBlockDirection, setDraggedBlockDirection] = useState<string | null>(null);
+  const [draggedZoneEndpoint, setDraggedZoneEndpoint] = useState<string | null>(null);
   
   // Route drawing state
   const [isDrawingRoute, setIsDrawingRoute] = useState(false);
@@ -159,7 +169,12 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         isPrimary: p.isPrimary || false,
         motionType: p.motionType || 'None',
         motionDirection: p.motionDirection || 'toward-center',
-        motionEndpoint: p.motionEndpoint
+        motionEndpoint: p.motionEndpoint,
+        coverageRole: p.coverageRole,
+        coverageDepth: p.coverageDepth,
+        coverageDescription: p.coverageDescription,
+        blitzGap: p.blitzGap,
+        zoneEndpoint: p.zoneEndpoint
       })));
       setRoutes(existingPlay.diagram.routes || []);
     }
@@ -178,6 +193,14 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       })));
     }
   }, [playType, existingPlay]);
+
+  // Apply coverage when coverage is selected for defense
+  useEffect(() => {
+    if (odk === 'defense' && coverage && players.length > 0) {
+      const updatedPlayers = applyCoverageToFormation(players, coverage);
+      setPlayers(updatedPlayers);
+    }
+  }, [coverage, odk]);
 
   // Formation list based on ODK
   const formationList = useCallback(() => {
@@ -378,7 +401,51 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
-  // NEW: Apply block type to all linemen
+  // Defensive player update functions
+  const updatePlayerCoverageRole = (playerId: string, role: string) => {
+    setPlayers(prev =>
+      prev.map(p =>
+        p.id === playerId ? { ...p, coverageRole: role, blitzGap: undefined, zoneEndpoint: undefined } : p
+      )
+    );
+  };
+
+  const updatePlayerBlitz = (playerId: string, blitzGap: string) => {
+    setPlayers(prev =>
+      prev.map(p =>
+        p.id === playerId ? { ...p, blitzGap, coverageRole: undefined, zoneEndpoint: undefined } : p
+      )
+    );
+  };
+
+  const resetPlayerToRole = (playerId: string) => {
+    setPlayers(prev =>
+      prev.map(p => {
+        if (p.id === playerId && coverage) {
+          const assignment = applyCoverageToFormation([p], coverage)[0];
+          return {
+            ...p,
+            coverageRole: assignment.coverageRole,
+            coverageDepth: assignment.coverageDepth,
+            coverageDescription: assignment.coverageDescription,
+            blitzGap: undefined,
+            zoneEndpoint: undefined
+          };
+        }
+        return p;
+      })
+    );
+  };
+
+  const updatePlayerZoneEndpoint = (playerId: string, endpoint: { x: number; y: number }) => {
+    setPlayers(prev =>
+      prev.map(p =>
+        p.id === playerId ? { ...p, zoneEndpoint: endpoint } : p
+      )
+    );
+  };
+
+  // Apply block type to all linemen
   const applyBlockTypeToAll = (blockType: string) => {
     setPlayers(prev =>
       prev.map(p => {
@@ -391,7 +458,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
-  // NEW: Update block direction
+  // Update block direction
   const updatePlayerBlockDirection = (playerId: string, direction: { x: number; y: number }) => {
     setPlayers(prev =>
       prev.map(p =>
@@ -400,12 +467,11 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
-  // UPDATED: Check if player is on LOS when setting motion
+  // Check if player is on LOS when setting motion
   const updatePlayerMotionType = (playerId: string, motionType: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
-    // Check if player is on line of scrimmage (within 5 pixels tolerance)
     const lineOfScrimmage = 200;
     const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
 
@@ -432,12 +498,11 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
-  // UPDATED: Check if player is on LOS when setting motion direction
+  // Check if player is on LOS when setting motion direction
   const updatePlayerMotionDirection = (playerId: string, direction: 'toward-center' | 'away-from-center') => {
     const player = players.find(p => p.id === playerId);
     if (!player || !player.motionType || player.motionType === 'None') return;
 
-    // Check if player is on LOS
     const lineOfScrimmage = 200;
     const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
 
@@ -488,11 +553,18 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     return getAssignmentOptions(player.position, playType === 'Run' ? 'run' : 'pass');
   };
 
-  // UPDATED: Drag handlers with block direction support
-  const handleMouseDown = (playerId: string, isMotionEndpoint: boolean = false, isBlockDirection: boolean = false) => {
+  // Drag handlers with all endpoint support
+  const handleMouseDown = (
+    playerId: string, 
+    isMotionEndpoint: boolean = false, 
+    isBlockDirection: boolean = false,
+    isZoneEndpoint: boolean = false
+  ) => {
     if (isDrawingRoute) return;
     
-    if (isBlockDirection) {
+    if (isZoneEndpoint) {
+      setDraggedZoneEndpoint(playerId);
+    } else if (isBlockDirection) {
       setDraggedBlockDirection(playerId);
     } else if (isMotionEndpoint) {
       setDraggedMotionEndpoint(playerId);
@@ -501,7 +573,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     }
   };
 
-  // UPDATED: Handle mouse move with block direction dragging
+  // Handle mouse move with all dragging types
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
 
@@ -531,14 +603,23 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
             : p
         )
       );
+    } else if (draggedZoneEndpoint) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedZoneEndpoint 
+            ? { ...p, zoneEndpoint: { x, y } } 
+            : p
+        )
+      );
     }
-  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection]);
+  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection, draggedZoneEndpoint]);
 
-  // UPDATED: Handle mouse up
+  // Handle mouse up
   const handleMouseUp = () => {
     setDraggedPlayer(null);
     setDraggedMotionEndpoint(null);
     setDraggedBlockDirection(null);
+    setDraggedZoneEndpoint(null);
   };
 
   // Custom route drawing
@@ -648,7 +729,12 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         isPrimary: p.isPrimary,
         motionType: p.motionType,
         motionDirection: p.motionDirection,
-        motionEndpoint: p.motionEndpoint
+        motionEndpoint: p.motionEndpoint,
+        coverageRole: p.coverageRole,
+        coverageDepth: p.coverageDepth,
+        coverageDescription: p.coverageDescription,
+        blitzGap: p.blitzGap,
+        zoneEndpoint: p.zoneEndpoint
       })),
       routes: routes.map(r => ({
         id: r.id,
@@ -668,9 +754,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       playType: playType || undefined,
       targetHole: targetHole || undefined,
       ballCarrier: ballCarrier || undefined,
-      coverage: coverage || undefined,
-      blitzType: blitzType || undefined,
-      front: front || undefined
+      coverage: coverage || undefined
     };
 
     try {
@@ -717,7 +801,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     setTimeout(() => savePlay(), 100);
   };
 
-  // UPDATED: Get hole position with extended holes 7 & 8
+  // Get hole position with extended holes 7 & 8
   const getHolePosition = (hole: string): { x: number; y: number } => {
     const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
     const sortedLinemen = [...linemen].sort((a, b) => a.x - b.x);
@@ -759,17 +843,57 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         if (rt) return { x: rt.x + 30, y: holeY };
         return { x: centerX + 100, y: holeY };
       case '7':
-        // UPDATED: Extended far left to near sideline (120 pixels wider)
         return { x: sortedLinemen[0].x - 120, y: holeY };
       case '8':
-        // UPDATED: Extended far right to near sideline (120 pixels wider)
         return { x: sortedLinemen[sortedLinemen.length - 1].x + 120, y: holeY };
       default:
         return { x: centerX, y: holeY };
     }
   };
 
-  // UPDATED: Get blocking arrow direction - use draggable direction or default
+  // Get gap position for blitz arrows
+  const getGapPosition = (gapName: string): { x: number; y: number } => {
+    const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
+    const center = linemen.find(p => p.position === 'C');
+    const lg = linemen.find(p => p.position === 'LG');
+    const rg = linemen.find(p => p.position === 'RG');
+    const lt = linemen.find(p => p.position === 'LT');
+    const rt = linemen.find(p => p.position === 'RT');
+    
+    const centerX = center?.x || 350;
+    const lineOfScrimmage = 200;
+
+    switch (gapName) {
+      case 'A-gap (Left)':
+        if (lg && center) return { x: (center.x + lg.x) / 2, y: lineOfScrimmage };
+        return { x: centerX - 15, y: lineOfScrimmage };
+      case 'A-gap (Right)':
+        if (rg && center) return { x: (center.x + rg.x) / 2, y: lineOfScrimmage };
+        return { x: centerX + 15, y: lineOfScrimmage };
+      case 'B-gap (Left)':
+        if (lg && lt) return { x: (lg.x + lt.x) / 2, y: lineOfScrimmage };
+        return { x: centerX - 50, y: lineOfScrimmage };
+      case 'B-gap (Right)':
+        if (rg && rt) return { x: (rg.x + rt.x) / 2, y: lineOfScrimmage };
+        return { x: centerX + 50, y: lineOfScrimmage };
+      case 'C-gap (Left)':
+        if (lt) return { x: lt.x - 25, y: lineOfScrimmage };
+        return { x: centerX - 90, y: lineOfScrimmage };
+      case 'C-gap (Right)':
+        if (rt) return { x: rt.x + 25, y: lineOfScrimmage };
+        return { x: centerX + 90, y: lineOfScrimmage };
+      case 'Edge (Left)':
+        if (lt) return { x: lt.x - 40, y: lineOfScrimmage };
+        return { x: centerX - 120, y: lineOfScrimmage };
+      case 'Edge (Right)':
+        if (rt) return { x: rt.x + 40, y: lineOfScrimmage };
+        return { x: centerX + 120, y: lineOfScrimmage };
+      default:
+        return { x: centerX, y: lineOfScrimmage };
+    }
+  };
+
+  // Get blocking arrow direction - use draggable direction or default
   const getBlockingArrowDirection = (player: Player): { endX: number; endY: number } | null => {
     if (!player.blockType) return null;
 
@@ -777,7 +901,6 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     const centerX = player.motionEndpoint?.x || player.x;
     const centerY = player.motionEndpoint?.y || player.y;
 
-    // If player has a custom block direction (dragged), use that
     if (player.blockDirection) {
       return {
         endX: player.blockDirection.x,
@@ -785,22 +908,32 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       };
     }
 
-    // Otherwise, use default directions based on block type
-    let angle = -45; // Default angle for Run Block
+    let angle = -45;
     
     if (player.blockType === 'Pass Block') {
-      angle = -90; // Straight up for pass block
+      angle = -90;
     } else if (player.blockType === 'Pull') {
-  // UPDATED: Start arrow going backward (135° or -135°) so it's visible and easy to grab
-  // This puts it BEHIND the player, away from other linemen
-  const isLeftSide = centerX < 350;
-  angle = isLeftSide ? 135 : -135; // Backward angle instead of horizontal
-}
+      const isLeftSide = centerX < 350;
+      angle = isLeftSide ? 135 : -135;
+    }
 
     const radians = (angle * Math.PI) / 180;
     return {
       endX: centerX + baseLength * Math.cos(radians),
       endY: centerY + baseLength * Math.sin(radians)
+    };
+  };
+
+  // Get default zone endpoint based on coverage role and depth
+  const getDefaultZoneEndpoint = (player: Player): { x: number; y: number } => {
+    const startX = player.x;
+    const startY = player.y;
+    const depth = player.coverageDepth || 20;
+
+    // Default: point directly upfield at specified depth
+    return {
+      x: startX,
+      y: startY - depth
     };
   };
 
@@ -843,7 +976,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     );
   };
 
-  // UPDATED: Render blocking arrow with draggable endpoint
+  // Render blocking arrow with draggable endpoint
   const renderBlockingArrow = (player: Player) => {
     const arrowEnd = getBlockingArrowDirection(player);
     if (!arrowEnd) return null;
@@ -875,7 +1008,6 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
           stroke="#888888"
           strokeWidth="2"
         />
-        {/* NEW: Draggable endpoint circle */}
         <circle
           cx={arrowEnd.endX}
           cy={arrowEnd.endY}
@@ -886,14 +1018,14 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
           className="cursor-move"
           onMouseDown={(e) => {
             e.stopPropagation();
-            handleMouseDown(player.id, false, true);
+            handleMouseDown(player.id, false, true, false);
           }}
         />
       </g>
     );
   };
 
-  // UPDATED: Render motion arrow with curved path for LOS players
+  // Render motion arrow with curved path for LOS players
   const renderMotionArrow = (player: Player) => {
     if (!player.motionType || player.motionType === 'None' || !player.motionEndpoint) return null;
 
@@ -902,19 +1034,15 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     const endX = player.motionEndpoint.x;
     const endY = player.motionEndpoint.y;
 
-    // Check if player is on LOS
     const lineOfScrimmage = 200;
     const isOnLOS = Math.abs(startY - lineOfScrimmage) <= 5;
 
-    // If on LOS, create curved path that arcs backward
     let pathD;
     if (isOnLOS) {
-      // Create quadratic curve that arcs backward
-      const controlY = startY + 15; // Arc back ~1.5 yards
+      const controlY = startY + 15;
       const controlX = (startX + endX) / 2;
       pathD = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
     } else {
-      // Straight line for players not on LOS
       pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
     }
 
@@ -950,7 +1078,104 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
           className="cursor-move"
           onMouseDown={(e) => {
             e.stopPropagation();
-            handleMouseDown(player.id, true, false);
+            handleMouseDown(player.id, true, false, false);
+          }}
+        />
+      </g>
+    );
+  };
+
+  // NEW: Render coverage zones
+  const renderCoverageZone = (player: Player) => {
+    if (!player.coverageRole || player.blitzGap) return null;
+
+    const deepRoles = ['Deep Third', 'Deep Half', 'Quarter'];
+    const isDeep = deepRoles.includes(player.coverageRole);
+    const zoneColor = isDeep ? '#0066CC' : '#FFD700';
+
+    const startX = player.x;
+    const startY = player.y;
+    const endpoint = player.zoneEndpoint || getDefaultZoneEndpoint(player);
+
+    const midX = (startX + endpoint.x) / 2;
+    const midY = (startY + endpoint.y) / 2;
+
+    const width = Math.abs(endpoint.x - startX) || 50;
+    const height = Math.abs(endpoint.y - startY) || 30;
+
+    return (
+      <g key={`zone-${player.id}`}>
+        <ellipse
+          cx={midX}
+          cy={midY}
+          rx={Math.max(width / 2, 25)}
+          ry={Math.max(height / 2, 15)}
+          fill={zoneColor}
+          opacity={0.25}
+          stroke={zoneColor}
+          strokeWidth={2}
+          strokeDasharray="5,3"
+        />
+        <circle
+          cx={endpoint.x}
+          cy={endpoint.y}
+          r="6"
+          fill={zoneColor}
+          stroke="#ffffff"
+          strokeWidth="2"
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            handleMouseDown(player.id, false, false, true);
+          }}
+        />
+      </g>
+    );
+  };
+
+  // NEW: Render blitz arrows
+  const renderBlitzArrow = (player: Player) => {
+    if (!player.blitzGap) return null;
+
+    const startX = player.x;
+    const startY = player.y;
+    const gapPos = getGapPosition(player.blitzGap);
+    const endpoint = player.zoneEndpoint || gapPos;
+
+    return (
+      <g key={`blitz-${player.id}`}>
+        <defs>
+          <marker
+            id={`arrowhead-blitz-${player.id}`}
+            markerWidth="6"
+            markerHeight="6"
+            refX="5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M 0 0 L 6 3 L 0 6 z" fill="#DC2626" />
+          </marker>
+        </defs>
+        <line
+          x1={startX}
+          y1={startY}
+          x2={endpoint.x}
+          y2={endpoint.y}
+          stroke="#DC2626"
+          strokeWidth="2.5"
+          markerEnd={`url(#arrowhead-blitz-${player.id})`}
+        />
+        <circle
+          cx={endpoint.x}
+          cy={endpoint.y}
+          r="6"
+          fill="#DC2626"
+          stroke="#ffffff"
+          strokeWidth="2"
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            handleMouseDown(player.id, false, false, true);
           }}
         />
       </g>
@@ -1162,52 +1387,23 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
             <FormationMetadata formation={formation} odk={odk} />
 
             {odk === 'defense' && (
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">
-                    Front
-                  </label>
-                  <select
-                    value={front}
-                    onChange={(e) => setFront(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select...</option>
-                    {DEFENSIVE_ATTRIBUTES.front.map(f => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">
-                    Coverage
-                  </label>
-                  <select
-                    value={coverage}
-                    onChange={(e) => setCoverage(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select...</option>
-                    {DEFENSIVE_ATTRIBUTES.coverage.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">
-                    Blitz Type
-                  </label>
-                  <select
-                    value={blitzType}
-                    onChange={(e) => setBlitzType(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select...</option>
-                    {DEFENSIVE_ATTRIBUTES.blitzType.map(b => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-800 mb-1">
+                  Coverage *
+                </label>
+                <select
+                  value={coverage}
+                  onChange={(e) => setCoverage(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                >
+                  <option value="">Select Coverage...</option>
+                  <option value="Cover 0">Cover 0 (Man, No Deep Help)</option>
+                  <option value="Cover 1">Cover 1 (Man Free)</option>
+                  <option value="Cover 2">Cover 2 (Two Deep Halves)</option>
+                  <option value="Cover 3">Cover 3 (Three Deep Thirds)</option>
+                  <option value="Cover 4">Cover 4 (Quarters)</option>
+                  <option value="Cover 6">Cover 6 (Quarter-Quarter-Half)</option>
+                </select>
               </div>
             )}
           </div>
@@ -1232,7 +1428,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 assignmentOptions={getAssignmentOptionsForPlayer}
                 onUpdateAssignment={updatePlayerAssignment}
                 onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={(id, resp) => {}} // Deprecated
+                onUpdateBlockResponsibility={(id, resp) => {}}
                 onUpdateMotionType={updatePlayerMotionType}
                 onUpdateMotionDirection={updatePlayerMotionDirection}
                 onTogglePrimary={togglePrimaryReceiver}
@@ -1243,10 +1439,37 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 assignmentOptions={getAssignmentOptionsForPlayer}
                 onUpdateAssignment={updatePlayerAssignment}
                 onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={(id, resp) => {}} // Deprecated
+                onUpdateBlockResponsibility={(id, resp) => {}}
                 onUpdateMotionType={updatePlayerMotionType}
                 onUpdateMotionDirection={updatePlayerMotionDirection}
                 onTogglePrimary={togglePrimaryReceiver}
+              />
+            </div>
+          )}
+
+          {/* Defensive Player Sections */}
+          {odk === 'defense' && coverage && players.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Defensive Assignments</h3>
+              
+              <DefensiveLineSection
+                players={players.filter(p => ['DE', 'DT', 'NT', 'SDE', 'WDE', 'SDT', 'WDT'].includes(p.position))}
+                onUpdateBlitz={updatePlayerBlitz}
+                onResetToRole={resetPlayerToRole}
+              />
+
+              <LinebackersSection
+                players={players.filter(p => ['SAM', 'MIKE', 'WILL', 'OLB', 'ILB', 'SOLB', 'WOLB', 'SILB', 'WILB', 'SLB', 'WLB', 'JACK', 'LB'].includes(p.position))}
+                onUpdateRole={updatePlayerCoverageRole}
+                onUpdateBlitz={updatePlayerBlitz}
+                onResetToRole={resetPlayerToRole}
+              />
+
+              <DBSection
+                players={players.filter(p => ['CB', 'FS', 'SS', 'NB', 'S', 'DB'].includes(p.position))}
+                onUpdateRole={updatePlayerCoverageRole}
+                onUpdateBlitz={updatePlayerBlitz}
+                onResetToRole={resetPlayerToRole}
               />
             </div>
           )}
@@ -1308,11 +1531,17 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 
                 <line x1="0" y1="200" x2="700" y2="200" stroke="white" strokeWidth="3" />
 
+                {/* Render defensive coverage zones first (underneath) */}
+                {odk === 'defense' && players.map(player => renderCoverageZone(player))}
+                
+                {/* Render offensive/defensive arrows */}
                 {players.map(player => renderBallCarrierArrow(player))}
                 {players.map(player => renderBlockingArrow(player))}
                 {players.map(player => renderMotionArrow(player))}
+                {players.map(player => renderBlitzArrow(player))}
                 {routes.map(route => renderPassRoute(route))}
 
+                {/* Drawing route preview */}
                 {currentRoute.length > 1 && (
                   <g>
                     <path
@@ -1340,43 +1569,97 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                   </g>
                 )}
 
+                {/* Player Rendering */}
                 {players.map(player => (
                   <g key={player.id}>
                     {player.side === 'defense' ? (
-                      <rect
-                        x={player.x - 12}
-                        y={player.y - 12}
-                        width="24"
-                        height="24"
-                        fill="red"
-                        stroke="white"
-                        strokeWidth="2"
-                        className="cursor-move hover:fill-red-400"
-                        onMouseDown={() => handleMouseDown(player.id)}
-                      />
+                      <>
+                        {/* Defensive Linemen: White Rectangles */}
+                        {['DE', 'DT', 'NT', 'SDE', 'WDE', 'SDT', 'WDT'].includes(player.position) ? (
+                          <>
+                            <rect
+                              x={player.x - 12}
+                              y={player.y - 12}
+                              width="24"
+                              height="24"
+                              fill="white"
+                              stroke="black"
+                              strokeWidth="2"
+                              className="cursor-move hover:fill-gray-100"
+                              onMouseDown={() => handleMouseDown(player.id)}
+                            />
+                            <text
+                              x={player.x}
+                              y={player.y + 5}
+                              textAnchor="middle"
+                              fontSize="10"
+                              fontWeight="600"
+                              fill="black"
+                            >
+                              {player.label}
+                            </text>
+                          </>
+                        ) : (
+                          /* Linebackers and DBs: White X */
+                          <>
+                            <line
+                              x1={player.x - 10}
+                              y1={player.y - 10}
+                              x2={player.x + 10}
+                              y2={player.y + 10}
+                              stroke="white"
+                              strokeWidth="3"
+                              className="cursor-move"
+                              onMouseDown={() => handleMouseDown(player.id)}
+                            />
+                            <line
+                              x1={player.x - 10}
+                              y1={player.y + 10}
+                              x2={player.x + 10}
+                              y2={player.y - 10}
+                              stroke="white"
+                              strokeWidth="3"
+                              className="cursor-move"
+                              onMouseDown={() => handleMouseDown(player.id)}
+                            />
+                            <text
+                              x={player.x}
+                              y={player.y + 20}
+                              textAnchor="middle"
+                              fontSize="10"
+                              fontWeight="600"
+                              fill="white"
+                            >
+                              {player.label}
+                            </text>
+                          </>
+                        )}
+                      </>
                     ) : (
-                      <circle
-                        cx={player.x}
-                        cy={player.y}
-                        r="12"
-                        fill="white"
-                        stroke="black"
-                        strokeWidth="2"
-                        className="cursor-move hover:fill-blue-100"
-                        onMouseDown={() => handleMouseDown(player.id)}
-                      />
+                      /* Offensive Players: Red Circles */
+                      <>
+                        <circle
+                          cx={player.x}
+                          cy={player.y}
+                          r={12}
+                          fill="#DC2626"
+                          stroke="black"
+                          strokeWidth={2}
+                          className="cursor-move hover:fill-red-700"
+                          onMouseDown={() => handleMouseDown(player.id)}
+                        />
+                        <text
+                          x={player.x}
+                          y={player.y + 4}
+                          textAnchor="middle"
+                          fontSize="10"
+                          fontWeight="600"
+                          fill="white"
+                        >
+                          {player.label}
+                        </text>
+                      </>
                     )}
-                    <text
-                      x={player.x}
-                      y={player.y + 4}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="bold"
-                      fill="black"
-                      pointerEvents="none"
-                    >
-                      {player.label}
-                    </text>
                   </g>
                 ))}
               </svg>

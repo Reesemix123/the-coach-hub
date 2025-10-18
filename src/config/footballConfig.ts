@@ -1125,50 +1125,489 @@ export const FORMATION_METADATA = {
 // DEFENSIVE FORMATIONS
 // ============================================
 
+// REPLACE the DEFENSIVE_FORMATIONS in src/config/footballConfig.ts
+// This goes around line 1050-1100
+// DELETE the old formations and replace with these 6:
+
 export const DEFENSIVE_FORMATIONS: FormationConfig = {
-  '4-3 Base': [
-    { position: 'DE', x: 180, y: 185, label: 'DE' },
-    { position: 'DT', x: 270, y: 185, label: 'DT' },
-    { position: 'DT', x: 330, y: 185, label: 'DT' },
-    { position: 'DE', x: 420, y: 185, label: 'DE' },
-    { position: 'SAM', x: 140, y: 160, label: 'SAM' },
-    { position: 'MIKE', x: 300, y: 160, label: 'MIKE' },
-    { position: 'WILL', x: 460, y: 160, label: 'WILL' },
-    { position: 'CB', x: 70, y: 135, label: 'CB' },
-    { position: 'CB', x: 530, y: 135, label: 'CB' },
-    { position: 'FS', x: 300, y: 95, label: 'FS' },
-    { position: 'SS', x: 400, y: 125, label: 'SS' }
-  ],
   
-  '3-4 Base': [
-    { position: 'DE', x: 240, y: 185, label: 'DE' },
-    { position: 'NT', x: 300, y: 185, label: 'NT' },
-    { position: 'DE', x: 360, y: 185, label: 'DE' },
-    { position: 'OLB', x: 100, y: 160, label: 'OLB' },
-    { position: 'ILB', x: 260, y: 160, label: 'ILB' },
-    { position: 'ILB', x: 340, y: 160, label: 'ILB' },
-    { position: 'OLB', x: 500, y: 160, label: 'OLB' },
-    { position: 'CB', x: 70, y: 135, label: 'CB' },
-    { position: 'CB', x: 530, y: 135, label: 'CB' },
-    { position: 'FS', x: 300, y: 95, label: 'FS' },
-    { position: 'SS', x: 200, y: 125, label: 'SS' }
+  // ============================================
+  // 6-2 FORMATION
+  // DL (6): 9–5–3–1–3–9 from strong to weak
+  // LB (2): stack over B-gaps at 3.5–4 yds
+  // DB (3): two corners, one middle safety
+  // ============================================
+  '6-2': [
+    // Defensive Line (6 players on LOS, y=185 = 1.5 yards off LOS)
+    { position: 'DE', x: 140, y: 185, label: 'SDE', responsibility: '9-tech strong' },
+    { position: 'DT', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
+    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
+    { position: 'DT', x: 330, y: 185, label: 'NT', responsibility: '1-tech weak' },
+    { position: 'DT', x: 380, y: 185, label: 'DT', responsibility: '3-tech weak' },
+    { position: 'DE', x: 460, y: 185, label: 'WDE', responsibility: '9-tech weak' },
+    
+    // Linebackers (2 players, y=160 = 4 yards deep)
+    { position: 'LB', x: 260, y: 160, label: 'SLB', responsibility: 'B-gap strong' },
+    { position: 'LB', x: 340, y: 160, label: 'WLB', responsibility: 'B-gap weak' },
+    
+    // Defensive Backs (3 players)
+    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
-  
-  'Nickel (4-2-5)': [
-    { position: 'DE', x: 180, y: 185, label: 'DE' },
-    { position: 'DT', x: 270, y: 185, label: 'DT' },
-    { position: 'DT', x: 330, y: 185, label: 'DT' },
-    { position: 'DE', x: 420, y: 185, label: 'DE' },
-    { position: 'MLB', x: 270, y: 160, label: 'MLB' },
-    { position: 'MLB', x: 330, y: 160, label: 'MLB' },
-    { position: 'CB', x: 70, y: 145, label: 'CB' },
-    { position: 'CB', x: 530, y: 145, label: 'CB' },
-    { position: 'NB', x: 180, y: 155, label: 'NB' },
-    { position: 'FS', x: 300, y: 95, label: 'FS' },
-    { position: 'SS', x: 400, y: 125, label: 'SS' }
+
+  // ============================================
+  // 5-3 FORMATION  
+  // DL (5): 9–5–0–5–9
+  // LB (3): Sam/Will over C-gaps, Mike over ball
+  // DB (3): two corners, one high safety
+  // ============================================
+  '5-3': [
+    // Defensive Line (5 players)
+    { position: 'DE', x: 140, y: 185, label: 'SDE', responsibility: '9-tech strong' },
+    { position: 'DT', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
+    { position: 'NT', x: 300, y: 185, label: 'NT', responsibility: '0-tech' },
+    { position: 'DT', x: 380, y: 185, label: 'WDT', responsibility: '5-tech weak' },
+    { position: 'DE', x: 460, y: 185, label: 'WDE', responsibility: '9-tech weak' },
+    
+    // Linebackers (3 players, y=160 = 4 yards)
+    { position: 'SAM', x: 180, y: 160, label: 'SAM', responsibility: 'C-gap strong' },
+    { position: 'MIKE', x: 300, y: 165, label: 'MIKE', responsibility: 'over ball' },
+    { position: 'WILL', x: 420, y: 160, label: 'WILL', responsibility: 'C-gap weak' },
+    
+    // Defensive Backs (3 players)
+    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
+  ],
+
+  // ============================================
+  // 4-4 FORMATION
+  // DL (4): 5–3–1–5 (S DT in 3-tech, W DT in 1-tech)
+  // LB (4): Sam/Will apex, two inside backers over B/A
+  // DB (3): two corners, one safety (or SS down for 4 DBs)
+  // ============================================
+  '4-4': [
+    // Defensive Line (4 players)
+    { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
+    { position: 'DT', x: 270, y: 185, label: 'SDT', responsibility: '3-tech strong' },
+    { position: 'DT', x: 330, y: 185, label: 'WDT', responsibility: '1-tech weak' },
+    { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
+    
+    // Linebackers (4 players, y=160 = 3.5-4 yards)
+    { position: 'SAM', x: 140, y: 160, label: 'SAM', responsibility: 'apex strong' },
+    { position: 'MIKE', x: 260, y: 160, label: 'MIKE', responsibility: 'B-gap strong' },
+    { position: 'WILL', x: 340, y: 160, label: 'WILL', responsibility: 'A-gap weak' },
+    { position: 'JACK', x: 460, y: 160, label: 'JACK', responsibility: 'apex weak' },
+    
+    // Defensive Backs (3 players)
+    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
+  ],
+
+  // ============================================
+  // 4-3 FORMATION (Most common high school defense)
+  // DL (4): 5–3–1–5
+  // LB (3): Sam apex strong, Mike over ball, Will weak B-gap
+  // DB (4): two corners, SS in box (7-8 yds), FS deep
+  // ============================================
+  '4-3': [
+    // Defensive Line (4 players)
+    { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
+    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
+    { position: 'DT', x: 330, y: 185, label: 'DT', responsibility: '1-tech weak' },
+    { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
+    
+    // Linebackers (3 players)
+    { position: 'SAM', x: 140, y: 160, label: 'SAM', responsibility: 'apex strong' },
+    { position: 'MIKE', x: 300, y: 160, label: 'MIKE', responsibility: 'over ball' },
+    { position: 'WILL', x: 360, y: 160, label: 'WILL', responsibility: 'B-gap weak' },
+    
+    // Defensive Backs (4 players)
+    { position: 'CB', x: 70, y: 135, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 135, label: 'CB', responsibility: 'corner weak' },
+    { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'strong safety box' },
+    { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
+  ],
+
+  // ============================================
+  // 3-4 FORMATION
+  // DL (3): 4i–0–4i (inside shoulders of tackles)
+  // LB (4): OLBs at 1 yd on edges (9s), ILBs at 4.5 yds over A-gaps
+  // DB (4): two corners, two safeties
+  // ============================================
+  '3-4': [
+    // Defensive Line (3 players)
+    { position: 'DE', x: 240, y: 185, label: 'SDE', responsibility: '4i-tech strong' },
+    { position: 'NT', x: 300, y: 185, label: 'NT', responsibility: '0-tech' },
+    { position: 'DE', x: 360, y: 185, label: 'WDE', responsibility: '4i-tech weak' },
+    
+    // Linebackers (4 players)
+    { position: 'OLB', x: 120, y: 190, label: 'SOLB', responsibility: '9-tech strong edge' },
+    { position: 'ILB', x: 270, y: 155, label: 'SILB', responsibility: 'A-gap strong' },
+    { position: 'ILB', x: 330, y: 155, label: 'WILB', responsibility: 'A-gap weak' },
+    { position: 'OLB', x: 480, y: 190, label: 'WOLB', responsibility: '9-tech weak edge' },
+    
+    // Defensive Backs (4 players)
+    { position: 'CB', x: 70, y: 135, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 135, label: 'CB', responsibility: 'corner weak' },
+    { position: 'SS', x: 200, y: 90, label: 'SS', responsibility: 'strong safety' },
+    { position: 'FS', x: 400, y: 90, label: 'FS', responsibility: 'free safety' }
+  ],
+
+  // ============================================
+  // 4-2-5 FORMATION (Nickel - pass defense)
+  // DL (4): 5–3–1–5
+  // LB (2): Mike and Will at 4.5 yds (A/B gaps)
+  // DB (5): two corners, Nickel apex over #2 field, SS box side, FS deep
+  // ============================================
+  '4-2-5': [
+    // Defensive Line (4 players)
+    { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
+    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
+    { position: 'DT', x: 330, y: 185, label: 'DT', responsibility: '1-tech weak' },
+    { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
+    
+    // Linebackers (2 players)
+    { position: 'MIKE', x: 270, y: 155, label: 'MIKE', responsibility: 'A-gap strong' },
+    { position: 'WILL', x: 330, y: 155, label: 'WILL', responsibility: 'B-gap weak' },
+    
+    // Defensive Backs (5 players)
+    { position: 'CB', x: 70, y: 145, label: 'CB', responsibility: 'corner strong' },
+    { position: 'CB', x: 530, y: 145, label: 'CB', responsibility: 'corner weak' },
+    { position: 'NB', x: 420, y: 155, label: 'NB', responsibility: 'nickel apex #2' },
+    { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'strong safety box' },
+    { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ]
 };
+// ============================================
+// COVERAGE SYSTEM
+// ============================================
 
+/**
+ * Coverage role types for each position group
+ */
+export const COVERAGE_ROLES = {
+  DB: [
+    'Deep Third',
+    'Deep Half', 
+    'Quarter',
+    'Flat',
+    'Man'
+  ],
+  LB: [
+    'Hook-Curl',
+    'Curl-to-Flat',
+    'Middle Hook',
+    'Low-Hole (Robber)',
+    'Man'
+  ],
+  
+} as const;
+
+/**
+ * Blitz gap options
+ */
+export const BLITZ_GAPS = [
+  'Strong A-gap',
+  'Weak A-gap',
+  'Strong B-gap',
+  'Weak B-gap',
+  'Strong C-gap',
+  'Weak C-gap'
+] as const;
+/**
+ * Coverage definition structure
+ */
+export interface CoverageDefinition {
+  name: string;
+  description: string;
+  deepCount: number;
+  underCount: number;
+  assignments: {
+    [positionLabel: string]: {
+      role: string;
+      depth?: number;
+      description: string;
+    }
+  };
+}
+
+export const COVERAGES: Record<string, CoverageDefinition> = {
+  
+  // ============================================
+  // COVER 3 - Three deep, four under
+  // ============================================
+  'Cover 3': {
+    name: 'Cover 3',
+    description: 'Three deep thirds, four underneath zones',
+    deepCount: 3,
+    underCount: 4,
+    assignments: {
+      // Deep zones (corners + safety)
+      'CB': { role: 'Deep Third', depth: 12, description: 'Outside third' },
+      'FS': { role: 'Deep Third', depth: 12, description: 'Middle third' },
+      'SS': { role: 'Deep Third', depth: 12, description: 'Rolled to third' },
+      
+      // Underneath zones (linebackers)
+      'SAM': { role: 'Hook-Curl', depth: 8, description: 'Hook-curl strong' },
+      'MIKE': { role: 'Middle Hook', depth: 10, description: 'Middle hole, carry #3 to 10-12 yds' },
+      'WILL': { role: 'Hook-Curl', depth: 8, description: 'Hook-curl weak' },
+      'SOLB': { role: 'Hook-Curl', depth: 8, description: 'Hook-curl strong' },
+      'WOLB': { role: 'Hook-Curl', depth: 8, description: 'Hook-curl weak' },
+      'SILB': { role: 'Middle Hook', depth: 10, description: 'Inside hook' },
+      'WILB': { role: 'Middle Hook', depth: 10, description: 'Inside hook' },
+      'SLB': { role: 'Hook-Curl', depth: 8, description: 'Hook strong' },
+      'WLB': { role: 'Hook-Curl', depth: 8, description: 'Hook weak' },
+      'JACK': { role: 'Hook-Curl', depth: 8, description: 'Hook weak' },
+      'NB': { role: 'Flat', depth: 6, description: 'Nickel flat' },
+      
+      // D-Line (contain)
+      'SDE': { role: 'Contain', description: 'Contain strong edge' },
+      'WDE': { role: 'Contain', description: 'Contain weak edge' },
+      'DE': { role: 'Contain', description: 'Contain edge' },
+      'DT': { role: 'Contain', description: 'Rush' },
+      'NT': { role: 'Contain', description: 'Rush' },
+      'SDT': { role: 'Contain', description: 'Rush' },
+      'WDT': { role: 'Contain', description: 'Rush' }
+    }
+  },
+
+  // ============================================
+  // COVER 2 - Two deep halves
+  // ============================================
+  'Cover 2': {
+    name: 'Cover 2',
+    description: 'Two deep halves, five underneath',
+    deepCount: 2,
+    underCount: 5,
+    assignments: {
+      // Deep zones (safeties)
+      'FS': { role: 'Deep Half', depth: 12, description: 'Deep half' },
+      'SS': { role: 'Deep Half', depth: 12, description: 'Deep half' },
+      
+      // Corners squat
+      'CB': { role: 'Flat', depth: 5, description: 'Squat/jam flat' },
+      
+      // Linebackers
+      'SAM': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat strong' },
+      'MIKE': { role: 'Middle Hook', depth: 9, description: 'Middle hole 8-10 yds' },
+      'WILL': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat weak' },
+      'SOLB': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat strong' },
+      'WOLB': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat weak' },
+      'SILB': { role: 'Middle Hook', depth: 9, description: 'Inside hook' },
+      'WILB': { role: 'Middle Hook', depth: 9, description: 'Inside hook' },
+      'SLB': { role: 'Hook-Curl', depth: 7, description: 'Hook strong' },
+      'WLB': { role: 'Hook-Curl', depth: 7, description: 'Hook weak' },
+      'JACK': { role: 'Curl-to-Flat', depth: 7, description: 'Curl weak' },
+      'NB': { role: 'Curl-to-Flat', depth: 7, description: 'Nickel curl-flat' },
+      
+      // D-Line
+      'SDE': { role: 'Contain', description: 'Contain strong' },
+      'WDE': { role: 'Contain', description: 'Contain weak' },
+      'DE': { role: 'Contain', description: 'Contain' },
+      'DT': { role: 'Contain', description: 'Rush' },
+      'NT': { role: 'Contain', description: 'Rush' },
+      'SDT': { role: 'Contain', description: 'Rush' },
+      'WDT': { role: 'Contain', description: 'Rush' }
+    }
+  },
+
+  // ============================================
+  // COVER 1 - Man-free
+  // ============================================
+  'Cover 1': {
+    name: 'Cover 1',
+    description: 'Man coverage with free safety',
+    deepCount: 1,
+    underCount: 0,
+    assignments: {
+      // Deep safety
+      'FS': { role: 'Deep Half', depth: 12, description: 'Free safety middle' },
+      
+      // Man coverage
+      'CB': { role: 'Man', description: 'Man on #1' },
+      'SS': { role: 'Man', description: 'Man on TE or #2' },
+      'NB': { role: 'Man', description: 'Man on slot' },
+      
+      // Linebackers in man
+      'SAM': { role: 'Man', description: 'Match RB/TE' },
+      'MIKE': { role: 'Man', description: 'Match RB/TE' },
+      'WILL': { role: 'Man', description: 'Match RB/TE' },
+      'SOLB': { role: 'Man', description: 'Match RB/TE' },
+      'WOLB': { role: 'Man', description: 'Match RB/TE' },
+      'SILB': { role: 'Man', description: 'Match RB' },
+      'WILB': { role: 'Man', description: 'Match RB' },
+      'SLB': { role: 'Man', description: 'Match back' },
+      'WLB': { role: 'Man', description: 'Match back' },
+      'JACK': { role: 'Man', description: 'Match back/slot' },
+      
+      // D-Line
+      'SDE': { role: 'Contain', description: 'Contain strong' },
+      'WDE': { role: 'Contain', description: 'Contain weak' },
+      'DE': { role: 'Contain', description: 'Contain' },
+      'DT': { role: 'Contain', description: 'Rush' },
+      'NT': { role: 'Contain', description: 'Rush' },
+      'SDT': { role: 'Contain', description: 'Rush' },
+      'WDT': { role: 'Contain', description: 'Rush' }
+    }
+  },
+
+  // ============================================
+  // COVER 0 - All-out man, no deep help
+  // ============================================
+  'Cover 0': {
+    name: 'Cover 0',
+    description: 'Man coverage, no deep help (blitz)',
+    deepCount: 0,
+    underCount: 0,
+    assignments: {
+      // Everyone in man
+      'CB': { role: 'Man', description: 'Man on #1' },
+      'FS': { role: 'Man', description: 'Man on TE or back' },
+      'SS': { role: 'Man', description: 'Man on TE or back' },
+      'NB': { role: 'Man', description: 'Man on slot' },
+      
+      // Linebackers in man
+      'SAM': { role: 'Man', description: 'Man on eligible' },
+      'MIKE': { role: 'Man', description: 'Man on eligible' },
+      'WILL': { role: 'Man', description: 'Man on eligible' },
+      'SOLB': { role: 'Man', description: 'Man on eligible' },
+      'WOLB': { role: 'Man', description: 'Man on eligible' },
+      'SILB': { role: 'Man', description: 'Man on eligible' },
+      'WILB': { role: 'Man', description: 'Man on eligible' },
+      'SLB': { role: 'Man', description: 'Man on eligible' },
+      'WLB': { role: 'Man', description: 'Man on eligible' },
+      'JACK': { role: 'Man', description: 'Man on eligible' },
+      
+      // D-Line (often blitzing)
+      'SDE': { role: 'Contain', description: 'Contain or blitz' },
+      'WDE': { role: 'Contain', description: 'Contain or blitz' },
+      'DE': { role: 'Contain', description: 'Contain or blitz' },
+      'DT': { role: 'Contain', description: 'Rush or blitz' },
+      'NT': { role: 'Contain', description: 'Rush or blitz' },
+      'SDT': { role: 'Contain', description: 'Rush or blitz' },
+      'WDT': { role: 'Contain', description: 'Rush or blitz' }
+    }
+  },
+
+  // ============================================
+  // COVER 4 - Quarters
+  // ============================================
+  'Cover 4': {
+    name: 'Cover 4 (Quarters)',
+    description: 'Four deep quarters, two underneath',
+    deepCount: 4,
+    underCount: 2,
+    assignments: {
+      // Deep quarters (corners + safeties)
+      'CB': { role: 'Quarter', depth: 10, description: 'Quarter, outside leverage' },
+      'FS': { role: 'Quarter', depth: 10, description: 'Quarter inside' },
+      'SS': { role: 'Quarter', depth: 10, description: 'Quarter inside' },
+      
+      // OLBs apex and wall #2
+      'SAM': { role: 'Hook-Curl', depth: 7, description: 'Apex, wall #2' },
+      'WILL': { role: 'Hook-Curl', depth: 7, description: 'Apex, wall #2' },
+      'SOLB': { role: 'Hook-Curl', depth: 7, description: 'Apex, wall #2' },
+      'WOLB': { role: 'Hook-Curl', depth: 7, description: 'Apex, wall #2' },
+      'JACK': { role: 'Hook-Curl', depth: 7, description: 'Apex, wall #2' },
+      'NB': { role: 'Quarter', depth: 10, description: 'Nickel quarter' },
+      
+      // Mike carries #3
+      'MIKE': { role: 'Middle Hook', depth: 11, description: 'Carry #3 to 10-12' },
+      'SILB': { role: 'Middle Hook', depth: 11, description: 'Carry #3' },
+      'WILB': { role: 'Middle Hook', depth: 11, description: 'Carry #3' },
+      'SLB': { role: 'Hook-Curl', depth: 7, description: 'Hook' },
+      'WLB': { role: 'Hook-Curl', depth: 7, description: 'Hook' },
+      
+      // D-Line
+      'SDE': { role: 'Contain', description: 'Contain strong' },
+      'WDE': { role: 'Contain', description: 'Contain weak' },
+      'DE': { role: 'Contain', description: 'Contain' },
+      'DT': { role: 'Contain', description: 'Rush' },
+      'NT': { role: 'Contain', description: 'Rush' },
+      'SDT': { role: 'Contain', description: 'Rush' },
+      'WDT': { role: 'Contain', description: 'Rush' }
+    }
+  },
+
+  // ============================================
+  // COVER 6 - Quarter-Quarter-Half
+  // ============================================
+  'Cover 6': {
+    name: 'Cover 6 (Quarter-Quarter-Half)',
+    description: 'Quarters to one side, Cover 2 to other',
+    deepCount: 3,
+    underCount: 3,
+    assignments: {
+      // Quarters side (strong)
+      'CB': { role: 'Quarter', depth: 10, description: 'Strong corner quarter' },
+      'SS': { role: 'Quarter', depth: 10, description: 'Strong safety quarter' },
+      
+      // Half side (weak)
+      'FS': { role: 'Deep Half', depth: 12, description: 'Weak safety deep half' },
+      
+      // Linebackers
+      'SAM': { role: 'Hook-Curl', depth: 7, description: 'Wall #2 strong' },
+      'WILL': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat weak' },
+      'MIKE': { role: 'Middle Hook', depth: 10, description: 'Relate to #3' },
+      'SOLB': { role: 'Hook-Curl', depth: 7, description: 'Wall #2 strong' },
+      'WOLB': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-flat weak' },
+      'SILB': { role: 'Middle Hook', depth: 10, description: 'Relate to #3' },
+      'WILB': { role: 'Middle Hook', depth: 10, description: 'Relate to #3' },
+      'SLB': { role: 'Hook-Curl', depth: 7, description: 'Hook strong' },
+      'WLB': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-flat weak' },
+      'JACK': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-flat' },
+      'NB': { role: 'Flat', depth: 5, description: 'Nickel flat' },
+      
+      // D-Line
+      'SDE': { role: 'Contain', description: 'Contain strong' },
+      'WDE': { role: 'Contain', description: 'Contain weak' },
+      'DE': { role: 'Contain', description: 'Contain' },
+      'DT': { role: 'Contain', description: 'Rush' },
+      'NT': { role: 'Contain', description: 'Rush' },
+      'SDT': { role: 'Contain', description: 'Rush' },
+      'WDT': { role: 'Contain', description: 'Rush' }
+    }
+  }
+};
+/**
+ * Helper function to get coverage assignment for a specific player
+ */
+export function getCoverageAssignment(
+  playerLabel: string,
+  coverageName: string
+): { role: string; depth?: number; description: string } | null {
+  const coverage = COVERAGES[coverageName];
+  if (!coverage) return null;
+  
+  return coverage.assignments[playerLabel] || null;
+}
+
+/**
+ * Apply coverage to all players in formation
+ */
+export function applyCoverageToFormation(
+  players: any[],
+  coverageName: string
+): any[] {
+  const coverage = COVERAGES[coverageName];
+  if (!coverage) return players;
+  
+  return players.map(player => {
+    const assignment = coverage.assignments[player.label];
+    if (assignment) {
+      return {
+        ...player,
+        coverageRole: assignment.role,
+        coverageDepth: assignment.depth,
+        coverageDescription: assignment.description
+      };
+    }
+    return player;
+  });
+}
 // ============================================
 // SPECIAL TEAMS FORMATIONS
 // ============================================
@@ -1366,6 +1805,9 @@ export const FOOTBALL_CONFIG = {
     defensive: DEFENSIVE_FORMATIONS,
     specialTeams: SPECIAL_TEAMS_FORMATIONS
   },
+  coverages: COVERAGES,
+  coverageRoles: COVERAGE_ROLES,
+  blitzGaps: BLITZ_GAPS,
   formationMetadata: FORMATION_METADATA,
   positionGroups: POSITION_GROUPS,
   helpers: {
@@ -1550,3 +1992,45 @@ export function isMotionLegalAtSnap(motionType: string): boolean {
   const motion = MOTION_TYPES[motionType.toUpperCase()];
   return motion ? motion.isLegalAtSnap : true;
 }
+// Helper function to get gap position
+// Strong side = LEFT (offensive TE side assumed left)
+// Weak side = RIGHT
+export const getGapPositionFromName = (gapName: string, centerX: number = 350): { x: number; y: number } => {
+  const lineOfScrimmage = 200;
+  const throughLine = 205; // Penetration past LOS
+  
+  // Standard yard spacing (1 yard ≈ 10 pixels in our scale)
+  switch (gapName) {
+    case 'Strong A-gap':
+      return { x: centerX - 10, y: throughLine }; // 1 yard left
+    case 'Weak A-gap':
+      return { x: centerX + 10, y: throughLine }; // 1 yard right
+    case 'Strong B-gap':
+      return { x: centerX - 25, y: throughLine }; // 2.5 yards left
+    case 'Weak B-gap':
+      return { x: centerX + 25, y: throughLine }; // 2.5 yards right
+    case 'Strong C-gap':
+      return { x: centerX - 40, y: throughLine }; // 4 yards left
+    case 'Weak C-gap':
+      return { x: centerX + 40, y: throughLine }; // 4 yards right
+    default:
+      return { x: centerX, y: throughLine };
+  }
+};
+
+// Position check helpers
+export const DEFENSIVE_LINE_POSITIONS = ['DE', 'DT', 'NT', 'SDE', 'WDE', 'SDT', 'WDT'] as const;
+export const LINEBACKER_POSITIONS = ['SAM', 'MIKE', 'WILL', 'OLB', 'ILB', 'SOLB', 'WOLB', 'SILB', 'WILB', 'SLB', 'WLB', 'JACK', 'LB'] as const;
+export const DEFENSIVE_BACK_POSITIONS = ['CB', 'FS', 'SS', 'NB', 'S', 'DB'] as const;
+
+export const isDefensiveLineman = (position: string): boolean => {
+  return DEFENSIVE_LINE_POSITIONS.includes(position as any);
+};
+
+export const isLinebacker = (position: string): boolean => {
+  return LINEBACKER_POSITIONS.includes(position as any);
+};
+
+export const isDefensiveBack = (position: string): boolean => {
+  return DEFENSIVE_BACK_POSITIONS.includes(position as any);
+};

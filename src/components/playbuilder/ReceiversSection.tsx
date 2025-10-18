@@ -1,10 +1,10 @@
 // src/components/playbuilder/ReceiversSection.tsx
+// COMPLETE REPLACEMENT with unified blocking interface
 'use client';
 
 import { useState } from 'react';
 import { 
-  BLOCKING_ASSIGNMENTS, 
-  BLOCK_RESPONSIBILITIES,
+  BLOCKING_ASSIGNMENTS,
   MOTION_TYPES
 } from '@/config/footballConfig';
 
@@ -14,7 +14,7 @@ interface Player {
   position: string;
   assignment?: string;
   blockType?: string;
-  blockResponsibility?: string;
+  blockDirection?: { x: number; y: number };
   isPrimary?: boolean;
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
   motionDirection?: 'toward-center' | 'away-from-center';
@@ -155,7 +155,7 @@ export function ReceiversSection({
                     </select>
                   </div>
                   
-                  {/* Blocking Details */}
+                  {/* Blocking Details - Same as Offensive Line */}
                   {player.assignment === 'Block' && (
                     <div className="space-y-2 mt-2 p-2 bg-gray-50 rounded border border-gray-200">
                       <div>
@@ -171,24 +171,17 @@ export function ReceiversSection({
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Responsibility</label>
-                        <select
-                          value={player.blockResponsibility || ''}
-                          onChange={(e) => onUpdateBlockResponsibility(player.id, e.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
-                        >
-                          <option value="">Select...</option>
-                          {BLOCK_RESPONSIBILITIES.map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
+                      
+                      {player.blockType && (
+                        <div className="text-xs text-gray-600 bg-white p-2 rounded border border-gray-200">
+                          💡 <strong>Drag the arrow on the diagram</strong> to set blocking assignment
+                        </div>
+                      )}
                     </div>
                   )}
                   
                   {/* Primary Receiver Toggle */}
-                  {player.assignment && player.assignment !== 'Block' && (
+                  {player.assignment && player.assignment !== 'Block' && player.assignment !== 'Draw Route (Custom)' && (
                     <label className="flex items-center text-xs text-gray-600 cursor-pointer hover:text-gray-800 mt-2">
                       <input
                         type="checkbox"
