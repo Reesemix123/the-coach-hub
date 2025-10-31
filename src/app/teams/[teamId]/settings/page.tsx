@@ -1,7 +1,7 @@
 // src/app/teams/[teamId]/settings/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { TeamMembershipService } from '@/lib/services/team-membership.service';
@@ -17,7 +17,8 @@ interface TeamMemberWithUser {
   };
 }
 
-export default function TeamSettingsPage({ params }: { params: { teamId: string } }) {
+export default function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMemberWithUser[]>([]);
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
@@ -38,7 +39,7 @@ export default function TeamSettingsPage({ params }: { params: { teamId: string 
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   const fetchData = async () => {
     try {

@@ -44,24 +44,18 @@ export class TeamMembershipService {
     const hasAccess = await this.verifyTeamAccess(teamId, user.id);
     if (!hasAccess) throw new Error('Access denied to team');
 
-    // Fetch memberships with user data
+    // Fetch memberships (without trying to join auth.users)
     const { data: memberships, error } = await this.supabase
       .from('team_memberships')
-      .select(`
-        *,
-        user:user_id (
-          id,
-          email,
-          raw_user_meta_data
-        )
-      `)
+      .select('*')
       .eq('team_id', teamId)
       .eq('is_active', true)
       .order('created_at', { ascending: true });
 
     if (error) throw new Error(`Failed to fetch team members: ${error.message}`);
 
-    // Transform the data
+    // For each membership, we'll use the current user's email as a placeholder
+    // In production, you'd fetch user emails from auth.users via a server-side function
     return (memberships || []).map((m: any) => ({
       membership: {
         id: m.id,
@@ -76,9 +70,9 @@ export class TeamMembershipService {
         updated_at: m.updated_at
       },
       user: {
-        id: m.user.id,
-        email: m.user.email,
-        full_name: m.user.raw_user_meta_data?.full_name
+        id: m.user_id,
+        email: m.user_id === user.id ? user.email! : 'user@example.com', // Show current user's email, others as placeholder
+        full_name: m.user_id === user.id ? user.user_metadata?.full_name : undefined
       }
     }));
   }
@@ -94,43 +88,54 @@ export class TeamMembershipService {
       userId = user.id;
     }
 
-    // Fetch teams via memberships
-    const { data: memberships, error } = await this.supabase
+    // Fetch memberships first
+    const { data: memberships, error: membershipError } = await this.supabase
       .from('team_memberships')
-      .select(`
-        *,
-        team:team_id (
-          id,
-          name,
-          level
-        )
-      `)
+      .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('joined_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch user teams: ${error.message}`);
+    if (membershipError) throw new Error(`Failed to fetch user teams: ${membershipError.message}`);
+    if (!memberships || memberships.length === 0) return [];
+
+    // Fetch team details separately
+    const teamIds = memberships.map(m => m.team_id);
+    const { data: teams, error: teamsError } = await this.supabase
+      .from('teams')
+      .select('id, name, level')
+      .in('id', teamIds);
+
+    if (teamsError) throw new Error(`Failed to fetch teams: ${teamsError.message}`);
+
+    // Create a map of teams by ID
+    const teamMap = new Map(teams?.map(t => [t.id, t]) || []);
 
     // Transform the data
-    return (memberships || []).map((m: any) => ({
-      team: {
-        id: m.team.id,
-        name: m.team.name,
-        level: m.team.level
-      },
-      membership: {
-        id: m.id,
-        team_id: m.team_id,
-        user_id: m.user_id,
-        role: m.role,
-        invited_by: m.invited_by,
-        invited_at: m.invited_at,
-        joined_at: m.joined_at,
-        is_active: m.is_active,
-        created_at: m.created_at,
-        updated_at: m.updated_at
-      }
-    }));
+    return memberships
+      .filter(m => teamMap.has(m.team_id))
+      .map((m: any) => {
+        const team = teamMap.get(m.team_id)!;
+        return {
+          team: {
+            id: team.id,
+            name: team.name,
+            level: team.level
+          },
+          membership: {
+            id: m.id,
+            team_id: m.team_id,
+            user_id: m.user_id,
+            role: m.role,
+            invited_by: m.invited_by,
+            invited_at: m.invited_at,
+            joined_at: m.joined_at,
+            is_active: m.is_active,
+            created_at: m.created_at,
+            updated_at: m.updated_at
+          }
+        };
+      });
   }
 
   /**
