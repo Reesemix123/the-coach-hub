@@ -1,0 +1,405 @@
+// src/app/teams/[teamId]/analytics-advanced/page.tsx
+// Enhanced analytics dashboard with tier-based metrics
+
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
+import { AnalyticsService } from '@/lib/services/analytics.service';
+import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
+import type { Team, TeamAnalyticsConfig } from '@/types/football';
+
+export default function AdvancedAnalyticsPage({ params }: { params: { teamId: string } }) {
+  const [team, setTeam] = useState<Team | null>(null);
+  const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
+  const [basicAnalytics, setBasicAnalytics] = useState<any>(null);
+  const [driveAnalytics, setDriveAnalytics] = useState<any>(null);
+  const [playerStats, setPlayerStats] = useState<any[]>([]);
+  const [olStats, setOLStats] = useState<any[]>([]);
+  const [defStats, setDefStats] = useState<any[]>([]);
+  const [situationalSplits, setSituationalSplits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
+  const supabase = createClient();
+  const analyticsService = new AnalyticsService();
+  const advancedService = new AdvancedAnalyticsService();
+
+  useEffect(() => {
+    fetchData();
+  }, [params.teamId]);
+
+  const fetchData = async () => {
+    try {
+      // Fetch team
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('*')
+        .eq('id', params.teamId)
+        .single();
+
+      setTeam(teamData);
+
+      // Get tier config
+      const tierConfig = await advancedService.getTeamTier(params.teamId);
+      setConfig(tierConfig);
+
+      // Basic analytics (always available)
+      const basic = await analyticsService.getTeamAnalytics(params.teamId);
+      setBasicAnalytics(basic);
+
+      // Drive analytics (Tier 2+)
+      if (tierConfig.enable_drive_analytics) {
+        try {
+          const drives = await advancedService.getDriveAnalytics(params.teamId);
+          setDriveAnalytics(drives);
+        } catch (error) {
+          console.error('Drive analytics error:', error);
+        }
+      }
+
+      // Player attribution (Tier 2+)
+      if (tierConfig.enable_player_attribution) {
+        try {
+          const players = await advancedService.getPlayerAttributionStats(params.teamId);
+          setPlayerStats(players);
+        } catch (error) {
+          console.error('Player stats error:', error);
+        }
+      }
+
+      // OL tracking (Tier 3)
+      if (tierConfig.enable_ol_tracking) {
+        try {
+          const ol = await advancedService.getOffensiveLineStats(params.teamId);
+          setOLStats(ol);
+        } catch (error) {
+          console.error('OL stats error:', error);
+        }
+      }
+
+      // Defensive tracking (Tier 3)
+      if (tierConfig.enable_defensive_tracking) {
+        try {
+          const def = await advancedService.getDefensiveStats(params.teamId);
+          setDefStats(def);
+        } catch (error) {
+          console.error('Defensive stats error:', error);
+        }
+      }
+
+      // Situational splits (Tier 3)
+      if (tierConfig.enable_situational_splits) {
+        try {
+          const splits = await advancedService.getSituationalSplits(params.teamId);
+          setSituationalSplits(splits);
+        } catch (error) {
+          console.error('Situational splits error:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-gray-400">Loading analytics...</div>
+      </div>
+    );
+  }
+
+  if (!team || !config || !basicAnalytics) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-gray-400 mb-4">Analytics not available</div>
+          <button
+            onClick={() => router.push(`/teams/${params.teamId}`)}
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+          >
+            Back to Team
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <button
+            onClick={() => router.push(`/teams/${params.teamId}`)}
+            className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to {team.name}
+          </button>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+                Team Analytics
+              </h1>
+              <p className="mt-2 text-gray-600">
+                Tier: {config.tier.replace('_', ' ').charAt(0).toUpperCase() + config.tier.replace('_', ' ').slice(1)}
+              </p>
+            </div>
+
+            <button
+              onClick={() => router.push(`/teams/${params.teamId}/settings`)}
+              className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              Change Tier
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        {/* Basic Stats */}
+        <section>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Overall Performance</h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="text-4xl font-semibold text-gray-900">{basicAnalytics.totalPlays}</div>
+              <div className="text-sm text-gray-600 mt-2">Total Plays</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="text-4xl font-semibold text-gray-900">{basicAnalytics.avgYardsPerPlay.toFixed(1)}</div>
+              <div className="text-sm text-gray-600 mt-2">Yards Per Play</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="text-4xl font-semibold text-gray-900">{basicAnalytics.successRate.toFixed(1)}%</div>
+              <div className="text-sm text-gray-600 mt-2">Success Rate</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-6">
+              <div className="text-4xl font-semibold text-gray-900">{basicAnalytics.firstDowns}</div>
+              <div className="text-sm text-gray-600 mt-2">First Downs</div>
+            </div>
+          </div>
+
+          {/* Down Breakdown */}
+          <div className="mt-8 grid grid-cols-4 gap-4">
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-700 mb-2">1st Down</div>
+              <div className="text-2xl font-semibold text-gray-900">{basicAnalytics.firstDownStats.successRate.toFixed(0)}%</div>
+              <div className="text-xs text-gray-500 mt-1">{basicAnalytics.firstDownStats.plays} plays</div>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-700 mb-2">2nd Down</div>
+              <div className="text-2xl font-semibold text-gray-900">{basicAnalytics.secondDownStats.successRate.toFixed(0)}%</div>
+              <div className="text-xs text-gray-500 mt-1">{basicAnalytics.secondDownStats.plays} plays</div>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-700 mb-2">3rd Down</div>
+              <div className="text-2xl font-semibold text-gray-900">{basicAnalytics.thirdDownStats.successRate.toFixed(0)}%</div>
+              <div className="text-xs text-gray-500 mt-1">{basicAnalytics.thirdDownStats.conversions} conversions</div>
+            </div>
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-700 mb-2">Red Zone</div>
+              <div className="text-2xl font-semibold text-gray-900">{basicAnalytics.redZoneSuccessRate.toFixed(0)}%</div>
+              <div className="text-xs text-gray-500 mt-1">{basicAnalytics.redZoneTouchdowns} TDs</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Drive Analytics (Tier 2+) */}
+        {driveAnalytics && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Drive Analytics</h2>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-blue-50 rounded-lg p-6">
+                <div className="text-4xl font-semibold text-gray-900">{driveAnalytics.pointsPerDrive.toFixed(2)}</div>
+                <div className="text-sm text-gray-600 mt-2">Points Per Drive</div>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-6">
+                <div className="text-4xl font-semibold text-gray-900">{driveAnalytics.threeAndOutRate.toFixed(1)}%</div>
+                <div className="text-sm text-gray-600 mt-2">3-and-Out Rate</div>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-6">
+                <div className="text-4xl font-semibold text-gray-900">{driveAnalytics.scoringDriveRate.toFixed(0)}%</div>
+                <div className="text-sm text-gray-600 mt-2">Scoring Drives</div>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-6">
+                <div className="text-4xl font-semibold text-gray-900">{driveAnalytics.redZoneTouchdownRate.toFixed(0)}%</div>
+                <div className="text-sm text-gray-600 mt-2">RZ TD Rate</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => router.push(`/teams/${params.teamId}/drives`)}
+              className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+            >
+              View All Drives
+            </button>
+          </section>
+        )}
+
+        {/* Player Attribution (Tier 2+) */}
+        {playerStats.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Player Performance</h2>
+
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">#</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Player</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Pos</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Rush</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Pass</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Rec</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {playerStats.slice(0, 10).map((player) => (
+                    <tr key={player.playerId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{player.jerseyNumber}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{player.playerName}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{player.position}</td>
+                      <td className="px-6 py-4 text-sm text-right text-gray-900">
+                        {player.carries > 0 && `${player.carries}-${player.rushYards} (${player.rushAvg.toFixed(1)})`}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right text-gray-900">
+                        {player.passAttempts > 0 && `${player.completions}/${player.passAttempts} (${player.completionPct.toFixed(0)}%)`}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right text-gray-900">
+                        {player.targets > 0 && `${player.receptions}-${player.recYards} (${player.catchRate.toFixed(0)}%)`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Offensive Line (Tier 3) */}
+        {olStats.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Offensive Line Performance</h2>
+
+            <div className="grid grid-cols-5 gap-4">
+              {olStats.map((player) => (
+                <div key={player.playerId} className="border border-gray-200 rounded-lg p-4">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">{player.position}</div>
+                  <div className="text-sm font-medium text-gray-900 mb-2">
+                    #{player.jerseyNumber} {player.playerName.split(' ')[1]}
+                  </div>
+                  <div className="text-3xl font-semibold text-gray-900 mb-1">{player.blockWinRate.toFixed(0)}%</div>
+                  <div className="text-xs text-gray-600">
+                    {player.blockWins}W-{player.blockLosses}L
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Defensive Stats (Tier 3) */}
+        {defStats.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Defensive Performance</h2>
+
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Player</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Tkl</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Press</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">TFL</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Sacks</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">PBU</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {defStats.slice(0, 15).map((player) => (
+                    <tr key={player.playerId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">{player.jerseyNumber}</td>
+                      <td className="px-4 py-3 text-gray-900">{player.playerName}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{player.totalTackles}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{player.pressures}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{player.tfls}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{player.sacks}</td>
+                      <td className="px-4 py-3 text-right text-gray-900">{player.pbus}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Situational Splits (Tier 3) */}
+        {situationalSplits.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Situational Splits</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {situationalSplits.map((split, idx) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-6">
+                  <div className="text-lg font-semibold text-gray-900 mb-4">{split.situation}</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Plays</span>
+                      <span className="font-medium text-gray-900">{split.plays}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">YPP</span>
+                      <span className="font-medium text-gray-900">{split.yardsPerPlay.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Success Rate</span>
+                      <span className="font-medium text-gray-900">{split.successRate.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Top Plays */}
+        {basicAnalytics.topPlays.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Top Performing Plays</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {basicAnalytics.topPlays.map((play: any, idx: number) => (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold text-gray-900">{play.play_name}</div>
+                      <div className="text-sm text-gray-600 mt-1">{play.play_code}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-semibold text-gray-900">{play.successRate.toFixed(0)}%</div>
+                      <div className="text-xs text-gray-500">{play.attempts} attempts</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-sm text-gray-600">
+                    {play.avgYards.toFixed(1)} yards/play
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}

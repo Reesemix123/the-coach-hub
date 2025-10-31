@@ -247,10 +247,16 @@ export default function TeamPage({ params }: { params: { teamId: string } }) {
               )}
             </button>
             <button
-  onClick={() => router.push(`/teams/${params.teamId}/analytics`)}
+  onClick={() => router.push(`/teams/${params.teamId}/analytics-advanced`)}
   className="pb-3 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
 >
   Analytics
+</button>
+            <button
+  onClick={() => router.push(`/teams/${params.teamId}/drives`)}
+  className="pb-3 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+>
+  Drives
 </button>
             <button
   onClick={() => router.push(`/teams/${params.teamId}/players`)}
