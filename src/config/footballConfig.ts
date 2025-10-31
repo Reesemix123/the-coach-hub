@@ -2059,7 +2059,41 @@ export const isLinebacker = (position: string): boolean => {
   return LINEBACKER_POSITIONS.includes(position as any);
 };
 // Add this BEFORE the final closing brace/export
-
+/**
+ * Standardized opponent play categories for scouting
+ * Used when tagging opponent film without a playbook
+ */
+export const OPPONENT_PLAY_TYPES = {
+  run: [
+    'Inside Zone',
+    'Outside Zone',
+    'Power',
+    'Counter',
+    'Sweep',
+    'Trap',
+    'QB Run',
+    'Draw',
+    'Other Run'
+  ],
+  pass: [
+    'Quick Pass (0-5 yds)',
+    'Short Pass (6-10 yds)',
+    'Medium Pass (11-20 yds)',
+    'Deep Pass (20+ yds)',
+    'Screen',
+    'Play Action',
+    'RPO',
+    'Bootleg',
+    'Other Pass'
+  ],
+  special: [
+    'Punt',
+    'Kickoff',
+    'Field Goal',
+    'PAT',
+    'Onside Kick'
+  ]
+} as const;
 
 export const isDefensiveBack = (position: string): boolean => {
   return DEFENSIVE_BACK_POSITIONS.includes(position as any);

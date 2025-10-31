@@ -247,18 +247,17 @@ export default function TeamPage({ params }: { params: { teamId: string } }) {
               )}
             </button>
             <button
-              onClick={() => setActiveTab('analytics')}
-              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === 'analytics'
-                  ? 'text-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Analytics
-              {activeTab === 'analytics' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-              )}
-            </button>
+  onClick={() => router.push(`/teams/${params.teamId}/analytics`)}
+  className="pb-3 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+>
+  Analytics
+</button>
+            <button
+  onClick={() => router.push(`/teams/${params.teamId}/players`)}
+  className="pb-3 px-1 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+>
+  Players
+</button>
           </div>
         </div>
       </div>
@@ -401,18 +400,7 @@ export default function TeamPage({ params }: { params: { teamId: string } }) {
           </div>
         )}
 
-        {activeTab === 'analytics' && (
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Analytics</h2>
-            <div className="border border-gray-200 rounded-lg p-12 text-center">
-              <div className="text-gray-400 mb-2">📊</div>
-              <div className="text-gray-600">Advanced analytics coming soon</div>
-              <div className="text-sm text-gray-500 mt-2">
-                Track play success rates, tendencies, and game-by-game performance
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   );

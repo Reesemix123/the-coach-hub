@@ -209,3 +209,17 @@ export type NewPlay = Omit<PlaybookPlay, 'id' | 'created_at' | 'updated_at'>;
  * Helper type for updating plays
  */
 export type PlayUpdate = Partial<Omit<PlaybookPlay, 'id' | 'created_at'>>;
+
+export const RESULT_TYPES = [
+  { value: 'rush_gain', label: 'Rush - Gain' },
+  { value: 'rush_loss', label: 'Rush - Loss' },
+  { value: 'rush_no_gain', label: 'Rush - No Gain' },
+  { value: 'pass_complete', label: 'Pass - Complete' },
+  { value: 'pass_incomplete', label: 'Pass - Incomplete' },
+  { value: 'pass_interception', label: 'Pass - Interception' },
+  { value: 'pass_sack', label: 'Pass - Sack' },
+  { value: 'touchdown', label: 'Touchdown' },
+  { value: 'fumble_lost', label: 'Fumble - Lost' },
+  { value: 'fumble_recovered', label: 'Fumble - Recovered' },
+  { value: 'penalty', label: 'Penalty' },
+];
