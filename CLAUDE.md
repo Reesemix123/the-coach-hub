@@ -758,6 +758,442 @@ Recent commits focus on:
 
 ---
 
+## Multi-Coach & Analytics Architecture (In Development)
+
+### Overview
+
+**Target Audience:** Little League through High School coaches
+**Key Features Being Added:**
+1. Multi-coach team collaboration
+2. 4-tier analytics system (Little League → High School Advanced → AI-Powered future)
+3. Comprehensive player tracking and drive-level analytics
+
+### Multi-Coach System
+
+**Current Limitation:** Each team has single owner (`teams.user_id`)
+
+**New Architecture:** Team membership system with roles
+
+**Database Schema:**
+```sql
+-- Teams keep user_id as "primary owner" for backward compatibility
+-- New junction table for multi-coach access
+CREATE TABLE team_memberships (
+  id UUID PRIMARY KEY,
+  team_id UUID REFERENCES teams(id),
+  user_id UUID REFERENCES auth.users(id),
+  role TEXT CHECK (role IN ('owner', 'coach', 'analyst', 'viewer')),
+  invited_by UUID REFERENCES auth.users(id),
+  joined_at TIMESTAMPTZ,
+  UNIQUE(team_id, user_id)
+);
+```
+
+**Roles:**
+- **Owner:** Full control (head coach) - create/delete team, manage members, all permissions
+- **Coach:** Edit playbook, tag plays, view analytics, manage roster
+- **Analyst:** Tag plays, view analytics, read-only playbook
+- **Viewer:** Read-only access (for parents, players)
+
+**RLS Policy Changes:**
+All tables (games, videos, play_instances, players) now check:
+```sql
+-- Old: auth.uid() = teams.user_id
+-- New: auth.uid() IN (
+--   SELECT user_id FROM team_memberships WHERE team_id = X
+--   UNION
+--   SELECT user_id FROM teams WHERE id = X
+-- )
+```
+
+**Play Attribution:**
+```sql
+ALTER TABLE play_instances
+  ADD COLUMN tagged_by_user_id UUID REFERENCES auth.users(id),
+  ADD COLUMN reviewed_by_user_id UUID REFERENCES auth.users(id);
+```
+
+Enables:
+- "Show plays I tagged"
+- "Coach X tagged 45% of plays with 92% success rate"
+- Audit trail for data quality
+
+**UI Changes:**
+- Team settings: "Manage Coaches" section with invite flow
+- Team dropdown: Shows "Your Teams" + "Teams You Coach"
+- Play list: Optional "Tagged by: Coach Smith" badge
+- Analytics: Filter by tagger
+
+### Analytics Tier System
+
+**Configuration per Team:**
+```sql
+CREATE TABLE team_analytics_config (
+  team_id UUID PRIMARY KEY REFERENCES teams(id),
+  tier TEXT CHECK (tier IN ('little_league', 'hs_basic', 'hs_advanced', 'ai_powered')),
+  updated_at TIMESTAMPTZ
+);
+```
+
+**Tier 1: Little League**
+**Focus:** Participation tracking, fairness, parent communication
+
+**Data captured:**
+- Basic context (quarter, time, score)
+- Player involvement (ball carrier only)
+- Simple outcome (yards gained, touchdown Y/N)
+
+**Analytics shown:**
+- Playing time per player (snap counts)
+- Touches distribution (did everyone get carries?)
+- Simple success rate (did we gain yards?)
+- Basic player stats (carries, yards, TDs)
+
+**UI:** Simplified 6-field tagging form, no advanced metrics
+
+---
+
+**Tier 2: High School Basic**
+**Focus:** Game planning, play concept evaluation, drive efficiency
+
+**Data captured (adds to Tier 1):**
+- QB, target (pass plays)
+- Drive linkage
+- Formation from playbook
+- Play type (run/pass)
+
+**Analytics shown:**
+- **Drive analytics:** Points Per Drive, 3-and-outs, red zone TD%
+- **Play concepts:** Success rate and YPP by play concept
+- **Situational:** Performance by down/distance, field position
+- **Explosive plays:** 10+ yard runs, 15+ yard passes
+- **Player stats:** Rushing, receiving, QB stats with success rates
+
+**UI:** 12-field form with drive builder tool
+
+---
+
+**Tier 3: High School Advanced**
+**Focus:** Position-specific evaluation, opponent scouting, situational mastery
+
+**Data captured (adds to Tier 2):**
+- **Offensive line:** 5 positions (LT/LG/C/RG/RT) with block win/loss
+- **Defensive players:** Tacklers (primary + assists), missed tackles, pressures, coverage
+- **Situational flags:** Motion, play action, blitz, box count
+- **QB grading:** Decision quality (0-2 scale)
+- **Defensive events:** TFL, sacks, forced fumbles, PBU
+
+**Analytics shown:**
+- **OL performance:** Block win rate by position and player
+- **Defensive stats:** Tackles, TFL, pressures, sacks, havoc rate
+- **Coverage grades:** Targets allowed, completions, success rate
+- **Situational splits:** Motion vs no motion, play action effectiveness
+- **Concept mastery:** Success rate by concept + situation
+- **QB development:** Decision grade distribution, pressure response
+
+**UI:** Full tagging form with progressive disclosure (tabs), 40+ fields
+
+---
+
+**Tier 4: AI-Powered (Future)**
+**Focus:** Automated tagging, coach review workflow
+
+**Data captured:**
+- All Tier 3 fields, auto-populated by AI from video
+- Coaches review and correct errors
+
+**Analytics shown:**
+- Everything from Tier 3
+- AI confidence scores
+- Auto-generated insights ("You run 65% from 12 personnel on 1st down")
+
+**UI:** Review mode (AI suggestions, accept/reject/edit)
+
+---
+
+### Database Schema Additions
+
+**Players Table:**
+```sql
+CREATE TABLE players (
+  id UUID PRIMARY KEY,
+  team_id UUID REFERENCES teams(id),
+  jersey_number VARCHAR(3) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  primary_position VARCHAR(20), -- QB, RB, WR, LT, etc.
+  position_group VARCHAR(20), -- offense, defense, special_teams
+  depth_order INTEGER, -- 1 = starter
+  is_active BOOLEAN,
+  grade_level VARCHAR(20), -- For little league
+  notes TEXT
+);
+```
+
+**Drives Table:**
+```sql
+CREATE TABLE drives (
+  id UUID PRIMARY KEY,
+  game_id UUID REFERENCES games(id),
+  team_id UUID REFERENCES teams(id),
+  drive_number INTEGER,
+  quarter INTEGER,
+  start_yard_line INTEGER, -- 0-100 scale
+  end_yard_line INTEGER,
+  plays_count INTEGER,
+  yards_gained INTEGER,
+  first_downs INTEGER,
+  result TEXT, -- 'touchdown', 'field_goal', 'punt', 'turnover', 'downs'
+  points INTEGER
+);
+```
+
+**Play Instances Additions:**
+```sql
+-- Context (Tier 2+)
+ALTER TABLE play_instances
+  ADD COLUMN quarter INTEGER,
+  ADD COLUMN time_remaining INTEGER, -- seconds
+  ADD COLUMN score_differential INTEGER,
+  ADD COLUMN drive_id UUID REFERENCES drives(id);
+
+-- Player attribution (Tier 2+)
+ALTER TABLE play_instances
+  ADD COLUMN qb_id UUID REFERENCES players(id),
+  ADD COLUMN ball_carrier_id UUID REFERENCES players(id),
+  ADD COLUMN target_id UUID REFERENCES players(id);
+
+-- Offensive line (Tier 3)
+ALTER TABLE play_instances
+  ADD COLUMN lt_id UUID, ADD COLUMN lt_block_result TEXT,
+  ADD COLUMN lg_id UUID, ADD COLUMN lg_block_result TEXT,
+  ADD COLUMN c_id UUID, ADD COLUMN c_block_result TEXT,
+  ADD COLUMN rg_id UUID, ADD COLUMN rg_block_result TEXT,
+  ADD COLUMN rt_id UUID, ADD COLUMN rt_block_result TEXT;
+
+-- Defensive tracking (Tier 3)
+ALTER TABLE play_instances
+  ADD COLUMN tackler_ids UUID[], -- Array of player IDs
+  ADD COLUMN missed_tackle_ids UUID[],
+  ADD COLUMN pressure_player_ids UUID[],
+  ADD COLUMN sack_player_id UUID,
+  ADD COLUMN coverage_player_id UUID,
+  ADD COLUMN coverage_result TEXT; -- 'win', 'loss', 'neutral'
+
+-- Situational (Tier 3)
+ALTER TABLE play_instances
+  ADD COLUMN has_motion BOOLEAN,
+  ADD COLUMN is_play_action BOOLEAN,
+  ADD COLUMN facing_blitz BOOLEAN,
+  ADD COLUMN box_count INTEGER,
+  ADD COLUMN is_tfl BOOLEAN,
+  ADD COLUMN is_sack BOOLEAN;
+
+-- Multi-coach attribution (All tiers)
+ALTER TABLE play_instances
+  ADD COLUMN tagged_by_user_id UUID REFERENCES auth.users(id),
+  ADD COLUMN reviewed_by_user_id UUID;
+```
+
+### Service Layer Architecture
+
+**New Services:**
+
+**`team-membership.service.ts`:**
+```typescript
+- inviteCoach(teamId, email, role): Send invite
+- acceptInvite(inviteCode): Join team
+- removeCoach(teamId, userId): Remove member
+- updateRole(teamId, userId, newRole): Change permissions
+- getTeamMembers(teamId): List all coaches
+- getUserTeams(userId): Teams user owns or coaches
+```
+
+**`advanced-analytics.service.ts`:**
+```typescript
+// Drive analytics
+- getDriveAnalytics(teamId): PPD, 3-and-outs, RZ%
+- getDriveList(gameId): All drives with stats
+
+// Player analytics
+- getPlayerStats(playerId, tier): Stats based on tier
+- getOLBlockWinRates(teamId): Tier 3 only
+- getDefensivePlayerStats(playerId): Tier 3 only
+
+// Situational analytics
+- getSituationalSplits(teamId): Motion, PA, blitz effectiveness
+- getExplosivePlays(teamId): 10+ runs, 15+ passes
+- getPlayConceptRankings(teamId): Success by concept
+
+// Tier-specific
+- getTierCapabilities(teamId): What analytics are available
+- validateTierAccess(teamId, feature): Check if tier supports feature
+```
+
+**`drive.service.ts`:**
+```typescript
+- createDrive(gameId, driveData): Manual drive creation
+- autoGroupPlays(gameId): AI-assist drive detection
+- updateDriveMetadata(driveId, updates): Edit start/end
+- calculateDriveStats(driveId): Recompute aggregates
+```
+
+### UI Component Structure
+
+**New Pages:**
+
+**`/src/app/teams/[teamId]/settings/page.tsx`:**
+- Analytics Tier Selection (dropdown)
+- Manage Coaches (invite, remove, role changes)
+- Team details (name, level, colors)
+
+**`/src/app/teams/[teamId]/roster/page.tsx`:**
+- Player list with position, jersey, depth chart
+- Add/edit/delete players
+- Import from CSV
+
+**`/src/app/games/[gameId]/drives/page.tsx`:**
+- Drive builder: Group plays into drives
+- Drive list with stats (plays, yards, points, result)
+- Edit drive boundaries
+
+**`/src/app/teams/[teamId]/players/[playerId]/analytics/page.tsx`:**
+- Position-specific analytics
+- Stats based on team's analytics tier
+- Game log, charts, trends
+
+**Enhanced:**
+
+**`/src/app/film/[gameId]/page.tsx`:**
+- Tier-based tagging form (progressive disclosure)
+- Tabs: Context, Players, OL (Tier 3), Defense (Tier 3), Notes
+- Smart defaults (auto-populate OL from depth chart)
+- "Tagged by: [Coach Name]" display
+
+**`/src/app/teams/[teamId]/analytics/page.tsx`:**
+- Tier-based dashboard
+- Tier 1: Playing time, touches, basic success
+- Tier 2: + Drive efficiency, play concepts, explosive plays
+- Tier 3: + OL grades, defensive stats, situational splits
+- Filter by: Game, date range, tagger (coach)
+
+### Key Algorithms
+
+**Success Rate (Standard formula, all tiers):**
+```typescript
+function calculateSuccess(down: number, distance: number, gain: number): boolean {
+  if (down === 1) return gain >= 0.40 * distance;
+  if (down === 2) return gain >= 0.60 * distance;
+  return gain >= distance; // 3rd/4th down
+}
+```
+
+**Explosive Play Detection (Tier 2+):**
+```typescript
+function isExplosive(playType: string, gain: number): boolean {
+  return playType === 'run' ? gain >= 10 : gain >= 15;
+}
+```
+
+**Block Win Rate (Tier 3):**
+```typescript
+function calculateBlockWinRate(playerId: string): number {
+  // Find all plays where player was assigned to OL position
+  const assignments = plays.filter(p =>
+    [p.lt_id, p.lg_id, p.c_id, p.rg_id, p.rt_id].includes(playerId)
+  );
+
+  const wins = assignments.filter(p => {
+    // Check which position they played and get result
+    if (p.lt_id === playerId) return p.lt_block_result === 'win';
+    // ... similar for other positions
+  }).length;
+
+  return wins / assignments.length;
+}
+```
+
+**Havoc Rate (Tier 3, defensive):**
+```typescript
+function calculateHavocRate(teamId: string): number {
+  const defensiveSnaps = plays.filter(p => p.team_id === teamId && p.is_defensive_play);
+
+  const havocPlays = defensiveSnaps.filter(p =>
+    p.is_tfl || p.is_sack || p.is_forced_fumble || p.is_pbu || p.is_interception
+  );
+
+  return havocPlays.length / defensiveSnaps.length;
+}
+```
+
+### Migration Strategy
+
+**Backward Compatibility:**
+1. All new columns are nullable
+2. `teams.user_id` remains (primary owner)
+3. `team_memberships` is additive (doesn't replace existing access)
+4. Old RLS policies still work via UNION with new membership checks
+5. Analytics tier defaults to 'hs_basic' for existing teams
+
+**Rollout Plan:**
+1. Deploy migrations (no breaking changes)
+2. Populate `team_memberships` with existing owners
+3. Update RLS policies (union old + new checks)
+4. Deploy new UI (feature-flagged)
+5. Gradual rollout to teams
+6. After 1 month, remove legacy RLS policies
+
+### Performance Considerations
+
+**Indexes for Multi-Coach Queries:**
+```sql
+CREATE INDEX idx_team_memberships_user ON team_memberships(user_id);
+CREATE INDEX idx_team_memberships_team ON team_memberships(team_id);
+CREATE INDEX idx_play_instances_tagged_by ON play_instances(tagged_by_user_id);
+CREATE INDEX idx_play_instances_drive ON play_instances(drive_id);
+```
+
+**Materialized Views (for Tier 3):**
+```sql
+-- Pre-calculate expensive aggregates
+CREATE MATERIALIZED VIEW player_season_stats AS
+SELECT
+  player_id,
+  team_id,
+  COUNT(*) as plays,
+  SUM(yards_gained) as yards,
+  AVG(CASE WHEN success THEN 1.0 ELSE 0.0 END) as success_rate
+FROM play_instances
+GROUP BY player_id, team_id;
+
+-- Refresh nightly or on-demand
+REFRESH MATERIALIZED VIEW CONCURRENTLY player_season_stats;
+```
+
+### Testing Strategy
+
+**Multi-Coach Testing:**
+- Create team with Owner
+- Invite Coach, verify access
+- Invite Analyst, verify limited access
+- Owner removes Coach, verify access revoked
+- Test RLS: Coach A cannot see Coach B's team
+
+**Analytics Tier Testing:**
+- Create team with Tier 1, verify simple UI
+- Upgrade to Tier 2, verify drive analytics appear
+- Upgrade to Tier 3, verify OL/defensive fields appear
+- Downgrade, verify advanced fields hidden (data preserved)
+- Tag 10 plays per tier, verify calculations correct
+
+**Integration Testing:**
+- Multi-coach + Analytics: Coach A tags offense, Coach B tags defense
+- Filter plays by tagger
+- Compare success rates by tagger
+- Verify drive grouping with multiple taggers
+
+---
+
 ## Common Tasks & Patterns
 
 ### Adding a New Formation
