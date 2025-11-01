@@ -5,6 +5,11 @@ import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
+import SelectionBadge from '@/components/SelectionBadge';
+import BulkActionBar from '@/components/BulkActionBar';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
 
 interface Team {
   id: string;
@@ -51,6 +56,26 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
   const router = useRouter();
   const supabase = createClient();
+
+  // Multi-select for videos
+  const {
+    selectedIds: selectedVideoIds,
+    isSelected,
+    toggleSelect,
+    selectAll,
+    clearSelection,
+    selectedCount,
+  } = useMultiSelect<string>();
+
+  // Get all video IDs for select all functionality
+  const allVideoIds = games.flatMap(game => game.videos.map(v => v.id));
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSelectAll: () => selectAll(allVideoIds),
+    onClearSelection: clearSelection,
+    enabled: allVideoIds.length > 0,
+  });
 
   useEffect(() => {
     fetchData();
@@ -132,6 +157,47 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
       console.error('Error deleting video:', error);
       alert('Error deleting video');
     }
+  };
+
+  // Bulk Operations
+  const handleBulkDelete = async () => {
+    if (!confirmBulkOperation('delete', selectedCount, 'video')) return;
+
+    const selectedArray = Array.from(selectedVideoIds);
+    const result = await bulkDelete('videos', 'id', selectedArray);
+
+    if (result.success) {
+      alert(`Successfully deleted ${selectedCount} video${selectedCount === 1 ? '' : 's'}`);
+      clearSelection();
+      await fetchData();
+    } else {
+      alert('Error deleting videos: ' + result.error);
+    }
+  };
+
+  const handleCombineVideos = () => {
+    const selectedArray = Array.from(selectedVideoIds);
+
+    if (selectedArray.length < 2) {
+      alert('Please select at least 2 videos to combine');
+      return;
+    }
+
+    // Get video details for the selected videos
+    const selectedVideos = games
+      .flatMap(game => game.videos)
+      .filter(video => selectedArray.includes(video.id));
+
+    // For now, just show which videos would be combined
+    const videoNames = selectedVideos.map(v => v.name).join('\n- ');
+    alert(`Combine Videos feature:\n\nSelected videos:\n- ${videoNames}\n\nThis will create a virtual video combining these clips in sequence.`);
+
+    // TODO: Open CombineVideosModal
+    // setCombineModalOpen(true);
+  };
+
+  const handleCreatePlaylist = () => {
+    alert('Create Playlist feature coming soon!\n\nThis will allow you to:\n- Group selected videos into a playlist\n- Add descriptions and notes\n- Share with coaching staff');
   };
 
   if (loading) {
@@ -331,8 +397,22 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                       {game.videos.map((video) => (
                         <div
                           key={video.id}
-                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                          className={`
+                            relative group
+                            flex items-center justify-between p-4 rounded-lg transition-all
+                            ${isSelected(video.id)
+                              ? 'bg-blue-50 border-2 border-blue-500 ring-2 ring-blue-200'
+                              : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                            }
+                          `}
                         >
+                          {/* Selection Badge */}
+                          <SelectionBadge
+                            isSelected={isSelected(video.id)}
+                            onToggle={() => toggleSelect(video.id)}
+                            position="top-left"
+                          />
+
                           <div className="flex-1 min-w-0">
                             <h4 className="text-sm font-medium text-gray-900 truncate">
                               {video.name}
@@ -370,6 +450,35 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           </div>
         )}
       </div>
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        totalCount={allVideoIds.length}
+        itemName="video"
+        primaryActions={[
+          {
+            label: 'Combine Videos',
+            onClick: handleCombineVideos,
+            variant: 'primary',
+            disabled: selectedCount < 2,
+          },
+          {
+            label: 'Create Playlist',
+            onClick: handleCreatePlaylist,
+            variant: 'success',
+          },
+        ]}
+        secondaryActions={[
+          {
+            label: 'Delete',
+            onClick: handleBulkDelete,
+            variant: 'danger',
+          },
+        ]}
+        onSelectAll={() => selectAll(allVideoIds)}
+        onClear={clearSelection}
+      />
     </div>
   );
 }

@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import AuthGuard from '@/components/AuthGuard';
 import { useForm } from "react-hook-form";
 import { createClient } from '@/utils/supabase/client';
+import SelectionBadge from '@/components/SelectionBadge';
+import BulkActionBar from '@/components/BulkActionBar';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
 
 interface Team {
   id: string;
@@ -32,7 +37,7 @@ interface GameForm {
 export default function FilmPage() {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [games, setGames] = useState<Game[]>([]);
@@ -41,6 +46,23 @@ export default function FilmPage() {
   const [uploadStatus, setUploadStatus] = useState('');
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<GameForm>();
+
+  // Multi-select for games
+  const {
+    selectedIds: selectedGameIds,
+    isSelected,
+    toggleSelect,
+    selectAll,
+    clearSelection,
+    selectedCount,
+  } = useMultiSelect<string>();
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSelectAll: () => selectAll(games.map(g => g.id)),
+    onClearSelection: clearSelection,
+    enabled: games.length > 0,
+  });
 
   useEffect(() => {
     fetchTeams();
@@ -194,6 +216,60 @@ export default function FilmPage() {
       setUploadStatus('');
       router.push(`/film/${gameData.id}`);
     }, 1500);
+  }
+
+  // Bulk Operations
+  async function handleBulkDelete() {
+    if (!confirmBulkOperation('delete', selectedCount, 'game')) return;
+
+    const selectedArray = Array.from(selectedGameIds);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const gameId of selectedArray) {
+      try {
+        // Delete videos and play instances first
+        const { data: videos } = await supabase
+          .from('videos')
+          .select('id, file_path')
+          .eq('game_id', gameId);
+
+        if (videos && videos.length > 0) {
+          for (const video of videos) {
+            // Delete play instances
+            await supabase.from('play_instances').delete().eq('video_id', video.id);
+
+            // Delete from storage
+            if (video.file_path) {
+              await supabase.storage.from('game_videos').remove([video.file_path]);
+            }
+
+            // Delete video record
+            await supabase.from('videos').delete().eq('id', video.id);
+          }
+        }
+
+        // Delete game
+        const { error: gameError } = await supabase
+          .from('games')
+          .delete()
+          .eq('id', gameId);
+
+        if (gameError) throw gameError;
+        successCount++;
+      } catch (error) {
+        console.error(`Error deleting game ${gameId}:`, error);
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      alert(`Successfully deleted ${successCount} game${successCount === 1 ? '' : 's'}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+      clearSelection();
+      await fetchGames();
+    } else {
+      alert('Error: Failed to delete games');
+    }
   }
 
   async function deleteGame(gameId: string) {
@@ -455,9 +531,26 @@ export default function FilmPage() {
                     {games.map(game => (
                       <div
                         key={game.id}
-                        className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors cursor-pointer"
+                        className={`
+                          relative group
+                          border rounded-lg overflow-hidden transition-all cursor-pointer
+                          ${isSelected(game.id)
+                            ? 'border-blue-500 border-2 ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-300'
+                          }
+                        `}
                         onClick={() => router.push(`/film/${game.id}`)}
                       >
+                        {/* Selection Badge */}
+                        <SelectionBadge
+                          isSelected={isSelected(game.id)}
+                          onToggle={(e) => {
+                            e?.stopPropagation();
+                            toggleSelect(game.id);
+                          }}
+                          position="top-left"
+                        />
+
                         <div className="p-6">
                           <div className="flex items-start justify-between mb-3">
                             <div>
@@ -518,6 +611,25 @@ export default function FilmPage() {
             </>
           )}
         </div>
+
+        {/* Bulk Action Bar */}
+        {selectedTeam && (
+          <BulkActionBar
+            selectedCount={selectedCount}
+            totalCount={games.length}
+            itemName="game"
+            primaryActions={[]}
+            secondaryActions={[
+              {
+                label: 'Delete',
+                onClick: handleBulkDelete,
+                variant: 'danger',
+              },
+            ]}
+            onSelectAll={() => selectAll(games.map(g => g.id))}
+            onClear={clearSelection}
+          />
+        )}
       </div>
     </AuthGuard>
   );
