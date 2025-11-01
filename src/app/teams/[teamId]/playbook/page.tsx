@@ -458,7 +458,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
         </div>
 
         {/* View Mode Toggle */}
-        <div className="mb-8 flex items-center gap-3">
+        <div className="mb-8 flex items-center justify-end gap-3">
           <span className="text-sm font-medium text-gray-700">Display:</span>
           <div className="inline-flex rounded-lg border border-gray-300 p-1">
             <button
