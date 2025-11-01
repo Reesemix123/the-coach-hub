@@ -438,28 +438,36 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        {/* Header with View Toggle */}
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex-1">
             <h2 className="text-3xl font-semibold text-gray-900">Playbook</h2>
             <p className="text-gray-600 mt-1">
               {plays.length} plays • {gamePlans.length} game plans
             </p>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              >
+                + Build Play
+              </button>
+              <button
+                onClick={() => setViewMode('gameplan')}
+                className={`px-6 py-3 rounded-lg transition-colors font-medium ${
+                  viewMode === 'gameplan'
+                    ? 'bg-black text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                📋 Game Plans
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push(`/playbook?teamId=${teamId}`)}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              + Build Play
-            </button>
-          </div>
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="mb-8 flex items-center justify-end gap-3">
-          <span className="text-sm font-medium text-gray-700">Display:</span>
+          {/* View Mode Toggle - Top Right (Grid/List only) */}
           <div className="inline-flex rounded-lg border border-gray-300 p-1">
             <button
               onClick={() => setViewMode('grid')}
@@ -482,17 +490,6 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
             >
               <span className="text-base">☰</span>
               List
-            </button>
-            <button
-              onClick={() => setViewMode('gameplan')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                viewMode === 'gameplan'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-base">📋</span>
-              Game Plans
             </button>
           </div>
         </div>
