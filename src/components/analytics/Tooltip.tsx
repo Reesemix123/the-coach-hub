@@ -62,11 +62,12 @@ export default function Tooltip({
     setIsVisible(false);
   };
 
+  // Use right-side positioning to avoid cutoff on most screens
   const positionClasses = {
-    top: 'bottom-full left-1/2 -translate-x-1/2 mb-2',
-    bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
-    left: 'right-full top-1/2 -translate-y-1/2 mr-2',
-    right: 'left-full top-1/2 -translate-y-1/2 ml-2',
+    top: 'bottom-full right-0 mb-2',
+    bottom: 'top-full right-0 mt-2',
+    left: 'right-full top-0 mr-2',
+    right: 'left-full top-0 ml-2',
   };
 
   const arrowClasses = {
@@ -107,16 +108,11 @@ export default function Tooltip({
       {/* Tooltip Content */}
       {isVisible && (
         <div
-          className={`absolute z-50 ${positionClasses[position]} w-80 animate-in fade-in-0 zoom-in-95 duration-200`}
+          className={`absolute z-50 ${positionClasses[position]} w-80 max-w-[90vw] animate-in fade-in-0 zoom-in-95 duration-200`}
           role="tooltip"
         >
-          {/* Arrow */}
-          <div
-            className={`absolute ${arrowClasses[position]} w-0 h-0 border-4 border-transparent`}
-          />
-
           {/* Tooltip Box */}
-          <div className="bg-gray-900 text-white rounded-lg shadow-xl p-4 text-sm">
+          <div className="bg-gray-900 text-white rounded-lg shadow-xl p-4 text-sm max-h-[80vh] overflow-y-auto">
             <div className="font-semibold text-white mb-2">{content.title}</div>
 
             <div className="space-y-3">
@@ -135,7 +131,7 @@ export default function Tooltip({
               {/* How it's calculated */}
               <div>
                 <div className="text-gray-300 font-medium mb-1">How it's calculated:</div>
-                <div className="text-gray-100 font-mono text-xs">{content.calculation}</div>
+                <div className="text-gray-100 font-mono text-xs break-words">{content.calculation}</div>
               </div>
             </div>
           </div>

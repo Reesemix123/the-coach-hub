@@ -58,10 +58,13 @@ export default function CollapsibleSection({
   }, [id]);
 
   // Save state to localStorage when it changes
-  const toggleExpanded = () => {
+  const toggleExpanded = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const newState = !isExpanded;
     setIsExpanded(newState);
     localStorage.setItem(`analytics-section-${id}`, String(newState));
+    console.log(`Toggled ${id}: ${newState}`); // Debug log
   };
 
   const badgeColors = {
@@ -75,8 +78,9 @@ export default function CollapsibleSection({
     <section className="border border-gray-200 rounded-lg overflow-hidden">
       {/* Header - Always Visible */}
       <button
+        type="button"
         onClick={toggleExpanded}
-        className="w-full flex items-center justify-between px-6 py-4 bg-gray-50 hover:bg-gray-100 transition-colors no-print"
+        className="w-full flex items-center justify-between px-6 py-4 bg-gray-50 hover:bg-gray-100 transition-colors no-print cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
@@ -123,9 +127,9 @@ export default function CollapsibleSection({
 
       {/* Content - Collapsible */}
       <div
-        className={`overflow-hidden transition-all duration-300 ${
-          isExpanded ? 'max-h-[10000px]' : 'max-h-0'
-        } ${printAlwaysExpanded ? 'print:max-h-none print:block' : ''}`}
+        className={`transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+        } ${printAlwaysExpanded ? 'print:max-h-none print:opacity-100 print:block' : ''} overflow-hidden`}
       >
         <div className="p-6 bg-white">
           {children}
