@@ -19,6 +19,7 @@ import DriveAnalyticsSection from '@/components/analytics/offense/DriveAnalytics
 import PlayerPerformanceSection from '@/components/analytics/offense/PlayerPerformanceSection';
 
 // Defense sections
+import OverallDefenseSection from '@/components/analytics/defense/OverallDefenseSection';
 import DefensivePerformanceSection from '@/components/analytics/defense/DefensivePerformanceSection';
 
 interface Game {
@@ -50,6 +51,7 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   const [driveAnalytics, setDriveAnalytics] = useState<any>(null);
   const [playerStats, setPlayerStats] = useState<any[]>([]);
   const [defStats, setDefStats] = useState<any[]>([]);
+  const [defensiveAnalytics, setDefensiveAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
@@ -60,6 +62,61 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   useEffect(() => {
     fetchData();
   }, [teamId]);
+
+  // Helper function to calculate defensive stats from opponent plays
+  const calculateDefensiveStats = async (teamId: string) => {
+    try {
+      // Query opponent plays (is_opponent_play = true)
+      const { data: opponentPlays } = await supabase
+        .from('play_instances')
+        .select('yards_gained, down, distance, is_turnover')
+        .eq('team_id', teamId)
+        .eq('is_opponent_play', true);
+
+      if (!opponentPlays || opponentPlays.length === 0) {
+        return {
+          totalPlays: 0,
+          yardsAllowedPerPlay: 0,
+          defensiveSuccessRate: 0,
+          turnoversForced: 0,
+        };
+      }
+
+      const totalPlays = opponentPlays.length;
+      const totalYardsAllowed = opponentPlays.reduce((sum, play) => sum + (play.yards_gained || 0), 0);
+      const yardsAllowedPerPlay = totalYardsAllowed / totalPlays;
+
+      // Defensive success = opponent failed to get expected yards
+      const defensiveSuccesses = opponentPlays.filter(play => {
+        const yardsGained = play.yards_gained || 0;
+        const down = play.down || 1;
+        const distance = play.distance || 10;
+
+        // Inverted success rate - defense succeeds when offense fails
+        if (down === 1) return yardsGained < 0.40 * distance;
+        if (down === 2) return yardsGained < 0.60 * distance;
+        return yardsGained < distance; // 3rd/4th down
+      }).length;
+
+      const defensiveSuccessRate = (defensiveSuccesses / totalPlays) * 100;
+      const turnoversForced = opponentPlays.filter(p => p.is_turnover).length;
+
+      return {
+        totalPlays,
+        yardsAllowedPerPlay,
+        defensiveSuccessRate,
+        turnoversForced,
+      };
+    } catch (error) {
+      console.error('Error calculating defensive stats:', error);
+      return {
+        totalPlays: 0,
+        yardsAllowedPerPlay: 0,
+        defensiveSuccessRate: 0,
+        turnoversForced: 0,
+      };
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -106,6 +163,11 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
         const def = await advancedService.getDefensiveStats(teamId);
         setDefStats(def);
       }
+
+      // Defensive analytics (all tiers - from opponent plays)
+      const defenseStats = await calculateDefensiveStats(teamId);
+      setDefensiveAnalytics(defenseStats);
+
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -245,16 +307,14 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
         {/* Analytics Sections - Defense */}
         {selectedODK === 'defense' && (
           <div className="space-y-6">
-            {/* Overall Defense (Season/Game level) */}
-            {selectedLevel !== 'player' && (
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                  Defensive Performance - {selectedLevel === 'game' ? gameName : 'Season'}
-                </h3>
-                <p className="text-gray-600">
-                  Defensive analytics coming soon. Currently tracking at Tier 3.
-                </p>
-              </div>
+            {/* Overall Defense (Season/Game level) - All Tiers */}
+            {selectedLevel !== 'player' && defensiveAnalytics && (
+              <OverallDefenseSection
+                data={defensiveAnalytics}
+                viewMode={viewMode}
+                level={selectedLevel}
+                gameName={gameName}
+              />
             )}
 
             {/* Defensive Player Stats (Player level, Tier 3) */}
@@ -263,6 +323,26 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
                 data={defStats}
                 gameName={selectedGameId && gameName}
               />
+            )}
+
+            {/* Message when no defensive data */}
+            {selectedLevel !== 'player' && !defensiveAnalytics && (
+              <div className="border border-gray-200 rounded-lg p-12 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">No Defensive Data</h3>
+                <p className="text-gray-600">
+                  Tag opponent plays in the Film Room to see defensive analytics.
+                </p>
+              </div>
+            )}
+
+            {/* Message when Player level but no Tier 3 */}
+            {selectedLevel === 'player' && !config.enable_defensive_tracking && (
+              <div className="border border-gray-200 rounded-lg p-12 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Tier 3 Required</h3>
+                <p className="text-gray-600">
+                  Individual defensive player stats require Tier 3 analytics.
+                </p>
+              </div>
             )}
           </div>
         )}
