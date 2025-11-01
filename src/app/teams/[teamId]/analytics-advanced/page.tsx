@@ -279,6 +279,7 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
             {selectedLevel !== 'player' && (
               <DownBreakdownSection
                 data={basicAnalytics}
+                viewMode={viewMode}
                 level={selectedLevel}
                 gameName={gameName}
               />
