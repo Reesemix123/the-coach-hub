@@ -130,7 +130,7 @@ export default function AnalyticsFilterBar({
             <span className="text-sm font-medium text-gray-700">Display:</span>
             <div className="inline-flex rounded-lg border border-gray-300 p-1">
               {[
-                { value: 'cards', label: 'Cards', icon: '▦' },
+                { value: 'cards', label: 'Grid', icon: '▦' },
                 { value: 'list', label: 'List', icon: '☰' },
                 { value: 'print', label: 'Print', icon: '⎙' },
               ].map((mode) => (
