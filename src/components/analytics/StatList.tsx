@@ -40,17 +40,17 @@ export default function StatList({
   };
 
   return (
-    <div className={`grid ${gridCols[columns]} gap-x-8 gap-y-3`}>
+    <div className={`grid ${gridCols[columns]} gap-x-12 gap-y-3`}>
       {stats.map((stat, index) => (
-        <div key={index} className="flex items-baseline justify-between border-b border-gray-200 pb-2">
+        <div key={index} className="flex items-baseline gap-2 border-b border-gray-200 pb-2">
           {stat.tooltip ? (
             <Tooltip content={stat.tooltip}>
-              <span className="text-sm text-gray-600">{stat.label}:</span>
+              <span className="text-sm text-gray-600 whitespace-nowrap">{stat.label}:</span>
             </Tooltip>
           ) : (
-            <span className="text-sm text-gray-600">{stat.label}:</span>
+            <span className="text-sm text-gray-600 whitespace-nowrap">{stat.label}:</span>
           )}
-          <span className="text-sm font-semibold text-gray-900 ml-2">{stat.value}</span>
+          <span className="text-sm font-semibold text-gray-900">{stat.value}</span>
         </div>
       ))}
     </div>
