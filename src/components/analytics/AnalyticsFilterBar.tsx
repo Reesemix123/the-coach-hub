@@ -58,9 +58,9 @@ export default function AnalyticsFilterBar({
           </div>
           <div className="flex gap-3">
             {[
-              { value: 'offense', label: 'Offense', emoji: '🏈' },
-              { value: 'defense', label: 'Defense', emoji: '🛡️' },
-              { value: 'special_teams', label: 'Special Teams', emoji: '⚡' },
+              { value: 'offense', label: 'Offense' },
+              { value: 'defense', label: 'Defense' },
+              { value: 'special_teams', label: 'Special Teams' },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -71,7 +71,6 @@ export default function AnalyticsFilterBar({
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-102'
                 }`}
               >
-                <span className="mr-2 text-xl">{tab.emoji}</span>
                 {tab.label}
               </button>
             ))}
