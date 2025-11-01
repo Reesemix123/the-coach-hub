@@ -1,7 +1,7 @@
 // src/app/teams/[teamId]/players/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import type { PlayerRecord, Team } from '@/types/football';
@@ -55,7 +55,8 @@ const GRADE_LEVELS = [
   'Freshman', 'Sophomore', 'Junior', 'Senior'
 ];
 
-export default function PlayersPage({ params }: { params: { teamId: string } }) {
+export default function PlayersPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<PlayerRecord[]>([]);
@@ -71,7 +72,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   const fetchData = async () => {
     try {
@@ -79,7 +80,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
       const { data: teamData } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       setTeam(teamData);
@@ -88,7 +89,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
       const { data: gamesData } = await supabase
         .from('games')
         .select('id, game_result')
-        .eq('team_id', params.teamId);
+        .eq('team_id', teamId);
 
       setGames(gamesData || []);
 
@@ -96,7 +97,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
       const { data: playersData } = await supabase
         .from('players')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .eq('is_active', true)
         .order('position_group')
         .order('primary_position')
@@ -141,7 +142,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
           .from('players')
           .insert([{
             ...playerData,
-            team_id: params.teamId,
+            team_id: teamId,
             is_active: true
           }]);
 
@@ -226,7 +227,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
       {/* Header with Tabs */}
       <TeamNavigation
         team={team!}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="players"
         wins={record.wins}
         losses={record.losses}
@@ -304,7 +305,7 @@ export default function PlayersPage({ params }: { params: { teamId: string } }) 
             groupedPlayers={groupedPlayers}
             onEdit={openEditModal}
             onDelete={handleDelete}
-            onPlayerClick={(id) => router.push(`/teams/${params.teamId}/players/${id}`)}
+            onPlayerClick={(id) => router.push(`/teams/${teamId}/players/${id}`)}
             onAddPlayer={() => setShowAddModal(true)}
           />
         )}

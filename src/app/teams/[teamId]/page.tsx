@@ -1,7 +1,7 @@
 // src/app/teams/[teamId]/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import type { Game, TeamEvent } from '@/types/football';
@@ -38,7 +38,10 @@ type GameFormData = {
   notes: string;
 };
 
-export default function TeamSchedulePage({ params }: { params: { teamId: string } }) {
+export default function TeamSchedulePage({ params }: { params: Promise<{ teamId: string }> }) {
+  // Unwrap params Promise (Next.js 15 requirement)
+  const { teamId } = use(params);
+
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [events, setEvents] = useState<TeamEvent[]>([]);
@@ -61,7 +64,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   const fetchData = async () => {
     try {
@@ -69,7 +72,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       if (teamError) throw teamError;
@@ -79,7 +82,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       const { data: gamesData } = await supabase
         .from('games')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .order('date', { ascending: true });
 
       setGames(gamesData || []);
@@ -88,7 +91,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       const { data: eventsData } = await supabase
         .from('team_events')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .order('date', { ascending: true });
 
       setEvents(eventsData || []);
@@ -206,7 +209,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       const { error } = await supabase
         .from('team_events')
         .insert({
-          team_id: params.teamId,
+          team_id: teamId,
           ...formData
         });
 
@@ -261,7 +264,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       const { error } = await supabase
         .from('games')
         .insert({
-          team_id: params.teamId,
+          team_id: teamId,
           user_id: userData.user?.id,
           ...formData
         });
@@ -345,7 +348,7 @@ export default function TeamSchedulePage({ params }: { params: { teamId: string 
       {/* Header with Tabs */}
       <TeamNavigation
         team={team}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="schedule"
         wins={record.wins}
         losses={record.losses}

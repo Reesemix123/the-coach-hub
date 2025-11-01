@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { AnalyticsService } from '@/lib/services/analytics.service';
@@ -16,7 +16,8 @@ interface Game {
   game_result: 'win' | 'loss' | 'tie' | null;
 }
 
-export default function AdvancedAnalyticsPage({ params }: { params: { teamId: string } }) {
+export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
@@ -35,7 +36,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   const fetchData = async () => {
     try {
@@ -43,7 +44,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       const { data: teamData } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       setTeam(teamData);
@@ -52,22 +53,22 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       const { data: gamesData } = await supabase
         .from('games')
         .select('id, game_result')
-        .eq('team_id', params.teamId);
+        .eq('team_id', teamId);
 
       setGames(gamesData || []);
 
       // Get tier config
-      const tierConfig = await advancedService.getTeamTier(params.teamId);
+      const tierConfig = await advancedService.getTeamTier(teamId);
       setConfig(tierConfig);
 
       // Basic analytics (always available)
-      const basic = await analyticsService.getTeamAnalytics(params.teamId);
+      const basic = await analyticsService.getTeamAnalytics(teamId);
       setBasicAnalytics(basic);
 
       // Drive analytics (Tier 2+)
       if (tierConfig.enable_drive_analytics) {
         try {
-          const drives = await advancedService.getDriveAnalytics(params.teamId);
+          const drives = await advancedService.getDriveAnalytics(teamId);
           setDriveAnalytics(drives);
         } catch (error) {
           console.error('Drive analytics error:', error);
@@ -77,7 +78,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       // Player attribution (Tier 2+)
       if (tierConfig.enable_player_attribution) {
         try {
-          const players = await advancedService.getPlayerAttributionStats(params.teamId);
+          const players = await advancedService.getPlayerAttributionStats(teamId);
           setPlayerStats(players);
         } catch (error) {
           console.error('Player stats error:', error);
@@ -87,7 +88,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       // OL tracking (Tier 3)
       if (tierConfig.enable_ol_tracking) {
         try {
-          const ol = await advancedService.getOffensiveLineStats(params.teamId);
+          const ol = await advancedService.getOffensiveLineStats(teamId);
           setOLStats(ol);
         } catch (error) {
           console.error('OL stats error:', error);
@@ -97,7 +98,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       // Defensive tracking (Tier 3)
       if (tierConfig.enable_defensive_tracking) {
         try {
-          const def = await advancedService.getDefensiveStats(params.teamId);
+          const def = await advancedService.getDefensiveStats(teamId);
           setDefStats(def);
         } catch (error) {
           console.error('Defensive stats error:', error);
@@ -107,7 +108,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       // Situational splits (Tier 3)
       if (tierConfig.enable_situational_splits) {
         try {
-          const splits = await advancedService.getSituationalSplits(params.teamId);
+          const splits = await advancedService.getSituationalSplits(teamId);
           setSituationalSplits(splits);
         } catch (error) {
           console.error('Situational splits error:', error);
@@ -134,7 +135,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
         <div className="text-center">
           <div className="text-gray-400 mb-4">Analytics not available</div>
           <button
-            onClick={() => router.push(`/teams/${params.teamId}`)}
+            onClick={() => router.push(`/teams/${teamId}`)}
             className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
           >
             Back to Team
@@ -161,7 +162,7 @@ export default function AdvancedAnalyticsPage({ params }: { params: { teamId: st
       {/* Header with Tabs */}
       <TeamNavigation
         team={team}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="analytics"
         wins={record.wins}
         losses={record.losses}

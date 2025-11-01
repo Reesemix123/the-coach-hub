@@ -3,13 +3,14 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { DriveService } from '@/lib/services/drive.service';
 import type { Drive, Game, Team } from '@/types/football';
 
-export default function DrivesPage({ params }: { params: { teamId: string } }) {
+export default function DrivesPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [drives, setDrives] = useState<Drive[]>([]);
@@ -23,7 +24,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   useEffect(() => {
     if (games.length > 0) {
@@ -37,7 +38,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
       const { data: teamData } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       setTeam(teamData);
@@ -46,7 +47,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
       const { data: gamesData } = await supabase
         .from('games')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .order('date', { ascending: false });
 
       setGames(gamesData || []);
@@ -60,7 +61,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
   const fetchDrives = async () => {
     try {
       const drivesData = selectedGame === 'all'
-        ? await driveService.getDrivesForTeam(params.teamId)
+        ? await driveService.getDrivesForTeam(teamId)
         : await driveService.getDrivesForGame(selectedGame);
 
       setDrives(drivesData);
@@ -76,7 +77,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
     try {
       await driveService.createDrive({
         gameId: formData.get('game_id') as string,
-        teamId: params.teamId,
+        teamId: teamId,
         driveNumber: parseInt(formData.get('drive_number') as string),
         quarter: parseInt(formData.get('quarter') as string),
         startYardLine: parseInt(formData.get('start_yard_line') as string),
@@ -180,7 +181,7 @@ export default function DrivesPage({ params }: { params: { teamId: string } }) {
       <div className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <button
-            onClick={() => router.push(`/teams/${params.teamId}`)}
+            onClick={() => router.push(`/teams/${teamId}`)}
             className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

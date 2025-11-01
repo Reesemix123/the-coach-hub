@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
@@ -18,7 +18,8 @@ interface Team {
 
 type ViewMode = 'grid' | 'list' | 'gameplan';
 
-export default function TeamPlaybookPage({ params }: { params: { teamId: string } }) {
+export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [plays, setPlays] = useState<PlaybookPlay[]>([]);
   const [filteredPlays, setFilteredPlays] = useState<PlaybookPlay[]>([]);
@@ -47,7 +48,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   useEffect(() => {
     applyFilters();
@@ -59,7 +60,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       if (teamError) throw teamError;
@@ -69,7 +70,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
       const { data: playsData, error: playsError } = await supabase
         .from('playbook_plays')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .eq('is_archived', false)
         .order('play_code', { ascending: true });
 
@@ -80,7 +81,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
       const { data: gamePlansData, error: gamePlansError } = await supabase
         .from('game_plans')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .order('created_at', { ascending: false });
 
       if (gamePlansError) throw gamePlansError;
@@ -175,7 +176,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
       const { data: gamePlan, error: gamePlanError } = await supabase
         .from('game_plans')
         .insert({
-          team_id: params.teamId,
+          team_id: teamId,
           name: newGamePlanName,
           wristband_format: '3x5'
         })
@@ -283,12 +284,12 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
 
   function handlePrintWristband() {
     if (!activeGamePlan) return;
-    router.push(`/teams/${params.teamId}/playbook/print-wristband/${activeGamePlan.id}`);
+    router.push(`/teams/${teamId}/playbook/print-wristband/${activeGamePlan.id}`);
   }
 
   function handlePrintCoachSheet() {
     if (!activeGamePlan) return;
-    router.push(`/teams/${params.teamId}/playbook/print-coach-sheet/${activeGamePlan.id}`);
+    router.push(`/teams/${teamId}/playbook/print-coach-sheet/${activeGamePlan.id}`);
   }
 
   async function handleDeletePlay(playId: string) {
@@ -356,7 +357,7 @@ export default function TeamPlaybookPage({ params }: { params: { teamId: string 
       {/* Header with Tabs */}
       <TeamNavigation
         team={team}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="playbook"
       />
 

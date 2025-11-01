@@ -1,7 +1,7 @@
 // src/app/teams/[teamId]/film/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
@@ -41,7 +41,8 @@ interface GameWithVideos extends Game {
   videos: Video[];
 }
 
-export default function TeamFilmPage({ params }: { params: { teamId: string } }) {
+export default function TeamFilmPage({ params }: { params: Promise<{ teamId: string }> }) {
+  const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<GameWithVideos[]>([]);
   const [allGames, setAllGames] = useState<Game[]>([]);
@@ -53,7 +54,7 @@ export default function TeamFilmPage({ params }: { params: { teamId: string } })
 
   useEffect(() => {
     fetchData();
-  }, [params.teamId]);
+  }, [teamId]);
 
   const fetchData = async () => {
     try {
@@ -61,7 +62,7 @@ export default function TeamFilmPage({ params }: { params: { teamId: string } })
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       if (teamError) throw teamError;
@@ -71,7 +72,7 @@ export default function TeamFilmPage({ params }: { params: { teamId: string } })
       const { data: gamesData, error: gamesError } = await supabase
         .from('games')
         .select('*')
-        .eq('team_id', params.teamId)
+        .eq('team_id', teamId)
         .order('date', { ascending: false });
 
       if (gamesError) throw gamesError;
@@ -167,7 +168,7 @@ export default function TeamFilmPage({ params }: { params: { teamId: string } })
       {/* Header with Tabs */}
       <TeamNavigation
         team={team}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="film"
         wins={record.wins}
         losses={record.losses}
@@ -250,7 +251,7 @@ export default function TeamFilmPage({ params }: { params: { teamId: string } })
                'All games have film'}
             </div>
             <button
-              onClick={() => router.push(`/teams/${params.teamId}`)}
+              onClick={() => router.push(`/teams/${teamId}`)}
               className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
             >
               Go to Schedule

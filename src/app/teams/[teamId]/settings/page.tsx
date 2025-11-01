@@ -56,7 +56,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       const { data: teamData, error: teamError } = await supabase
         .from('teams')
         .select('*')
-        .eq('id', params.teamId)
+        .eq('id', teamId)
         .single();
 
       if (teamError) throw teamError;
@@ -66,26 +66,26 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       const { data: gamesData } = await supabase
         .from('games')
         .select('id, game_result')
-        .eq('team_id', params.teamId);
+        .eq('team_id', teamId);
 
       setGames(gamesData || []);
 
       // Get user's role
-      const role = await membershipService.getUserRole(params.teamId);
+      const role = await membershipService.getUserRole(teamId);
       setUserRole(role);
 
       // Only owners and coaches can view settings
       if (!role || !['owner', 'coach'].includes(role)) {
-        router.push(`/teams/${params.teamId}`);
+        router.push(`/teams/${teamId}`);
         return;
       }
 
       // Fetch team members
-      const teamMembers = await membershipService.getTeamMembers(params.teamId);
+      const teamMembers = await membershipService.getTeamMembers(teamId);
       setMembers(teamMembers);
 
       // Fetch analytics config
-      const analyticsConfig = await analyticsService.getTeamTier(params.teamId);
+      const analyticsConfig = await analyticsService.getTeamTier(teamId);
       setConfig(analyticsConfig);
 
     } catch (error) {
@@ -114,7 +114,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                              newTier === 'hs_basic' ? 'standard' : 'advanced'
       };
 
-      await analyticsService.updateTeamTier(params.teamId, updates);
+      await analyticsService.updateTeamTier(teamId, updates);
       setConfig({ ...config, ...updates });
       setTierSaveMessage('Analytics tier updated successfully!');
 
@@ -135,7 +135,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
     try {
       const result = await membershipService.inviteCoach({
-        teamId: params.teamId,
+        teamId: teamId,
         email: inviteEmail,
         role: inviteRole
       });
@@ -158,7 +158,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     if (!confirm('Remove this team member? They will lose access to the team.')) return;
 
     try {
-      await membershipService.removeCoach(params.teamId, userId);
+      await membershipService.removeCoach(teamId, userId);
       await fetchData(); // Refresh members list
     } catch (error: any) {
       alert(error.message || 'Failed to remove member');
@@ -167,7 +167,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
   const handleUpdateRole = async (userId: string, newRole: 'owner' | 'coach' | 'analyst' | 'viewer') => {
     try {
-      await membershipService.updateRole(params.teamId, userId, newRole);
+      await membershipService.updateRole(teamId, userId, newRole);
       await fetchData(); // Refresh members list
     } catch (error: any) {
       alert(error.message || 'Failed to update role');
@@ -188,7 +188,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
         <div className="text-center">
           <div className="text-gray-400 mb-4">Settings not available</div>
           <button
-            onClick={() => router.push(`/teams/${params.teamId}`)}
+            onClick={() => router.push(`/teams/${teamId}`)}
             className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
           >
             Back to Team
@@ -248,7 +248,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       {/* Header with Tabs */}
       <TeamNavigation
         team={team}
-        teamId={params.teamId}
+        teamId={teamId}
         currentPage="settings"
         wins={record.wins}
         losses={record.losses}
