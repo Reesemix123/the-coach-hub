@@ -34,6 +34,8 @@ interface GameForm {
   video?: FileList;
 }
 
+type ViewModeType = 'grid' | 'list';
+
 export default function FilmPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -42,6 +44,7 @@ export default function FilmPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>('');
   const [games, setGames] = useState<Game[]>([]);
   const [viewMode, setViewMode] = useState<'own' | 'opponent'>('own');
+  const [displayMode, setDisplayMode] = useState<ViewModeType>('grid');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
 
@@ -454,6 +457,34 @@ export default function FilmPage() {
                 </div>
               </div>
 
+              {/* Display Mode Toggle (Grid/List) */}
+              {games.length > 0 && (
+                <div className="flex justify-end mb-6">
+                  <div className="flex gap-2 border border-gray-300 rounded-lg p-1">
+                    <button
+                      onClick={() => setDisplayMode('grid')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        displayMode === 'grid'
+                          ? 'bg-black text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      Grid View
+                    </button>
+                    <button
+                      onClick={() => setDisplayMode('list')}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        displayMode === 'list'
+                          ? 'bg-black text-white'
+                          : 'text-gray-700 hover:text-gray-900'
+                      }`}
+                    >
+                      List View
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Create Game Form */}
               <div className="border border-gray-200 rounded-lg p-6">
@@ -512,7 +543,7 @@ export default function FilmPage() {
                 </form>
               </div>
 
-              {/* Games Grid */}
+              {/* Games Grid/List */}
               <div className="lg:col-span-2">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   {viewMode === 'opponent' ? 'Opponent Games' : 'Your Games'} ({games.length})
@@ -526,7 +557,7 @@ export default function FilmPage() {
                         : 'No games yet. Create your first game!'}
                     </p>
                   </div>
-                ) : (
+                ) : displayMode === 'grid' ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {games.map(game => (
                       <div
@@ -604,6 +635,99 @@ export default function FilmPage() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  /* List View */
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left">
+                            <input
+                              type="checkbox"
+                              checked={selectedCount === games.length && games.length > 0}
+                              onChange={() => {
+                                if (selectedCount === games.length) {
+                                  clearSelection();
+                                } else {
+                                  selectAll(games.map(g => g.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                            />
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Game
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Videos
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Plays Tagged
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {games.map(game => (
+                          <tr
+                            key={game.id}
+                            className={isSelected(game.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                          >
+                            <td className="px-6 py-4">
+                              <input
+                                type="checkbox"
+                                checked={isSelected(game.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelect(game.id);
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                              {game.name}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {game.date ? new Date(game.date).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              }) : 'No date'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {game.video_count || 0}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {game.play_count || 0}
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm space-x-3">
+                              <button
+                                onClick={() => router.push(`/film/${game.id}`)}
+                                className="text-gray-700 hover:text-black font-medium"
+                              >
+                                Open
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteGame(game.id);
+                                }}
+                                className="text-red-600 hover:text-red-700 font-medium"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
