@@ -10,8 +10,7 @@ import { AnalyticsService } from '@/lib/services/analytics.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamAnalyticsConfig } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
-import ODKSelector from '@/components/analytics/ODKSelector';
-import LevelSelector from '@/components/analytics/LevelSelector';
+import AnalyticsFilterBar from '@/components/analytics/AnalyticsFilterBar';
 
 // Offense sections
 import OverallPerformanceSection from '@/components/analytics/offense/OverallPerformanceSection';
@@ -185,75 +184,21 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
         </div>
       </div>
 
+      {/* Filter Bar - Sticky, Compact, Horizontal */}
+      <AnalyticsFilterBar
+        selectedODK={selectedODK}
+        onODKChange={setSelectedODK}
+        selectedLevel={selectedLevel}
+        onLevelChange={setSelectedLevel}
+        games={games}
+        selectedGameId={selectedGameId}
+        onGameChange={setSelectedGameId}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onPrint={() => window.print()}
+      />
+
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-6">
-        {/* Filter Controls */}
-        <div className="space-y-4">
-          {/* ODK Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phase</label>
-            <ODKSelector selected={selectedODK} onChange={setSelectedODK} />
-          </div>
-
-          {/* Level Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">View Level</label>
-            <LevelSelector selected={selectedLevel} onChange={setSelectedLevel} />
-          </div>
-
-          {/* Game Dropdown (when Game level selected) */}
-          {selectedLevel === 'game' && (
-            <div>
-              <label htmlFor="game-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Select Game
-              </label>
-              <select
-                id="game-select"
-                value={selectedGameId}
-                onChange={(e) => setSelectedGameId(e.target.value)}
-                className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
-              >
-                <option value="">-- Select a game --</option>
-                {games.map((game) => (
-                  <option key={game.id} value={game.id}>
-                    {game.name || `vs ${game.opponent}`} - {game.date}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* View Mode Toggle */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Display Mode</label>
-            <div className="flex gap-2">
-              {(['cards', 'list', 'print'] as ViewMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    viewMode === mode
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Print Button (when game selected) */}
-          {selectedLevel === 'game' && selectedGameId && (
-            <div>
-              <button
-                onClick={() => window.print()}
-                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                Print Game Summary
-              </button>
-            </div>
-          )}
-        </div>
 
         {/* Analytics Sections - Offense */}
         {selectedODK === 'offense' && (

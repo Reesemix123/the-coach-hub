@@ -1,0 +1,164 @@
+/**
+ * Analytics Filter Bar Component
+ *
+ * Compact, horizontal filter bar for analytics page.
+ * Contains all filters in a clean, organized layout.
+ */
+
+'use client';
+
+interface Game {
+  id: string;
+  name?: string;
+  opponent?: string;
+  date?: string;
+}
+
+interface AnalyticsFilterBarProps {
+  // ODK
+  selectedODK: 'offense' | 'defense' | 'special_teams';
+  onODKChange: (odk: 'offense' | 'defense' | 'special_teams') => void;
+
+  // Level
+  selectedLevel: 'season' | 'game' | 'player';
+  onLevelChange: (level: 'season' | 'game' | 'player') => void;
+
+  // Game
+  games: Game[];
+  selectedGameId: string;
+  onGameChange: (gameId: string) => void;
+
+  // View Mode
+  viewMode: 'cards' | 'list' | 'print';
+  onViewModeChange: (mode: 'cards' | 'list' | 'print') => void;
+
+  // Print
+  onPrint: () => void;
+}
+
+export default function AnalyticsFilterBar({
+  selectedODK,
+  onODKChange,
+  selectedLevel,
+  onLevelChange,
+  games,
+  selectedGameId,
+  onGameChange,
+  viewMode,
+  onViewModeChange,
+  onPrint,
+}: AnalyticsFilterBarProps) {
+  return (
+    <div className="bg-white border-b border-gray-200 sticky top-0 z-10 no-print">
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        {/* Tab Navigation for ODK */}
+        <div className="border-b border-gray-200 mb-4">
+          <nav className="flex space-x-8">
+            {[
+              { value: 'offense', label: 'Offense' },
+              { value: 'defense', label: 'Defense' },
+              { value: 'special_teams', label: 'Special Teams' },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => onODKChange(tab.value as any)}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  selectedODK === tab.value
+                    ? 'border-black text-black'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Horizontal Filters */}
+        <div className="flex items-center gap-6 flex-wrap">
+          {/* Level Selector - Segmented Control */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">View:</span>
+            <div className="inline-flex rounded-lg border border-gray-300 p-1">
+              {[
+                { value: 'season', label: 'Season' },
+                { value: 'game', label: 'Game' },
+                { value: 'player', label: 'Player' },
+              ].map((level) => (
+                <button
+                  key={level.value}
+                  onClick={() => onLevelChange(level.value as any)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    selectedLevel === level.value
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {level.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Game Dropdown - Only when Game level selected */}
+          {selectedLevel === 'game' && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">Game:</span>
+              <select
+                value={selectedGameId}
+                onChange={(e) => onGameChange(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              >
+                <option value="">-- Select --</option>
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    vs {game.opponent} ({game.date})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* View Mode - Segmented Control */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Display:</span>
+            <div className="inline-flex rounded-lg border border-gray-300 p-1">
+              {[
+                { value: 'cards', label: 'Cards', icon: '▦' },
+                { value: 'list', label: 'List', icon: '☰' },
+                { value: 'print', label: 'Print', icon: '⎙' },
+              ].map((mode) => (
+                <button
+                  key={mode.value}
+                  onClick={() => onViewModeChange(mode.value as any)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    viewMode === mode.value
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base">{mode.icon}</span>
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Print Button - Only when game selected */}
+          {selectedLevel === 'game' && selectedGameId && (
+            <button
+              onClick={onPrint}
+              className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium flex items-center gap-2"
+            >
+              <span className="text-lg">🖨</span>
+              Print Summary
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
