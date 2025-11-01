@@ -46,6 +46,8 @@ interface GameWithVideos extends Game {
   videos: Video[];
 }
 
+type ViewMode = 'grid' | 'list';
+
 export default function TeamFilmPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
@@ -53,6 +55,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [allGames, setAllGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'with-film' | 'no-film'>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const router = useRouter();
   const supabase = createClient();
@@ -271,44 +274,70 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-gray-200">
-          <button
-            onClick={() => setFilter('all')}
-            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-              filter === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            All Games ({games.length})
-            {filter === 'all' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-            )}
-          </button>
-          <button
-            onClick={() => setFilter('with-film')}
-            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-              filter === 'with-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            With Film ({gamesWithFilm})
-            {filter === 'with-film' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-            )}
-          </button>
-          <button
-            onClick={() => setFilter('no-film')}
-            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-              filter === 'no-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            No Film ({games.length - gamesWithFilm})
-            {filter === 'no-film' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-            )}
-          </button>
+        {/* Filter Tabs and View Toggle */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex gap-4 border-b border-gray-200">
+            <button
+              onClick={() => setFilter('all')}
+              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
+                filter === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              All Games ({games.length})
+              {filter === 'all' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+              )}
+            </button>
+            <button
+              onClick={() => setFilter('with-film')}
+              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
+                filter === 'with-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              With Film ({gamesWithFilm})
+              {filter === 'with-film' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+              )}
+            </button>
+            <button
+              onClick={() => setFilter('no-film')}
+              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
+                filter === 'no-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              No Film ({games.length - gamesWithFilm})
+              {filter === 'no-film' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+              )}
+            </button>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex gap-2 border border-gray-300 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-black text-white'
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
+            >
+              Grid View
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-black text-white'
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
+            >
+              List View
+            </button>
+          </div>
         </div>
 
-        {/* Games List */}
+        {/* Games List or Grid */}
         {filteredGames.length === 0 ? (
           <div className="text-center py-20 bg-gray-50 rounded-lg">
             <div className="text-gray-400 mb-4">
@@ -323,7 +352,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
               Go to Schedule
             </button>
           </div>
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className="space-y-6">
             {filteredGames.map((game) => (
               <div
@@ -447,6 +476,98 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 </div>
               </div>
             ))}
+          </div>
+        ) : (
+          /* List View */
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selectedCount === allVideoIds.length && allVideoIds.length > 0}
+                      onChange={() => {
+                        if (selectedCount === allVideoIds.length) {
+                          clearSelection();
+                        } else {
+                          selectAll(allVideoIds);
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Video Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Game
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Uploaded
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredGames.map((game) =>
+                  game.videos.map((video) => (
+                    <tr
+                      key={video.id}
+                      className={isSelected(video.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                    >
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected(video.id)}
+                          onChange={() => toggleSelect(video.id)}
+                          className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        {video.name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        vs {game.opponent}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {game.date && new Date(game.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {new Date(video.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm space-x-3">
+                        <button
+                          onClick={() => router.push(`/film/${game.id}`)}
+                          className="text-gray-700 hover:text-black font-medium"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteVideo(video.id)}
+                          className="text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

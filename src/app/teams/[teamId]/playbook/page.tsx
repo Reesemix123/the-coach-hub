@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
+import GamePlanSelectorModal from '@/components/GamePlanSelectorModal';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkArchive, bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
@@ -55,6 +56,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
   // Modals
   const [showCreateGamePlanModal, setShowCreateGamePlanModal] = useState(false);
+  const [showGamePlanSelectorModal, setShowGamePlanSelectorModal] = useState(false);
   const [newGamePlanName, setNewGamePlanName] = useState('');
 
   // Filters
@@ -969,6 +971,15 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
         </div>
       )}
 
+      {/* Game Plan Selector Modal */}
+      <GamePlanSelectorModal
+        isOpen={showGamePlanSelectorModal}
+        gamePlans={gamePlans}
+        selectedCount={selectedCount}
+        onSelect={handleAddToExistingGamePlan}
+        onClose={() => setShowGamePlanSelectorModal(false)}
+      />
+
       {/* Bulk Action Bar */}
       {viewMode !== 'gameplan' && (
         <BulkActionBar
@@ -983,17 +994,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
             },
             ...(gamePlans.length > 0 ? [{
               label: '+ Add to Existing',
-              onClick: () => {
-                // Show a simple prompt for now - could be enhanced with a dropdown
-                const gamePlanNames = gamePlans.map((gp, i) => `${i + 1}. ${gp.name}`).join('\n');
-                const selection = prompt(`Select game plan (enter number):\n${gamePlanNames}`);
-                if (selection) {
-                  const index = parseInt(selection) - 1;
-                  if (index >= 0 && index < gamePlans.length) {
-                    handleAddToExistingGamePlan(gamePlans[index].id);
-                  }
-                }
-              },
+              onClick: () => setShowGamePlanSelectorModal(true),
               variant: 'success' as const
             }] : [])
           ]}
