@@ -25,7 +25,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface TooltipContent {
   title: string;
@@ -46,12 +46,15 @@ export default function Tooltip({
   position = 'top',
 }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseEnter = () => {
     // Delay showing tooltip slightly to avoid flicker
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true);
+      calculatePosition();
     }, 300);
   };
 
@@ -62,54 +65,104 @@ export default function Tooltip({
     setIsVisible(false);
   };
 
-  // Use right-side positioning to avoid cutoff on most screens
-  const positionClasses = {
-    top: 'bottom-full right-0 mb-2',
-    bottom: 'top-full right-0 mt-2',
-    left: 'right-full top-0 mr-2',
-    right: 'left-full top-0 ml-2',
+  const calculatePosition = () => {
+    if (!triggerRef.current) return;
+
+    const rect = triggerRef.current.getBoundingClientRect();
+    const tooltipWidth = 320; // 80 * 4 (w-80)
+    const tooltipHeight = 300; // Approximate height
+    const spacing = 8; // 2 * 4 (gap)
+
+    let top = 0;
+    let left = 0;
+
+    // Calculate position based on available space
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceLeft = rect.left;
+    const spaceRight = window.innerWidth - rect.right;
+
+    // Try to position to the right first (most space usually)
+    if (spaceRight >= tooltipWidth + spacing) {
+      left = rect.right + spacing;
+      top = Math.max(spacing, Math.min(rect.top, window.innerHeight - tooltipHeight - spacing));
+    }
+    // If not enough space on right, try left
+    else if (spaceLeft >= tooltipWidth + spacing) {
+      left = rect.left - tooltipWidth - spacing;
+      top = Math.max(spacing, Math.min(rect.top, window.innerHeight - tooltipHeight - spacing));
+    }
+    // If not enough horizontal space, try top
+    else if (spaceAbove >= tooltipHeight + spacing) {
+      top = rect.top - tooltipHeight - spacing;
+      left = Math.max(spacing, Math.min(rect.left, window.innerWidth - tooltipWidth - spacing));
+    }
+    // Otherwise position below
+    else {
+      top = rect.bottom + spacing;
+      left = Math.max(spacing, Math.min(rect.left, window.innerWidth - tooltipWidth - spacing));
+    }
+
+    setTooltipStyle({
+      position: 'fixed',
+      top: `${top}px`,
+      left: `${left}px`,
+      zIndex: 9999,
+    });
   };
 
-  const arrowClasses = {
-    top: 'top-full left-1/2 -translate-x-1/2 border-t-gray-900',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 border-b-gray-900',
-    left: 'left-full top-1/2 -translate-y-1/2 border-l-gray-900',
-    right: 'right-full top-1/2 -translate-y-1/2 border-r-gray-900',
-  };
+  useEffect(() => {
+    if (isVisible) {
+      calculatePosition();
+      window.addEventListener('scroll', calculatePosition, true);
+      window.addEventListener('resize', calculatePosition);
+
+      return () => {
+        window.removeEventListener('scroll', calculatePosition, true);
+        window.removeEventListener('resize', calculatePosition);
+      };
+    }
+  }, [isVisible]);
 
   return (
-    <div
-      className="relative inline-flex items-center no-print"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={handleMouseEnter}
-      onBlur={handleMouseLeave}
-      tabIndex={0}
-    >
-      {/* Trigger (what to hover over) */}
-      <div className="flex items-center gap-1 cursor-help">
-        {children}
-        <svg
-          className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-label="More information"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
+    <>
+      <div
+        ref={triggerRef}
+        className="inline-flex items-center no-print"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onFocus={handleMouseEnter}
+        onBlur={handleMouseLeave}
+        tabIndex={0}
+      >
+        {/* Trigger (what to hover over) */}
+        <div className="flex items-center gap-1 cursor-help">
+          {children}
+          <svg
+            className="w-4 h-4 text-gray-400 hover:text-gray-600 transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-label="More information"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
       </div>
 
-      {/* Tooltip Content */}
+      {/* Tooltip Content - Fixed position portal-like */}
       {isVisible && (
         <div
-          className={`absolute z-50 ${positionClasses[position]} w-80 max-w-[90vw] animate-in fade-in-0 zoom-in-95 duration-200`}
+          style={tooltipStyle}
+          className="w-80 max-w-[90vw] animate-in fade-in-0 zoom-in-95 duration-200"
           role="tooltip"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
         >
           {/* Tooltip Box */}
           <div className="bg-gray-900 text-white rounded-lg shadow-xl p-4 text-sm max-h-[80vh] overflow-y-auto">
@@ -137,6 +190,6 @@ export default function Tooltip({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -126,15 +126,18 @@ export default function CollapsibleSection({
       </div>
 
       {/* Content - Collapsible */}
-      <div
-        className={`transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
-        } ${printAlwaysExpanded ? 'print:max-h-none print:opacity-100 print:block' : ''} overflow-hidden`}
-      >
-        <div className="p-6 bg-white">
+      {isExpanded && (
+        <div className="p-6 bg-white animate-in fade-in-0 slide-in-from-top-2 duration-200">
           {children}
         </div>
-      </div>
+      )}
+
+      {/* Print-only content (always visible in print) */}
+      {!isExpanded && printAlwaysExpanded && (
+        <div className="hidden print:block p-6 bg-white">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
