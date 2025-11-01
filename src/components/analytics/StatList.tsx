@@ -2,22 +2,26 @@
  * StatList Component
  *
  * Compact stat display for "list" view mode.
- * Shows multiple stats in a dense, easy-to-scan format.
+ * Shows multiple stats in a dense, easy-to-scan format with optional tooltips.
  *
  * @example
  * <StatList
  *   stats={[
- *     { label: 'Total Plays', value: '456' },
- *     { label: 'YPP', value: '5.2' },
- *     { label: 'Success Rate', value: '48%' },
+ *     { label: 'Total Plays', value: '456', tooltip: METRIC_DEFINITIONS.totalPlays },
+ *     { label: 'YPP', value: '5.2', tooltip: METRIC_DEFINITIONS.yardsPerPlay },
+ *     { label: 'Success Rate', value: '48%', tooltip: METRIC_DEFINITIONS.successRate },
  *   ]}
  *   columns={3}
  * />
  */
 
+import Tooltip from './Tooltip';
+import type { MetricDefinition } from '@/lib/analytics/metricDefinitions';
+
 interface Stat {
   label: string;
   value: string | number;
+  tooltip?: MetricDefinition;
 }
 
 interface StatListProps {
@@ -39,7 +43,13 @@ export default function StatList({
     <div className={`grid ${gridCols[columns]} gap-x-8 gap-y-3`}>
       {stats.map((stat, index) => (
         <div key={index} className="flex items-baseline justify-between border-b border-gray-200 pb-2">
-          <span className="text-sm text-gray-600">{stat.label}:</span>
+          {stat.tooltip ? (
+            <Tooltip content={stat.tooltip}>
+              <span className="text-sm text-gray-600">{stat.label}:</span>
+            </Tooltip>
+          ) : (
+            <span className="text-sm text-gray-600">{stat.label}:</span>
+          )}
           <span className="text-sm font-semibold text-gray-900 ml-2">{stat.value}</span>
         </div>
       ))}

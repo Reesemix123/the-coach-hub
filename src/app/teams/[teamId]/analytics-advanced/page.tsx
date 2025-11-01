@@ -14,6 +14,8 @@ import CollapsibleSection from '@/components/analytics/CollapsibleSection';
 import AnalyticsFilters from '@/components/analytics/AnalyticsFilters';
 import StatCard from '@/components/analytics/StatCard';
 import StatList from '@/components/analytics/StatList';
+import Tooltip from '@/components/analytics/Tooltip';
+import { METRIC_DEFINITIONS } from '@/lib/analytics/metricDefinitions';
 
 interface Game {
   id: string;
@@ -226,10 +228,26 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
           {viewMode === 'cards' ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard label="Total Plays" value={basicAnalytics.totalPlays} />
-                <StatCard label="Yards Per Play" value={basicAnalytics.avgYardsPerPlay.toFixed(1)} />
-                <StatCard label="Success Rate" value={`${basicAnalytics.successRate.toFixed(1)}%`} />
-                <StatCard label="First Downs" value={basicAnalytics.firstDowns} />
+                <StatCard
+                  label="Total Plays"
+                  value={basicAnalytics.totalPlays}
+                  tooltip={METRIC_DEFINITIONS.totalPlays}
+                />
+                <StatCard
+                  label="Yards Per Play"
+                  value={basicAnalytics.avgYardsPerPlay.toFixed(1)}
+                  tooltip={METRIC_DEFINITIONS.yardsPerPlay}
+                />
+                <StatCard
+                  label="Success Rate"
+                  value={`${basicAnalytics.successRate.toFixed(1)}%`}
+                  tooltip={METRIC_DEFINITIONS.successRate}
+                />
+                <StatCard
+                  label="First Downs"
+                  value={basicAnalytics.firstDowns}
+                  tooltip={METRIC_DEFINITIONS.firstDowns}
+                />
               </div>
 
               {/* Down Breakdown */}
@@ -260,10 +278,10 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
             <>
               <StatList
                 stats={[
-                  { label: 'Total Plays', value: basicAnalytics.totalPlays },
-                  { label: 'Yards Per Play', value: basicAnalytics.avgYardsPerPlay.toFixed(1) },
-                  { label: 'Success Rate', value: `${basicAnalytics.successRate.toFixed(1)}%` },
-                  { label: 'First Downs', value: basicAnalytics.firstDowns },
+                  { label: 'Total Plays', value: basicAnalytics.totalPlays, tooltip: METRIC_DEFINITIONS.totalPlays },
+                  { label: 'Yards Per Play', value: basicAnalytics.avgYardsPerPlay.toFixed(1), tooltip: METRIC_DEFINITIONS.yardsPerPlay },
+                  { label: 'Success Rate', value: `${basicAnalytics.successRate.toFixed(1)}%`, tooltip: METRIC_DEFINITIONS.successRate },
+                  { label: 'First Downs', value: basicAnalytics.firstDowns, tooltip: METRIC_DEFINITIONS.firstDowns },
                 ]}
                 columns={4}
               />
@@ -271,10 +289,10 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
               <div className="mt-6">
                 <StatList
                   stats={[
-                    { label: '1st Down Success', value: `${basicAnalytics.firstDownStats.successRate.toFixed(0)}% (${basicAnalytics.firstDownStats.plays} plays)` },
-                    { label: '2nd Down Success', value: `${basicAnalytics.secondDownStats.successRate.toFixed(0)}% (${basicAnalytics.secondDownStats.plays} plays)` },
-                    { label: '3rd Down Conv', value: `${basicAnalytics.thirdDownStats.successRate.toFixed(0)}% (${basicAnalytics.thirdDownStats.conversions} conv)` },
-                    { label: 'Red Zone TD', value: `${basicAnalytics.redZoneSuccessRate.toFixed(0)}% (${basicAnalytics.redZoneTouchdowns} TDs)` },
+                    { label: '1st Down Success', value: `${basicAnalytics.firstDownStats.successRate.toFixed(0)}% (${basicAnalytics.firstDownStats.plays} plays)`, tooltip: METRIC_DEFINITIONS.firstDownSuccess },
+                    { label: '2nd Down Success', value: `${basicAnalytics.secondDownStats.successRate.toFixed(0)}% (${basicAnalytics.secondDownStats.plays} plays)`, tooltip: METRIC_DEFINITIONS.secondDownSuccess },
+                    { label: '3rd Down Conv', value: `${basicAnalytics.thirdDownStats.successRate.toFixed(0)}% (${basicAnalytics.thirdDownStats.conversions} conv)`, tooltip: METRIC_DEFINITIONS.thirdDownConversion },
+                    { label: 'Red Zone TD', value: `${basicAnalytics.redZoneSuccessRate.toFixed(0)}% (${basicAnalytics.redZoneTouchdowns} TDs)`, tooltip: METRIC_DEFINITIONS.redZoneTD },
                   ]}
                   columns={2}
                 />
@@ -294,18 +312,38 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
           >
             {viewMode === 'cards' ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard label="Points Per Drive" value={driveAnalytics.pointsPerDrive.toFixed(2)} color="blue" />
-                <StatCard label="3-and-Out Rate" value={`${driveAnalytics.threeAndOutRate.toFixed(1)}%`} color="blue" />
-                <StatCard label="Scoring Drives" value={`${driveAnalytics.scoringDriveRate.toFixed(0)}%`} color="blue" />
-                <StatCard label="RZ TD Rate" value={`${driveAnalytics.redZoneTouchdownRate.toFixed(0)}%`} color="blue" />
+                <StatCard
+                  label="Points Per Drive"
+                  value={driveAnalytics.pointsPerDrive.toFixed(2)}
+                  color="blue"
+                  tooltip={METRIC_DEFINITIONS.pointsPerDrive}
+                />
+                <StatCard
+                  label="3-and-Out Rate"
+                  value={`${driveAnalytics.threeAndOutRate.toFixed(1)}%`}
+                  color="blue"
+                  tooltip={METRIC_DEFINITIONS.threeAndOutRate}
+                />
+                <StatCard
+                  label="Scoring Drives"
+                  value={`${driveAnalytics.scoringDriveRate.toFixed(0)}%`}
+                  color="blue"
+                  tooltip={METRIC_DEFINITIONS.scoringDriveRate}
+                />
+                <StatCard
+                  label="RZ TD Rate"
+                  value={`${driveAnalytics.redZoneTouchdownRate.toFixed(0)}%`}
+                  color="blue"
+                  tooltip={METRIC_DEFINITIONS.redZoneTD}
+                />
               </div>
             ) : (
               <StatList
                 stats={[
-                  { label: 'Points Per Drive', value: driveAnalytics.pointsPerDrive.toFixed(2) },
-                  { label: '3-and-Out Rate', value: `${driveAnalytics.threeAndOutRate.toFixed(1)}%` },
-                  { label: 'Scoring Drives', value: `${driveAnalytics.scoringDriveRate.toFixed(0)}%` },
-                  { label: 'RZ TD Rate', value: `${driveAnalytics.redZoneTouchdownRate.toFixed(0)}%` },
+                  { label: 'Points Per Drive', value: driveAnalytics.pointsPerDrive.toFixed(2), tooltip: METRIC_DEFINITIONS.pointsPerDrive },
+                  { label: '3-and-Out Rate', value: `${driveAnalytics.threeAndOutRate.toFixed(1)}%`, tooltip: METRIC_DEFINITIONS.threeAndOutRate },
+                  { label: 'Scoring Drives', value: `${driveAnalytics.scoringDriveRate.toFixed(0)}%`, tooltip: METRIC_DEFINITIONS.scoringDriveRate },
+                  { label: 'RZ TD Rate', value: `${driveAnalytics.redZoneTouchdownRate.toFixed(0)}%`, tooltip: METRIC_DEFINITIONS.redZoneTD },
                 ]}
                 columns={4}
               />
@@ -332,9 +370,21 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">#</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Player</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Pos</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Rush</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Pass</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Rec</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                      <Tooltip content={METRIC_DEFINITIONS.rushingYards}>
+                        <span>Rush</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                      <Tooltip content={METRIC_DEFINITIONS.passingStats}>
+                        <span>Pass</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">
+                      <Tooltip content={METRIC_DEFINITIONS.receivingStats}>
+                        <span>Rec</span>
+                      </Tooltip>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -369,19 +419,27 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
             badgeColor="green"
             defaultExpanded={false}
           >
-            <div className="grid grid-cols-5 gap-4">
-              {olStats.map((player) => (
-                <div key={player.playerId} className="border border-gray-200 rounded-lg p-4 print-keep-together">
-                  <div className="text-xs font-semibold text-gray-500 mb-1">{player.position}</div>
-                  <div className="text-sm font-medium text-gray-900 mb-2">
-                    #{player.jerseyNumber} {player.playerName.split(' ')[1]}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-700">Block Win Rate by Position:</span>
+                <Tooltip content={METRIC_DEFINITIONS.blockWinRate}>
+                  <span className="text-sm text-gray-600">What is this?</span>
+                </Tooltip>
+              </div>
+              <div className="grid grid-cols-5 gap-4">
+                {olStats.map((player) => (
+                  <div key={player.playerId} className="border border-gray-200 rounded-lg p-4 print-keep-together">
+                    <div className="text-xs font-semibold text-gray-500 mb-1">{player.position}</div>
+                    <div className="text-sm font-medium text-gray-900 mb-2">
+                      #{player.jerseyNumber} {player.playerName.split(' ')[1]}
+                    </div>
+                    <div className="text-3xl font-semibold text-gray-900 mb-1">{player.blockWinRate.toFixed(0)}%</div>
+                    <div className="text-xs text-gray-600">
+                      {player.blockWins}W-{player.blockLosses}L
+                    </div>
                   </div>
-                  <div className="text-3xl font-semibold text-gray-900 mb-1">{player.blockWinRate.toFixed(0)}%</div>
-                  <div className="text-xs text-gray-600">
-                    {player.blockWins}W-{player.blockLosses}L
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </CollapsibleSection>
         )}
@@ -401,11 +459,31 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">#</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Player</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Tkl</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Press</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">TFL</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">Sacks</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">PBU</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      <Tooltip content={METRIC_DEFINITIONS.tackles}>
+                        <span>Tkl</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      <Tooltip content={METRIC_DEFINITIONS.pressures}>
+                        <span>Press</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      <Tooltip content={METRIC_DEFINITIONS.tfl}>
+                        <span>TFL</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      <Tooltip content={METRIC_DEFINITIONS.sacks}>
+                        <span>Sacks</span>
+                      </Tooltip>
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700">
+                      <Tooltip content={METRIC_DEFINITIONS.pbu}>
+                        <span>PBU</span>
+                      </Tooltip>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -436,25 +514,48 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
             defaultExpanded={false}
           >
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {situationalSplits.map((split, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg p-6 print-keep-together">
-                  <div className="text-lg font-semibold text-gray-900 mb-4">{split.situation}</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Plays</span>
-                      <span className="font-medium text-gray-900">{split.plays}</span>
+              {situationalSplits.map((split, idx) => {
+                // Determine which tooltip to use based on the situation type
+                const getTooltipForSituation = (situation: string) => {
+                  if (situation.toLowerCase().includes('motion')) return METRIC_DEFINITIONS.motionSplit;
+                  if (situation.toLowerCase().includes('play action')) return METRIC_DEFINITIONS.playActionSplit;
+                  if (situation.toLowerCase().includes('blitz')) return METRIC_DEFINITIONS.blitzSplit;
+                  return null;
+                };
+
+                const tooltip = getTooltipForSituation(split.situation);
+
+                return (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-6 print-keep-together">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="text-lg font-semibold text-gray-900">{split.situation}</div>
+                      {tooltip && (
+                        <Tooltip content={tooltip}>
+                          <span className="text-xs text-gray-400">ⓘ</span>
+                        </Tooltip>
+                      )}
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">YPP</span>
-                      <span className="font-medium text-gray-900">{split.yardsPerPlay.toFixed(1)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Success Rate</span>
-                      <span className="font-medium text-gray-900">{split.successRate.toFixed(1)}%</span>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Plays</span>
+                        <span className="font-medium text-gray-900">{split.plays}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <Tooltip content={METRIC_DEFINITIONS.yardsPerPlay}>
+                          <span className="text-gray-600">YPP</span>
+                        </Tooltip>
+                        <span className="font-medium text-gray-900">{split.yardsPerPlay.toFixed(1)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <Tooltip content={METRIC_DEFINITIONS.successRate}>
+                          <span className="text-gray-600">Success Rate</span>
+                        </Tooltip>
+                        <span className="font-medium text-gray-900">{split.successRate.toFixed(1)}%</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CollapsibleSection>
         )}
@@ -475,12 +576,16 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
                       <div className="text-sm text-gray-600 mt-1">{play.play_code}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-semibold text-gray-900">{play.successRate.toFixed(0)}%</div>
+                      <Tooltip content={METRIC_DEFINITIONS.playSuccessRate}>
+                        <div className="text-2xl font-semibold text-gray-900">{play.successRate.toFixed(0)}%</div>
+                      </Tooltip>
                       <div className="text-xs text-gray-500">{play.attempts} attempts</div>
                     </div>
                   </div>
-                  <div className="mt-3 text-sm text-gray-600">
-                    {play.avgYards.toFixed(1)} yards/play
+                  <div className="mt-3 text-sm">
+                    <Tooltip content={METRIC_DEFINITIONS.playAvgYards}>
+                      <span className="text-gray-600">{play.avgYards.toFixed(1)} yards/play</span>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
