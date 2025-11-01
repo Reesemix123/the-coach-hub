@@ -53,3 +53,120 @@ body {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* Print Styles */
+@media print {
+  /* Hide interactive elements */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Force expand all collapsible sections */
+  .collapsible-content {
+    display: block !important;
+    max-height: none !important;
+  }
+
+  /* Page breaks */
+  .print-page-break {
+    page-break-after: always;
+  }
+
+  .print-page-break-before {
+    page-break-before: always;
+  }
+
+  /* Avoid breaks inside these elements */
+  .print-keep-together {
+    page-break-inside: avoid;
+  }
+
+  /* Optimize spacing for print */
+  .print-compact {
+    padding: 0.25rem !important;
+    font-size: 0.875rem !important;
+  }
+
+  /* Black/white optimization */
+  .print-no-bg {
+    background-color: white !important;
+  }
+
+  /* Tables */
+  table {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* Headers */
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  /* Remove shadows and transitions */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    transition: none !important;
+  }
+
+  /* Ensure readable font sizes */
+  body {
+    font-size: 12pt;
+  }
+
+  h1 {
+    font-size: 18pt;
+  }
+
+  h2 {
+    font-size: 14pt;
+  }
+
+  h3 {
+    font-size: 12pt;
+  }
+
+  /* Show URLs for links */
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    color: #666;
+  }
+
+  /* Hide URL for internal links and buttons */
+  a[href^="#"]:after,
+  a[href^="javascript:"]:after,
+  button[href]:after {
+    content: "";
+  }
+
+  /* Borders instead of backgrounds for contrast */
+  .bg-gray-50,
+  .bg-blue-50,
+  .bg-green-50,
+  .bg-red-50 {
+    background-color: white !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Print header/footer */
+  @page {
+    margin: 0.5in;
+  }
+
+  .print-header {
+    position: running(header);
+  }
+
+  .print-footer {
+    position: running(footer);
+  }
+}
