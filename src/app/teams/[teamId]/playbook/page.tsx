@@ -374,7 +374,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push('/playbook')}
+              onClick={() => router.push(`/playbook?teamId=${teamId}`)}
               className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
             >
               + Build Play
@@ -488,7 +488,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                   <p className="text-2xl font-semibold text-gray-900 mb-3">No plays yet</p>
                   <p className="text-gray-600 mb-8">Build your first play to get started.</p>
                   <button
-                    onClick={() => router.push('/playbook')}
+                    onClick={() => router.push(`/playbook?teamId=${teamId}`)}
                     className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-lg"
                   >
                     Build First Play
@@ -535,7 +535,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
                     <div className="p-4 bg-gray-50 flex items-center justify-between">
                       <button
-                        onClick={() => router.push('/playbook')}
+                        onClick={() => router.push(`/playbook?teamId=${teamId}`)}
                         className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
                       >
                         View/Edit
@@ -577,7 +577,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                   <p className="text-2xl font-semibold text-gray-900 mb-3">No plays yet</p>
                   <p className="text-gray-600 mb-8">Build your first play to get started.</p>
                   <button
-                    onClick={() => router.push('/playbook')}
+                    onClick={() => router.push(`/playbook?teamId=${teamId}`)}
                     className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-lg"
                   >
                     Build First Play
@@ -656,7 +656,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                         </td>
                         <td className="px-6 py-4 text-right text-sm space-x-3">
                           <button
-                            onClick={() => router.push('/playbook')}
+                            onClick={() => router.push(`/playbook?teamId=${teamId}`)}
                             className="text-gray-700 hover:text-black font-medium"
                           >
                             Edit

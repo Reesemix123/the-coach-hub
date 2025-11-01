@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { PlayBuilder } from '@/components/playbuilder';
@@ -46,7 +47,10 @@ export default function PlaybookPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterODK, setFilterODK] = useState<string>('all');
   const [filterFormation, setFilterFormation] = useState<string>('all');
-  
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedTeamId = searchParams.get('teamId');
   const supabase = createClient();
 
   useEffect(() => {
@@ -72,6 +76,17 @@ export default function PlaybookPage() {
     
     checkUser();
   }, []);
+
+  // Auto-select team from query param when teams are loaded
+  useEffect(() => {
+    if (preselectedTeamId && teams.length > 0 && !selectedTeamId) {
+      // Verify the team exists in user's teams
+      const teamExists = teams.some(team => team.id === preselectedTeamId);
+      if (teamExists) {
+        setSelectedTeamId(preselectedTeamId);
+      }
+    }
+  }, [teams, preselectedTeamId]);
 
   useEffect(() => {
     if (selectedTeamId) {
@@ -188,9 +203,15 @@ export default function PlaybookPage() {
   }
 
   function handleBackToPlaybook() {
-    setShowBuilder(false);
-    setEditingPlay(null);
-    fetchPlays();
+    // If came from team-specific page, return there
+    if (preselectedTeamId) {
+      router.push(`/teams/${preselectedTeamId}/playbook`);
+    } else {
+      // Stay on global playbook page
+      setShowBuilder(false);
+      setEditingPlay(null);
+      fetchPlays();
+    }
   }
 
   const uniqueFormations = Array.from(
