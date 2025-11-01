@@ -460,26 +460,28 @@ export default function FilmPage() {
               {/* Display Mode Toggle (Grid/List) */}
               {games.length > 0 && (
                 <div className="flex justify-end mb-6">
-                  <div className="flex gap-2 border border-gray-300 rounded-lg p-1">
+                  <div className="inline-flex rounded-lg border border-gray-300 p-1">
                     <button
                       onClick={() => setDisplayMode('grid')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                         displayMode === 'grid'
-                          ? 'bg-black text-white'
-                          : 'text-gray-700 hover:text-gray-900'
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      Grid View
+                      <span className="text-base">▦</span>
+                      Grid
                     </button>
                     <button
                       onClick={() => setDisplayMode('list')}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                         displayMode === 'list'
-                          ? 'bg-black text-white'
-                          : 'text-gray-700 hover:text-gray-900'
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      List View
+                      <span className="text-base">☰</span>
+                      List
                     </button>
                   </div>
                 </div>

@@ -234,30 +234,6 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
         ties={record.ties}
       />
 
-      {/* Quick Stats Banner */}
-      <div className="bg-gray-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="grid grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{players.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Active Players</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{groupedPlayers.offense.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Offense</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{groupedPlayers.defense.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Defense</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{groupedPlayers.special_teams.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Special Teams</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* View Mode Toggle */}
