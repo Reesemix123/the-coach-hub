@@ -27,12 +27,12 @@ export default function ViewModeToggle({
   className = '',
 }: ViewModeToggleProps) {
   return (
-    <div className={`inline-flex rounded-lg border border-gray-300 p-1 ${className}`}>
+    <div className={`inline-flex rounded-xl border border-gray-300 p-1 bg-white ${className}`}>
       {modes.map((mode) => (
         <button
           key={mode.value}
           onClick={() => onChange(mode.value)}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
             currentMode === mode.value
               ? 'bg-gray-900 text-white'
               : 'text-gray-700 hover:bg-gray-50'
