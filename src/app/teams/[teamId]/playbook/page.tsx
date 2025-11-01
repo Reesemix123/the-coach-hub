@@ -4,6 +4,11 @@ import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
+import SelectionBadge from '@/components/SelectionBadge';
+import BulkActionBar from '@/components/BulkActionBar';
+import { useMultiSelect } from '@/hooks/useMultiSelect';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { bulkArchive, bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
 import type { GamePlan, GamePlanPlayWithDetails, PlaybookPlay } from '@/types/football';
 
 interface Team {
@@ -26,8 +31,22 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
-  // Selection state
-  const [selectedPlayCodes, setSelectedPlayCodes] = useState<Set<string>>(new Set());
+  // Multi-select system
+  const {
+    selectedIds: selectedPlayCodes,
+    isSelected,
+    toggleSelect,
+    selectAll,
+    clearSelection,
+    selectedCount,
+  } = useMultiSelect<string>();
+
+  // Keyboard shortcuts for multi-select
+  useKeyboardShortcuts({
+    onSelectAll: () => selectAll(filteredPlays.map(p => p.play_code)),
+    onClearSelection: clearSelection,
+    enabled: filteredPlays.length > 0,
+  });
 
   // Game Plans
   const [gamePlans, setGamePlans] = useState<GamePlan[]>([]);
@@ -142,24 +161,6 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
     setFilteredPlays(filtered);
   }
 
-  function handleSelectPlay(playCode: string) {
-    const newSelected = new Set(selectedPlayCodes);
-    if (newSelected.has(playCode)) {
-      newSelected.delete(playCode);
-    } else {
-      newSelected.add(playCode);
-    }
-    setSelectedPlayCodes(newSelected);
-  }
-
-  function handleSelectAll() {
-    if (selectedPlayCodes.size === filteredPlays.length) {
-      setSelectedPlayCodes(new Set());
-    } else {
-      setSelectedPlayCodes(new Set(filteredPlays.map(p => p.play_code)));
-    }
-  }
-
   async function handleCreateGamePlan() {
     if (!newGamePlanName.trim()) {
       alert('Please enter a game plan name');
@@ -202,7 +203,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
       // Reset and refresh
       setNewGamePlanName('');
-      setSelectedPlayCodes(new Set());
+      clearSelection();
       setShowCreateGamePlanModal(false);
       await fetchData();
 
@@ -213,6 +214,78 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
     } catch (error) {
       console.error('Error creating game plan:', error);
       alert('Error creating game plan');
+    }
+  }
+
+  async function handleAddToExistingGamePlan(gamePlanId: string) {
+    if (selectedCount === 0) return;
+
+    try {
+      // Get max call number and sort order
+      const { data: existing } = await supabase
+        .from('game_plan_plays')
+        .select('call_number, sort_order')
+        .eq('game_plan_id', gamePlanId)
+        .order('call_number', { ascending: false })
+        .limit(1);
+
+      const nextCallNumber = existing && existing.length > 0 ? existing[0].call_number + 1 : 1;
+      const nextSortOrder = existing && existing.length > 0 ? existing[0].sort_order + 1 : 0;
+
+      // Add plays
+      const selectedArray = Array.from(selectedPlayCodes);
+      const newPlays = selectedArray.map((playCode, index) => ({
+        game_plan_id: gamePlanId,
+        play_code: playCode,
+        call_number: nextCallNumber + index,
+        sort_order: nextSortOrder + index,
+      }));
+
+      const { error } = await supabase
+        .from('game_plan_plays')
+        .insert(newPlays);
+
+      if (error) throw error;
+
+      const gamePlan = gamePlans.find(gp => gp.id === gamePlanId);
+      alert(`${selectedCount} plays added to "${gamePlan?.name}"`);
+      clearSelection();
+    } catch (error) {
+      console.error('Error adding plays:', error);
+      alert('Error adding plays to game plan');
+    }
+  }
+
+  async function handleBulkArchive() {
+    if (!confirmBulkOperation('archive', selectedCount, 'play')) return;
+
+    const selectedArray = Array.from(selectedPlayCodes);
+    const result = await bulkArchive('playbook_plays', 'play_code', selectedArray);
+
+    if (result.success) {
+      alert(`${selectedCount} plays archived`);
+      clearSelection();
+      await fetchData();
+    } else {
+      alert('Error archiving plays: ' + result.error);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (!confirmBulkOperation('delete', selectedCount, 'play')) return;
+
+    // Get play IDs from codes (since delete needs the ID field)
+    const playsToDelete = plays.filter(p => selectedPlayCodes.has(p.play_code));
+    const playIds = playsToDelete.map(p => p.id);
+
+    const result = await bulkDelete('playbook_plays', 'id', playIds);
+
+    if (result.success) {
+      alert(`${selectedCount} plays deleted`);
+      clearSelection();
+      await fetchData();
+    } else {
+      alert('Error deleting plays: ' + result.error);
     }
   }
 
@@ -416,15 +489,6 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
               Game Plans
             </button>
           </div>
-
-          {viewMode === 'list' && selectedPlayCodes.size > 0 && (
-            <button
-              onClick={() => setShowCreateGamePlanModal(true)}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Create Game Plan ({selectedPlayCodes.size} plays)
-            </button>
-          )}
         </div>
 
         {/* Filters (Grid & List View) */}
@@ -504,8 +568,21 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                 {filteredPlays.map(play => (
                   <div
                     key={play.id}
-                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-gray-400 transition-all"
+                    className={`
+                      relative group
+                      bg-white border rounded-xl overflow-hidden transition-all
+                      ${isSelected(play.play_code)
+                        ? 'border-blue-500 border-2 ring-2 ring-blue-200'
+                        : 'border-gray-200 hover:border-gray-400'
+                      }
+                    `}
                   >
+                    {/* Selection Badge */}
+                    <SelectionBadge
+                      isSelected={isSelected(play.play_code)}
+                      onToggle={() => toggleSelect(play.play_code)}
+                    />
+
                     <div className="p-6 border-b border-gray-100">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
@@ -596,9 +673,15 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                       <th className="px-6 py-3 text-left">
                         <input
                           type="checkbox"
-                          checked={selectedPlayCodes.size === filteredPlays.length && filteredPlays.length > 0}
-                          onChange={handleSelectAll}
-                          className="w-4 h-4 rounded border-gray-300"
+                          checked={selectedCount === filteredPlays.length && filteredPlays.length > 0}
+                          onChange={() => {
+                            if (selectedCount === filteredPlays.length) {
+                              clearSelection();
+                            } else {
+                              selectAll(filteredPlays.map(p => p.play_code));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 cursor-pointer"
                         />
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -623,13 +706,16 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredPlays.map(play => (
-                      <tr key={play.id} className="hover:bg-gray-50">
+                      <tr
+                        key={play.id}
+                        className={isSelected(play.play_code) ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                      >
                         <td className="px-6 py-4">
                           <input
                             type="checkbox"
-                            checked={selectedPlayCodes.has(play.play_code)}
-                            onChange={() => handleSelectPlay(play.play_code)}
-                            className="w-4 h-4 rounded border-gray-300"
+                            checked={isSelected(play.play_code)}
+                            onChange={() => toggleSelect(play.play_code)}
+                            className="w-4 h-4 rounded border-gray-300 cursor-pointer"
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
@@ -881,6 +967,43 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
             </div>
           </div>
         </div>
+      )}
+
+      {/* Bulk Action Bar */}
+      {viewMode !== 'gameplan' && (
+        <BulkActionBar
+          selectedCount={selectedCount}
+          totalCount={filteredPlays.length}
+          itemName="play"
+          primaryActions={[
+            {
+              label: '+ New Game Plan',
+              onClick: () => setShowCreateGamePlanModal(true),
+              variant: 'primary'
+            },
+            ...(gamePlans.length > 0 ? [{
+              label: '+ Add to Existing',
+              onClick: () => {
+                // Show a simple prompt for now - could be enhanced with a dropdown
+                const gamePlanNames = gamePlans.map((gp, i) => `${i + 1}. ${gp.name}`).join('\n');
+                const selection = prompt(`Select game plan (enter number):\n${gamePlanNames}`);
+                if (selection) {
+                  const index = parseInt(selection) - 1;
+                  if (index >= 0 && index < gamePlans.length) {
+                    handleAddToExistingGamePlan(gamePlans[index].id);
+                  }
+                }
+              },
+              variant: 'success' as const
+            }] : [])
+          ]}
+          secondaryActions={[
+            { label: 'Archive', onClick: handleBulkArchive },
+            { label: 'Delete', onClick: handleBulkDelete, variant: 'danger' },
+          ]}
+          onSelectAll={() => selectAll(filteredPlays.map(p => p.play_code))}
+          onClear={clearSelection}
+        />
       )}
     </div>
   );
