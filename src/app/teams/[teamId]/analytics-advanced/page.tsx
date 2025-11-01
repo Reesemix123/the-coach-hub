@@ -222,30 +222,6 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
         ties={record.ties}
       />
 
-      {/* Quick Stats Banner */}
-      <div className="bg-gray-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="grid grid-cols-4 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{games.length}</div>
-              <div className="text-sm text-gray-600 mt-1">Games Played</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{basicAnalytics?.totalPlays || 0}</div>
-              <div className="text-sm text-gray-600 mt-1">Total Plays</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{basicAnalytics?.avgYardsPerPlay?.toFixed(1) || '0.0'}</div>
-              <div className="text-sm text-gray-600 mt-1">Yards Per Play</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-semibold text-gray-900">{basicAnalytics?.successRate?.toFixed(0) || '0'}%</div>
-              <div className="text-sm text-gray-600 mt-1">Success Rate</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Filter Bar - Sticky, Compact, Horizontal */}
       <AnalyticsFilterBar
         selectedODK={selectedODK}
