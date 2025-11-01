@@ -458,36 +458,40 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
         </div>
 
         {/* View Mode Toggle */}
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex gap-2 border border-gray-300 rounded-lg p-1">
+        <div className="mb-8 flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">Display:</span>
+          <div className="inline-flex rounded-lg border border-gray-300 p-1">
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'grid'
-                  ? 'bg-black text-white'
-                  : 'text-gray-700 hover:text-gray-900'
+                  ? 'bg-gray-900 text-white'
+                  : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Grid View
+              <span className="text-base">▦</span>
+              Grid
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'list'
-                  ? 'bg-black text-white'
-                  : 'text-gray-700 hover:text-gray-900'
+                  ? 'bg-gray-900 text-white'
+                  : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              List View
+              <span className="text-base">☰</span>
+              List
             </button>
             <button
               onClick={() => setViewMode('gameplan')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 viewMode === 'gameplan'
-                  ? 'bg-black text-white'
-                  : 'text-gray-700 hover:text-gray-900'
+                  ? 'bg-gray-900 text-white'
+                  : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
+              <span className="text-base">📋</span>
               Game Plans
             </button>
           </div>
