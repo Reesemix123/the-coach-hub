@@ -70,12 +70,21 @@ export default function FilmPage() {
 
     console.log('Fetching games for team:', selectedTeam, 'isOpponent:', isOpponentView);
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('games')
       .select('*')
-      .eq('team_id', selectedTeam)
-      .eq('is_opponent_game', isOpponentView)
-      .order('date', { ascending: false });
+      .eq('team_id', selectedTeam);
+
+    // Filter based on view mode
+    if (isOpponentView) {
+      // Opponent games: only where is_opponent_game = true
+      query = query.eq('is_opponent_game', true);
+    } else {
+      // Your games: where is_opponent_game = false OR NULL (for backward compatibility)
+      query = query.or('is_opponent_game.is.null,is_opponent_game.eq.false');
+    }
+
+    const { data, error } = await query.order('date', { ascending: false });
 
     console.log('Fetched games:', { count: data?.length || 0, data, error });
 

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamMembership, TeamAnalyticsConfig, AnalyticsTier } from '@/types/football';
+import TeamNavigation from '@/components/TeamNavigation';
 
 interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -17,14 +18,22 @@ interface TeamMemberWithUser {
   };
 }
 
+interface Game {
+  id: string;
+  game_result: 'win' | 'loss' | 'tie' | null;
+}
+
 export default function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
+  const [games, setGames] = useState<Game[]>([]);
   const [members, setMembers] = useState<TeamMemberWithUser[]>([]);
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'coach' | 'analyst' | 'viewer' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'tier' | 'members'>('tier');
+  const [settingsTab, setSettingsTab] = useState<'tier' | 'members'>('tier');
+  const [savingTier, setSavingTier] = useState(false);
+  const [tierSaveMessage, setTierSaveMessage] = useState<string | null>(null);
 
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState('');
@@ -53,6 +62,14 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       if (teamError) throw teamError;
       setTeam(teamData);
 
+      // Fetch games for record
+      const { data: gamesData } = await supabase
+        .from('games')
+        .select('id, game_result')
+        .eq('team_id', params.teamId);
+
+      setGames(gamesData || []);
+
       // Get user's role
       const role = await membershipService.getUserRole(params.teamId);
       setUserRole(role);
@@ -79,7 +96,10 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   };
 
   const handleTierUpdate = async (newTier: AnalyticsTier) => {
-    if (!config) return;
+    if (!config || savingTier) return;
+
+    setSavingTier(true);
+    setTierSaveMessage(null);
 
     try {
       // Update tier and auto-enable appropriate features
@@ -96,9 +116,15 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
       await analyticsService.updateTeamTier(params.teamId, updates);
       setConfig({ ...config, ...updates });
+      setTierSaveMessage('Analytics tier updated successfully!');
+
+      // Clear message after 3 seconds
+      setTimeout(() => setTierSaveMessage(null), 3000);
     } catch (error) {
       console.error('Error updating tier:', error);
-      alert('Failed to update analytics tier');
+      setTierSaveMessage('Failed to update analytics tier');
+    } finally {
+      setSavingTier(false);
     }
   };
 
@@ -205,66 +231,85 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     }
   };
 
+  const getWinLossRecord = () => {
+    const wins = games.filter(g => g.game_result === 'win').length;
+    const losses = games.filter(g => g.game_result === 'loss').length;
+    const ties = games.filter(g => g.game_result === 'tie').length;
+    return { wins, losses, ties };
+  };
+
+  const record = getWinLossRecord();
+  const winPercentage = record.wins + record.losses > 0
+    ? ((record.wins / (record.wins + record.losses)) * 100).toFixed(0)
+    : '0';
+
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <button
-            onClick={() => router.push(`/teams/${params.teamId}`)}
-            className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to {team.name}
-          </button>
+      {/* Header with Tabs */}
+      <TeamNavigation
+        team={team}
+        teamId={params.teamId}
+        currentPage="settings"
+        wins={record.wins}
+        losses={record.losses}
+        ties={record.ties}
+      />
 
-          <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
-            Team Settings
-          </h1>
-
-          {/* Tabs */}
-          <div className="flex gap-8 mt-8 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab('tier')}
-              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === 'tier'
-                  ? 'text-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Analytics Tier
-              {activeTab === 'tier' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('members')}
-              className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                activeTab === 'members'
-                  ? 'text-gray-900'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Team Members
-              {activeTab === 'members' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-              )}
-            </button>
+      {/* Quick Stats Banner */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-gray-900">Team Settings</h2>
+            <div className="flex gap-8">
+              <button
+                onClick={() => setSettingsTab('tier')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'tier'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Analytics Tier
+                {settingsTab === 'tier' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
+              <button
+                onClick={() => setSettingsTab('members')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'members'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Team Members
+                {settingsTab === 'members' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-12">
-        {activeTab === 'tier' && (
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        {settingsTab === 'tier' && (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Choose Your Analytics Tier</h2>
               <p className="text-gray-600">
                 Select the level of analytics that matches your team's needs. You can change this anytime.
               </p>
+              {tierSaveMessage && (
+                <div className={`mt-4 p-4 rounded-lg text-sm ${
+                  tierSaveMessage.includes('successfully')
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}>
+                  {tierSaveMessage}
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -281,9 +326,11 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                         ? 'border-gray-900 bg-gray-50'
                         : isDisabled
                         ? 'border-gray-200 bg-gray-50 opacity-60'
+                        : savingTier
+                        ? 'border-gray-200 bg-gray-50 opacity-60'
                         : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                     }`}
-                    onClick={() => !isDisabled && !isSelected && handleTierUpdate(tier)}
+                    onClick={() => !isDisabled && !isSelected && !savingTier && handleTierUpdate(tier)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -328,7 +375,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
           </div>
         )}
 
-        {activeTab === 'members' && (
+        {settingsTab === 'members' && (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Team Members</h2>
@@ -353,7 +400,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="coach@example.com"
                         required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
                       />
                     </div>
                     <div>

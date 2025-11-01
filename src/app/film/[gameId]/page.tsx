@@ -7,6 +7,10 @@ import { useForm } from "react-hook-form";
 import { createClient } from '@/utils/supabase/client';
 import { COMMON_ATTRIBUTES, OPPONENT_PLAY_TYPES } from '@/config/footballConfig';
 import { RESULT_TYPES } from '@/types/football';
+import { DriveService } from '@/lib/services/drive.service';
+import type { Drive } from '@/types/football';
+import VirtualVideoPlayer from '@/components/VirtualVideoPlayer';
+import CombineVideosModal from '@/components/CombineVideosModal';
 
 interface Game {
   id: string;
@@ -22,6 +26,13 @@ interface Video {
   name: string;
   file_path?: string;
   game_id?: string;
+  url?: string;
+  created_at: string;
+  is_virtual?: boolean;
+  source_video_ids?: string[];
+  virtual_name?: string;
+  video_count?: number;
+  video_group_id?: string;
 }
 
 interface Play {
@@ -67,6 +78,9 @@ interface PlayTagForm {
   hash_mark?: string;
   yards_gained?: number;
   notes?: string;
+  drive_id?: string;
+  new_drive_number?: number;
+  new_drive_quarter?: number;
 }
 
 const DOWNS = [
@@ -85,10 +99,11 @@ export default function GameFilmPage() {
   const params = useParams();
   const router = useRouter();
   const supabase = createClient();
+  const driveService = new DriveService();
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
   const gameId = params.gameId as string;
-  
+
   const [game, setGame] = useState<Game | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
@@ -97,7 +112,14 @@ export default function GameFilmPage() {
   const [playInstances, setPlayInstances] = useState<PlayInstance[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
   const [formations, setFormations] = useState<string[]>([]);
-  
+  const [drives, setDrives] = useState<Drive[]>([]);
+  const [currentDrive, setCurrentDrive] = useState<Drive | null>(null);
+  const [driveAssignMode, setDriveAssignMode] = useState<'current' | 'new' | 'select'>('current');
+
+  // Video selection and combining
+  const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
+  const [showCombineModal, setShowCombineModal] = useState(false);
+
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -115,6 +137,7 @@ export default function GameFilmPage() {
     if (gameId) {
       fetchGame();
       fetchVideos();
+      fetchDrives();
     }
   }, [gameId]);
 
@@ -184,6 +207,7 @@ export default function GameFilmPage() {
     }
   }
 
+
   async function fetchPlays() {
     if (!game?.team_id) return;
 
@@ -233,6 +257,23 @@ export default function GameFilmPage() {
     }
   }
 
+  async function fetchDrives() {
+    try {
+      const drivesData = await driveService.getDrivesForGame(gameId);
+      setDrives(drivesData);
+
+      // Set current drive to the most recent active drive
+      if (drivesData.length > 0) {
+        const activeDrive = drivesData.find(d => d.result === 'end_half');
+        setCurrentDrive(activeDrive || drivesData[drivesData.length - 1]);
+      } else {
+        setDriveAssignMode('new'); // First drive - auto-set to new mode
+      }
+    } catch (error) {
+      console.error('Error fetching drives:', error);
+    }
+  }
+
   async function fetchPlayInstances(videoId: string) {
     const { data, error } = await supabase
       .from('play_instances')
@@ -267,6 +308,12 @@ export default function GameFilmPage() {
   }
 
   async function loadVideo(video: Video) {
+    // If it's a virtual video, we don't need to load a URL
+    if (video.is_virtual) {
+      setVideoUrl(''); // Clear URL for virtual videos
+      return;
+    }
+
     if (!video.file_path) return;
 
     const { data } = await supabase.storage
@@ -276,6 +323,22 @@ export default function GameFilmPage() {
     if (data?.signedUrl) {
       setVideoUrl(data.signedUrl);
     }
+  }
+
+  // Video selection handlers
+  function handleToggleVideoSelection(videoId: string) {
+    const newSelection = new Set(selectedVideoIds);
+    if (newSelection.has(videoId)) {
+      newSelection.delete(videoId);
+    } else {
+      newSelection.add(videoId);
+    }
+    setSelectedVideoIds(newSelection);
+  }
+
+  function handleCombineVideos() {
+    if (selectedVideoIds.size === 0) return;
+    setShowCombineModal(true);
   }
 
   async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -364,62 +427,82 @@ export default function GameFilmPage() {
   async function onSubmitTag(values: PlayTagForm) {
     if (!selectedVideo || !game?.team_id) return;
 
-    const instanceData = {
-      video_id: selectedVideo.id,
-      team_id: game.team_id,
-      timestamp_start: tagStartTime,
-      timestamp_end: tagEndTime || undefined,
-      is_opponent_play: isTaggingOpponent,
-      
-      play_code: isTaggingOpponent 
-        ? (values.opponent_play_type || 'Unknown')
-        : (values.play_code || ''),
-      
-      player_id: isTaggingOpponent ? undefined : (values.player_id || undefined),
-      
-      formation: values.formation || undefined,
-      result_type: values.result_type || undefined,
-      resulted_in_first_down: values.resulted_in_first_down || false,
-      is_turnover: values.result_type === 'pass_interception' || values.result_type === 'fumble_lost',
-      turnover_type: values.result_type === 'pass_interception' ? 'interception' : 
-                     values.result_type === 'fumble_lost' ? 'fumble' : undefined,
-      
-      down: values.down ? parseInt(String(values.down)) : undefined,
-      distance: values.distance ? parseInt(String(values.distance)) : undefined,
-      yard_line: values.yard_line ? parseInt(String(values.yard_line)) : undefined,
-      hash_mark: values.hash_mark || undefined,
-      yards_gained: values.yards_gained ? parseInt(String(values.yards_gained)) : undefined,
-      notes: isTaggingOpponent && values.opponent_player_number
-        ? `Player: ${values.opponent_player_number}${values.notes ? ' | ' + values.notes : ''}`
-        : (values.notes || undefined),
-      tags: []
-    };
+    try {
+      // Handle drive creation/assignment
+      let driveId: string | undefined;
 
-    if (editingInstance) {
-      const { error } = await supabase
-        .from('play_instances')
-        .update(instanceData)
-        .eq('id', editingInstance.id);
-
-      if (error) {
-        alert('Error updating play: ' + error.message);
-        return;
+      if (driveAssignMode === 'new' && values.new_drive_number && values.new_drive_quarter && values.yard_line) {
+        // Create new drive - use play's yard line as starting position
+        const newDrive = await driveService.createDrive({
+          gameId: gameId,
+          teamId: game.team_id,
+          driveNumber: values.new_drive_number,
+          quarter: values.new_drive_quarter,
+          startYardLine: values.yard_line
+        });
+        driveId = newDrive.id;
+        setCurrentDrive(newDrive);
+        await fetchDrives(); // Refresh drive list
+      } else if (driveAssignMode === 'current' && currentDrive) {
+        driveId = currentDrive.id;
+      } else if (driveAssignMode === 'select' && values.drive_id) {
+        driveId = values.drive_id;
       }
-    } else {
-      const { error } = await supabase
-        .from('play_instances')
-        .insert([instanceData]);
 
-      if (error) {
-        alert('Error tagging play: ' + error.message);
-        return;
+      const instanceData = {
+        video_id: selectedVideo.id,
+        team_id: game.team_id,
+        drive_id: driveId,
+        timestamp_start: tagStartTime,
+        timestamp_end: tagEndTime || undefined,
+        is_opponent_play: isTaggingOpponent,
+
+        play_code: isTaggingOpponent
+          ? (values.opponent_play_type || 'Unknown')
+          : (values.play_code || ''),
+
+        player_id: isTaggingOpponent ? undefined : (values.player_id || undefined),
+
+        formation: values.formation || undefined,
+        result_type: values.result_type || undefined,
+        resulted_in_first_down: values.resulted_in_first_down || false,
+        is_turnover: values.result_type === 'pass_interception' || values.result_type === 'fumble_lost',
+        turnover_type: values.result_type === 'pass_interception' ? 'interception' :
+                       values.result_type === 'fumble_lost' ? 'fumble' : undefined,
+
+        down: values.down ? parseInt(String(values.down)) : undefined,
+        distance: values.distance ? parseInt(String(values.distance)) : undefined,
+        yard_line: values.yard_line ? parseInt(String(values.yard_line)) : undefined,
+        hash_mark: values.hash_mark || undefined,
+        yards_gained: values.yards_gained ? parseInt(String(values.yards_gained)) : undefined,
+        notes: isTaggingOpponent && values.opponent_player_number
+          ? `Player: ${values.opponent_player_number}${values.notes ? ' | ' + values.notes : ''}`
+          : (values.notes || undefined),
+        tags: []
+      };
+
+      if (editingInstance) {
+        const { error } = await supabase
+          .from('play_instances')
+          .update(instanceData)
+          .eq('id', editingInstance.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('play_instances')
+          .insert([instanceData]);
+
+        if (error) throw error;
       }
+
+      setShowTagModal(false);
+      setEditingInstance(null);
+      reset();
+      fetchPlayInstances(selectedVideo.id);
+    } catch (error: any) {
+      alert('Error saving play: ' + error.message);
     }
-
-    setShowTagModal(false);
-    setEditingInstance(null);
-    reset();
-    fetchPlayInstances(selectedVideo.id);
   }
 
   function jumpToPlay(timestamp: number, endTimestamp?: number) {
@@ -529,42 +612,152 @@ export default function GameFilmPage() {
             </div>
           </div>
 
-          {/* Video Selector */}
-          {videos.length > 1 && (
-            <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
-              <label className="block text-sm font-semibold text-gray-900 mb-2">Select Video:</label>
-              <div className="flex space-x-2 overflow-x-auto pb-2">
-                {videos.map((video) => (
+          {/* Unified Video List */}
+          {videos.length > 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Videos ({videos.length})
+                </h2>
+                {selectedVideoIds.size > 0 && (
                   <button
-                    key={video.id}
-                    onClick={() => setSelectedVideo(video)}
-                    className={selectedVideo?.id === video.id
-                      ? 'px-4 py-2 bg-black text-white rounded whitespace-nowrap font-medium transition-colors'
-                      : 'px-4 py-2 bg-white text-gray-900 rounded hover:bg-gray-100 whitespace-nowrap font-medium transition-colors border border-gray-200'
-                    }
+                    onClick={handleCombineVideos}
+                    className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
                   >
-                    {video.name}
+                    Combine {selectedVideoIds.size} Videos
                   </button>
-                ))}
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {videos.map((video) => {
+                  const isSelected = selectedVideoIds.has(video.id);
+                  const isActive = selectedVideo?.id === video.id;
+
+                  return (
+                    <div
+                      key={video.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      {!video.is_virtual && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleVideoSelection(video.id)}
+                          className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black cursor-pointer"
+                        />
+                      )}
+
+                      {/* Video info and select button */}
+                      <button
+                        onClick={() => setSelectedVideo(video)}
+                        className="flex-1 flex items-center gap-3 text-left"
+                      >
+                        {/* Icon */}
+                        <div className="flex-shrink-0 text-2xl">
+                          {video.is_virtual ? '🎬' : '📹'}
+                        </div>
+
+                        {/* Name and metadata */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${
+                            isActive ? 'text-blue-900' : 'text-gray-900'
+                          }`}>
+                            {video.virtual_name || video.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {video.is_virtual
+                              ? `Combined from ${video.video_count} videos`
+                              : new Date(video.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+
+                        {/* Active indicator */}
+                        {isActive && (
+                          <div className="flex-shrink-0 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded">
+                            Playing
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-{/* Video Player */}
+            {/* Video Player */}
             <div className="lg:col-span-2 space-y-6">
-              {selectedVideo && videoUrl ? (
-                <>
+              {selectedVideo ? (
+                selectedVideo.is_virtual ? (
                   <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedVideo.name}</h2>
-                    
-                    <video
-                      ref={videoRef}
-                      src={videoUrl}
-                      controls
-                      className="w-full rounded-lg bg-black"
-                      style={{ maxHeight: '600px' }}
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                      {selectedVideo.virtual_name || selectedVideo.name}
+                    </h2>
+
+                    <VirtualVideoPlayer
+                      videoGroupId={selectedVideo.video_group_id || selectedVideo.id}
+                      onTimeUpdate={(virtualTime, totalDuration) => {
+                        setCurrentTime(virtualTime / 1000); // Convert ms to seconds
+                        setVideoDuration(totalDuration / 1000);
+                      }}
+                      onPlayStateChange={(playing) => {
+                        setIsPlaying(playing);
+                      }}
+                      className="w-full h-[600px]"
                     />
+
+                    {/* Play Tagging Controls */}
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium text-gray-700">
+                          Current Time: <span className="text-gray-900">{formatTime(currentTime)}</span>
+                          {videoDuration > 0 && <span className="text-gray-500"> / {formatTime(videoDuration)}</span>}
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          {!isSettingEndTime ? (
+                            <button
+                              onClick={handleMarkPlayStart}
+                              className="px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 font-semibold transition-colors"
+                            >
+                              ▶ Mark Start
+                            </button>
+                          ) : (
+                            <>
+                              <div className="px-4 py-2 bg-yellow-50 text-yellow-800 rounded font-semibold text-sm border border-yellow-200">
+                                Recording from {formatTime(tagStartTime)}
+                              </div>
+                              <button
+                                onClick={handleMarkPlayEnd}
+                                className="px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 font-semibold transition-colors"
+                              >
+                                ■ Mark End
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : videoUrl ? (
+                  <>
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedVideo.name}</h2>
+
+                      <video
+                        ref={videoRef}
+                        src={videoUrl}
+                        controls
+                        className="w-full rounded-lg bg-black"
+                        style={{ maxHeight: '600px' }}
+                      />
 
                     <div className="mt-4 space-y-4">
                       {/* Timeline */}
@@ -651,12 +844,31 @@ export default function GameFilmPage() {
                     </ol>
                   </div>
                 </>
+                ) : (
+                  <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                    <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-gray-600 text-lg mb-4">No video for this game yet</p>
+                    <div className="text-center">
+                      <label className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
+                        Upload Video
+                        <input
+                          type="file"
+                          accept="video/*"
+                          onChange={handleVideoUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )
               ) : (
                 <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                   <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
-                  <p className="text-gray-600 text-lg mb-4">No video for this game yet</p>
+                  <p className="text-gray-600 text-lg mb-4">No videos for this game yet</p>
                   <div className="text-center">
                     <label className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
                       Upload Video
@@ -819,35 +1031,181 @@ export default function GameFilmPage() {
               )}
             </p>
 
-            {/* Toggle: My Team vs Opponent */}
-            {!game.is_opponent_game && (
-              <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tagging:</label>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsTaggingOpponent(false)}
-                    className={isTaggingOpponent
-                      ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
-                      : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
-                    }
-                  >
-                    My Team
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsTaggingOpponent(true)}
-                    className={!isTaggingOpponent
-                      ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
-                      : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
-                    }
-                  >
-                    Opponent
-                  </button>
+            {/* Toggle: Offense vs Defense */}
+            <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {game.is_opponent_game ? 'Tagging Opponent:' : 'Tagging:'}
+              </label>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTaggingOpponent(false)}
+                  className={isTaggingOpponent
+                    ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
+                    : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                  }
+                >
+                  Offense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsTaggingOpponent(true)}
+                  className={!isTaggingOpponent
+                    ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
+                    : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                  }
+                >
+                  Defense
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                {game.is_opponent_game
+                  ? 'Offense = opponent offense, Defense = opponent defense'
+                  : 'Offense = your offense, Defense = opponent plays (what your defense faced)'
+                }
+              </p>
+            </div>
+
+            {/* Drive Context - Only for Offense */}
+            {!isTaggingOpponent && !game.is_opponent_game && (
+              <div className="mb-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <label className="block text-sm font-semibold text-gray-900 mb-3">Drive Context</label>
+
+                {/* Current Drive Info */}
+                {currentDrive && driveAssignMode === 'current' && (
+                  <div className="bg-white rounded px-3 py-2 mb-3 border border-blue-200">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">Drive {currentDrive.drive_number}</span> • Q{currentDrive.quarter}
+                      {currentDrive.plays_count > 0 && <span className="text-gray-500"> • {currentDrive.plays_count} plays</span>}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      Started at {currentDrive.start_yard_line} yard line
+                    </div>
+                  </div>
+                )}
+
+                {/* Drive Assignment Mode */}
+                <div className="space-y-2">
+                  {drives.length > 0 && (
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={driveAssignMode === 'current'}
+                        onChange={() => setDriveAssignMode('current')}
+                        className="w-4 h-4 text-gray-900"
+                      />
+                      <span className="text-sm font-medium text-gray-900">
+                        Current Drive {currentDrive && `(Drive ${currentDrive.drive_number})`}
+                      </span>
+                    </label>
+                  )}
+
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={driveAssignMode === 'new'}
+                      onChange={() => setDriveAssignMode('new')}
+                      className="w-4 h-4 text-gray-900"
+                    />
+                    <span className="text-sm font-medium text-gray-900">Start New Drive</span>
+                  </label>
+
+                  {drives.length > 1 && (
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={driveAssignMode === 'select'}
+                        onChange={() => setDriveAssignMode('select')}
+                        className="w-4 h-4 text-gray-900"
+                      />
+                      <span className="text-sm font-medium text-gray-900">Select Different Drive</span>
+                    </label>
+                  )}
                 </div>
+
+                {/* Situational Context - Down & Distance */}
+                <div className="mt-4 bg-white rounded p-3 border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-900 mb-2">Situation</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Down</label>
+                      <select
+                        {...register('down')}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                      >
+                        <option value="">-</option>
+                        {DOWNS.map(down => (
+                          <option key={down.value} value={down.value}>{down.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
+                      <input
+                        {...register('distance')}
+                        type="number"
+                        min="1"
+                        max="99"
+                        placeholder="10"
+                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">Yards needed for 1st down or TD</p>
+                </div>
+
+                {/* New Drive Form */}
+                {driveAssignMode === 'new' && (
+                  <div className="mt-3 space-y-2 bg-white rounded p-3 border border-gray-200">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Drive #</label>
+                        <input
+                          {...register('new_drive_number')}
+                          type="number"
+                          min="1"
+                          defaultValue={drives.length + 1}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Quarter</label>
+                        <select
+                          {...register('new_drive_quarter')}
+                          defaultValue="1"
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                        >
+                          <option value="1">1st</option>
+                          <option value="2">2nd</option>
+                          <option value="3">3rd</option>
+                          <option value="4">4th</option>
+                          <option value="5">OT</option>
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600">Starting yard line will be set from play's yard line below</p>
+                  </div>
+                )}
+
+                {/* Select Different Drive */}
+                {driveAssignMode === 'select' && (
+                  <div className="mt-3">
+                    <select
+                      {...register('drive_id')}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded text-gray-900"
+                    >
+                      <option value="">Select drive...</option>
+                      {drives.map(drive => (
+                        <option key={drive.id} value={drive.id}>
+                          Drive {drive.drive_number} - Q{drive.quarter} ({drive.plays_count} plays)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
-            
+
             <form onSubmit={handleSubmit(onSubmitTag)} className="space-y-4">
               {/* Play Selection - CONDITIONAL */}
               {isTaggingOpponent ? (
@@ -951,34 +1309,6 @@ export default function GameFilmPage() {
                 <p className="text-xs text-gray-500 mt-1">Auto-filled from playbook when available</p>
               </div>
 
-              {/* Down & Distance */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Down</label>
-                  <select {...register('down')} className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900">
-                    <option value="">-</option>
-                    {DOWNS.map(down => (
-                      <option key={down.value} value={down.value}>{down.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Distance to 1st Down/Goal
-                  </label>
-                  <input
-                    {...register('distance')}
-                    type="number"
-                    min="1"
-                    max="99"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                    placeholder="yards needed"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Yards needed for first down or TD</p>
-                </div>
-              </div>
-
               {/* Yard Line & Hash */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -986,10 +1316,12 @@ export default function GameFilmPage() {
                   <input
                     {...register('yard_line')}
                     type="number"
-                    min="1"
-                    max="99"
+                    min="0"
+                    max="100"
+                    placeholder="25"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                   />
+                  <p className="text-xs text-gray-500 mt-1">0 = own goal, 50 = midfield, 100 = opp goal</p>
                 </div>
 
                 <div>
@@ -1088,6 +1420,29 @@ export default function GameFilmPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Combine Videos Modal */}
+      {showCombineModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <CombineVideosModal
+            gameId={gameId}
+            selectedVideos={videos.filter(v => selectedVideoIds.has(v.id))}
+            onCombined={(virtualVideoId) => {
+              setShowCombineModal(false);
+              setSelectedVideoIds(new Set()); // Clear selection
+              fetchVideos(); // Refresh video list
+              // Auto-select the newly created virtual video
+              setTimeout(() => {
+                const virtualVideo = videos.find(v => v.id === virtualVideoId);
+                if (virtualVideo) {
+                  setSelectedVideo(virtualVideo);
+                }
+              }, 500);
+            }}
+            onClose={() => setShowCombineModal(false)}
+          />
         </div>
       )}
     </AuthGuard>

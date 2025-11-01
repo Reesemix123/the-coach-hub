@@ -145,7 +145,31 @@ export interface Game {
   opponent?: string;
   team_id?: string;
   user_id: string;
+  location?: string;
+  start_time?: string;
+  notes?: string;
+  team_score?: number | null;
+  opponent_score?: number | null;
+  game_result?: 'win' | 'loss' | 'tie' | null;
   created_at: string;
+}
+
+/**
+ * Database table: team_events
+ */
+export interface TeamEvent {
+  id: string;
+  team_id: string;
+  event_type: 'practice' | 'meeting' | 'other';
+  title: string;
+  description?: string;
+  date: string;
+  start_time?: string;
+  end_time?: string;
+  location?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -158,6 +182,12 @@ export interface Video {
   url?: string;
   game_id: string;
   created_at: string;
+  // Virtual video support (simplified approach)
+  is_virtual?: boolean;           // True if this is a combined video
+  source_video_ids?: string[];    // Array of video IDs that make up this virtual video
+  virtual_name?: string;          // Display name for virtual videos
+  video_count?: number;           // Number of source videos (1 for regular, N for virtual)
+  video_group_id?: string;        // Link to video_group for VirtualVideoPlayer compatibility
 }
 
 /**
@@ -413,3 +443,241 @@ export type NewPlayInstance = Omit<PlayInstance, 'id' | 'created_at' | 'updated_
  * Helper type for updating play instances
  */
 export type PlayInstanceUpdate = Partial<Omit<PlayInstance, 'id' | 'created_at'>>;
+
+// ============================================
+// GAME PLANS & WRISTBAND SYSTEM
+// ============================================
+
+/**
+ * Wristband format options for QB play cards
+ */
+export type WristbandFormat = '3x5' | '4x6' | '2col';
+
+/**
+ * Database table: game_plans
+ * Collection of plays for a specific game or game plan
+ */
+export interface GamePlan {
+  id: string;
+  team_id: string;
+  game_id?: string | null;
+  name: string;
+  description?: string;
+  wristband_format: WristbandFormat;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Database table: game_plan_plays
+ * Individual play within a game plan with assigned call number
+ */
+export interface GamePlanPlay {
+  id: string;
+  game_plan_id: string;
+  play_code: string;
+  call_number: number;
+  sort_order: number;
+  notes?: string;
+  created_at: string;
+}
+
+/**
+ * Extended game plan play with full play details
+ * Used in UI to display complete information
+ */
+export interface GamePlanPlayWithDetails extends GamePlanPlay {
+  play?: PlaybookPlay;
+}
+
+/**
+ * Helper type for creating new game plans
+ */
+export type NewGamePlan = Omit<GamePlan, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * Helper type for creating new game plan plays
+ */
+export type NewGamePlanPlay = Omit<GamePlanPlay, 'id' | 'created_at'>;
+
+// ============================================
+// VIDEO MANAGEMENT SYSTEM
+// ============================================
+
+/**
+ * Video group types
+ */
+export type VideoGroupType = 'sequence' | 'overlay' | 'multi_angle';
+
+/**
+ * Video layout presets for overlays
+ */
+export type VideoLayoutPreset = 'pip' | 'side_by_side' | 'stacked' | 'quad';
+
+/**
+ * Overlay positions for picture-in-picture
+ */
+export type OverlayPosition =
+  | 'full'
+  | 'top_left'
+  | 'top_right'
+  | 'bottom_left'
+  | 'bottom_right'
+  | 'center';
+
+/**
+ * Processing job types
+ */
+export type VideoJobType = 'merge' | 'overlay' | 'transcode' | 'thumbnail';
+
+/**
+ * Processing job status
+ */
+export type VideoJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/**
+ * Timeline marker types
+ */
+export type MarkerType = 'play' | 'quarter' | 'timeout' | 'custom';
+
+/**
+ * Database table: video_groups
+ * Groups related videos together for consolidation or overlay
+ */
+export interface VideoGroup {
+  id: string;
+  game_id: string;
+  name: string;
+  description?: string;
+  group_type: VideoGroupType;
+
+  // Overlay configuration
+  layout_preset?: VideoLayoutPreset;
+  primary_video_id?: string;
+
+  // Processing status
+  has_merged_video: boolean;
+  merged_video_id?: string;
+
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Database table: video_group_members
+ * Links videos to groups with sequencing and overlay metadata
+ */
+export interface VideoGroupMember {
+  id: string;
+  video_group_id: string;
+  video_id: string;
+
+  // Sequence configuration
+  sequence_order?: number;
+  start_offset_ms?: number;
+  end_offset_ms?: number;
+
+  // Overlay configuration
+  sync_point_ms?: number;
+  overlay_position?: OverlayPosition;
+  overlay_scale?: number;
+  overlay_z_index?: number;
+
+  // Audio
+  include_audio: boolean;
+  audio_volume: number;
+
+  created_at: string;
+}
+
+/**
+ * Extended video group member with video details
+ */
+export interface VideoGroupMemberWithVideo extends VideoGroupMember {
+  video?: Video;
+}
+
+/**
+ * Database table: video_processing_jobs
+ * Track background video processing tasks
+ */
+export interface VideoProcessingJob {
+  id: string;
+  video_group_id?: string;
+  job_type: VideoJobType;
+  status: VideoJobStatus;
+
+  // Progress
+  progress_percent: number;
+  current_step?: string;
+
+  // Result
+  output_video_id?: string;
+  error_message?: string;
+
+  // Performance
+  started_at?: string;
+  completed_at?: string;
+  processing_duration_seconds?: number;
+
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Database table: video_timeline_markers
+ * Map play instances to virtual timeline positions
+ */
+export interface VideoTimelineMarker {
+  id: string;
+  video_group_id: string;
+  play_instance_id?: string;
+
+  // Virtual timeline
+  virtual_timestamp_start_ms: number;
+  virtual_timestamp_end_ms?: number;
+
+  // Physical video
+  actual_video_id?: string;
+  actual_timestamp_start_ms?: number;
+  actual_timestamp_end_ms?: number;
+
+  // Metadata
+  label?: string;
+  marker_type: MarkerType;
+  notes?: string;
+
+  created_at: string;
+}
+
+/**
+ * Extended video group with members and videos
+ */
+export interface VideoGroupWithDetails extends VideoGroup {
+  members: VideoGroupMemberWithVideo[];
+  processing_job?: VideoProcessingJob;
+}
+
+/**
+ * Virtual timeline playback state
+ */
+export interface VirtualTimelineState {
+  currentVideoIndex: number;
+  currentVideoTime: number;
+  totalDuration: number;
+  virtualTime: number;
+  isPlaying: boolean;
+}
+
+/**
+ * Helper type for creating new video groups
+ */
+export type NewVideoGroup = Omit<VideoGroup, 'id' | 'created_at' | 'updated_at' | 'has_merged_video'>;
+
+/**
+ * Helper type for creating new video group members
+ */
+export type NewVideoGroupMember = Omit<VideoGroupMember, 'id' | 'created_at'>;

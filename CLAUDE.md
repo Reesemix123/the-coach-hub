@@ -1233,6 +1233,85 @@ const { data } = await supabase
 
 ---
 
+## UI/UX Guidelines
+
+### Design System
+
+**Apple-like Aesthetic:**
+- Clean, minimal design
+- Black, white, and gray color palette
+- High contrast for readability
+- Generous whitespace
+
+### Form Input Standards
+
+**CRITICAL: Text Input Visibility**
+Always ensure typed text in form inputs is dark and readable:
+
+```typescript
+// ✅ CORRECT - Dark text for visibility
+<input
+  type="text"
+  className="... text-gray-900"
+/>
+
+<select
+  className="... text-gray-900"
+>
+
+<textarea
+  className="... text-gray-900"
+/>
+
+// ❌ INCORRECT - Light gray text is unreadable
+<input
+  type="text"
+  className="..."  // Missing text-gray-900
+/>
+```
+
+**Standard Input Classes:**
+```typescript
+className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+```
+
+**Why This Matters:**
+- User-entered text defaults to a light gray that's nearly invisible
+- Always add `text-gray-900` to inputs, selects, and textareas
+- Placeholder text can remain gray (placeholder:text-gray-400)
+- This ensures a good user experience with readable form fields
+
+### Button Patterns
+
+**Primary Actions:**
+```typescript
+className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+```
+
+**Secondary Actions:**
+```typescript
+className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+```
+
+### Typography
+
+**Headings:**
+- Page titles: `text-4xl font-semibold text-gray-900 tracking-tight`
+- Section titles: `text-2xl font-semibold text-gray-900`
+- Subsections: `text-lg font-semibold text-gray-900`
+
+**Body Text:**
+- Primary: `text-gray-900`
+- Secondary: `text-gray-600`
+- Muted: `text-gray-500`
+- Disabled: `text-gray-400`
+
+**Labels:**
+- Form labels: `text-sm font-medium text-gray-700`
+- Table headers: `text-xs font-semibold text-gray-700 uppercase tracking-wider`
+
+---
+
 ## Contact & Support
 
 For questions about this codebase, refer to:

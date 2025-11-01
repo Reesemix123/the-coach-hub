@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
 import UserMenu from "@/components/UserMenu";
+import TeamSwitcher from "@/components/TeamSwitcher";
+import ConsoleLink from "@/components/ConsoleLink";
 
 export const metadata: Metadata = {
   title: "Titan First Read",
@@ -27,30 +29,26 @@ export default function RootLayout({
                 
                 {/* Navigation Links */}
                 <div className="hidden md:flex items-center gap-10">
-                  <Link 
-                    href="/" 
+                  <Link
+                    href="/"
                     className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
                   >
                     Home
                   </Link>
-                  <Link 
-                    href="/setup" 
+                  <TeamSwitcher />
+                  <Link
+                    href="/playbook"
                     className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
                   >
-                    Teams
+                    Playbook Builder
                   </Link>
-                  <Link 
-                    href="/playbook" 
-                    className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
-                  >
-                    Playbook
-                  </Link>
-                  <Link 
-                    href="/film" 
+                  <Link
+                    href="/film"
                     className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
                   >
                     Film
                   </Link>
+                  <ConsoleLink />
                 </div>
               </div>
               {/* User Menu */}
