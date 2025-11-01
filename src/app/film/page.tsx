@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { createClient } from '@/utils/supabase/client';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
+import ViewModeToggle, { VIEW_MODES } from '@/components/ViewModeToggle';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
@@ -460,30 +461,11 @@ export default function FilmPage() {
               {/* Display Mode Toggle (Grid/List) */}
               {games.length > 0 && (
                 <div className="flex justify-end mb-6">
-                  <div className="inline-flex rounded-lg border border-gray-300 p-1">
-                    <button
-                      onClick={() => setDisplayMode('grid')}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                        displayMode === 'grid'
-                          ? 'bg-gray-900 text-white'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span className="text-base">▦</span>
-                      Grid
-                    </button>
-                    <button
-                      onClick={() => setDisplayMode('list')}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                        displayMode === 'list'
-                          ? 'bg-gray-900 text-white'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <span className="text-base">☰</span>
-                      List
-                    </button>
-                  </div>
+                  <ViewModeToggle
+                    currentMode={displayMode}
+                    modes={VIEW_MODES.GRID_LIST}
+                    onChange={(mode) => setDisplayMode(mode as ViewModeType)}
+                  />
                 </div>
               )}
 

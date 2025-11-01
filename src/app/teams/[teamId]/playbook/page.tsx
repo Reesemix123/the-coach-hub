@@ -7,6 +7,7 @@ import TeamNavigation from '@/components/TeamNavigation';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
 import GamePlanSelectorModal from '@/components/GamePlanSelectorModal';
+import ViewModeToggle, { VIEW_MODES } from '@/components/ViewModeToggle';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkArchive, bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
@@ -468,30 +469,11 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
           </div>
 
           {/* View Mode Toggle - Top Right (Grid/List only) */}
-          <div className="inline-flex rounded-lg border border-gray-300 p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                viewMode === 'grid'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-base">▦</span>
-              Grid
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                viewMode === 'list'
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-base">☰</span>
-              List
-            </button>
-          </div>
+          <ViewModeToggle
+            currentMode={viewMode === 'gameplan' ? 'grid' : viewMode}
+            modes={VIEW_MODES.PLAYBOOK}
+            onChange={(mode) => setViewMode(mode as 'grid' | 'list')}
+          />
         </div>
 
         {/* Filters (Grid & List View) */}

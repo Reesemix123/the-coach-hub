@@ -7,6 +7,8 @@
 
 'use client';
 
+import ViewModeToggle, { VIEW_MODES } from '@/components/ViewModeToggle';
+
 interface Game {
   id: string;
   name?: string;
@@ -126,26 +128,11 @@ export default function AnalyticsFilterBar({
           <div className="flex-1" />
 
           {/* View Mode - Segmented Control */}
-          <div className="inline-flex rounded-lg border border-gray-300 p-1">
-            {[
-              { value: 'cards', label: 'Grid', icon: '▦' },
-              { value: 'list', label: 'List', icon: '☰' },
-              { value: 'print', label: 'Print', icon: '⎙' },
-            ].map((mode) => (
-              <button
-                key={mode.value}
-                onClick={() => onViewModeChange(mode.value as any)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
-                  viewMode === mode.value
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span className="text-base">{mode.icon}</span>
-                {mode.label}
-              </button>
-            ))}
-          </div>
+          <ViewModeToggle
+            currentMode={viewMode}
+            modes={VIEW_MODES.ANALYTICS}
+            onChange={(mode) => onViewModeChange(mode as any)}
+          />
 
           {/* Print Button - Only when game selected */}
           {selectedLevel === 'game' && selectedGameId && (
