@@ -538,19 +538,19 @@ export default function AdvancedAnalyticsPage({ params }: { params: Promise<{ te
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-gray-600">Plays</span>
-                        <span className="font-medium text-gray-900">{split.plays}</span>
+                        <span className="font-medium text-gray-900">{split.plays || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <Tooltip content={METRIC_DEFINITIONS.yardsPerPlay}>
                           <span className="text-gray-600">YPP</span>
                         </Tooltip>
-                        <span className="font-medium text-gray-900">{split.yardsPerPlay.toFixed(1)}</span>
+                        <span className="font-medium text-gray-900">{split.yardsPerPlay?.toFixed(1) || '0.0'}</span>
                       </div>
                       <div className="flex justify-between">
                         <Tooltip content={METRIC_DEFINITIONS.successRate}>
                           <span className="text-gray-600">Success Rate</span>
                         </Tooltip>
-                        <span className="font-medium text-gray-900">{split.successRate.toFixed(1)}%</span>
+                        <span className="font-medium text-gray-900">{split.successRate?.toFixed(1) || '0'}%</span>
                       </div>
                     </div>
                   </div>
