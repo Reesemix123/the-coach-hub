@@ -54,7 +54,8 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [games, setGames] = useState<GameWithVideos[]>([]);
   const [allGames, setAllGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'with-film' | 'no-film'>('all');
+  const [filmFilter, setFilmFilter] = useState<'all' | 'with-film' | 'no-film'>('all');
+  const [gameTypeFilter, setGameTypeFilter] = useState<'all' | 'own-team' | 'opponent'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   const router = useRouter();
@@ -137,12 +138,23 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   };
 
   const getFilteredGames = () => {
-    if (filter === 'with-film') {
-      return games.filter(g => g.videos.length > 0);
-    } else if (filter === 'no-film') {
-      return games.filter(g => g.videos.length === 0);
+    let filtered = games;
+
+    // Apply game type filter (own vs opponent)
+    if (gameTypeFilter === 'own-team') {
+      filtered = filtered.filter(g => !g.is_opponent_game);
+    } else if (gameTypeFilter === 'opponent') {
+      filtered = filtered.filter(g => g.is_opponent_game);
     }
-    return games;
+
+    // Apply film presence filter
+    if (filmFilter === 'with-film') {
+      filtered = filtered.filter(g => g.videos.length > 0);
+    } else if (filmFilter === 'no-film') {
+      filtered = filtered.filter(g => g.videos.length === 0);
+    }
+
+    return filtered;
   };
 
   const handleDeleteVideo = async (videoId: string) => {
@@ -278,37 +290,71 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         <div className="flex items-center justify-between mb-8">
           <div className="flex gap-4 border-b border-gray-200">
             <button
-              onClick={() => setFilter('all')}
+              onClick={() => setFilmFilter('all')}
               className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                filter === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filmFilter === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               All Games ({games.length})
-              {filter === 'all' && (
+              {filmFilter === 'all' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
               )}
             </button>
             <button
-              onClick={() => setFilter('with-film')}
+              onClick={() => setFilmFilter('with-film')}
               className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                filter === 'with-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filmFilter === 'with-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               With Film ({gamesWithFilm})
-              {filter === 'with-film' && (
+              {filmFilter === 'with-film' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
               )}
             </button>
             <button
-              onClick={() => setFilter('no-film')}
+              onClick={() => setFilmFilter('no-film')}
               className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
-                filter === 'no-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                filmFilter === 'no-film' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               No Film ({games.length - gamesWithFilm})
-              {filter === 'no-film' && (
+              {filmFilter === 'no-film' && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
               )}
+            </button>
+          </div>
+
+          {/* Game Type Filter - Own Team vs Opponent */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setGameTypeFilter('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                gameTypeFilter === 'all'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setGameTypeFilter('own-team')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                gameTypeFilter === 'own-team'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Own Team
+            </button>
+            <button
+              onClick={() => setGameTypeFilter('opponent')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                gameTypeFilter === 'opponent'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Opponent Scouting
             </button>
           </div>
 
@@ -341,8 +387,8 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         {filteredGames.length === 0 ? (
           <div className="text-center py-20 bg-gray-50 rounded-lg">
             <div className="text-gray-400 mb-4">
-              {filter === 'all' ? 'No games scheduled yet' :
-               filter === 'with-film' ? 'No games with film yet' :
+              {filmFilter === 'all' ? 'No games scheduled yet' :
+               filmFilter === 'with-film' ? 'No games with film yet' :
                'All games have film'}
             </div>
             <button
@@ -367,6 +413,11 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                         <h3 className="text-lg font-semibold text-gray-900">
                           vs {game.opponent}
                         </h3>
+                        {game.is_opponent_game && (
+                          <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700 border border-blue-200">
+                            Opponent Scouting{game.opponent_team_name && `: ${game.opponent_team_name}`}
+                          </span>
+                        )}
                         {game.game_result && (
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded ${
@@ -533,7 +584,14 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                         {video.name}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        vs {game.opponent}
+                        <div className="flex items-center gap-2">
+                          <span>vs {game.opponent}</span>
+                          {game.is_opponent_game && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 border border-blue-200">
+                              Scouting
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {game.date && new Date(game.date).toLocaleDateString('en-US', {

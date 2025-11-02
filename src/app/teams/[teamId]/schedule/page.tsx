@@ -36,6 +36,8 @@ type GameFormData = {
   start_time: string;
   location: string;
   notes: string;
+  is_opponent_game?: boolean;
+  opponent_team_name?: string;
 };
 
 export default function TeamSchedulePage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -1027,7 +1029,9 @@ function GameModal({
     date: game?.date || initialDate,
     start_time: game?.start_time || '',
     location: game?.location || '',
-    notes: game?.notes || ''
+    notes: game?.notes || '',
+    is_opponent_game: game?.is_opponent_game || false,
+    opponent_team_name: game?.opponent_team_name || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1122,6 +1126,50 @@ function GameModal({
               placeholder="Additional game notes..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
             />
+          </div>
+
+          {/* Opponent Scouting Option */}
+          <div className="border-t border-gray-200 pt-6">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="is_opponent_game"
+                checked={formData.is_opponent_game}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  is_opponent_game: e.target.checked,
+                  opponent_team_name: e.target.checked ? formData.opponent_team_name : ''
+                })}
+                className="mt-1 h-4 w-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
+              />
+              <div className="flex-1">
+                <label htmlFor="is_opponent_game" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  This is opponent scouting film
+                </label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use this for film of other teams you're scouting (not your own team's games)
+                </p>
+              </div>
+            </div>
+
+            {formData.is_opponent_game && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Opponent Team Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.opponent_team_name}
+                  onChange={(e) => setFormData({ ...formData, opponent_team_name: e.target.value })}
+                  placeholder="e.g., Lincoln Lions, Roosevelt Bears"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                  required={formData.is_opponent_game}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This helps organize scouting film by opponent
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end space-x-3 pt-4">

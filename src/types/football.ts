@@ -151,6 +151,8 @@ export interface Game {
   team_score?: number | null;
   opponent_score?: number | null;
   game_result?: 'win' | 'loss' | 'tie' | null;
+  is_opponent_game?: boolean;
+  opponent_team_name?: string;
   created_at: string;
 }
 
