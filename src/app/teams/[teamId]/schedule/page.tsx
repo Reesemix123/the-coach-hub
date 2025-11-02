@@ -208,11 +208,18 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
 
   const handleCreateEvent = async (formData: EventFormData) => {
     try {
+      // Clean up formData - convert empty strings to null for time fields
+      const cleanData = {
+        ...formData,
+        start_time: formData.start_time || null,
+        end_time: formData.end_time || null,
+      };
+
       const { error } = await supabase
         .from('team_events')
         .insert({
           team_id: teamId,
-          ...formData
+          ...cleanData
         });
 
       if (error) throw error;
@@ -227,9 +234,16 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
 
   const handleUpdateEvent = async (eventId: string, formData: EventFormData) => {
     try {
+      // Clean up formData - convert empty strings to null for time fields
+      const cleanData = {
+        ...formData,
+        start_time: formData.start_time || null,
+        end_time: formData.end_time || null,
+      };
+
       const { error } = await supabase
         .from('team_events')
-        .update(formData)
+        .update(cleanData)
         .eq('id', eventId);
 
       if (error) throw error;
