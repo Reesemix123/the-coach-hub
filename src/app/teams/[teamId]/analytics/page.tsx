@@ -113,7 +113,7 @@ export default function TeamAnalyticsPage() {
               <p className="text-gray-600 text-lg mb-4">No play data yet</p>
               <p className="text-gray-500 text-sm mb-6">Tag some plays in your game film to see analytics</p>
               <button
-                onClick={() => router.push('/film')}
+                onClick={() => router.push(`/teams/${teamId}/film`)}
                 className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
               >
                 Go to Film Room

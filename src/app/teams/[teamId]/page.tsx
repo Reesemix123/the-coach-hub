@@ -247,7 +247,7 @@ export default function TeamDashboardPage({ params }: { params: Promise<{ teamId
             </button>
 
             <button
-              onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+              onClick={() => router.push(`/teams/${teamId}/playbook`)}
               className="flex items-center gap-4 p-6 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all text-left"
             >
               <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">

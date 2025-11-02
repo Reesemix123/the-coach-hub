@@ -401,7 +401,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     </div>
 
                     <button
-                      onClick={() => router.push(`/film/${game.id}`)}
+                      onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
                       className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                     >
                       View/Add Film →
@@ -415,7 +415,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     <div className="text-center py-8 text-gray-500">
                       <p className="text-sm">No film uploaded for this game yet</p>
                       <button
-                        onClick={() => router.push(`/film/${game.id}`)}
+                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
                         className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
                         Upload Film →
@@ -457,7 +457,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
                           <div className="flex items-center gap-2 ml-4">
                             <button
-                              onClick={() => router.push(`/film/${game.id}`)}
+                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
                               className="px-3 py-1.5 text-xs text-gray-700 border border-gray-200 rounded hover:bg-white transition-colors"
                             >
                               View
@@ -551,7 +551,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                       </td>
                       <td className="px-6 py-4 text-right text-sm space-x-3">
                         <button
-                          onClick={() => router.push(`/film/${game.id}`)}
+                          onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
                           className="text-gray-700 hover:text-black font-medium"
                         >
                           View

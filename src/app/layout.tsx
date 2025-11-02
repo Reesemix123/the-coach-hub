@@ -22,32 +22,14 @@ export default function RootLayout({
           <div className="max-w-7xl mx-auto px-8">
             <div className="flex justify-between items-center h-20">
               {/* Logo/Brand */}
-              <div className="flex items-center gap-12">
-                <Link href="/" className="text-2xl font-semibold text-gray-900 hover:text-indigo-600 transition-colors tracking-tight">
+              <div className="flex items-center gap-8">
+                <Link href="/" className="text-2xl font-semibold text-gray-900 hover:text-gray-700 transition-colors tracking-tight">
                   Titan First Read
                 </Link>
-                
-                {/* Navigation Links */}
-                <div className="hidden md:flex items-center gap-10">
-                  <Link
-                    href="/"
-                    className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
-                  >
-                    Home
-                  </Link>
+
+                {/* Team Context */}
+                <div className="hidden md:flex items-center gap-6">
                   <TeamSwitcher />
-                  <Link
-                    href="/playbook"
-                    className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
-                  >
-                    Playbook Builder
-                  </Link>
-                  <Link
-                    href="/film"
-                    className="text-gray-800 hover:text-black font-medium text-lg transition-colors"
-                  >
-                    Film
-                  </Link>
                   <ConsoleLink />
                 </div>
               </div>

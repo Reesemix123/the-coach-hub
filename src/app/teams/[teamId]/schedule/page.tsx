@@ -456,7 +456,7 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
                                 setShowGameModal(true);
                               }}
                               onDelete={handleDeleteGame}
-                              onViewFilm={() => router.push(`/film/${item.id}`)}
+                              onViewFilm={() => router.push(`/teams/${teamId}/film/${item.id}`)}
                             />
                           ) : (
                             <EventDetailCard
