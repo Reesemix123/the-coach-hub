@@ -431,13 +431,13 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
                         <div className="mt-3 space-y-2">
                           <button
                             onClick={() => handleAddEventClick('game')}
-                            className="w-full px-4 py-2 text-sm text-left border border-gray-200 rounded hover:bg-gray-50"
+                            className="w-full px-4 py-2 text-sm text-gray-900 text-left border border-gray-200 rounded hover:bg-gray-50 font-medium"
                           >
                             Add Game
                           </button>
                           <button
                             onClick={() => handleAddEventClick('event')}
-                            className="w-full px-4 py-2 text-sm text-left border border-gray-200 rounded hover:bg-gray-50"
+                            className="w-full px-4 py-2 text-sm text-gray-900 text-left border border-gray-200 rounded hover:bg-gray-50 font-medium"
                           >
                             Add Practice/Event
                           </button>
@@ -459,13 +459,13 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
                           <div className="mt-2 space-y-2">
                             <button
                               onClick={() => handleAddEventClick('game')}
-                              className="w-full px-4 py-2 text-sm text-left border border-gray-200 rounded hover:bg-gray-50"
+                              className="w-full px-4 py-2 text-sm text-gray-900 text-left border border-gray-200 rounded hover:bg-gray-50 font-medium"
                             >
                               Add Game
                             </button>
                             <button
                               onClick={() => handleAddEventClick('event')}
-                              className="w-full px-4 py-2 text-sm text-left border border-gray-200 rounded hover:bg-gray-50"
+                              className="w-full px-4 py-2 text-sm text-gray-900 text-left border border-gray-200 rounded hover:bg-gray-50 font-medium"
                             >
                               Add Practice/Event
                             </button>
