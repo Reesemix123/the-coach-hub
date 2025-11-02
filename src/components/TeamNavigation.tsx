@@ -16,7 +16,7 @@ interface Team {
 interface TeamNavigationProps {
   team: Team;
   teamId: string;
-  currentPage: 'schedule' | 'playbook' | 'film' | 'analytics' | 'players' | 'settings';
+  currentPage: 'dashboard' | 'schedule' | 'playbook' | 'film' | 'analytics' | 'players' | 'settings';
   wins?: number;
   losses?: number;
   ties?: number;
@@ -38,10 +38,11 @@ export default function TeamNavigation({
     : '0';
 
   const navItems = [
-    { id: 'schedule', label: 'Schedule', path: `/teams/${teamId}` },
+    { id: 'dashboard', label: 'Dashboard', path: `/teams/${teamId}` },
+    { id: 'schedule', label: 'Schedule', path: `/teams/${teamId}/schedule` },
     { id: 'playbook', label: 'Playbook', path: `/teams/${teamId}/playbook` },
-    { id: 'players', label: 'Players & Depth Chart', path: `/teams/${teamId}/players` },
     { id: 'film', label: 'Film', path: `/teams/${teamId}/film` },
+    { id: 'players', label: 'Players', path: `/teams/${teamId}/players` },
     { id: 'analytics', label: 'Analytics', path: `/teams/${teamId}/analytics-advanced` },
     { id: 'settings', label: 'Settings', path: `/teams/${teamId}/settings` }
   ];
