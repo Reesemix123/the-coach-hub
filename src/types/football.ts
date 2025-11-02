@@ -683,3 +683,86 @@ export type NewVideoGroup = Omit<VideoGroup, 'id' | 'created_at' | 'updated_at' 
  * Helper type for creating new video group members
  */
 export type NewVideoGroupMember = Omit<VideoGroupMember, 'id' | 'created_at'>;
+
+// ============================================
+// PRACTICE PLANNING SYSTEM
+// ============================================
+
+/**
+ * Database table: practice_plans
+ * Main practice plan table
+ */
+export interface PracticePlan {
+  id: string;
+  team_id: string;
+  title: string;
+  date: string;
+  duration_minutes: number;
+  location?: string;
+  notes?: string;
+  is_template: boolean;
+  template_name?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Database table: practice_periods
+ * Sections within a practice
+ */
+export interface PracticePeriod {
+  id: string;
+  practice_plan_id: string;
+  period_order: number;
+  name: string;
+  duration_minutes: number;
+  period_type: 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
+  notes?: string;
+  created_at: string;
+}
+
+/**
+ * Database table: practice_drills
+ * Individual drills within periods
+ */
+export interface PracticeDrill {
+  id: string;
+  period_id: string;
+  drill_order: number;
+  drill_name: string;
+  position_group?: string;
+  description?: string;
+  play_codes?: string[];
+  equipment_needed?: string;
+  created_at: string;
+}
+
+/**
+ * Extended practice period with drills
+ */
+export interface PracticePeriodWithDrills extends PracticePeriod {
+  drills: PracticeDrill[];
+}
+
+/**
+ * Extended practice plan with periods and drills
+ */
+export interface PracticePlanWithDetails extends PracticePlan {
+  periods: PracticePeriodWithDrills[];
+}
+
+/**
+ * Helper type for creating new practice plans
+ */
+export type NewPracticePlan = Omit<PracticePlan, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * Helper type for creating new practice periods
+ */
+export type NewPracticePeriod = Omit<PracticePeriod, 'id' | 'created_at'>;
+
+/**
+ * Helper type for creating new practice drills
+ */
+export type NewPracticeDrill = Omit<PracticeDrill, 'id' | 'created_at'>;
