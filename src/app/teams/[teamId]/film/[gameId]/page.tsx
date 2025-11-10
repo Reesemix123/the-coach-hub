@@ -11,6 +11,15 @@ import { DriveService } from '@/lib/services/drive.service';
 import type { Drive } from '@/types/football';
 import VirtualVideoPlayer from '@/components/VirtualVideoPlayer';
 import CombineVideosModal from '@/components/CombineVideosModal';
+import { VideoClipPlayer } from '@/components/film/VideoClipPlayer';
+import { QBPerformanceSection } from '@/components/film/QBPerformanceSection';
+import { RBPerformanceSection } from '@/components/film/RBPerformanceSection';
+import { WRPerformanceSection } from '@/components/film/WRPerformanceSection';
+import { OLPerformanceSection } from '@/components/film/OLPerformanceSection';
+import { DLPerformanceSection } from '@/components/film/DLPerformanceSection';
+import { LBPerformanceSection } from '@/components/film/LBPerformanceSection';
+import { DBPerformanceSection } from '@/components/film/DBPerformanceSection';
+import { playerHasPosition, playerInPositionGroup, getPlayerDisplayName, getPositionDisplay } from '@/utils/playerHelpers';
 
 interface Game {
   id: string;
@@ -62,6 +71,45 @@ interface PlayInstance {
   formation?: string;
   resulted_in_first_down?: boolean;
   is_opponent_play?: boolean;
+
+  // Context fields
+  quarter?: number;
+  time_remaining?: number;
+  score_differential?: number;
+  drive_id?: string;
+
+  // Tier 1 & 2: Player attribution
+  ball_carrier_id?: string;
+  qb_id?: string;
+  target_id?: string;
+  play_type?: string;
+  direction?: string;
+
+  // Tier 3: Offensive Line
+  lt_id?: string;
+  lt_block_result?: string;
+  lg_id?: string;
+  lg_block_result?: string;
+  c_id?: string;
+  c_block_result?: string;
+  rg_id?: string;
+  rg_block_result?: string;
+  rt_id?: string;
+  rt_block_result?: string;
+
+  // Tier 3: Defensive tracking
+  tackler_ids?: string[];
+  missed_tackle_ids?: string[];
+  pressure_player_ids?: string[];
+  sack_player_id?: string;
+  coverage_player_id?: string;
+  coverage_result?: string;
+  is_tfl?: boolean;
+  is_sack?: boolean;
+  is_forced_fumble?: boolean;
+  is_pbu?: boolean;
+  is_interception?: boolean;
+  qb_decision_grade?: number;
 }
 
 interface PlayTagForm {
@@ -81,6 +129,42 @@ interface PlayTagForm {
   drive_id?: string;
   new_drive_number?: number;
   new_drive_quarter?: number;
+
+  // Context
+  quarter?: number;
+
+  // Tier 1 & 2: Player attribution
+  ball_carrier_id?: string;
+  qb_id?: string;
+  target_id?: string;
+  play_type?: string;
+  direction?: string;
+
+  // Tier 3: Offensive Line
+  lt_id?: string;
+  lt_block_result?: string;
+  lg_id?: string;
+  lg_block_result?: string;
+  c_id?: string;
+  c_block_result?: string;
+  rg_id?: string;
+  rg_block_result?: string;
+  rt_id?: string;
+  rt_block_result?: string;
+
+  // Tier 3: Defensive tracking
+  tackler_ids?: string;
+  missed_tackle_ids?: string;
+  pressure_player_ids?: string;
+  sack_player_id?: string;
+  coverage_player_id?: string;
+  coverage_result?: string;
+  is_tfl?: boolean;
+  is_sack?: boolean;
+  is_forced_fumble?: boolean;
+  is_pbu?: boolean;
+  is_interception?: boolean;
+  qb_decision_grade?: number;
 }
 
 const DOWNS = [
@@ -90,10 +174,45 @@ const DOWNS = [
   { value: '4', label: '4th' }
 ];
 
-const HASH_MARKS = COMMON_ATTRIBUTES.hash.map(h => ({ 
-  value: h.toLowerCase(), 
-  label: h 
+const HASH_MARKS = COMMON_ATTRIBUTES.hash.map(h => ({
+  value: h.toLowerCase(),
+  label: h
 }));
+
+const PLAY_TYPES = [
+  { value: 'run', label: 'Run' },
+  { value: 'pass', label: 'Pass' },
+  { value: 'screen', label: 'Screen' },
+  { value: 'rpo', label: 'RPO' },
+  { value: 'trick', label: 'Trick Play' },
+  { value: 'kick', label: 'Kick' },
+  { value: 'pat', label: 'PAT' },
+  { value: 'two_point', label: '2-Point Conversion' }
+];
+
+const DIRECTIONS = [
+  { value: 'left', label: 'Left' },
+  { value: 'middle', label: 'Middle' },
+  { value: 'right', label: 'Right' }
+];
+
+const BLOCK_RESULTS = [
+  { value: 'win', label: 'Win' },
+  { value: 'loss', label: 'Loss' },
+  { value: 'neutral', label: 'Neutral' }
+];
+
+const COVERAGE_RESULTS = [
+  { value: 'win', label: 'Win (Coverage held)' },
+  { value: 'loss', label: 'Loss (Completion/TD)' },
+  { value: 'neutral', label: 'Neutral' }
+];
+
+const QB_DECISION_GRADES = [
+  { value: 0, label: '0 - Bad Decision' },
+  { value: 1, label: '1 - OK Decision' },
+  { value: 2, label: '2 - Great Decision' }
+];
 
 export default function GameFilmPage() {
   const params = useParams();
@@ -131,6 +250,15 @@ export default function GameFilmPage() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [isSettingEndTime, setIsSettingEndTime] = useState(false);
   const [isTaggingOpponent, setIsTaggingOpponent] = useState(false);
+  const [analyticsTier, setAnalyticsTier] = useState<string>('hs_advanced');
+  const [selectedTab, setSelectedTab] = useState<'context' | 'players' | 'ol' | 'defense'>('context');
+  const [selectedTacklers, setSelectedTacklers] = useState<string[]>([]);
+  const [primaryTacklerId, setPrimaryTacklerId] = useState<string>('');
+
+  // Filter state
+  const [filterQuarter, setFilterQuarter] = useState<string>('all');
+  const [filterOffenseDefense, setFilterOffenseDefense] = useState<string>('all');
+  const [filterDrive, setFilterDrive] = useState<string>('all');
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PlayTagForm>();
 
@@ -147,6 +275,7 @@ export default function GameFilmPage() {
       fetchPlays();
       fetchPlayers();
       fetchFormations();
+      fetchAnalyticsTier();
     }
   }, [game]);
 
@@ -204,7 +333,31 @@ export default function GameFilmPage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setVideos(data);
+      // Generate signed URLs for videos that have file_path but no url
+      const videosWithUrls = await Promise.all(
+        data.map(async (video) => {
+          if (video.file_path && !video.url) {
+            console.log('Generating signed URL for:', video.file_path);
+            const { data: urlData, error: urlError } = await supabase.storage
+              .from('game_videos')
+              .createSignedUrl(video.file_path, 3600); // 1 hour expiry
+
+            if (urlError) {
+              console.error('Error generating signed URL:', urlError);
+            }
+
+            return {
+              ...video,
+              url: urlData?.signedUrl || video.url
+            };
+          }
+          return video;
+        })
+      );
+      console.log('Videos with URLs:', videosWithUrls);
+      setVideos(videosWithUrls);
+    } else if (error) {
+      console.error('Error fetching videos:', error);
     }
   }
 
@@ -255,6 +408,29 @@ export default function GameFilmPage() {
         }
       });
       setFormations(Array.from(formationSet).sort());
+    }
+  }
+
+  async function fetchAnalyticsTier() {
+    if (!game?.team_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('team_analytics_config')
+        .select('tier')
+        .eq('team_id', game.team_id)
+        .single();
+
+      if (data?.tier) {
+        setAnalyticsTier(data.tier);
+      } else {
+        // Default to hs_advanced for testing (migration 025 not run yet)
+        setAnalyticsTier('hs_advanced');
+      }
+    } catch (err) {
+      console.log('Analytics tier table not found, defaulting to hs_advanced');
+      // Fallback if table doesn't exist (migration 025 not run)
+      setAnalyticsTier('hs_advanced');
     }
   }
 
@@ -346,35 +522,60 @@ export default function GameFilmPage() {
     const file = e.target.files?.[0];
     if (!file || !game) return;
 
+    // Check file size and show warning for very large files
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > 2000) {
+      if (!confirm(`This file is ${fileSizeMB.toFixed(0)}MB. Large files may take a while to upload. Continue?`)) {
+        return;
+      }
+    }
+
     setUploadingVideo(true);
 
-    const fileName = `${game.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const { error: uploadError } = await supabase.storage
-      .from('game_videos')
-      .upload(fileName, file);
+    try {
+      const fileName = `${game.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
-    if (uploadError) {
-      alert('Error uploading video: ' + uploadError.message);
+      // Use resumable upload for files larger than 50MB
+      // This uses TUS protocol which supports chunked uploads
+      const uploadOptions = fileSizeMB > 50 ? {
+        cacheControl: '3600',
+        upsert: false,
+        duplex: 'half' as RequestDuplex
+      } : {};
+
+      const { error: uploadError } = await supabase.storage
+        .from('game_videos')
+        .upload(fileName, file, uploadOptions);
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        alert(`Error uploading video: ${uploadError.message}\n\nFor files larger than 50MB, you may need to:\n1. Check your Supabase project settings\n2. Or compress the video before uploading`);
+        setUploadingVideo(false);
+        return;
+      }
+
+      const { data: videoData } = await supabase
+        .from('videos')
+        .insert([{
+          name: file.name,
+          file_path: fileName,
+          game_id: game.id
+        }])
+        .select()
+        .single();
+
+      if (videoData) {
+        setVideos([videoData, ...videos]);
+        setSelectedVideo(videoData);
+        alert('Video uploaded successfully!');
+      }
+
       setUploadingVideo(false);
-      return;
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Error uploading video. Please try again or use a smaller file.');
+      setUploadingVideo(false);
     }
-
-    const { data: videoData } = await supabase
-      .from('videos')
-      .insert([{
-        name: file.name,
-        file_path: fileName,
-        game_id: game.id
-      }])
-      .select()
-      .single();
-
-    if (videoData) {
-      setVideos([videoData, ...videos]);
-      setSelectedVideo(videoData);
-    }
-
-    setUploadingVideo(false);
   }
 
   function handleMarkPlayStart() {
@@ -391,6 +592,8 @@ export default function GameFilmPage() {
     if (!videoRef.current) return;
     setTagEndTime(videoRef.current.currentTime);
     setIsSettingEndTime(false);
+    setSelectedTacklers([]);
+    setPrimaryTacklerId('');
     setShowTagModal(true);
     videoRef.current.pause();
   }
@@ -421,7 +624,52 @@ export default function GameFilmPage() {
     setValue('hash_mark', instance.hash_mark || '');
     setValue('yards_gained', instance.yards_gained);
     setValue('notes', instance.notes || '');
-    
+
+    // Context fields
+    setValue('quarter', instance.quarter);
+
+    // Tier 1 & 2: Player attribution
+    setValue('qb_id', instance.qb_id);
+    setValue('ball_carrier_id', instance.ball_carrier_id);
+    setValue('target_id', instance.target_id);
+    setValue('play_type', instance.play_type);
+    setValue('direction', instance.direction);
+
+    // Tier 3: Offensive Line
+    setValue('lt_id', instance.lt_id);
+    setValue('lt_block_result', instance.lt_block_result);
+    setValue('lg_id', instance.lg_id);
+    setValue('lg_block_result', instance.lg_block_result);
+    setValue('c_id', instance.c_id);
+    setValue('c_block_result', instance.c_block_result);
+    setValue('rg_id', instance.rg_id);
+    setValue('rg_block_result', instance.rg_block_result);
+    setValue('rt_id', instance.rt_id);
+    setValue('rt_block_result', instance.rt_block_result);
+
+    // Tier 3: Defensive tracking
+    // Populate tackler selection state (first ID is primary)
+    if (instance.tackler_ids && instance.tackler_ids.length > 0) {
+      setSelectedTacklers(instance.tackler_ids);
+      setPrimaryTacklerId(instance.tackler_ids[0]); // First tackler is primary
+    } else {
+      setSelectedTacklers([]);
+      setPrimaryTacklerId('');
+    }
+
+    setValue('tackler_ids', instance.tackler_ids?.join(', ') || '');
+    setValue('missed_tackle_ids', instance.missed_tackle_ids?.join(', ') || '');
+    setValue('pressure_player_ids', instance.pressure_player_ids?.join(', ') || '');
+    setValue('sack_player_id', instance.sack_player_id);
+    setValue('coverage_player_id', instance.coverage_player_id);
+    setValue('coverage_result', instance.coverage_result);
+    setValue('is_tfl', instance.is_tfl);
+    setValue('is_sack', instance.is_sack);
+    setValue('is_forced_fumble', instance.is_forced_fumble);
+    setValue('is_pbu', instance.is_pbu);
+    setValue('is_interception', instance.is_interception);
+    setValue('qb_decision_grade', instance.qb_decision_grade);
+
     setShowTagModal(true);
   }
 
@@ -434,12 +682,14 @@ export default function GameFilmPage() {
 
       if (driveAssignMode === 'new' && values.new_drive_number && values.new_drive_quarter && values.yard_line) {
         // Create new drive - use play's yard line as starting position
+        // Auto-detect possession type: defense if tagging opponent play, offense otherwise
         const newDrive = await driveService.createDrive({
           gameId: gameId,
           teamId: game.team_id,
           driveNumber: values.new_drive_number,
           quarter: values.new_drive_quarter,
-          startYardLine: values.yard_line
+          startYardLine: values.yard_line,
+          possessionType: isTaggingOpponent ? 'defense' : 'offense'
         });
         driveId = newDrive.id;
         setCurrentDrive(newDrive);
@@ -448,6 +698,15 @@ export default function GameFilmPage() {
         driveId = currentDrive.id;
       } else if (driveAssignMode === 'select' && values.drive_id) {
         driveId = values.drive_id;
+      }
+
+      // Prepare tackler_ids array with primary tackler first
+      let tacklerIdsArray: string[] | undefined;
+      if (isTaggingOpponent && selectedTacklers.length > 0) {
+        // Put primary tackler first, then others
+        tacklerIdsArray = primaryTacklerId
+          ? [primaryTacklerId, ...selectedTacklers.filter(id => id !== primaryTacklerId)]
+          : selectedTacklers;
       }
 
       const instanceData = {
@@ -479,7 +738,58 @@ export default function GameFilmPage() {
         notes: isTaggingOpponent && values.opponent_player_number
           ? `Player: ${values.opponent_player_number}${values.notes ? ' | ' + values.notes : ''}`
           : (values.notes || undefined),
-        tags: []
+        tags: [],
+
+        // Context fields
+        quarter: values.quarter ? parseInt(String(values.quarter)) : undefined,
+
+        // Tier 1 & 2: Player attribution (Offense only)
+        qb_id: !isTaggingOpponent ? (values.qb_id || undefined) : undefined,
+        ball_carrier_id: !isTaggingOpponent ? (values.ball_carrier_id || undefined) : undefined,
+        target_id: !isTaggingOpponent ? (values.target_id || undefined) : undefined,
+        play_type: !isTaggingOpponent ? (values.play_type || undefined) : undefined,
+        direction: !isTaggingOpponent ? (values.direction || undefined) : undefined,
+
+        // Tier 3: Offensive Line (Offense only)
+        lt_id: !isTaggingOpponent ? (values.lt_id || undefined) : undefined,
+        lt_block_result: !isTaggingOpponent ? (values.lt_block_result || undefined) : undefined,
+        lg_id: !isTaggingOpponent ? (values.lg_id || undefined) : undefined,
+        lg_block_result: !isTaggingOpponent ? (values.lg_block_result || undefined) : undefined,
+        c_id: !isTaggingOpponent ? (values.c_id || undefined) : undefined,
+        c_block_result: !isTaggingOpponent ? (values.c_block_result || undefined) : undefined,
+        rg_id: !isTaggingOpponent ? (values.rg_id || undefined) : undefined,
+        rg_block_result: !isTaggingOpponent ? (values.rg_block_result || undefined) : undefined,
+        rt_id: !isTaggingOpponent ? (values.rt_id || undefined) : undefined,
+        rt_block_result: !isTaggingOpponent ? (values.rt_block_result || undefined) : undefined,
+
+        // Tier 3: Defensive tracking (Defense only)
+        // Use selectedTacklers state instead of parsing text input
+        tackler_ids: tacklerIdsArray,
+        missed_tackle_ids: isTaggingOpponent && values.missed_tackle_ids
+          ? values.missed_tackle_ids.split(',').map(jersey => {
+              const trimmed = jersey.trim().replace('#', '');
+              const player = players.find(p => p.jersey_number === trimmed);
+              return player?.id;
+            }).filter(id => id)
+          : undefined,
+        pressure_player_ids: isTaggingOpponent && values.pressure_player_ids
+          ? values.pressure_player_ids.split(',').map(jersey => {
+              const trimmed = jersey.trim().replace('#', '');
+              const player = players.find(p => p.jersey_number === trimmed);
+              return player?.id;
+            }).filter(id => id)
+          : undefined,
+        sack_player_id: isTaggingOpponent ? (values.sack_player_id || undefined) : undefined,
+        coverage_player_id: isTaggingOpponent ? (values.coverage_player_id || undefined) : undefined,
+        coverage_result: isTaggingOpponent ? (values.coverage_result || undefined) : undefined,
+        is_tfl: isTaggingOpponent ? (values.is_tfl || false) : undefined,
+        is_sack: isTaggingOpponent ? (values.is_sack || false) : undefined,
+        is_forced_fumble: isTaggingOpponent ? (values.is_forced_fumble || false) : undefined,
+        is_pbu: isTaggingOpponent ? (values.is_pbu || false) : undefined,
+        is_interception: isTaggingOpponent ? (values.is_interception || false) : undefined,
+        qb_decision_grade: isTaggingOpponent && values.qb_decision_grade !== undefined
+          ? parseInt(String(values.qb_decision_grade))
+          : undefined
       };
 
       if (editingInstance) {
@@ -489,21 +799,68 @@ export default function GameFilmPage() {
           .eq('id', editingInstance.id);
 
         if (error) throw error;
+
+        // Recalculate drive stats if drive changed
+        if (driveId && editingInstance.drive_id !== driveId) {
+          // Recalc old drive if it existed
+          if (editingInstance.drive_id) {
+            await driveService.recalculateDriveStats(editingInstance.drive_id);
+          }
+          // Recalc new drive
+          await driveService.recalculateDriveStats(driveId);
+        } else if (driveId) {
+          // Same drive, just recalc it
+          await driveService.recalculateDriveStats(driveId);
+        }
       } else {
         const { error } = await supabase
           .from('play_instances')
           .insert([instanceData]);
 
         if (error) throw error;
+
+        // Recalculate drive stats after adding new play
+        if (driveId) {
+          await driveService.recalculateDriveStats(driveId);
+        }
       }
+
+      // Refresh drives to show updated play counts
+      await fetchDrives();
 
       setShowTagModal(false);
       setEditingInstance(null);
+      setSelectedTacklers([]);
+      setPrimaryTacklerId('');
       reset();
       fetchPlayInstances(selectedVideo.id);
     } catch (error: any) {
       alert('Error saving play: ' + error.message);
     }
+  }
+
+  // Tackler selection handlers
+  function toggleTackler(playerId: string) {
+    setSelectedTacklers(prev => {
+      if (prev.includes(playerId)) {
+        // Removing - clear primary if this was the primary
+        if (primaryTacklerId === playerId) {
+          setPrimaryTacklerId('');
+        }
+        return prev.filter(id => id !== playerId);
+      } else {
+        // Adding - if first tackler, make them primary
+        const newSelection = [...prev, playerId];
+        if (newSelection.length === 1) {
+          setPrimaryTacklerId(playerId);
+        }
+        return newSelection;
+      }
+    });
+  }
+
+  function setPrimaryTackler(playerId: string) {
+    setPrimaryTacklerId(playerId);
   }
 
   function jumpToPlay(timestamp: number, endTimestamp?: number) {
@@ -525,13 +882,32 @@ export default function GameFilmPage() {
   async function deletePlayInstance(instanceId: string) {
     if (!confirm('Delete this play tag? This cannot be undone.')) return;
 
-    const { error } = await supabase
-      .from('play_instances')
-      .delete()
-      .eq('id', instanceId);
+    try {
+      // Get the play instance to find its drive_id before deleting
+      const { data: playInstance } = await supabase
+        .from('play_instances')
+        .select('drive_id')
+        .eq('id', instanceId)
+        .single();
 
-    if (!error && selectedVideo) {
-      fetchPlayInstances(selectedVideo.id);
+      const { error } = await supabase
+        .from('play_instances')
+        .delete()
+        .eq('id', instanceId);
+
+      if (error) throw error;
+
+      // Recalculate drive stats if the play was part of a drive
+      if (playInstance?.drive_id) {
+        await driveService.recalculateDriveStats(playInstance.drive_id);
+        await fetchDrives(); // Refresh drives to show updated play counts
+      }
+
+      if (selectedVideo) {
+        fetchPlayInstances(selectedVideo.id);
+      }
+    } catch (error: any) {
+      alert('Error deleting play: ' + error.message);
     }
   }
 
@@ -887,23 +1263,154 @@ export default function GameFilmPage() {
 
             {/* Tagged Plays List */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
+              {/* Filters */}
+              <div className="mb-6 pb-4 border-b border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Quarter Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Quarter
+                    </label>
+                    <select
+                      value={filterQuarter}
+                      onChange={(e) => setFilterQuarter(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="all">All Quarters</option>
+                      <option value="1">1st Quarter</option>
+                      <option value="2">2nd Quarter</option>
+                      <option value="3">3rd Quarter</option>
+                      <option value="4">4th Quarter</option>
+                      <option value="OT">Overtime</option>
+                    </select>
+                  </div>
+
+                  {/* Offense/Defense Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Offense/Defense
+                    </label>
+                    <select
+                      value={filterOffenseDefense}
+                      onChange={(e) => setFilterOffenseDefense(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="all">All Plays</option>
+                      <option value="offense">Our Offense</option>
+                      <option value="defense">Our Defense (Opponent Plays)</option>
+                    </select>
+                  </div>
+
+                  {/* Drive Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Drive
+                    </label>
+                    <select
+                      value={filterDrive}
+                      onChange={(e) => setFilterDrive(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="all">All Drives</option>
+                      {drives.map((drive) => (
+                        <option key={drive.id} value={drive.id}>
+                          Drive #{drive.drive_number} - Q{drive.quarter} - {drive.possession_type === 'offense' ? '🟢 OFF' : '🔴 DEF'} ({drive.result})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Clear Filters Button */}
+                {(filterQuarter !== 'all' || filterOffenseDefense !== 'all' || filterDrive !== 'all') && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => {
+                        setFilterQuarter('all');
+                        setFilterOffenseDefense('all');
+                        setFilterDrive('all');
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Clear All Filters
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Tagged Plays ({playInstances.length})
+                Tagged Plays ({(() => {
+                  const filtered = playInstances.filter(instance => {
+                    // Quarter filter
+                    if (filterQuarter !== 'all' && String(instance.quarter) !== filterQuarter) {
+                      return false;
+                    }
+
+                    // Offense/Defense filter
+                    if (filterOffenseDefense === 'offense' && instance.is_opponent_play) {
+                      return false;
+                    }
+                    if (filterOffenseDefense === 'defense' && !instance.is_opponent_play) {
+                      return false;
+                    }
+
+                    // Drive filter
+                    if (filterDrive !== 'all' && instance.drive_id !== filterDrive) {
+                      return false;
+                    }
+
+                    return true;
+                  });
+                  return filtered.length;
+                })()})
               </h3>
               
-              {playInstances.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  <p className="text-gray-600 text-sm">
-                    No plays tagged yet.<br/>
-                    Use "Mark Start/End" to tag plays.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                  {playInstances.map((instance, index) => (
+              {(() => {
+                const filteredPlays = playInstances.filter(instance => {
+                  // Quarter filter
+                  if (filterQuarter !== 'all' && String(instance.quarter) !== filterQuarter) {
+                    return false;
+                  }
+
+                  // Offense/Defense filter
+                  if (filterOffenseDefense === 'offense' && instance.is_opponent_play) {
+                    return false;
+                  }
+                  if (filterOffenseDefense === 'defense' && !instance.is_opponent_play) {
+                    return false;
+                  }
+
+                  // Drive filter
+                  if (filterDrive !== 'all' && instance.drive_id !== filterDrive) {
+                    return false;
+                  }
+
+                  return true;
+                });
+
+                if (filteredPlays.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <p className="text-gray-600 text-sm">
+                        {playInstances.length === 0 ? (
+                          <>
+                            No plays tagged yet.<br/>
+                            Use "Mark Start/End" to tag plays.
+                          </>
+                        ) : (
+                          'No plays match the selected filters.'
+                        )}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                    {filteredPlays.map((instance, index) => (
                     <div 
                       key={instance.id} 
                       className="border rounded-lg p-3 hover:shadow-sm transition-shadow bg-gray-50"
@@ -1009,30 +1516,87 @@ export default function GameFilmPage() {
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tag Play Modal */}
-      {showTagModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {editingInstance ? 'Edit Play Tag' : 'Tag Play'}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {formatTime(tagStartTime)} 
-              {tagEndTime && ` - ${formatTime(tagEndTime)}`}
-              {tagEndTime && (
-                <span className="text-gray-900 ml-1">
-                  ({Math.round(tagEndTime - tagStartTime)}s)
-                </span>
-              )}
-            </p>
+      {/* Tag Play Modal - Split Screen */}
+      {showTagModal && selectedVideo && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => {
+            setShowTagModal(false);
+            setEditingInstance(null);
+            setIsSettingEndTime(false);
+            setIsTaggingOpponent(false);
+            setSelectedTacklers([]);
+            setPrimaryTacklerId('');
+            reset();
+          }}
+        >
+          <div
+            className="bg-white rounded-lg w-[95vw] h-[90vh] max-w-[1800px] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {editingInstance ? 'Edit Play Tag' : 'Tag Play'}
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {formatTime(tagStartTime)}
+                  {tagEndTime && ` - ${formatTime(tagEndTime)}`}
+                  {tagEndTime && (
+                    <span className="text-gray-900 ml-1">
+                      ({Math.round(tagEndTime - tagStartTime)}s)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowTagModal(false);
+                  setEditingInstance(null);
+                  setIsSettingEndTime(false);
+                  setIsTaggingOpponent(false);
+                  setSelectedTacklers([]);
+                  setPrimaryTacklerId('');
+                  reset();
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-            {/* Toggle: Offense vs Defense */}
+            {/* Split Content: Video + Form */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left: Video Player */}
+              {selectedVideo.url ? (
+                <VideoClipPlayer
+                  videoUrl={selectedVideo.url}
+                  startTime={tagStartTime}
+                  endTime={tagEndTime || tagStartTime + 10}
+                />
+              ) : (
+                <div className="w-full lg:w-[45%] bg-gray-800 flex items-center justify-center p-6">
+                  <div className="text-center text-gray-400">
+                    <p className="text-sm">No video URL available</p>
+                    <p className="text-xs mt-2">Please upload video or check storage</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Right: Form */}
+              <div className="w-full lg:w-[55%] flex flex-col bg-white overflow-y-auto px-8 py-6">
+                <form onSubmit={handleSubmit(onSubmitTag)} className="space-y-4">
+                  {/* Toggle: Offense vs Defense */}
             <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {game.is_opponent_game ? 'Tagging Opponent:' : 'Tagging:'}
@@ -1067,14 +1631,16 @@ export default function GameFilmPage() {
               </p>
             </div>
 
-            {/* Drive Context - Only for Offense */}
-            {!isTaggingOpponent && !game.is_opponent_game && (
-              <div className="mb-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <label className="block text-sm font-semibold text-gray-900 mb-3">Drive Context</label>
+            {/* Drive Context - For Both Offense and Defense */}
+            {!game.is_opponent_game && (
+              <div className={`mb-4 rounded-lg p-4 border ${isTaggingOpponent ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                  Drive Context {isTaggingOpponent ? '(Defensive Drive)' : '(Offensive Drive)'}
+                </label>
 
                 {/* Current Drive Info */}
                 {currentDrive && driveAssignMode === 'current' && (
-                  <div className="bg-white rounded px-3 py-2 mb-3 border border-blue-200">
+                  <div className={`bg-white rounded px-3 py-2 mb-3 border ${isTaggingOpponent ? 'border-red-200' : 'border-blue-200'}`}>
                     <div className="text-sm text-gray-700">
                       <span className="font-semibold text-gray-900">Drive {currentDrive.drive_number}</span> • Q{currentDrive.quarter}
                       {currentDrive.plays_count > 0 && <span className="text-gray-500"> • {currentDrive.plays_count} plays</span>}
@@ -1124,37 +1690,6 @@ export default function GameFilmPage() {
                   )}
                 </div>
 
-                {/* Situational Context - Down & Distance */}
-                <div className="mt-4 bg-white rounded p-3 border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-900 mb-2">Situation</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Down</label>
-                      <select
-                        {...register('down')}
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
-                      >
-                        <option value="">-</option>
-                        {DOWNS.map(down => (
-                          <option key={down.value} value={down.value}>{down.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
-                      <input
-                        {...register('distance')}
-                        type="number"
-                        min="1"
-                        max="99"
-                        placeholder="10"
-                        className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1">Yards needed for 1st down or TD</p>
-                </div>
-
                 {/* New Drive Form */}
                 {driveAssignMode === 'new' && (
                   <div className="mt-3 space-y-2 bg-white rounded p-3 border border-gray-200">
@@ -1196,18 +1731,106 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded text-gray-900"
                     >
                       <option value="">Select drive...</option>
-                      {drives.map(drive => (
-                        <option key={drive.id} value={drive.id}>
-                          Drive {drive.drive_number} - Q{drive.quarter} ({drive.plays_count} plays)
-                        </option>
-                      ))}
+                      {drives
+                        .filter(drive => drive.possession_type === (isTaggingOpponent ? 'defense' : 'offense'))
+                        .map(drive => (
+                          <option key={drive.id} value={drive.id}>
+                            Drive #{drive.drive_number} - Q{drive.quarter} - {drive.possession_type.toUpperCase()} ({drive.plays_count} plays)
+                          </option>
+                        ))}
                     </select>
                   </div>
                 )}
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmitTag)} className="space-y-4">
+            {/* Situational Context - Down & Distance - VISIBLE FOR ALL */}
+            <div className="mb-4 bg-white rounded p-3 border border-gray-200">
+              <label className="block text-xs font-semibold text-gray-900 mb-2">Situation</label>
+
+              {/* Down & Distance */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Down</label>
+                  <select
+                    {...register('down', {
+                      onChange: () => {
+                        // Recalculate first down when down changes
+                        const yards = parseInt(String(watch('yards_gained') || '0'));
+                        const distance = parseInt(String(watch('distance') || '0'));
+                        const down = parseInt(String(watch('down') || '0'));
+
+                        if (!isNaN(yards) && !isNaN(distance) && down > 1) {
+                          setValue('resulted_in_first_down', yards >= distance);
+                        } else if (down === 1) {
+                          setValue('resulted_in_first_down', false);
+                        }
+                      }
+                    })}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                  >
+                    <option value="">-</option>
+                    {DOWNS.map(down => (
+                      <option key={down.value} value={down.value}>{down.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
+                  <input
+                    {...register('distance', {
+                      onChange: () => {
+                        // Recalculate first down when distance changes
+                        const yards = parseInt(String(watch('yards_gained') || '0'));
+                        const distance = parseInt(String(watch('distance') || '0'));
+                        const down = parseInt(String(watch('down') || '0'));
+
+                        if (!isNaN(yards) && !isNaN(distance) && down > 1) {
+                          setValue('resulted_in_first_down', yards >= distance);
+                        } else if (down === 1) {
+                          setValue('resulted_in_first_down', false);
+                        }
+                      }
+                    })}
+                    type="number"
+                    min="1"
+                    max="99"
+                    placeholder="10"
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-600 mb-3">Yards needed for 1st down or TD</p>
+
+              {/* Yard Line & Hash Mark */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Yard Line</label>
+                  <input
+                    {...register('yard_line')}
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="25"
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">0 = own goal, 50 = midfield, 100 = opp goal</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Hash Mark</label>
+                  <select
+                    {...register('hash_mark')}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                  >
+                    <option value="">-</option>
+                    {HASH_MARKS.map(hash => (
+                      <option key={hash.value} value={hash.value}>{hash.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
               {/* Play Selection - CONDITIONAL */}
               {isTaggingOpponent ? (
                 <div>
@@ -1246,8 +1869,72 @@ export default function GameFilmPage() {
                     {...register('play_code', { required: !isTaggingOpponent && 'Please select a play' })}
                     onChange={(e) => {
                       const selectedPlay = plays.find(p => p.play_code === e.target.value);
-                      if (selectedPlay?.attributes?.formation) {
-                        setValue('formation', selectedPlay.attributes.formation);
+                      if (selectedPlay?.attributes) {
+                        const attrs = selectedPlay.attributes;
+
+                        // Auto-fill formation
+                        if (attrs.formation) {
+                          setValue('formation', attrs.formation);
+                        }
+
+                        // Auto-fill play type (Run/Pass/Screen/etc)
+                        if (attrs.playType) {
+                          // Map playType to form value format (case-insensitive)
+                          const playType = attrs.playType.toLowerCase();
+                          if (playType.includes('run')) {
+                            setValue('play_type', 'run');
+                          } else if (playType.includes('pass')) {
+                            setValue('play_type', 'pass');
+                          } else if (playType.includes('screen')) {
+                            setValue('play_type', 'screen');
+                          } else if (playType.includes('rpo')) {
+                            setValue('play_type', 'rpo');
+                          } else if (playType.includes('trick')) {
+                            setValue('play_type', 'trick');
+                          }
+                        }
+
+                        // Auto-fill direction if available
+                        // Direction can come from targetHole or explicit direction attribute
+                        if (attrs.targetHole) {
+                          // Convert targetHole to direction
+                          const hole = attrs.targetHole.toLowerCase();
+                          if (hole.includes('left') || hole === '0' || hole === '2' || hole === '4') {
+                            setValue('direction', 'left');
+                          } else if (hole.includes('right') || hole === '1' || hole === '3' || hole === '5') {
+                            setValue('direction', 'right');
+                          } else if (hole === '6' || hole === '7' || hole === '8' || hole === '9' || hole.includes('middle')) {
+                            setValue('direction', 'middle');
+                          }
+                        }
+
+                        // Auto-fill QB for pass plays
+                        // Check if this is a non-QB passer (trick play like halfback pass)
+                        if (attrs.playType?.toLowerCase().includes('pass')) {
+                          // If ballCarrier is specified and it's not QB, this is a trick play pass
+                          // The ballCarrier field in playbook indicates who has/throws the ball
+                          if (attrs.ballCarrier && !attrs.ballCarrier.toUpperCase().includes('QB')) {
+                            // Try to find a player at the ballCarrier position
+                            const passerPosition = attrs.ballCarrier.toUpperCase();
+                            const potentialPasser = players.find(p =>
+                              playerHasPosition(p, passerPosition) ||
+                              playerHasPosition(p, ['RB', 'FB']) && passerPosition.includes('RB') ||
+                              playerHasPosition(p, ['X', 'Y', 'Z']) && passerPosition.includes('WR')
+                            );
+                            if (potentialPasser) {
+                              setValue('qb_id', potentialPasser.id);
+                            }
+                          } else {
+                            // Normal pass play - try to auto-select QB
+                            const qb = players.find(p => playerHasPosition(p, 'QB'));
+                            if (qb) {
+                              setValue('qb_id', qb.id);
+                            }
+                          }
+                        } else {
+                          // For run plays, clear QB (it's a run, not a pass)
+                          setValue('qb_id', '');
+                        }
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
@@ -1263,8 +1950,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Player Selection - CONDITIONAL */}
-              {isTaggingOpponent ? (
+              {/* Opponent Player Number - Only for Defense */}
+              {isTaggingOpponent && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Opponent Player Number
@@ -1276,25 +1963,6 @@ export default function GameFilmPage() {
                     placeholder="e.g., #24"
                   />
                   <p className="text-xs text-gray-500 mt-1">Optional - jersey number of ball carrier</p>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Player <span className="text-red-600">*</span>
-                  </label>
-                  <select
-                    {...register('player_id', { required: !isTaggingOpponent && 'Please select a player' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select player...</option>
-                    {players.map(player => (
-                      <option key={player.id} value={player.id}>
-                        #{player.jersey_number || '?'} {player.first_name} {player.last_name} ({player.position || 'N/A'})
-                      </option>
-                    ))}
-                  </select>
-                  {errors.player_id && <p className="text-red-600 text-sm mt-1">{errors.player_id.message}</p>}
-                  <p className="text-xs text-gray-500 mt-1">QB for passes, ball carrier for runs</p>
                 </div>
               )}
 
@@ -1310,31 +1978,305 @@ export default function GameFilmPage() {
                 <p className="text-xs text-gray-500 mt-1">Auto-filled from playbook when available</p>
               </div>
 
-              {/* Yard Line & Hash */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Yard Line</label>
-                  <input
-                    {...register('yard_line')}
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="25"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">0 = own goal, 50 = midfield, 100 = opp goal</p>
-                </div>
+              {/* Player Performance Section (All Tiers) - Only for Offense */}
+              {!isTaggingOpponent && (
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Player Performance</h4>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hash Mark</label>
-                  <select {...register('hash_mark')} className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900">
-                    <option value="">-</option>
-                    {HASH_MARKS.map(hash => (
-                      <option key={hash.value} value={hash.value}>{hash.label}</option>
-                    ))}
-                  </select>
+                  {/* Play Type & Direction (Tier 2+) */}
+                  {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Play Type</label>
+                        <select
+                          {...register('play_type')}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          {PLAY_TYPES.map(type => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
+                        <select
+                          {...register('direction')}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          {DIRECTIONS.map(dir => (
+                            <option key={dir.value} value={dir.value}>{dir.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Player Attribution */}
+                  <div className="space-y-2">
+                    {/* QB (Tier 2+) */}
+                    {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">QB</label>
+                        <select
+                          {...register('qb_id')}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          {players.filter(p => playerHasPosition(p, 'QB')).map(player => (
+                            <option key={player.id} value={player.id}>
+                              #{player.jersey_number} {player.first_name} {player.last_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Ball Carrier (All Tiers) */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Ball Carrier <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        {...register('ball_carrier_id')}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                      >
+                        <option value="">-</option>
+                        {players.map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {player.first_name} {player.last_name} ({getPositionDisplay(player)})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Who had the ball (RB on runs, WR on catches)</p>
+                    </div>
+
+                    {/* Target (Tier 2+) */}
+                    {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Target (Pass Plays)</label>
+                        <select
+                          {...register('target_id')}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          {players.filter(p => playerHasPosition(p, ['WR', 'TE', 'RB'])).map(player => (
+                            <option key={player.id} value={player.id}>
+                              #{player.jersey_number} {player.first_name} {player.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Intended receiver (even if incomplete)</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Advanced Offensive Position Performance (Tier 3) - Only for Offense */}
+              {!isTaggingOpponent && analyticsTier === 'hs_advanced' && (
+                <div className="space-y-3">
+                  <QBPerformanceSection register={register} />
+                  <RBPerformanceSection register={register} />
+                  <WRPerformanceSection register={register} />
+                  <OLPerformanceSection register={register} players={players} />
+                </div>
+              )}
+
+              {/* Basic Defensive Tracking (All Tiers) - Only for Defense */}
+              {isTaggingOpponent && (analyticsTier === 'little_league' || analyticsTier === 'hs_basic') && (
+                <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Defensive Players</h4>
+                  <p className="text-xs text-gray-600 mb-3">Track which of your players made tackles on this opponent play</p>
+
+                  <div className="space-y-3">
+                    {/* Tacklers - Multi-Select with Primary Designation */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Tacklers {selectedTacklers.length > 0 && <span className="text-gray-500">({selectedTacklers.length} selected)</span>}
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">Select all players involved in the tackle. Designate one as primary.</p>
+
+                      <div className="border border-gray-300 rounded-md max-h-48 overflow-y-auto">
+                        {players.filter(p => playerInPositionGroup(p, 'defense')).length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-gray-500">No defensive players found</div>
+                        ) : (
+                          players.filter(p => playerInPositionGroup(p, 'defense')).map(player => {
+                            const isSelected = selectedTacklers.includes(player.id);
+                            const isPrimary = primaryTacklerId === player.id;
+
+                            return (
+                              <div
+                                key={player.id}
+                                className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
+                                  isSelected ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleTackler(player.id)}
+                                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
+                                <label className="flex-1 text-sm text-gray-900 cursor-pointer" onClick={() => toggleTackler(player.id)}>
+                                  #{player.jersey_number} {player.first_name} {player.last_name}
+                                </label>
+                                {isSelected && (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      name="primary-tackler"
+                                      checked={isPrimary}
+                                      onChange={() => setPrimaryTackler(player.id)}
+                                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                    />
+                                    <span className="text-xs text-gray-600">Primary</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      {selectedTacklers.length > 0 && !primaryTacklerId && (
+                        <p className="text-xs text-amber-600 mt-1">⚠ Select which tackler is primary</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Advanced Defensive Performance (Tier 3) - Only for Defense */}
+              {isTaggingOpponent && analyticsTier === 'hs_advanced' && (
+                <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Defensive Stats (Tier 3)</h4>
+
+                  <div className="space-y-3">
+                    {/* Tacklers - Multi-Select with Primary Designation */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Tacklers {selectedTacklers.length > 0 && <span className="text-gray-500">({selectedTacklers.length} selected)</span>}
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">Select all players involved in the tackle. Designate one as primary.</p>
+
+                      <div className="border border-gray-300 rounded-md max-h-48 overflow-y-auto">
+                        {players.filter(p => playerInPositionGroup(p, 'defense')).length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-gray-500">No defensive players found</div>
+                        ) : (
+                          players.filter(p => playerInPositionGroup(p, 'defense')).map(player => {
+                            const isSelected = selectedTacklers.includes(player.id);
+                            const isPrimary = primaryTacklerId === player.id;
+
+                            return (
+                              <div
+                                key={player.id}
+                                className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 ${
+                                  isSelected ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleTackler(player.id)}
+                                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
+                                <label className="flex-1 text-sm text-gray-900 cursor-pointer" onClick={() => toggleTackler(player.id)}>
+                                  #{player.jersey_number} {player.first_name} {player.last_name}
+                                </label>
+                                {isSelected && (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      name="primary-tackler-advanced"
+                                      checked={isPrimary}
+                                      onChange={() => setPrimaryTackler(player.id)}
+                                      className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                    />
+                                    <span className="text-xs text-gray-600">Primary</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                      {selectedTacklers.length > 0 && !primaryTacklerId && (
+                        <p className="text-xs text-amber-600 mt-1">⚠ Select which tackler is primary</p>
+                      )}
+                    </div>
+
+                    {/* Position-Specific Defensive Performance (Tier 3) */}
+                    <div className="space-y-3 pt-4">
+                      <DLPerformanceSection register={register} players={players} />
+                      <LBPerformanceSection register={register} players={players} />
+                      <DBPerformanceSection register={register} players={players} />
+                    </div>
+
+                    {/* Defensive Events - Keep these as quick checkboxes */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">Big Plays</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            {...register('is_tfl')}
+                            type="checkbox"
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                          <span className="text-xs font-medium text-gray-700">Tackle for Loss</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            {...register('is_sack')}
+                            type="checkbox"
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                          <span className="text-xs font-medium text-gray-700">Sack</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            {...register('is_forced_fumble')}
+                            type="checkbox"
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                          <span className="text-xs font-medium text-gray-700">Forced Fumble</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            {...register('is_pbu')}
+                            type="checkbox"
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                          <span className="text-xs font-medium text-gray-700">Pass Breakup</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            {...register('is_interception')}
+                            type="checkbox"
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
+                          />
+                          <span className="text-xs font-medium text-gray-700">Interception</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* QB Decision Grade (for opponent QB evaluation) */}
+                    <div className="pt-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Opponent QB Decision Grade</label>
+                      <select
+                        {...register('qb_decision_grade')}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                      >
+                        <option value="">-</option>
+                        {QB_DECISION_GRADES.map(grade => (
+                          <option key={grade.value} value={grade.value}>{grade.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">Grade the opponent QB's decision-making</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Result Type */}
               <div>
@@ -1361,8 +2303,16 @@ export default function GameFilmPage() {
                     onChange: (e) => {
                       const yards = parseInt(e.target.value);
                       const distance = parseInt(String(watch('distance') || '0'));
-                      if (!isNaN(yards) && !isNaN(distance)) {
+                      const down = parseInt(String(watch('down') || '0'));
+
+                      // Only auto-check first down if:
+                      // 1. It's 2nd, 3rd, or 4th down (not 1st down - you can't result in first down if already on 1st)
+                      // 2. Yards gained >= distance needed
+                      if (!isNaN(yards) && !isNaN(distance) && down > 1) {
                         setValue('resulted_in_first_down', yards >= distance);
+                      } else if (down === 1) {
+                        // If it's 1st down, this play can't "result in" a first down
+                        setValue('resulted_in_first_down', false);
                       }
                     }
                   })}
@@ -1370,7 +2320,7 @@ export default function GameFilmPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                   placeholder="Negative for loss, positive for gain"
                 />
-                <p className="text-xs text-gray-500 mt-1">First down checkbox auto-fills if yards ≥ distance</p>
+                <p className="text-xs text-gray-500 mt-1">Auto-checks if down is 2nd-4th and yards ≥ distance</p>
               </div>
 
               {/* First Down Checkbox */}
@@ -1406,6 +2356,8 @@ export default function GameFilmPage() {
                     setEditingInstance(null);
                     setIsSettingEndTime(false);
                     setIsTaggingOpponent(false);
+                    setSelectedTacklers([]);
+                    setPrimaryTacklerId('');
                     reset();
                   }}
                   className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-md hover:bg-gray-50 font-semibold text-gray-700"
@@ -1418,16 +2370,22 @@ export default function GameFilmPage() {
                 >
                   {editingInstance ? 'Update Play' : 'Tag Play'}
                 </button>
+                  </div>
+                </form>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Combine Videos Modal */}
       {showCombineModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <CombineVideosModal
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCombineModal(false)}
+        >
+          <div onClick={(e) => e.stopPropagation()}>
+            <CombineVideosModal
             gameId={gameId}
             selectedVideos={videos.filter(v => selectedVideoIds.has(v.id))}
             onCombined={(virtualVideoId) => {
@@ -1444,6 +2402,7 @@ export default function GameFilmPage() {
             }}
             onClose={() => setShowCombineModal(false)}
           />
+          </div>
         </div>
       )}
     </AuthGuard>

@@ -4,6 +4,7 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import TeamNavigation from '@/components/TeamNavigation';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
@@ -56,7 +57,12 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [loading, setLoading] = useState(true);
   const [filmFilter, setFilmFilter] = useState<'all' | 'with-film' | 'no-film'>('all');
   const [gameTypeFilter, setGameTypeFilter] = useState<'all' | 'own-team' | 'opponent'>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'opponent' | 'date' | 'uploaded'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [showOpponentGameModal, setShowOpponentGameModal] = useState(false);
+  const [showOwnTeamGameModal, setShowOwnTeamGameModal] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -137,6 +143,17 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
     return { wins, losses, ties };
   };
 
+  const handleSort = (field: 'opponent' | 'date' | 'uploaded') => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to descending
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
   const getFilteredGames = () => {
     let filtered = games;
 
@@ -153,6 +170,33 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
     } else if (filmFilter === 'no-film') {
       filtered = filtered.filter(g => g.videos.length === 0);
     }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(g =>
+        g.opponent.toLowerCase().includes(query) ||
+        g.name.toLowerCase().includes(query) ||
+        g.videos.some(v => v.name.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let comparison = 0;
+
+      if (sortField === 'opponent') {
+        comparison = a.opponent.localeCompare(b.opponent);
+      } else if (sortField === 'date') {
+        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+      } else if (sortField === 'uploaded') {
+        const aDate = a.videos.length > 0 ? new Date(a.videos[0].created_at).getTime() : 0;
+        const bDate = b.videos.length > 0 ? new Date(b.videos[0].created_at).getTime() : 0;
+        comparison = aDate - bDate;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
     return filtered;
   };
@@ -215,6 +259,74 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
     alert('Create Playlist feature coming soon!\n\nThis will allow you to:\n- Group selected videos into a playlist\n- Add descriptions and notes\n- Share with coaching staff');
   };
 
+  const handleCreateOpponentGame = async (formData: any) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      const cleanData = {
+        ...formData,
+        start_time: formData.start_time || null,
+        is_opponent_game: true, // Force this to be an opponent game
+      };
+
+      const { error } = await supabase
+        .from('games')
+        .insert({
+          team_id: teamId,
+          user_id: userData.user?.id,
+          ...cleanData
+        });
+
+      if (error) throw error;
+
+      // Refresh the games list
+      await fetchData();
+
+      // Close modal
+      setShowOpponentGameModal(false);
+
+      // Switch to opponent filter to show the new game
+      setGameTypeFilter('opponent');
+    } catch (error) {
+      console.error('Error creating opponent game:', error);
+      alert('Error creating opponent game');
+    }
+  };
+
+  const handleCreateOwnTeamGame = async (formData: any) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      const cleanData = {
+        ...formData,
+        start_time: formData.start_time || null,
+        is_opponent_game: false, // This is an own team game
+      };
+
+      const { error } = await supabase
+        .from('games')
+        .insert({
+          team_id: teamId,
+          user_id: userData.user?.id,
+          ...cleanData
+        });
+
+      if (error) throw error;
+
+      // Refresh the games list
+      await fetchData();
+
+      // Close modal
+      setShowOwnTeamGameModal(false);
+
+      // Stay on own-team filter to show the new game
+      setGameTypeFilter('own-team');
+    } catch (error) {
+      console.error('Error creating game:', error);
+      alert('Error creating game');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -258,7 +370,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
       {/* Stats Banner */}
       <div className="bg-gray-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="grid grid-cols-3 gap-6">
             <div className="text-center">
               <div className="text-3xl font-semibold text-gray-900">{totalVideos}</div>
@@ -277,17 +389,26 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-3xl font-semibold text-gray-900">Film Library</h2>
-            <p className="text-gray-600 mt-1">Game film and video analysis</p>
-          </div>
+        <div className="mb-4">
+          <h2 className="text-3xl font-semibold text-gray-900">Film Library</h2>
+          <p className="text-gray-600 mt-1">Game film and video analysis</p>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-4">
+          <input
+            type="text"
+            placeholder="Search games or videos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 placeholder:text-gray-400"
+          />
         </div>
 
         {/* Filter Tabs and View Toggle */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex gap-4 border-b border-gray-200">
             <button
               onClick={() => setFilmFilter('all')}
@@ -344,7 +465,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
-              Own Team
+              {team.name} Film
             </button>
             <button
               onClick={() => setGameTypeFilter('opponent')}
@@ -387,16 +508,51 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         {filteredGames.length === 0 ? (
           <div className="text-center py-20 bg-gray-50 rounded-lg">
             <div className="text-gray-400 mb-4">
-              {filmFilter === 'all' ? 'No games scheduled yet' :
-               filmFilter === 'with-film' ? 'No games with film yet' :
-               'All games have film'}
+              {games.length === 0 ? (
+                // No games at all
+                'No games scheduled yet'
+              ) : gameTypeFilter === 'opponent' && games.filter(g => g.is_opponent_game).length === 0 ? (
+                // Has games but none are opponent games
+                'No opponent scouting film yet'
+              ) : gameTypeFilter === 'own-team' && games.filter(g => !g.is_opponent_game).length === 0 ? (
+                // Has games but none are own team games
+                'No own team games yet'
+              ) : filmFilter === 'with-film' ? (
+                'No games with film yet'
+              ) : filmFilter === 'no-film' ? (
+                'All games have film'
+              ) : (
+                'No games match your filters'
+              )}
             </div>
-            <button
-              onClick={() => router.push(`/teams/${teamId}`)}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-            >
-              Go to Schedule
-            </button>
+            <div className="flex gap-3 justify-center">
+              {games.length === 0 ? (
+                <button
+                  onClick={() => router.push(`/teams/${teamId}/schedule`)}
+                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                >
+                  Go to Schedule
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setFilmFilter('all');
+                      setGameTypeFilter('all');
+                    }}
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Clear Filters
+                  </button>
+                  <button
+                    onClick={() => router.push(`/teams/${teamId}/schedule`)}
+                    className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                  >
+                    Add More Games
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="space-y-6">
@@ -494,9 +650,14 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                           />
 
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {video.name}
-                            </h4>
+                            <button
+                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                              className="text-left w-full"
+                            >
+                              <h4 className="text-sm font-medium text-gray-900 truncate hover:text-blue-600 hover:underline transition-colors">
+                                {video.name}
+                              </h4>
+                            </button>
                             <p className="text-xs text-gray-500 mt-1">
                               Added {new Date(video.created_at).toLocaleDateString('en-US', {
                                 month: 'short',
@@ -535,30 +696,40 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left">
-                    <input
-                      type="checkbox"
-                      checked={selectedCount === allVideoIds.length && allVideoIds.length > 0}
-                      onChange={() => {
-                        if (selectedCount === allVideoIds.length) {
-                          clearSelection();
-                        } else {
-                          selectAll(allVideoIds);
-                        }
-                      }}
-                      className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                    />
+                    <button
+                      onClick={() => handleSort('opponent')}
+                      className="flex items-center gap-1 text-xs font-semibold text-gray-700 uppercase tracking-wider hover:text-gray-900 transition-colors"
+                    >
+                      Game
+                      {sortField === 'opponent' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Video Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Game
+                  <th className="px-6 py-3 text-left">
+                    <button
+                      onClick={() => handleSort('date')}
+                      className="flex items-center gap-1 text-xs font-semibold text-gray-700 uppercase tracking-wider hover:text-gray-900 transition-colors"
+                    >
+                      Date
+                      {sortField === 'date' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Uploaded
+                  <th className="px-6 py-3 text-left">
+                    <button
+                      onClick={() => handleSort('uploaded')}
+                      className="flex items-center gap-1 text-xs font-semibold text-gray-700 uppercase tracking-wider hover:text-gray-900 transition-colors"
+                    >
+                      Uploaded
+                      {sortField === 'uploaded' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Actions
@@ -566,64 +737,129 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredGames.map((game) =>
-                  game.videos.map((video) => (
-                    <tr
-                      key={video.id}
-                      className={isSelected(video.id) ? 'bg-blue-50' : 'hover:bg-gray-50'}
-                    >
-                      <td className="px-6 py-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected(video.id)}
-                          onChange={() => toggleSelect(video.id)}
-                          className="w-4 h-4 rounded border-gray-300 cursor-pointer"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {video.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <span>vs {game.opponent}</span>
-                          {game.is_opponent_game && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 border border-blue-200">
-                              Scouting
+                {/* Add Own Team Game Row - only show when viewing own team */}
+                {gameTypeFilter === 'own-team' && (
+                  <tr className="bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
+                      Add a new game to upload {team.name} film
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button
+                        onClick={() => setShowOwnTeamGameModal(true)}
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                      >
+                        Add Game
+                      </button>
+                    </td>
+                  </tr>
+                )}
+
+                {/* Add Opponent Game Row - only show when viewing opponent scouting */}
+                {gameTypeFilter === 'opponent' && (
+                  <tr className="bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
+                      Add a new opponent game to upload scouting film
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button
+                        onClick={() => setShowOpponentGameModal(true)}
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                      >
+                        Add Game
+                      </button>
+                    </td>
+                  </tr>
+                )}
+
+                {filteredGames.map((game) => (
+                  <tr key={game.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">vs {game.opponent}</span>
+                        {game.is_opponent_game && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 border border-blue-200">
+                            Scouting
+                          </span>
+                        )}
+                        {game.game_result && (
+                          <span
+                            className={`px-2 py-0.5 text-xs font-medium rounded ${
+                              game.game_result === 'win'
+                                ? 'bg-green-100 text-green-700'
+                                : game.game_result === 'loss'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {game.game_result.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {game.videos.length > 0 ? (
+                        <div>
+                          <button
+                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                            className="hover:text-blue-600 hover:underline transition-colors text-left font-medium"
+                          >
+                            {game.videos[0].name}
+                          </button>
+                          {game.videos.length > 1 && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              +{game.videos.length - 1} more
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {game.date && new Date(game.date).toLocaleDateString('en-US', {
+                      ) : (
+                        <span className="text-gray-400">No film</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {game.date && new Date(game.date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {game.videos.length > 0 ? (
+                        new Date(game.videos[0].created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(video.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm space-x-3">
+                        })
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm space-x-2">
+                      {game.videos.length > 0 ? (
+                        <>
+                          <button
+                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                            className="px-3 py-1.5 text-gray-700 hover:text-black font-medium border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                            className="px-3 py-1.5 text-blue-600 hover:text-blue-700 font-medium border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                          >
+                            + Add More
+                          </button>
+                        </>
+                      ) : (
                         <button
                           onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                          className="text-gray-700 hover:text-black font-medium"
+                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
                         >
-                          View
+                          Upload Film
                         </button>
-                        <button
-                          onClick={() => handleDeleteVideo(video.id)}
-                          className="text-red-600 hover:text-red-700 font-medium"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -658,6 +894,336 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         onSelectAll={() => selectAll(allVideoIds)}
         onClear={clearSelection}
       />
+
+      {/* Own Team Game Modal */}
+      {showOwnTeamGameModal && (
+        <OwnTeamGameModal
+          teamName={team.name}
+          onSave={handleCreateOwnTeamGame}
+          onClose={() => setShowOwnTeamGameModal(false)}
+        />
+      )}
+
+      {/* Opponent Game Modal */}
+      {showOpponentGameModal && (
+        <OpponentGameModal
+          onSave={handleCreateOpponentGame}
+          onClose={() => setShowOpponentGameModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Own Team Game Modal Component
+function OwnTeamGameModal({
+  teamName,
+  onSave,
+  onClose
+}: {
+  teamName: string;
+  onSave: (data: any) => void;
+  onClose: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    opponent: '',
+    date: '',
+    start_time: '',
+    location: '',
+    notes: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+          Add {teamName} Game
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Game Name
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Week 1, Homecoming Game"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Opponent <span className="text-gray-500">(Team you're playing)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.opponent}
+              onChange={(e) => setFormData({ ...formData, opponent: e.target.value })}
+              placeholder="e.g., Lincoln Lions, Roosevelt Bears"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Kickoff Time
+              </label>
+              <input
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Location
+            </label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="e.g., Home Field, Opponent Stadium"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={3}
+              placeholder="Additional game notes..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            />
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+            >
+              Create Game
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Opponent Game Modal Component
+function OpponentGameModal({
+  onSave,
+  onClose
+}: {
+  onSave: (data: any) => void;
+  onClose: () => void;
+}) {
+  const [formData, setFormData] = useState({
+    name: '',
+    opponent_team_name: '',
+    opponent: '',
+    date: '',
+    start_time: '',
+    location: '',
+    notes: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+          Add Opponent Scouting Game
+        </h2>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Game Name
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., Week 1, Homecoming Game"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              required
+            />
+          </div>
+
+          {/* Info Banner */}
+          <div className="border border-gray-200 rounded-lg bg-gray-50 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 text-gray-600 text-xl">📹</div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900">
+                  Opponent Scouting Film
+                </p>
+                <p className="text-xs text-gray-700 mt-1">
+                  This game will be used for uploading scouting film of another team
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Which team is this film of? <span className="text-gray-900">(Required)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.opponent_team_name}
+              onChange={(e) => setFormData({ ...formData, opponent_team_name: e.target.value })}
+              placeholder="e.g., Lincoln Lions, Roosevelt Bears"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 bg-white"
+              required
+            />
+            <p className="text-xs text-gray-600 mt-1">
+              This is the team you're scouting (the team in the film)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Who are they playing? <span className="text-gray-500">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.opponent}
+              onChange={(e) => setFormData({ ...formData, opponent: e.target.value })}
+              placeholder="e.g., Central High"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            />
+            <p className="text-xs text-gray-600 mt-1">
+              The other team in this scouting film
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date
+              </label>
+              <input
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Kickoff Time
+              </label>
+              <input
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Location
+            </label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              placeholder="e.g., Home Field, Opponent Stadium"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              rows={3}
+              placeholder="Additional game notes..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            />
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+            >
+              Create Opponent Game
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
