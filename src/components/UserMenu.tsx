@@ -36,7 +36,7 @@ export default function UserMenu() {
 
   if (!user) {
     return (
-      <a href="/auth" className="text-gray-700 hover:text-gray-900">
+      <a href="/auth/login" className="text-gray-700 hover:text-gray-900">
         Sign In
       </a>
     );
@@ -44,13 +44,13 @@ export default function UserMenu() {
 
   return (
     <div className="relative group">
-      <button className="text-gray-700 hover:text-gray-900">
+      <button className="text-gray-700 hover:text-gray-900 px-2 py-1">
         {user.email}
       </button>
-      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg hidden group-hover:block">
+      <div className="absolute right-0 top-full w-48 bg-white rounded-md shadow-lg border border-gray-200 hidden group-hover:block z-50">
         <button
           onClick={handleSignOut}
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
         >
           Sign Out
         </button>

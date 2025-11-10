@@ -1,9 +1,11 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
+import ScrollingNavbar from "@/components/ScrollingNavbar";
 import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ConsoleLink from "@/components/ConsoleLink";
+import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "Titan First Read",
@@ -18,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50">
-        <nav className="bg-white border-b border-gray-100">
+        <ScrollingNavbar>
           <div className="max-w-7xl mx-auto px-8">
             <div className="flex justify-between items-center h-20">
               {/* Logo/Brand */}
@@ -37,11 +39,35 @@ export default function RootLayout({
               <UserMenu />
             </div>
           </div>
-        </nav>
-        
-        <main>
+        </ScrollingNavbar>
+
+        <main className="pt-24">
           {children}
         </main>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              duration: 4000,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
       </body>
     </html>
   );

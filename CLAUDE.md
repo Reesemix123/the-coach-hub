@@ -183,7 +183,7 @@ The App Router structure follows Next.js 15 conventions:
 - **page.tsx**: Route endpoints
 
 **Key Pages:**
-- `/` - Homepage with features overview
+- `/` - Homepage (auto-redirects to team dashboard if user has teams, otherwise shows "Get Started")
 - `/playbook` - Playbook management interface
 - `/film` - Game film viewer and play tagging
 - `/teams/[teamId]` - Team dashboard with schedule, playbook summary, analytics tabs
@@ -792,7 +792,7 @@ CREATE TABLE team_memberships (
 **Roles:**
 - **Owner:** Full control (head coach) - create/delete team, manage members, all permissions
 - **Coach:** Edit playbook, tag plays, view analytics, manage roster
-- **Analyst:** Tag plays, view analytics, read-only playbook
+- **Analyst:** Create/edit playbook, tag plays, view analytics (cannot manage team settings or roster)
 - **Viewer:** Read-only access (for parents, players)
 
 **RLS Policy Changes:**

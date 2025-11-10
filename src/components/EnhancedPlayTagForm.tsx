@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { TeamAnalyticsConfig, PlayerRecord } from '@/types/football';
+import { playerHasPosition } from '@/utils/playerHelpers';
 
 interface EnhancedPlayTagFormProps {
   teamId: string;
@@ -66,10 +67,10 @@ export default function EnhancedPlayTagForm({ teamId, onFieldsChange, existingDa
   const showDefensiveTracking = config.enable_defensive_tracking;
   const showSituational = config.enable_situational_splits;
 
-  const olPlayers = players.filter(p => ['LT', 'LG', 'C', 'RG', 'RT'].includes(p.primary_position));
-  const qbs = players.filter(p => p.primary_position === 'QB');
-  const ballCarriers = players.filter(p => ['QB', 'RB', 'FB', 'WR'].includes(p.primary_position));
-  const receivers = players.filter(p => ['WR', 'TE', 'RB'].includes(p.primary_position));
+  const olPlayers = players.filter(p => playerHasPosition(p, ['LT', 'LG', 'C', 'RG', 'RT']));
+  const qbs = players.filter(p => playerHasPosition(p, 'QB'));
+  const ballCarriers = players.filter(p => playerHasPosition(p, ['QB', 'RB', 'FB', 'WR']));
+  const receivers = players.filter(p => playerHasPosition(p, ['WR', 'TE', 'RB']));
 
   return (
     <div className="space-y-6">
@@ -154,7 +155,7 @@ export default function EnhancedPlayTagForm({ teamId, onFieldsChange, existingDa
 
           <div className="grid grid-cols-5 gap-3">
             {['LT', 'LG', 'C', 'RG', 'RT'].map((pos) => {
-              const posPlayers = olPlayers.filter(p => p.primary_position === pos);
+              const posPlayers = olPlayers.filter(p => playerHasPosition(p, pos));
 
               return (
                 <div key={pos} className="space-y-2">

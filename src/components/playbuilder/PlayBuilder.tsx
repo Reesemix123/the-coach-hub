@@ -1,10 +1,60 @@
-// src/components/playbuilder/PlayBuilder.tsx - PHASE 2 COMPLETE
-// This is a COMPLETE file replacement - includes Phase 1 + Phase 2
+/**
+ * PlayBuilder Component - Interactive Play Diagram Editor
+ *
+ * @file PlayBuilder.tsx
+ * @description A comprehensive play diagramming tool for football coaches. Enables creation
+ * and editing of offensive, defensive, and special teams plays with drag-and-drop positioning,
+ * route drawing, assignment management, and real-time validation.
+ *
+ * @features
+ * - 40+ formations (offense, defense, special teams)
+ * - Drag-and-drop player positioning on SVG football field
+ * - Route drawing with click-to-add waypoints
+ * - Pre-snap motion configuration (6 types)
+ * - Blocking assignments (run/pass protection)
+ * - Coverage assignments (Cover 0-6)
+ * - Reference formations (dummy offense/defense overlay)
+ * - Real-time formation validation
+ * - Auto-save to localStorage
+ * - Keyboard shortcuts (Ctrl+S save, Escape cancel)
+ * - Touch/mobile support
+ *
+ * @architecture
+ * Main PlayBuilder orchestrates:
+ * - PlayBuilderHeader: Navigation and save controls
+ * - Metadata Form: Play details (name, ODK, formation, type)
+ * - Assignment Panels: Position-specific player assignments
+ *   - OffensiveLineSection, BacksSection, ReceiversSection (offense)
+ *   - DefensiveLineSection, LinebackersSection, DBSection (defense)
+ * - SVG Diagram: Visual field representation with interactive elements
+ * - ValidationModal: Formation rule violation warnings
+ *
+ * @state
+ * - 20+ state variables managing play data, UI modes, and user interactions
+ * - Auto-save draft every 3 seconds to localStorage
+ * - Unsaved changes tracking for navigation warnings
+ *
+ * @performance
+ * - useMemo for computed player groups and formation lists
+ * - useCallback for event handlers to prevent re-renders
+ * - Debounced auto-save to reduce localStorage writes
+ *
+ * @dependencies
+ * - footballConfig: Formation definitions, attributes, validation rules
+ * - footballRules: Formation validation functions
+ * - Supabase: Database persistence
+ *
+ * @version Phase 2 + Production Improvements
+ * @since 2025-01
+ */
 
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import toast from 'react-hot-toast';
+import Tooltip from '@/components/Tooltip';
 import type { PlayAttributes, PlayDiagram } from '@/types/football';
 import {
   OFFENSIVE_FORMATIONS,
@@ -34,110 +84,261 @@ import {
   type FormationValidation
 } from '@/config/footballRules';
 
-import { FormationMetadata } from './FormationMetadata';
-import { OffensiveLineSection } from './OffensiveLineSection';
-import { BacksSection } from './BacksSection';
-import { ReceiversSection } from './ReceiversSection';
+import PlayBuilderHeader from './PlayBuilderHeader';
+import FormationControls from './FormationControls';
+import AssignmentPanel from './AssignmentPanel';
+import FieldDiagram from './FieldDiagram';
 import { ValidationModal } from './ValidationModal';
-import { DefensiveLineSection } from './DefensiveLineSection';
-import { LinebackersSection } from './LinebackersSection';
-import { DBSection } from './DBSection';
+import { FIELD_CONFIG } from './fieldConstants';
 
+/**
+ * Player entity on the field diagram
+ * Represents a single player's position, assignment, and behavior
+ */
 interface Player {
-  id: string;
-  x: number;
-  y: number;
-  label: string;
-  position: string;
-  side: 'offense' | 'defense';
-  assignment?: string;
-  blockType?: string;
-  blockDirection?: { x: number; y: number };
-  isPrimary?: boolean;
-  motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
-  motionDirection?: 'toward-center' | 'away-from-center';
-  motionEndpoint?: { x: number; y: number };
-  coverageRole?: string;
-  coverageDepth?: number;
-  coverageDescription?: string;
-  blitzGap?: string;
-  zoneEndpoint?: { x: number; y: number };
-  isDummy?: boolean; // PHASE 2: Flag for dummy offense players
+  id: string;                                                      // Unique identifier
+  x: number;                                                       // X coordinate on SVG canvas
+  y: number;                                                       // Y coordinate on SVG canvas
+  label: string;                                                   // Display text (position abbreviation)
+  position: string;                                                // Football position (QB, RB, WR, etc.)
+  side: 'offense' | 'defense';                                     // Which side of ball
+  assignment?: string;                                             // Route or blocking assignment
+  blockType?: string;                                              // Run Block, Pass Block, Pull
+  blockDirection?: { x: number; y: number };                       // Vector for block arrow
+  isPrimary?: boolean;                                             // Primary receiver/route
+  motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift'; // Pre-snap motion type
+  motionDirection?: 'toward-center' | 'away-from-center';         // Motion direction
+  motionEndpoint?: { x: number; y: number };                       // Final motion position
+  coverageRole?: string;                                           // Defensive coverage assignment
+  coverageDepth?: number;                                          // Coverage depth in yards
+  coverageDescription?: string;                                    // Human-readable coverage role
+  blitzGap?: string;                                               // Blitz gap assignment (A, B, C, D)
+  zoneEndpoint?: { x: number; y: number };                         // Zone coverage endpoint
+  isDummy?: boolean;                                               // Reference formation player (non-interactive)
 }
 
+/**
+ * Route path drawn for a player
+ * Collection of waypoints forming the player's path after snap
+ */
 interface Route {
-  id: string;
-  playerId: string;
-  points: Array<{ x: number; y: number }>;
-  assignment?: string;
-  isPrimary?: boolean;
+  id: string;                                    // Unique route identifier
+  playerId: string;                              // Associated player ID
+  points: Array<{ x: number; y: number }>;       // Array of waypoints forming the route
+  assignment?: string;                           // Route type (Go, Post, Curl, etc.)
+  isPrimary?: boolean;                           // Primary route in the concept
 }
 
+/**
+ * PlayBuilder Component Props
+ */
 interface PlayBuilderProps {
-  teamId: string;
-  teamName?: string;
-  existingPlay?: {
-    id: string;
-    play_code: string;
-    play_name: string;
-    attributes: PlayAttributes;
-    diagram: PlayDiagram;
+  teamId: string;           // Team ID for associating the play with a team
+  teamName?: string;        // Optional team name for display
+  existingPlay?: {          // Optional: If provided, component enters edit mode
+    id: string;             // Play UUID from database
+    play_code: string;      // Auto-generated code (P-001, P-002, etc.)
+    play_name: string;      // User-defined play name
+    attributes: PlayAttributes; // Play metadata (ODK, formation, type, etc.)
+    diagram: PlayDiagram;   // Player positions and routes
   };
-  onSave?: () => void;
+  onSave?: () => void;      // Callback after successful save (e.g., navigate back)
 }
 
+/**
+ * Main PlayBuilder Component
+ *
+ * @description Orchestrates the entire play building experience. Manages state for players,
+ * routes, formations, and user interactions. Handles saving to database and draft auto-save.
+ *
+ * @param props - PlayBuilderProps
+ * @returns Interactive play builder interface
+ */
 export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: PlayBuilderProps) {
   const supabase = createClient();
-  
+  const router = useRouter();
+
+  // ====================================
+  // STATE MANAGEMENT
+  // ====================================
+
+  // Play Metadata
   const [playName, setPlayName] = useState(existingPlay?.play_name || '');
   const [playCode, setPlayCode] = useState(existingPlay?.play_code || '');
   const [odk, setOdk] = useState<'offense' | 'defense' | 'specialTeams'>(
     existingPlay?.attributes.odk || 'offense'
   );
   const [formation, setFormation] = useState(existingPlay?.attributes.formation || '');
-  
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Offensive Play Attributes
   const [playType, setPlayType] = useState(existingPlay?.attributes.playType || '');
   const [targetHole, setTargetHole] = useState(existingPlay?.attributes.targetHole || '');
   const [ballCarrier, setBallCarrier] = useState(existingPlay?.attributes.ballCarrier || '');
-  
+
+  // Defensive Play Attributes
   const [coverage, setCoverage] = useState(existingPlay?.attributes.coverage || '');
+
+  // Special Teams Attributes
   const [specialTeamType, setSpecialTeamType] = useState('');
-const [specialTeamPlay, setSpecialTeamPlay] = useState('');
-  // PHASE 2: Dummy offense state
+  const [specialTeamPlay, setSpecialTeamPlay] = useState('');
+
+  // Reference Formations (overlays for game planning)
   const [dummyOffenseFormation, setDummyOffenseFormation] = useState('');
   const [dummyOffensePlayers, setDummyOffensePlayers] = useState<Player[]>([]);
-  
-  // PHASE 2: Dummy defense state
   const [dummyDefenseFormation, setDummyDefenseFormation] = useState('');
   const [dummyDefensePlayers, setDummyDefensePlayers] = useState<Player[]>([]);
-  
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [routes, setRoutes] = useState<Route[]>([]);
+
+  // Field Diagram State
+  const [players, setPlayers] = useState<Player[]>([]);  // All players on field
+  const [routes, setRoutes] = useState<Route[]>([]);     // All drawn routes
+
+  // Drag & Drop State
   const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null);
   const [draggedMotionEndpoint, setDraggedMotionEndpoint] = useState<string | null>(null);
   const [draggedBlockDirection, setDraggedBlockDirection] = useState<string | null>(null);
   const [draggedZoneEndpoint, setDraggedZoneEndpoint] = useState<string | null>(null);
-  
+
+  // Route Drawing Mode
   const [isDrawingRoute, setIsDrawingRoute] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [currentRoute, setCurrentRoute] = useState<Array<{ x: number; y: number }>>([]);
-  
+
+  // Validation & Save State
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationResult, setValidationResult] = useState<FormationValidation | null>(null);
   const [saveAnywayConfirmed, setSaveAnywayConfirmed] = useState(false);
-  
-  const svgRef = useRef<SVGSVGElement>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Auto-save State
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const draftRestorePromptShown = useRef(false);
+  const validationModalShown = useRef(false);
+
+  // Refs
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  // Auto-save draft to localStorage
+  useEffect(() => {
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Only auto-save if there's content and no existing play (new play only)
+    if (!existingPlay && (playName || players.length > 0)) {
+      autoSaveTimerRef.current = setTimeout(() => {
+        const draft = {
+          playName,
+          playCode,
+          odk,
+          formation,
+          playType,
+          players,
+          routes,
+          targetHole,
+          ballCarrier,
+          coverage,
+          specialTeamPlay,
+          dummyOffenseFormation,
+          dummyDefenseFormation,
+          timestamp: new Date().toISOString()
+        };
+
+        try {
+          localStorage.setItem(`playbuilder-draft-${teamId}`, JSON.stringify(draft));
+          setLastAutoSave(new Date());
+        } catch (error) {
+          console.error('Failed to auto-save draft:', error);
+        }
+      }, 3000); // Auto-save after 3 seconds of inactivity
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [playName, playCode, odk, formation, playType, players, routes, targetHole, ballCarrier, coverage, specialTeamPlay, dummyOffenseFormation, dummyDefenseFormation, teamId, existingPlay]);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    if (!existingPlay && !draftRestorePromptShown.current) {
+      try {
+        const savedDraft = localStorage.getItem(`playbuilder-draft-${teamId}`);
+        if (savedDraft) {
+          const draft = JSON.parse(savedDraft);
+
+          // Mark as shown to prevent duplicate prompts
+          draftRestorePromptShown.current = true;
+
+          // Ask user if they want to restore
+          const restore = confirm('Found an auto-saved draft. Would you like to restore it?');
+          if (restore) {
+            setPlayName(draft.playName || '');
+            setPlayCode(draft.playCode || '');
+            setOdk(draft.odk || 'offense');
+            setFormation(draft.formation || '');
+            setPlayType(draft.playType || '');
+            setPlayers(draft.players || []);
+            setRoutes(draft.routes || []);
+            setTargetHole(draft.targetHole || '');
+            setBallCarrier(draft.ballCarrier || '');
+            setCoverage(draft.coverage || '');
+            setSpecialTeamPlay(draft.specialTeamPlay || '');
+            setDummyOffenseFormation(draft.dummyOffenseFormation || '');
+            setDummyDefenseFormation(draft.dummyDefenseFormation || '');
+            toast.success('Draft restored from auto-save');
+          } else {
+            // User declined, clear the draft
+            localStorage.removeItem(`playbuilder-draft-${teamId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load draft:', error);
+      }
+    }
+  }, [existingPlay, teamId]);
+
+  // Track unsaved changes
+  useEffect(() => {
+    if (playName || players.length > 0) {
+      setHasUnsavedChanges(true);
+    }
+  }, [playName, players, routes, formation, playType]);
+
+  // Handle browser back button
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Back button handler
+  const handleBack = useCallback(() => {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Do you want to discard them?')) {
+        return;
+      }
+    }
+    router.push(`/teams/${teamId}/playbook`);
+  }, [hasUnsavedChanges, router, teamId]);
 
   useEffect(() => {
     if (!existingPlay && !playCode) {
       const generateCode = async () => {
+        // Get all play codes to find the highest number
         const { data, error } = await supabase
           .from('playbook_plays')
           .select('play_code')
           .eq('team_id', teamId === 'personal' ? null : teamId)
-          .order('play_code', { ascending: false })
-          .limit(1);
+          .order('created_at', { ascending: false });
 
         if (error) {
           console.error('Error generating play code:', error);
@@ -146,15 +347,21 @@ const [specialTeamPlay, setSpecialTeamPlay] = useState('');
         }
 
         if (data && data.length > 0) {
-          const lastCode = data[0].play_code;
-          const match = lastCode.match(/P-(\d+)/);
-          if (match) {
-            const nextNum = parseInt(match[1]) + 1;
-            setPlayCode(`P-${nextNum.toString().padStart(3, '0')}`);
-          } else {
-            setPlayCode('P-001');
-          }
+          // Extract all numeric parts and find the max
+          let maxNum = 0;
+          data.forEach(item => {
+            const match = item.play_code.match(/P-(\d+)/);
+            if (match) {
+              const num = parseInt(match[1]);
+              if (num > maxNum) maxNum = num;
+            }
+          });
+
+          // Generate next code
+          const nextNum = maxNum + 1;
+          setPlayCode(`P-${nextNum.toString().padStart(3, '0')}`);
         } else {
+          // No plays exist yet
           setPlayCode('P-001');
         }
       };
@@ -223,7 +430,7 @@ const [specialTeamPlay, setSpecialTeamPlay] = useState('');
 
   const loadFormation = (formationName: string) => {
     let formationData;
-    
+
     if (odk === 'offense') {
       formationData = OFFENSIVE_FORMATIONS[formationName];
     } else if (odk === 'defense') {
@@ -233,7 +440,7 @@ const [specialTeamPlay, setSpecialTeamPlay] = useState('');
     }
 
     if (formationData) {
-      const centerX = 350;
+      const centerX = FIELD_CONFIG.CENTER_X;
       const formationCenter = formationData.reduce((sum, pos) => sum + pos.x, 0) / formationData.length;
       const offset = centerX - formationCenter;
 
@@ -261,7 +468,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
   }
   
   // Calculate center offset
-  const centerX = 350;
+  const centerX = FIELD_CONFIG.CENTER_X;
   const formationCenter = formationData.reduce((sum, pos) => sum + pos.x, 0) / formationData.length;
   const offset = centerX - formationCenter;
   
@@ -293,7 +500,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const formationData = OFFENSIVE_FORMATIONS[formationName];
     if (!formationData) return;
 
-    const centerX = 350;
+    const centerX = FIELD_CONFIG.CENTER_X;
     const formationCenter = formationData.reduce((sum, pos) => sum + pos.x, 0) / formationData.length;
     const offset = centerX - formationCenter;
 
@@ -322,7 +529,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const formationData = DEFENSIVE_FORMATIONS[formationName];
     if (!formationData) return;
 
-    const centerX = 350;
+    const centerX = FIELD_CONFIG.CENTER_X;
     const formationCenter = formationData.reduce((sum, pos) => sum + pos.x, 0) / formationData.length;
     const offset = centerX - formationCenter;
 
@@ -340,11 +547,38 @@ const loadSpecialTeamFormation = (teamType: string) => {
     setDummyDefenseFormation(formationName);
   };
 
+  // Handler functions for FormationControls
+  const handleOdkChange = (newOdk: 'offense' | 'defense' | 'specialTeams') => {
+    setOdk(newOdk);
+    setFormation('');
+    setPlayers([]);
+    setRoutes([]);
+    setPlayType('');
+    setTargetHole('');
+    setSpecialTeamType('');
+    setSpecialTeamPlay('');
+    setDummyOffenseFormation('');
+    setDummyOffensePlayers([]);
+    setDummyDefenseFormation('');
+    setDummyDefensePlayers([]);
+  };
+
+  const handleFormationChange = (formationName: string) => {
+    setFormation(formationName);
+    if (formationName) loadFormation(formationName);
+  };
+
+  const handlePlayTypeChange = (type: string) => {
+    setPlayType(type);
+    setTargetHole('');
+    setBallCarrier('');
+  };
+
   const generateRoutePath = (player: Player, routeType: string): Array<{ x: number; y: number }> => {
     const startX = player.motionEndpoint?.x || player.x;
     const startY = player.motionEndpoint?.y || player.y;
-    const lineOfScrimmage = 200;
-    const isLeftSide = startX < 350;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
+    const isLeftSide = startX < FIELD_CONFIG.CENTER_X;
 
     const routeName = routeType.split('/')[0];
 
@@ -360,7 +594,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
         return [
           { x: startX, y: startY },
           { x: startX, y: lineOfScrimmage - 50 },
-          { x: 350, y: lineOfScrimmage - 100 }
+          { x: FIELD_CONFIG.CENTER_X, y: lineOfScrimmage - 100 }
         ];
       
       case 'Corner':
@@ -382,7 +616,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
         return [
           { x: startX, y: startY },
           { x: startX, y: lineOfScrimmage - 40 },
-          { x: 350, y: lineOfScrimmage - 40 }
+          { x: FIELD_CONFIG.CENTER_X, y: lineOfScrimmage - 40 }
         ];
       
       case 'Slant':
@@ -563,16 +797,16 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
-    const lineOfScrimmage = 200;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
     const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
 
-    const endpoint = motionType === 'None' 
-      ? undefined 
+    const endpoint = motionType === 'None'
+      ? undefined
       : calculateMotionEndpoint(
           { x: player.x, y: player.y },
           motionType,
           player.motionDirection || 'toward-center',
-          350,
+          FIELD_CONFIG.CENTER_X,
           isOnLOS
         );
 
@@ -593,14 +827,14 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player || !player.motionType || player.motionType === 'None') return;
 
-    const lineOfScrimmage = 200;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
     const isOnLOS = Math.abs(player.y - lineOfScrimmage) <= 5;
 
     const endpoint = calculateMotionEndpoint(
       { x: player.x, y: player.y },
       player.motionType,
       direction,
-      350,
+      FIELD_CONFIG.CENTER_X,
       isOnLOS
     );
 
@@ -666,8 +900,8 @@ const loadSpecialTeamFormation = (teamType: string) => {
     if (!svgRef.current) return;
 
     const rect = svgRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 700;
-    const y = ((e.clientY - rect.top) / rect.height) * 400;
+    const x = ((e.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
+    const y = ((e.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
 
     if (draggedPlayer) {
       // Check if dragging dummy offense, dummy defense, or real player
@@ -724,6 +958,92 @@ const loadSpecialTeamFormation = (teamType: string) => {
     setDraggedZoneEndpoint(null);
   };
 
+  // Touch event handlers for mobile support
+  const handleTouchStart = (
+    playerId: string,
+    isMotionEndpoint: boolean = false,
+    isBlockDirection: boolean = false,
+    isZoneEndpoint: boolean = false
+  ) => {
+    if (isDrawingRoute) return;
+
+    if (isZoneEndpoint) {
+      setDraggedZoneEndpoint(playerId);
+    } else if (isBlockDirection) {
+      setDraggedBlockDirection(playerId);
+    } else if (isMotionEndpoint) {
+      setDraggedMotionEndpoint(playerId);
+    } else {
+      setDraggedPlayer(playerId);
+    }
+  };
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+
+    // Prevent scrolling while dragging
+    e.preventDefault();
+
+    const rect = svgRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = ((touch.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
+    const y = ((touch.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
+
+    if (draggedPlayer) {
+      // Check if dragging dummy offense, dummy defense, or real player
+      if (draggedPlayer.startsWith('dummy-offense-')) {
+        setDummyOffensePlayers(prev =>
+          prev.map(p =>
+            p.id === draggedPlayer ? { ...p, x, y } : p
+          )
+        );
+      } else if (draggedPlayer.startsWith('dummy-defense-')) {
+        setDummyDefensePlayers(prev =>
+          prev.map(p =>
+            p.id === draggedPlayer ? { ...p, x, y } : p
+          )
+        );
+      } else {
+        setPlayers(prev =>
+          prev.map(p =>
+            p.id === draggedPlayer ? { ...p, x, y } : p
+          )
+        );
+      }
+    } else if (draggedMotionEndpoint) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedMotionEndpoint
+            ? { ...p, motionEndpoint: { x, y } }
+            : p
+        )
+      );
+    } else if (draggedBlockDirection) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedBlockDirection
+            ? { ...p, blockDirection: { x, y } }
+            : p
+        )
+      );
+    } else if (draggedZoneEndpoint) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedZoneEndpoint
+            ? { ...p, zoneEndpoint: { x, y } }
+            : p
+        )
+      );
+    }
+  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection, draggedZoneEndpoint]);
+
+  const handleTouchEnd = () => {
+    setDraggedPlayer(null);
+    setDraggedMotionEndpoint(null);
+    setDraggedBlockDirection(null);
+    setDraggedZoneEndpoint(null);
+  };
+
   const startCustomRoute = (playerId: string) => {
     const player = players.find(p => p.id === playerId);
     if (!player) return;
@@ -740,8 +1060,8 @@ const loadSpecialTeamFormation = (teamType: string) => {
     if (!svgRef.current || !isDrawingRoute || !selectedPlayer) return;
 
     const rect = svgRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 700;
-    const y = ((e.clientY - rect.top) / rect.height) * 400;
+    const x = ((e.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
+    const y = ((e.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
 
     setCurrentRoute(prev => [...prev, { x, y }]);
   };
@@ -768,19 +1088,24 @@ const loadSpecialTeamFormation = (teamType: string) => {
     setSelectedPlayer(null);
   };
 
-  const savePlay = async () => {
+  const savePlay = useCallback(async () => {
+    // Prevent double-clicking save
+    if (isSaving) {
+      return;
+    }
+
     if (!playName.trim()) {
-      alert('Please enter a play name');
+      toast.error('Please enter a play name');
       return;
     }
 
     if (!formation) {
-      alert('Please select a formation');
+      toast.error('Please select a formation');
       return;
     }
 
     if (!saveAnywayConfirmed && odk === 'offense') {
-      const validation = validateOffensiveFormation(players);
+      const validation = validateOffensiveFormation(players, playType);
       const illegalFormation = checkIllegalFormation(players);
       const offsidesCheck = checkOffsides(players, 'offense');
       const motionCheck = validateMotion(players);
@@ -792,23 +1117,29 @@ const loadSpecialTeamFormation = (teamType: string) => {
       };
       
       if (!combinedValidation.isValid || combinedValidation.warnings.length > 0) {
-        setValidationResult(combinedValidation);
-        setShowValidationModal(true);
+        if (!validationModalShown.current) {
+          validationModalShown.current = true;
+          setValidationResult(combinedValidation);
+          setShowValidationModal(true);
+        }
         return;
       }
     } else if (!saveAnywayConfirmed && odk === 'defense') {
       const validation = validateDefensiveFormation(players);
       const offsidesCheck = checkOffsides(players, 'defense');
-      
+
       const combinedValidation: FormationValidation = {
         isValid: validation.isValid && offsidesCheck.isValid,
         errors: [...validation.errors, ...offsidesCheck.errors],
         warnings: [...validation.warnings, ...offsidesCheck.warnings]
       };
-      
+
       if (!combinedValidation.isValid || combinedValidation.warnings.length > 0) {
-        setValidationResult(combinedValidation);
-        setShowValidationModal(true);
+        if (!validationModalShown.current) {
+          validationModalShown.current = true;
+          setValidationResult(combinedValidation);
+          setShowValidationModal(true);
+        }
         return;
       }
     }
@@ -869,7 +1200,11 @@ const loadSpecialTeamFormation = (teamType: string) => {
           .eq('id', existingPlay.id);
 
         if (error) throw error;
-        alert('Play updated successfully!');
+        toast.success('Play updated successfully!');
+        setHasUnsavedChanges(false);
+        // Clear auto-save draft
+        localStorage.removeItem(`playbuilder-draft-${teamId}`);
+        setLastAutoSave(null);
       } else {
         const { error } = await supabase
           .from('playbook_plays')
@@ -881,31 +1216,149 @@ const loadSpecialTeamFormation = (teamType: string) => {
             diagram
           });
 
-        if (error) throw error;
-        alert('Play saved successfully!');
+        if (error) {
+          // Handle duplicate play code error with retry
+          if (error.code === '23505' && error.message?.includes('playbook_plays_play_code_unique')) {
+            console.log('Duplicate play code detected, retrying with new code...');
+
+            // Generate a new code and try again (silently)
+            const { data: allPlays } = await supabase
+              .from('playbook_plays')
+              .select('play_code')
+              .eq('team_id', teamId === 'personal' ? null : teamId);
+
+            // Find the highest play number
+            let maxNum = 0;
+
+            // Also consider the current failed code
+            const currentMatch = playCode.match(/P-(\d+)/);
+            if (currentMatch) {
+              maxNum = parseInt(currentMatch[1]);
+            }
+
+            if (allPlays && allPlays.length > 0) {
+              console.log(`Found ${allPlays.length} existing plays`);
+              allPlays.forEach(item => {
+                console.log(`Checking play code: ${item.play_code}`);
+                const match = item.play_code.match(/P-(\d+)/);
+                if (match) {
+                  const num = parseInt(match[1]);
+                  if (num > maxNum) maxNum = num;
+                }
+              });
+            }
+
+            const nextNum = maxNum + 1;
+            const newCode = `P-${nextNum.toString().padStart(3, '0')}`;
+            setPlayCode(newCode);
+            console.log(`Max number found: ${maxNum}, using next code: ${newCode}`);
+
+            // Try saving again with new code
+            const { error: retryError } = await supabase
+              .from('playbook_plays')
+              .insert({
+                team_id: teamId === 'personal' ? null : teamId,
+                play_code: newCode,
+                play_name: playName,
+                attributes,
+                diagram
+              });
+
+            if (retryError) {
+              // If retry also fails, show error and exit
+              console.error('Retry failed:', retryError);
+              toast.error('Failed to save play. Please try again.');
+              setIsSaving(false);
+              return;
+            }
+
+            // Retry succeeded! Continue to success message
+            console.log('Retry succeeded!');
+          } else {
+            // Different error, show it
+            console.error('Non-duplicate error:', error);
+            toast.error(error.message || 'Error saving play. Please try again.');
+            setIsSaving(false);
+            return;
+          }
+        }
+
+        toast.success('Play saved successfully!');
+        setHasUnsavedChanges(false);
+        // Clear auto-save draft
+        localStorage.removeItem(`playbuilder-draft-${teamId}`);
+        setLastAutoSave(null);
       }
 
       if (onSave) onSave();
-    } catch (error) {
-      console.error('Error saving play:', error);
-      alert('Error saving play. Please try again.');
+    } catch (error: any) {
+      // This catch should rarely be hit now
+      console.error('Unexpected error saving play:', error);
+      toast.error('An unexpected error occurred. Please try again.');
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [playName, formation, saveAnywayConfirmed, odk, players, playType, routes, targetHole, ballCarrier, coverage, existingPlay, playCode, teamId, onSave, supabase, isSaving]);
+
+  // Keyboard navigation - must be after handleBack and savePlay are defined
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input/textarea/select
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT'
+      ) {
+        return;
+      }
+
+      // Escape - Cancel drawing mode or go back
+      if (e.key === 'Escape') {
+        if (isDrawingRoute) {
+          setIsDrawingRoute(false);
+          setCurrentRoute([]);
+          toast.info('Drawing mode cancelled');
+        } else if (hasUnsavedChanges) {
+          handleBack();
+        }
+      }
+
+      // Ctrl/Cmd + S - Save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!isSaving) {
+          savePlay();
+        }
+      }
+
+      // Delete/Backspace - Remove last route point when drawing
+      if ((e.key === 'Delete' || e.key === 'Backspace') && isDrawingRoute) {
+        e.preventDefault();
+        if (currentRoute.length > 0) {
+          setCurrentRoute(prev => prev.slice(0, -1));
+          toast.info('Removed last point');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDrawingRoute, hasUnsavedChanges, isSaving, currentRoute, handleBack, savePlay]);
 
   const handleSaveAnyway = () => {
     setSaveAnywayConfirmed(true);
     setShowValidationModal(false);
+    validationModalShown.current = false; // Reset flag for next save
     setTimeout(() => savePlay(), 100);
   };
 
   const getHolePosition = (hole: string): { x: number; y: number } => {
     const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
     const sortedLinemen = [...linemen].sort((a, b) => a.x - b.x);
-    
+
     if (sortedLinemen.length < 2) {
-      return { x: 350, y: 195 };
+      return { x: FIELD_CONFIG.CENTER_X, y: 195 };
     }
 
     const center = linemen.find(p => p.position === 'C');
@@ -913,9 +1366,9 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const rg = linemen.find(p => p.position === 'RG');
     const lt = linemen.find(p => p.position === 'LT');
     const rt = linemen.find(p => p.position === 'RT');
-    
-    const centerX = center?.x || 350;
-    const lineOfScrimmage = 200;
+
+    const centerX = center?.x || FIELD_CONFIG.CENTER_X;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
     const holeY = lineOfScrimmage - 5;
 
     const holeMatch = hole.match(/^(\d)/);
@@ -951,7 +1404,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
   // PHASE 2: Enhanced gap position calculation using dummy offense
   const getGapPosition = (gapName: string): { x: number; y: number } => {
-    const lineOfScrimmage = 200;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
     const throughLine = 205;
 
     // If dummy offense loaded, use their actual O-line positions for gaps
@@ -992,7 +1445,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     }
 
     // Fallback to standard spacing if no dummy offense or incomplete O-line
-    return getGapPositionFromName(gapName, 350);
+    return getGapPositionFromName(gapName, FIELD_CONFIG.CENTER_X);
   };
 
   const getBlitzArrowPath = (player: Player, gapPos: { x: number; y: number }): string => {
@@ -1020,7 +1473,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
       return `M ${startX} ${startY} L ${endX} ${endY}`;
     }
 
-    const centerX = 350;
+    const centerX = FIELD_CONFIG.CENTER_X;
     const isLeftSide = startX < centerX;
     const arcX = isLeftSide ? startX - 30 : startX + 30;
     const arcY = (startY + endY) / 2;
@@ -1081,7 +1534,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     if (player.blockType === 'Pass Block') {
       angle = -90;
     } else if (player.blockType === 'Pull') {
-      const isLeftSide = centerX < 350;
+      const isLeftSide = centerX < FIELD_CONFIG.CENTER_X;
       angle = isLeftSide ? 135 : -135;
     }
 
@@ -1197,7 +1650,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     const endX = player.motionEndpoint.x;
     const endY = player.motionEndpoint.y;
 
-    const lineOfScrimmage = 200;
+    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
     const isOnLOS = Math.abs(startY - lineOfScrimmage) <= 5;
 
     let pathD;
@@ -1394,618 +1847,103 @@ const loadSpecialTeamFormation = (teamType: string) => {
     );
   };
 
-  const availableFormations = formationList();
-  const linemen = players.filter(p => getPositionGroup(p.position) === 'linemen');
-  const backs = players.filter(p => getPositionGroup(p.position) === 'backs');
-  const receivers = players.filter(p => getPositionGroup(p.position) === 'receivers');
-  const potentialBallCarriers = players.filter(p => getPositionGroup(p.position) !== 'linemen');
+  const availableFormations = useMemo(() => formationList(), [formationList]);
+  const linemen = useMemo(() => players.filter(p => getPositionGroup(p.position) === 'linemen'), [players]);
+  const backs = useMemo(() => players.filter(p => getPositionGroup(p.position) === 'backs'), [players]);
+  const receivers = useMemo(() => players.filter(p => getPositionGroup(p.position) === 'receivers'), [players]);
+  const potentialBallCarriers = useMemo(() => players.filter(p => getPositionGroup(p.position) !== 'linemen'), [players]);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <div className="space-y-6">
-          
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {existingPlay ? 'Edit Play' : 'Create New Play'}
-                </h2>
-                {teamName && (
-                  <p className="text-sm text-gray-600 mt-1">Team: {teamName}</p>
-                )}
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Play Code</p>
-                <p className="text-2xl font-bold text-gray-900">{playCode}</p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-800 mb-1">
-                Play Name *
-              </label>
-              <input
-                type="text"
-                value={playName}
-                onChange={(e) => setPlayName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                placeholder="e.g., 22 Power, Cover 2 Blitz"
-              />
-            </div>
+    <div className="space-y-6 pb-12">
+      <PlayBuilderHeader
+        hasUnsavedChanges={hasUnsavedChanges}
+        lastAutoSave={lastAutoSave}
+        existingPlay={existingPlay}
+        isSaving={isSaving}
+        onBack={handleBack}
+        onSave={savePlay}
+      />
 
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Type (ODK) *
-                </label>
-                <select
-                  value={odk}
-                  onChange={(e) => {
-  setOdk(e.target.value as 'offense' | 'defense' | 'specialTeams');
-  setFormation('');
-  setPlayers([]);
-  setRoutes([]);
-  setPlayType('');
-  setTargetHole('');
-  setSpecialTeamType('');  // ADD THIS LINE
-  setSpecialTeamPlay('');  // ADD THIS LINE
-  setDummyOffenseFormation('');
-  setDummyOffensePlayers([]);
-  setDummyDefenseFormation('');  // ADD THIS LINE
-  setDummyDefensePlayers([]);    // ADD THIS LINE
-}}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="offense">Offense</option>
-                  <option value="defense">Defense</option>
-                  <option value="specialTeams">Special Teams</option>
-                </select>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Formation * ({availableFormations.length} available)
-                </label>
-                <select
-                  value={formation}
-                  onChange={(e) => {
-                    setFormation(e.target.value);
-                    if (e.target.value) loadFormation(e.target.value);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="">Select Formation...</option>
-                  {availableFormations.map(f => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-              </div>
+        <div className="space-y-6 pl-2">
 
-              {odk === 'offense' && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">
-                    Play Type *
-                  </label>
-                  <select
-                    value={playType}
-                    onChange={(e) => {
-                      setPlayType(e.target.value);
-                      setTargetHole('');
-                      setBallCarrier('');
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select...</option>
-                    {OFFENSIVE_ATTRIBUTES.playType.map(pt => (
-                      <option key={pt} value={pt}>{pt}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-             {odk === 'specialTeams' && formation && (
-  <div>
-    <label className="block text-sm font-semibold text-gray-800 mb-1">
-      Play *
-    </label>
-    <select
-      value={specialTeamPlay}
-      onChange={(e) => setSpecialTeamPlay(e.target.value)}
-      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-    >
-      <option value="">Select Play...</option>
-      {SPECIAL_TEAMS_PLAYS[formation]?.map(play => (
-        <option key={play} value={play}>{play}</option>
-      ))}
-    </select>
-  </div>
-)} 
-            </div>
+          <FormationControls
+            playName={playName}
+            playCode={playCode}
+            odk={odk}
+            formation={formation}
+            playType={playType}
+            targetHole={targetHole}
+            ballCarrier={ballCarrier}
+            coverage={coverage}
+            specialTeamPlay={specialTeamPlay}
+            dummyOffenseFormation={dummyOffenseFormation}
+            dummyDefenseFormation={dummyDefenseFormation}
+            teamName={teamName}
+            existingPlay={existingPlay}
+            availableFormations={availableFormations}
+            potentialBallCarriers={potentialBallCarriers}
+            onPlayNameChange={setPlayName}
+            onOdkChange={handleOdkChange}
+            onFormationChange={handleFormationChange}
+            onPlayTypeChange={handlePlayTypeChange}
+            onTargetHoleChange={setTargetHole}
+            onBallCarrierChange={setBallCarrier}
+            onCoverageChange={setCoverage}
+            onSpecialTeamPlayChange={setSpecialTeamPlay}
+            onDummyOffenseChange={loadDummyOffense}
+            onDummyDefenseChange={loadDummyDefense}
+          />
 
-            {odk === 'offense' && playType && playType !== 'Run' && playType !== 'Pass' && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>🚧 Coming Soon:</strong> {playType} play configuration is under development. For now, please use Run or Pass play types.
-                </p>
-              </div>
-            )}
-
-            {odk === 'offense' && playType === 'Run' && (
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">
-                    Target Hole *
-                  </label>
-                  <select
-                    value={targetHole}
-                    onChange={(e) => setTargetHole(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  >
-                    <option value="">Select hole...</option>
-                    {RUNNING_HOLES.map(hole => (
-                      <option key={hole.charAt(0)} value={hole}>{hole}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                {targetHole && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-1">
-                      Ball Carrier *
-                    </label>
-                    <select
-                      value={ballCarrier}
-                      onChange={(e) => setBallCarrier(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                    >
-                      <option value="">Select ball carrier...</option>
-                      {potentialBallCarriers.map(player => (
-                        <option key={player.id} value={player.label}>{player.label} ({player.position})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <FormationMetadata formation={formation} odk={odk} />
-
-            {/* PHASE 2: Dummy Defense Dropdown (Only for Offense) */}
-            {odk === 'offense' && formation && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Reference Defense (Optional)
-                </label>
-                <select
-                  value={dummyDefenseFormation}
-                  onChange={(e) => loadDummyDefense(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="">None</option>
-                  {Object.keys(DEFENSIVE_FORMATIONS).map(f => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                {dummyDefenseFormation && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Semi-transparent defense shown for matchup reference. Drag to adjust positioning.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* PHASE 2: Dummy Offense Dropdown (Only for Defense) */}
-            {odk === 'defense' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Reference Offense (Optional)
-                </label>
-                <select
-                  value={dummyOffenseFormation}
-                  onChange={(e) => loadDummyOffense(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="">None</option>
-                  {Object.keys(OFFENSIVE_FORMATIONS).map(f => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </select>
-                {dummyOffenseFormation && (
-                  <p className="text-xs text-gray-600 mt-1">
-                    Semi-transparent offense shown for gap reference. Drag to adjust positioning.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {odk === 'defense' && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Coverage *
-                </label>
-                <select
-                  value={coverage}
-                  onChange={(e) => setCoverage(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="">Select Coverage...</option>
-                  <option value="Cover 0">Cover 0 (Man, No Deep Help)</option>
-                  <option value="Cover 1">Cover 1 (Man Free)</option>
-                  <option value="Cover 2">Cover 2 (Two Deep Halves)</option>
-                  <option value="Cover 3">Cover 3 (Three Deep Thirds)</option>
-                  <option value="Cover 4">Cover 4 (Quarters)</option>
-                  <option value="Cover 6">Cover 6 (Quarter-Quarter-Half)</option>
-                </select>
-              </div>
-            )}
- 
-          </div>
-
-          {odk === 'offense' && (playType === 'Run' || playType === 'Pass') && players.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Player Assignments</h3>
-              
-              <OffensiveLineSection
-                players={linemen}
-                onUpdateBlockType={updatePlayerBlockType}
-                onApplyBlockTypeToAll={applyBlockTypeToAll}
-                onUpdateBlockDirection={updatePlayerBlockDirection}
-              />
-
-              <BacksSection
-                players={backs}
-                playType={playType}
-                ballCarrier={ballCarrier}
-                targetHole={targetHole}
-                assignmentOptions={getAssignmentOptionsForPlayer}
-                onUpdateAssignment={updatePlayerAssignment}
-                onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={(id, resp) => {}}
-                onUpdateMotionType={updatePlayerMotionType}
-                onUpdateMotionDirection={updatePlayerMotionDirection}
-                onTogglePrimary={togglePrimaryReceiver}
-              />
-
-              <ReceiversSection
-                players={receivers}
-                assignmentOptions={getAssignmentOptionsForPlayer}
-                onUpdateAssignment={updatePlayerAssignment}
-                onUpdateBlockType={updatePlayerBlockType}
-                onUpdateBlockResponsibility={(id, resp) => {}}
-                onUpdateMotionType={updatePlayerMotionType}
-                onUpdateMotionDirection={updatePlayerMotionDirection}
-                onTogglePrimary={togglePrimaryReceiver}
-              />
-            </div>
-          )}
-
-          {odk === 'defense' && coverage && players.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Defensive Assignments</h3>
-              
-              <DefensiveLineSection
-                players={players.filter(p => isDefensiveLineman(p.position))}
-                onUpdateBlitz={updatePlayerBlitz}
-                onResetToTechnique={resetPlayerToTechnique}
-              />
-
-              <LinebackersSection
-                players={players.filter(p => isLinebacker(p.position))}
-                onUpdateRole={updatePlayerCoverageRole}
-                onUpdateBlitz={updatePlayerBlitz}
-                onResetToRole={resetPlayerToRole}
-              />
-
-              <DBSection
-                players={players.filter(p => isDefensiveBack(p.position))}
-                onUpdateRole={updatePlayerCoverageRole}
-                onUpdateBlitz={updatePlayerBlitz}
-                onResetToRole={resetPlayerToRole}
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <button
-              onClick={savePlay}
-              disabled={isSaving}
-              className="px-6 py-3 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 disabled:bg-gray-400 transition-colors"
-            >
-              {isSaving ? 'Saving...' : existingPlay ? 'Update Play' : 'Save Play'}
-            </button>
-          </div>
+          <AssignmentPanel
+            odk={odk}
+            playType={playType}
+            coverage={coverage}
+            players={players}
+            linemen={linemen}
+            backs={backs}
+            receivers={receivers}
+            ballCarrier={ballCarrier}
+            targetHole={targetHole}
+            getAssignmentOptionsForPlayer={getAssignmentOptionsForPlayer}
+            onUpdateBlockType={updatePlayerBlockType}
+            onApplyBlockTypeToAll={applyBlockTypeToAll}
+            onUpdateBlockDirection={updatePlayerBlockDirection}
+            onUpdateAssignment={updatePlayerAssignment}
+            onUpdateMotionType={updatePlayerMotionType}
+            onUpdateMotionDirection={updatePlayerMotionDirection}
+            onTogglePrimary={togglePrimaryReceiver}
+            onUpdateBlitz={updatePlayerBlitz}
+            onResetToTechnique={resetPlayerToTechnique}
+            onUpdateCoverageRole={updatePlayerCoverageRole}
+            onResetToRole={resetPlayerToRole}
+          />
 
         </div>
 
         <div className="lg:sticky lg:top-6 lg:h-fit">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Play Diagram</h3>
-            
-            <div className="mb-4 p-3 bg-gray-50 rounded-md text-xs leading-relaxed">
-              <p className="text-gray-700">
-                <strong>Drag players</strong> to reposition. <strong>Select assignments</strong> from dropdowns - routes auto-generate! 
-                {isDrawingRoute && (
-                  <span className="text-orange-600 font-semibold"> ✏️ Drawing mode active: Click to add points, double-click to finish.</span>
-                )}
-                {dummyOffenseFormation && (
-                  <span className="text-blue-600 font-semibold"> 👁️ Reference offense visible - gaps adjust to O-line positions.</span>
-                )}
-                {dummyDefenseFormation && (
-                  <span className="text-blue-600 font-semibold"> 👁️ Reference defense visible - visualize matchups.</span>
-                )}
-              </p>
-            </div>
-
-            <div className="border-2 border-gray-300 rounded-lg overflow-hidden relative">
-              <svg
-                ref={svgRef}
-                viewBox="0 0 700 400"
-                className="w-full h-auto bg-green-100"
-                preserveAspectRatio="xMidYMid meet"
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onClick={handleFieldClick}
-                onDoubleClick={handleFieldDoubleClick}
-              >
-                <rect width="700" height="400" fill="#2a6e3f" />
-                
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
-                  <line
-                    key={i}
-                    x1="0"
-                    y1={i * 40}
-                    x2="700"
-                    y2={i * 40}
-                    stroke="white"
-                    strokeWidth="1"
-                    opacity="0.3"
-                  />
-                ))}
-
-                <line x1="250" y1="0" x2="250" y2="400" stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
-                <line x1="450" y1="0" x2="450" y2="400" stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
-                
-                <line x1="0" y1="200" x2="700" y2="200" stroke="white" strokeWidth="3" />
-
-                {/* PHASE 2: Render dummy players FIRST (underneath real players) */}
-                
-                {/* Dummy Offense (for defensive plays) */}
-                {dummyOffensePlayers.map(player => (
-                  <g key={player.id}>
-                    <circle
-                      cx={player.x}
-                      cy={player.y}
-                      r={12}
-                      fill="#DC2626"
-                      fillOpacity={0.4}
-                      stroke="black"
-                      strokeWidth={2}
-                      strokeDasharray="3,3"
-                      className="cursor-move"
-                      onMouseDown={() => handleMouseDown(player.id)}
-                    />
-                    <text
-                      x={player.x}
-                      y={player.y + 4}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="600"
-                      fill="white"
-                      opacity={0.6}
-                    >
-                      {player.label}
-                    </text>
-                  </g>
-                ))}
-
-                {/* Dummy Defense (for offensive plays) */}
-                {dummyDefensePlayers.map(player => (
-                  <g key={player.id}>
-                    {isDefensiveLineman(player.position) ? (
-                      <>
-                        <rect
-                          x={player.x - 12}
-                          y={player.y - 12}
-                          width="24"
-                          height="24"
-                          fill="white"
-                          fillOpacity={0.4}
-                          stroke="black"
-                          strokeWidth="2"
-                          strokeDasharray="3,3"
-                          className="cursor-move"
-                          onMouseDown={() => handleMouseDown(player.id)}
-                        />
-                        <text
-                          x={player.x}
-                          y={player.y + 5}
-                          textAnchor="middle"
-                          fontSize="10"
-                          fontWeight="600"
-                          fill="black"
-                          opacity={0.6}
-                        >
-                          {player.label}
-                        </text>
-                      </>
-                    ) : (
-                      <>
-                        <line
-                          x1={player.x - 10}
-                          y1={player.y - 10}
-                          x2={player.x + 10}
-                          y2={player.y + 10}
-                          stroke="white"
-                          strokeWidth="3"
-                          opacity={0.4}
-                          className="cursor-move"
-                          onMouseDown={() => handleMouseDown(player.id)}
-                        />
-                        <line
-                          x1={player.x - 10}
-                          y1={player.y + 10}
-                          x2={player.x + 10}
-                          y2={player.y - 10}
-                          stroke="white"
-                          strokeWidth="3"
-                          opacity={0.4}
-                          className="cursor-move"
-                          onMouseDown={() => handleMouseDown(player.id)}
-                        />
-                        <text
-                          x={player.x}
-                          y={player.y + 20}
-                          textAnchor="middle"
-                          fontSize="10"
-                          fontWeight="600"
-                          fill="white"
-                          opacity={0.6}
-                        >
-                          {player.label}
-                        </text>
-                      </>
-                    )}
-                  </g>
-                ))}
-
-                {/* Render defensive coverage zones */}
-                {odk === 'defense' && players.map(player => renderCoverageZone(player))}
-                
-                {/* Render offensive/defensive arrows */}
-                {players.map(player => renderBallCarrierArrow(player))}
-                {players.map(player => renderBlockingArrow(player))}
-                {players.map(player => renderMotionArrow(player))}
-                {players.map(player => renderBlitzArrow(player))}
-                {routes.map(route => renderPassRoute(route))}
-
-                {/* Drawing route preview */}
-                {currentRoute.length > 1 && (
-                  <g>
-                    <path
-                      d={(() => {
-                        let path = `M ${currentRoute[0].x} ${currentRoute[0].y}`;
-                        for (let i = 1; i < currentRoute.length; i++) {
-                          path += ` L ${currentRoute[i].x} ${currentRoute[i].y}`;
-                        }
-                        return path;
-                      })()}
-                      fill="none"
-                      stroke="#FF6600"
-                      strokeWidth="2.5"
-                      strokeDasharray="5,5"
-                    />
-                    {currentRoute.map((point, idx) => (
-                      <circle
-                        key={idx}
-                        cx={point.x}
-                        cy={point.y}
-                        r="3"
-                        fill="#FF6600"
-                      />
-                    ))}
-                  </g>
-                )}
-
-                {/* Player Rendering */}
-                {players.map(player => (
-                  <g key={player.id}>
-                    {player.side === 'defense' ? (
-                      <>
-                        {isDefensiveLineman(player.position) ? (
-                          <>
-                            <rect
-                              x={player.x - 12}
-                              y={player.y - 12}
-                              width="24"
-                              height="24"
-                              fill="white"
-                              stroke="black"
-                              strokeWidth="2"
-                              className="cursor-move hover:fill-gray-100"
-                              onMouseDown={() => handleMouseDown(player.id)}
-                            />
-                            <text
-                              x={player.x}
-                              y={player.y + 5}
-                              textAnchor="middle"
-                              fontSize="10"
-                              fontWeight="600"
-                              fill="black"
-                            >
-                              {player.label}
-                            </text>
-                          </>
-                        ) : (
-                          <>
-                            <line
-                              x1={player.x - 10}
-                              y1={player.y - 10}
-                              x2={player.x + 10}
-                              y2={player.y + 10}
-                              stroke="white"
-                              strokeWidth="3"
-                              className="cursor-move"
-                              onMouseDown={() => handleMouseDown(player.id)}
-                            />
-                            <line
-                              x1={player.x - 10}
-                              y1={player.y + 10}
-                              x2={player.x + 10}
-                              y2={player.y - 10}
-                              stroke="white"
-                              strokeWidth="3"
-                              className="cursor-move"
-                              onMouseDown={() => handleMouseDown(player.id)}
-                            />
-                            <text
-                              x={player.x}
-                              y={player.y + 20}
-                              textAnchor="middle"
-                              fontSize="10"
-                              fontWeight="600"
-                              fill="white"
-                            >
-                              {player.label}
-                            </text>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <circle
-                          cx={player.x}
-                          cy={player.y}
-                          r={12}
-                          fill="#DC2626"
-                          stroke="black"
-                          strokeWidth={2}
-                          className="cursor-move hover:fill-red-700"
-                          onMouseDown={() => handleMouseDown(player.id)}
-                        />
-                        <text
-                          x={player.x}
-                          y={player.y + 4}
-                          textAnchor="middle"
-                          fontSize="10"
-                          fontWeight="600"
-                          fill="white"
-                        >
-                          {player.label}
-                        </text>
-                      </>
-                    )}
-                  </g>
-                ))}
-              </svg>
-              
-              {isDrawingRoute && (
-                <div className="absolute top-2 right-2 bg-orange-500 text-white px-3 py-1 rounded-lg shadow-lg text-xs font-semibold">
-                  ✏️ Drawing Route
-                </div>
-              )}
-            </div>
-          </div>
+          <FieldDiagram
+            players={players}
+            routes={routes}
+            dummyOffensePlayers={dummyOffensePlayers}
+            dummyDefensePlayers={dummyDefensePlayers}
+            dummyOffenseFormation={dummyOffenseFormation}
+            dummyDefenseFormation={dummyDefenseFormation}
+            isDrawingRoute={isDrawingRoute}
+            currentRoute={currentRoute}
+            playType={playType}
+            targetHole={targetHole}
+            ballCarrier={ballCarrier}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onFieldClick={handleFieldClick}
+            onFieldDoubleClick={handleFieldDoubleClick}
+          />
         </div>
 
       </div>
@@ -2013,7 +1951,10 @@ const loadSpecialTeamFormation = (teamType: string) => {
       <ValidationModal
         isOpen={showValidationModal}
         validationResult={validationResult}
-        onClose={() => setShowValidationModal(false)}
+        onClose={() => {
+          setShowValidationModal(false);
+          validationModalShown.current = false; // Reset flag for next save
+        }}
         onSaveAnyway={handleSaveAnyway}
       />
     </div>

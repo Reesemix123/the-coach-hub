@@ -44,7 +44,7 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   const [selectedODK, setSelectedODK] = useState<ODK>('offense');
   const [selectedLevel, setSelectedLevel] = useState<Level>('season');
   const [selectedGameId, setSelectedGameId] = useState<string>('');
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Data state
   const [basicAnalytics, setBasicAnalytics] = useState<any>(null);

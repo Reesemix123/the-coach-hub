@@ -39,16 +39,16 @@ export const FIELD_RULES = {
 
 export const POSITION_TYPES = {
   offensiveLine: ['C', 'LG', 'RG', 'LT', 'RT', 'G', 'T'],
-  
-  eligibleReceivers: ['WR', 'WR1', 'WR2', 'WR3', 'WR4', 'WR5', 'X', 'Y', 'Z', 'SL', 'SR', 'TE', 'TE1', 'TE2', 'SE', 'FL'],
-  
+
+  eligibleReceivers: ['X', 'Y', 'Z', 'SL', 'SR', 'TE', 'TE1', 'TE2', 'SE', 'FL'],
+
   backs: ['QB', 'RB', 'FB', 'TB', 'SB', 'HB', 'WB'],
-  
-  defensiveLine: ['DE', 'DT', 'NT', 'DL', 'NG'],
-  
-  linebackers: ['LB', 'MLB', 'ILB', 'OLB', 'SAM', 'MIKE', 'WILL', 'JACK'],
-  
-  defensiveBacks: ['CB', 'S', 'SS', 'FS', 'NB', 'DB']
+
+  defensiveLine: ['DE', 'DT1', 'DT2', 'NT', 'DL', 'NG'],
+
+  linebackers: ['LB', 'MLB', 'ILB', 'SAM', 'MIKE', 'WILL', 'JACK'],
+
+  defensiveBacks: ['LCB', 'RCB', 'S', 'SS', 'FS', 'NB', 'DB']
 } as const;
 
 export function isOffensiveLineman(position: string): boolean {
@@ -79,52 +79,55 @@ export interface FormationValidation {
   warnings: string[];
 }
 
-export function validateOffensiveFormation(players: Player[]): FormationValidation {
+export function validateOffensiveFormation(players: Player[], playType?: string): FormationValidation {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   const playersAheadOfLOS = players.filter(p => p.y < FIELD_RULES.lineOfScrimmage);
   if (playersAheadOfLOS.length > 0) {
     errors.push(`${playersAheadOfLOS.length} offensive player(s) ahead of line of scrimmage: ${playersAheadOfLOS.map(p => p.label).join(', ')}`);
   }
-  
+
   const lineOfScrimmageY = FIELD_RULES.lineOfScrimmage;
   const tolerance = 5;
-  const playersOnLine = players.filter(p => 
+  const playersOnLine = players.filter(p =>
     Math.abs(p.y - lineOfScrimmageY) <= tolerance
   );
-  
+
   if (playersOnLine.length < 7) {
     errors.push(`Only ${playersOnLine.length} players on line of scrimmage. Need at least 7.`);
   }
-  
-  const backfieldPlayers = players.filter(p => 
+
+  const backfieldPlayers = players.filter(p =>
     p.y > lineOfScrimmageY + tolerance
   );
-  
+
   if (backfieldPlayers.length > 4) {
     warnings.push(`${backfieldPlayers.length} players in backfield. Maximum is 4.`);
   }
-  
-  const outOfBounds = players.filter(p => 
-    p.x < FIELD_RULES.bounds.minX || 
+
+  const outOfBounds = players.filter(p =>
+    p.x < FIELD_RULES.bounds.minX ||
     p.x > FIELD_RULES.bounds.maxX ||
     p.y < FIELD_RULES.bounds.minY ||
     p.y > FIELD_RULES.bounds.maxY
   );
-  
+
   if (outOfBounds.length > 0) {
     errors.push(`${outOfBounds.length} player(s) out of bounds`);
   }
-  
-  const eligibleCount = players.filter(p => 
-    isEligibleReceiver(p.position) || isBackfield(p.position)
-  ).length;
-  
-  if (eligibleCount < 5) {
-    warnings.push(`Only ${eligibleCount} eligible receivers. Typically need at least 5.`);
+
+  // Only check eligible receivers for pass plays
+  if (playType === 'Pass') {
+    const eligibleCount = players.filter(p =>
+      isEligibleReceiver(p.position) || isBackfield(p.position)
+    ).length;
+
+    if (eligibleCount < 5) {
+      warnings.push(`Only ${eligibleCount} eligible receivers. Typically need at least 5.`);
+    }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,

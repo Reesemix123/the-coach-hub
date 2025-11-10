@@ -120,8 +120,8 @@ export const OFFENSIVE_ATTRIBUTES = {
   ],
   
   targetHole: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
-  
-  ballCarrier: ['QB', 'RB', 'FB', 'WR', 'TE']
+
+  ballCarrier: ['QB', 'RB', 'FB', 'X', 'Y', 'Z', 'TE']
 } as const;
 
 /**
@@ -362,7 +362,7 @@ export const SKILL_POSITION_ASSIGNMENTS = [
 export const POSITION_GROUPS = {
   linemen: ['LT', 'LG', 'C', 'RG', 'RT'],
   backs: ['QB', 'RB', 'FB', 'TB', 'SB'],
-  receivers: ['WR', 'WR1', 'WR2', 'WR3', 'WR4', 'WR5', 'X', 'Y', 'Z', 'SL', 'SR', 'TE', 'TE1', 'TE2', 'SE', 'FL', 'WB']
+  receivers: ['X', 'Y', 'Z', 'SL', 'SR', 'TE', 'TE1', 'TE2', 'SE', 'FL', 'WB']
 } as const;
 
 // ============================================
@@ -1140,10 +1140,10 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '6-2': [
     // Defensive Line (6 players on LOS, y=185 = 1.5 yards off LOS)
     { position: 'DE', x: 140, y: 185, label: 'SDE', responsibility: '9-tech strong' },
-    { position: 'DT', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
-    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
-    { position: 'DT', x: 330, y: 185, label: 'NT', responsibility: '1-tech weak' },
-    { position: 'DT', x: 380, y: 185, label: 'DT', responsibility: '3-tech weak' },
+    { position: 'DT1', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
+    { position: 'DT1', x: 270, y: 185, label: 'DT1', responsibility: '3-tech strong' },
+    { position: 'DT2', x: 330, y: 185, label: 'NT', responsibility: '1-tech weak' },
+    { position: 'DT2', x: 380, y: 185, label: 'DT2', responsibility: '3-tech weak' },
     { position: 'DE', x: 460, y: 185, label: 'WDE', responsibility: '9-tech weak' },
     
     // Linebackers (2 players, y=160 = 4 yards deep)
@@ -1151,8 +1151,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'LB', x: 340, y: 160, label: 'WLB', responsibility: 'B-gap weak' },
     
     // Defensive Backs (3 players)
-    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 140, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 140, label: 'RCB', responsibility: 'corner weak' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
 
@@ -1165,9 +1165,9 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '5-3': [
     // Defensive Line (5 players)
     { position: 'DE', x: 140, y: 185, label: 'SDE', responsibility: '9-tech strong' },
-    { position: 'DT', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
+    { position: 'DT1', x: 220, y: 185, label: 'SDT', responsibility: '5-tech strong' },
     { position: 'NT', x: 300, y: 185, label: 'NT', responsibility: '0-tech' },
-    { position: 'DT', x: 380, y: 185, label: 'WDT', responsibility: '5-tech weak' },
+    { position: 'DT2', x: 380, y: 185, label: 'WDT', responsibility: '5-tech weak' },
     { position: 'DE', x: 460, y: 185, label: 'WDE', responsibility: '9-tech weak' },
     
     // Linebackers (3 players, y=160 = 4 yards)
@@ -1176,8 +1176,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'WILL', x: 420, y: 160, label: 'WILL', responsibility: 'C-gap weak' },
     
     // Defensive Backs (3 players)
-    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 140, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 140, label: 'RCB', responsibility: 'corner weak' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
 
@@ -1190,8 +1190,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '4-4': [
     // Defensive Line (4 players)
     { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
-    { position: 'DT', x: 270, y: 185, label: 'SDT', responsibility: '3-tech strong' },
-    { position: 'DT', x: 330, y: 185, label: 'WDT', responsibility: '1-tech weak' },
+    { position: 'DT1', x: 270, y: 185, label: 'SDT', responsibility: '3-tech strong' },
+    { position: 'DT2', x: 330, y: 185, label: 'WDT', responsibility: '1-tech weak' },
     { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
     
     // Linebackers (4 players, y=160 = 3.5-4 yards)
@@ -1201,8 +1201,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'JACK', x: 460, y: 160, label: 'JACK', responsibility: 'apex weak' },
     
     // Defensive Backs (3 players)
-    { position: 'CB', x: 70, y: 140, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 140, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 140, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 140, label: 'RCB', responsibility: 'corner weak' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
 
@@ -1215,8 +1215,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '4-3': [
     // Defensive Line (4 players)
     { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
-    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
-    { position: 'DT', x: 330, y: 185, label: 'DT', responsibility: '1-tech weak' },
+    { position: 'DT1', x: 270, y: 185, label: 'DT1', responsibility: '3-tech strong' },
+    { position: 'DT2', x: 330, y: 185, label: 'DT2', responsibility: '1-tech weak' },
     { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
     
     // Linebackers (3 players)
@@ -1225,8 +1225,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'WILL', x: 360, y: 160, label: 'WILL', responsibility: 'B-gap weak' },
     
     // Defensive Backs (4 players)
-    { position: 'CB', x: 70, y: 135, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 135, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 135, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 135, label: 'RCB', responsibility: 'corner weak' },
     { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'strong safety box' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
@@ -1250,8 +1250,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'OLB', x: 480, y: 190, label: 'WOLB', responsibility: '9-tech weak edge' },
     
     // Defensive Backs (4 players)
-    { position: 'CB', x: 70, y: 135, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 135, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 135, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 135, label: 'RCB', responsibility: 'corner weak' },
     { position: 'SS', x: 200, y: 90, label: 'SS', responsibility: 'strong safety' },
     { position: 'FS', x: 400, y: 90, label: 'FS', responsibility: 'free safety' }
   ],
@@ -1265,8 +1265,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
   '4-2-5': [
     // Defensive Line (4 players)
     { position: 'DE', x: 180, y: 185, label: 'SDE', responsibility: '5-tech strong' },
-    { position: 'DT', x: 270, y: 185, label: 'DT', responsibility: '3-tech strong' },
-    { position: 'DT', x: 330, y: 185, label: 'DT', responsibility: '1-tech weak' },
+    { position: 'DT1', x: 270, y: 185, label: 'DT1', responsibility: '3-tech strong' },
+    { position: 'DT2', x: 330, y: 185, label: 'DT2', responsibility: '1-tech weak' },
     { position: 'DE', x: 420, y: 185, label: 'WDE', responsibility: '5-tech weak' },
     
     // Linebackers (2 players)
@@ -1274,8 +1274,8 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'WILL', x: 330, y: 155, label: 'WILL', responsibility: 'B-gap weak' },
     
     // Defensive Backs (5 players)
-    { position: 'CB', x: 70, y: 145, label: 'CB', responsibility: 'corner strong' },
-    { position: 'CB', x: 530, y: 145, label: 'CB', responsibility: 'corner weak' },
+    { position: 'LCB', x: 70, y: 145, label: 'LCB', responsibility: 'corner strong' },
+    { position: 'RCB', x: 530, y: 145, label: 'RCB', responsibility: 'corner weak' },
     { position: 'NB', x: 420, y: 155, label: 'NB', responsibility: 'nickel apex #2' },
     { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'strong safety box' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
@@ -1346,7 +1346,8 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
     underCount: 4,
     assignments: {
       // Deep zones (corners + safety)
-      'CB': { role: 'Deep Third', depth: 12, description: 'Outside third' },
+      'LCB': { role: 'Deep Third', depth: 12, description: 'Outside third left' },
+      'RCB': { role: 'Deep Third', depth: 12, description: 'Outside third right' },
       'FS': { role: 'Deep Third', depth: 12, description: 'Middle third' },
       'SS': { role: 'Deep Third', depth: 12, description: 'Rolled to third' },
       
@@ -1388,8 +1389,9 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
       'SS': { role: 'Deep Half', depth: 12, description: 'Deep half' },
       
       // Corners squat
-      'CB': { role: 'Flat', depth: 5, description: 'Squat/jam flat' },
-      
+      'LCB': { role: 'Flat', depth: 5, description: 'Squat/jam flat left' },
+      'RCB': { role: 'Flat', depth: 5, description: 'Squat/jam flat right' },
+
       // Linebackers
       'SAM': { role: 'Curl-to-Flat', depth: 7, description: 'Curl-to-flat strong' },
       'MIKE': { role: 'Middle Hook', depth: 9, description: 'Middle hole 8-10 yds' },
@@ -1427,7 +1429,8 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
       'FS': { role: 'Deep Half', depth: 12, description: 'Free safety middle' },
       
       // Man coverage
-      'CB': { role: 'Man', description: 'Man on #1' },
+      'LCB': { role: 'Man', description: 'Man on #1 left' },
+      'RCB': { role: 'Man', description: 'Man on #1 right' },
       'SS': { role: 'Man', description: 'Man on TE or #2' },
       'NB': { role: 'Man', description: 'Man on slot' },
       
@@ -1464,7 +1467,8 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
     underCount: 0,
     assignments: {
       // Everyone in man
-      'CB': { role: 'Man', description: 'Man on #1' },
+      'LCB': { role: 'Man', description: 'Man on #1 left' },
+      'RCB': { role: 'Man', description: 'Man on #1 right' },
       'FS': { role: 'Man', description: 'Man on TE or back' },
       'SS': { role: 'Man', description: 'Man on TE or back' },
       'NB': { role: 'Man', description: 'Man on slot' },
@@ -1502,7 +1506,8 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
     underCount: 2,
     assignments: {
       // Deep quarters (corners + safeties)
-      'CB': { role: 'Quarter', depth: 10, description: 'Quarter, outside leverage' },
+      'LCB': { role: 'Quarter', depth: 10, description: 'Quarter, outside leverage left' },
+      'RCB': { role: 'Quarter', depth: 10, description: 'Quarter, outside leverage right' },
       'FS': { role: 'Quarter', depth: 10, description: 'Quarter inside' },
       'SS': { role: 'Quarter', depth: 10, description: 'Quarter inside' },
       
@@ -1542,10 +1547,11 @@ export const COVERAGES: Record<string, CoverageDefinition> = {
     underCount: 3,
     assignments: {
       // Quarters side (strong)
-      'CB': { role: 'Quarter', depth: 10, description: 'Strong corner quarter' },
+      'LCB': { role: 'Quarter', depth: 10, description: 'Strong corner quarter' },
       'SS': { role: 'Quarter', depth: 10, description: 'Strong safety quarter' },
-      
+
       // Half side (weak)
+      'RCB': { role: 'Flat', depth: 5, description: 'Weak corner flat' },
       'FS': { role: 'Deep Half', depth: 12, description: 'Weak safety deep half' },
       
       // Linebackers
@@ -2047,9 +2053,9 @@ export const getGapPositionFromName = (gapName: string, centerX: number = 350): 
 };
 
 // Position check helpers
-export const DEFENSIVE_LINE_POSITIONS = ['DE', 'DT', 'NT', 'SDE', 'WDE', 'SDT', 'WDT'] as const;
-export const LINEBACKER_POSITIONS = ['SAM', 'MIKE', 'WILL', 'OLB', 'ILB', 'SOLB', 'WOLB', 'SILB', 'WILB', 'SLB', 'WLB', 'JACK', 'LB'] as const;
-export const DEFENSIVE_BACK_POSITIONS = ['CB', 'FS', 'SS', 'NB', 'S', 'DB'] as const;
+export const DEFENSIVE_LINE_POSITIONS = ['DE', 'DT1', 'DT2', 'NT', 'SDE', 'WDE', 'SDT', 'WDT'] as const;
+export const LINEBACKER_POSITIONS = ['SAM', 'MIKE', 'WILL', 'ILB', 'SOLB', 'WOLB', 'SILB', 'WILB', 'SLB', 'WLB', 'JACK', 'LB'] as const;
+export const DEFENSIVE_BACK_POSITIONS = ['LCB', 'RCB', 'FS', 'SS', 'NB', 'S', 'DB'] as const;
 
 export const isDefensiveLineman = (position: string): boolean => {
   return DEFENSIVE_LINE_POSITIONS.includes(position as any);

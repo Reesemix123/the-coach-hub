@@ -62,10 +62,10 @@ export default function ConsolePage() {
     if (!error && data) {
       setOwnedTeams(data);
 
-      // Fetch stats for each team
-      for (const team of data) {
-        await fetchTeamStats(team.id);
-      }
+      // Fetch stats for all teams in parallel (don't wait - stats can load in background)
+      Promise.all(
+        data.map(team => fetchTeamStats(team.id))
+      );
     }
   }
 
@@ -202,14 +202,16 @@ export default function ConsolePage() {
 
           {/* Create Team Section */}
           <div className="mb-8">
-            {!showForm ? (
+            {!showForm && ownedTeams.length > 0 && (
               <button
                 onClick={() => setShowForm(true)}
                 className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
                 + Create New Team
               </button>
-            ) : (
+            )}
+
+            {showForm && (
               <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold text-gray-900">Create New Team</h2>
@@ -295,7 +297,7 @@ export default function ConsolePage() {
           <div>
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Your Teams</h2>
 
-            {ownedTeams.length === 0 ? (
+            {ownedTeams.length === 0 && !showForm ? (
               <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="text-gray-400 mb-4">No teams yet</div>
                 <button
@@ -305,7 +307,7 @@ export default function ConsolePage() {
                   Create Your First Team
                 </button>
               </div>
-            ) : (
+            ) : ownedTeams.length > 0 ? (
               <div className="space-y-4">
                 {ownedTeams.map((team) => {
                   const stats = teamStats[team.id] || { games: 0, plays: 0, players: 0 };
@@ -362,7 +364,7 @@ export default function ConsolePage() {
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

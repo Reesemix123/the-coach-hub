@@ -31,7 +31,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
   const [plays, setPlays] = useState<PlaybookPlay[]>([]);
   const [filteredPlays, setFilteredPlays] = useState<PlaybookPlay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Multi-select system
   const {
@@ -444,26 +444,16 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
           <div className="flex-1">
             <h2 className="text-3xl font-semibold text-gray-900">Playbook</h2>
             <p className="text-gray-600 mt-1">
-              {plays.length} plays • {gamePlans.length} game plans
+              {plays.length} plays
             </p>
 
             {/* Action Buttons */}
             <div className="mt-4 flex items-center gap-3">
               <button
-                onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
                 className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
                 + Build Play
-              </button>
-              <button
-                onClick={() => setViewMode('gameplan')}
-                className={`px-6 py-3 rounded-lg transition-colors font-medium ${
-                  viewMode === 'gameplan'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                📋 Game Plans
               </button>
             </div>
           </div>
@@ -537,7 +527,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                   <p className="text-2xl font-semibold text-gray-900 mb-3">No plays yet</p>
                   <p className="text-gray-600 mb-8">Build your first play to get started.</p>
                   <button
-                    onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                    onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
                     className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-lg"
                   >
                     Build First Play
@@ -597,7 +587,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
                     <div className="p-4 bg-gray-50 flex items-center justify-between">
                       <button
-                        onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                        onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
                         className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
                       >
                         View/Edit
@@ -639,7 +629,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                   <p className="text-2xl font-semibold text-gray-900 mb-3">No plays yet</p>
                   <p className="text-gray-600 mb-8">Build your first play to get started.</p>
                   <button
-                    onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                    onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
                     className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-lg"
                   >
                     Build First Play
@@ -727,7 +717,7 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                         </td>
                         <td className="px-6 py-4 text-right text-sm space-x-3">
                           <button
-                            onClick={() => router.push(`/playbook?teamId=${teamId}`)}
+                            onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
                             className="text-gray-700 hover:text-black font-medium"
                           >
                             Edit

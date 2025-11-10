@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { useRouter, usePathname } from 'next/navigation';
@@ -23,15 +23,18 @@ export default function TeamSwitcher() {
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const pathname = usePathname();
-  const membershipService = new TeamMembershipService();
+  const membershipService = useMemo(() => new TeamMembershipService(), []);
 
+  // Fetch teams only once on mount
   useEffect(() => {
     fetchTeams();
+  }, []);
 
-    // Extract team ID from pathname if on a team page
+  // Update current team when pathname changes (no refetch needed)
+  useEffect(() => {
     const match = pathname.match(/\/teams\/([^\/]+)/);
     if (match) {
       setCurrentTeam(match[1]);

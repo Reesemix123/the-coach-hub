@@ -47,6 +47,7 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
   const [team, setTeam] = useState<Team | null>(null);
   const [games, setGames] = useState<Game[]>([]);
   const [events, setEvents] = useState<TeamEvent[]>([]);
+  const [practicePlans, setPracticePlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Calendar state
@@ -97,6 +98,16 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
         .order('date', { ascending: true });
 
       setEvents(eventsData || []);
+
+      // Fetch practice plans
+      const { data: practicePlansData } = await supabase
+        .from('practice_plans')
+        .select('*')
+        .eq('team_id', teamId)
+        .eq('is_template', false)
+        .order('date', { ascending: true });
+
+      setPracticePlans(practicePlansData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -129,6 +140,33 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
       if (!timeB) return -1;
       return timeA.localeCompare(timeB);
     });
+  };
+
+  const getEventIndicatorsForDate = (date: Date) => {
+    const items = getItemsForDate(date);
+    const indicators: Array<{ type: string; color: string; label: string }> = [];
+
+    items.forEach(item => {
+      if (item.itemType === 'game') {
+        const game = item as Game;
+        if (game.is_opponent_game) {
+          indicators.push({ type: 'opponent-scouting', color: 'bg-orange-500', label: 'Scouting' });
+        } else {
+          indicators.push({ type: 'game', color: 'bg-blue-500', label: 'Game' });
+        }
+      } else {
+        const event = item as TeamEvent;
+        if (event.event_type === 'practice') {
+          indicators.push({ type: 'practice', color: 'bg-purple-500', label: 'Practice' });
+        } else if (event.event_type === 'meeting') {
+          indicators.push({ type: 'meeting', color: 'bg-gray-500', label: 'Meeting' });
+        } else {
+          indicators.push({ type: 'other', color: 'bg-gray-400', label: 'Event' });
+        }
+      }
+    });
+
+    return indicators;
   };
 
   const hasItemsOnDate = (date: Date): boolean => {
@@ -395,6 +433,7 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
               onMonthChange={setCurrentDate}
               hasItemsOnDate={hasItemsOnDate}
               getHolidayForDate={getHolidayForDate}
+              getEventIndicatorsForDate={getEventIndicatorsForDate}
             />
           </div>
 
@@ -494,6 +533,8 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
                                 setShowEventModal(true);
                               }}
                               onDelete={handleDeleteEvent}
+                              practicePlans={practicePlans}
+                              teamId={teamId}
                             />
                           )}
                         </div>
@@ -557,7 +598,8 @@ function MonthlyCalendar({
   onDateClick,
   onMonthChange,
   hasItemsOnDate,
-  getHolidayForDate
+  getHolidayForDate,
+  getEventIndicatorsForDate
 }: {
   currentDate: Date;
   selectedDate: Date | null;
@@ -565,6 +607,7 @@ function MonthlyCalendar({
   onMonthChange: (date: Date) => void;
   hasItemsOnDate: (date: Date) => boolean;
   getHolidayForDate: (date: Date) => string | null;
+  getEventIndicatorsForDate: (date: Date) => Array<{ type: string; color: string; label: string }>;
 }) {
   const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
@@ -620,7 +663,7 @@ function MonthlyCalendar({
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       {/* Calendar Header */}
       <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-2xl font-semibold text-gray-900">
             {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </h2>
@@ -643,6 +686,26 @@ function MonthlyCalendar({
             >
               →
             </button>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 text-xs text-gray-600">
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-6 rounded bg-blue-500" />
+            <span>Game</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-6 rounded bg-orange-500" />
+            <span>Scouting</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-6 rounded bg-purple-500" />
+            <span>Practice</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-6 rounded bg-gray-500" />
+            <span>Meeting/Other</span>
           </div>
         </div>
       </div>
@@ -671,6 +734,7 @@ function MonthlyCalendar({
             >
               {week.map((day, dayIndex) => {
                 const hasItems = hasItemsOnDate(day);
+                const indicators = getEventIndicatorsForDate(day);
                 const isCurrentMonthDay = isCurrentMonth(day);
                 const isTodayDay = isToday(day);
                 const isSelectedDay = isSelected(day);
@@ -707,11 +771,20 @@ function MonthlyCalendar({
                       </div>
                     )}
 
-                    {hasItems && (
-                      <div className="absolute bottom-2 left-2 right-2">
-                        <div className={`w-full h-1 rounded ${
-                          isSelectedDay ? 'bg-blue-600' : 'bg-blue-500'
-                        }`} />
+                    {indicators.length > 0 && (
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1">
+                        {indicators.slice(0, 3).map((indicator, idx) => (
+                          <div
+                            key={idx}
+                            className={`h-1.5 flex-1 rounded ${indicator.color}`}
+                            title={indicator.label}
+                          />
+                        ))}
+                        {indicators.length > 3 && (
+                          <span className="text-[10px] font-semibold text-gray-600 ml-1">
+                            +{indicators.length - 3}
+                          </span>
+                        )}
                       </div>
                     )}
                   </button>
@@ -820,12 +893,23 @@ function GameDetailCard({
 function EventDetailCard({
   event,
   onEdit,
-  onDelete
+  onDelete,
+  practicePlans,
+  teamId
 }: {
   event: TeamEvent;
   onEdit: (event: TeamEvent) => void;
   onDelete: (id: string) => void;
+  practicePlans: any[];
+  teamId: string;
 }) {
+  const router = useRouter();
+
+  // Find matching practice plan for this event's date
+  const matchingPracticePlan = event.event_type === 'practice'
+    ? practicePlans.find(plan => plan.date === event.date)
+    : null;
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-white">
       <div className="flex items-start justify-between mb-3">
@@ -864,6 +948,18 @@ function EventDetailCard({
         {event.description && (
           <div className="mt-2 text-gray-500">
             <p className="text-xs">{event.description}</p>
+          </div>
+        )}
+
+        {/* Show practice plan link if exists */}
+        {matchingPracticePlan && (
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <button
+              onClick={() => router.push(`/teams/${teamId}/practice/${matchingPracticePlan.id}`)}
+              className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-medium"
+            >
+              📋 View Practice Plan
+            </button>
           </div>
         )}
       </div>
