@@ -169,6 +169,7 @@ export interface TeamEvent {
   start_time?: string;
   end_time?: string;
   location?: string;
+  practice_plan_id?: string; // Links to practice_plans table
   created_by?: string;
   created_at: string;
   updated_at: string;
@@ -193,7 +194,17 @@ export interface Video {
 }
 
 /**
+ * Position-to-depth mapping type
+ * Keys are position codes (QB, RB, WR, etc.), values are depth orders (1-4)
+ * Example: { "QB": 1, "RB": 2, "S": 3 } = 1st team QB, 2nd team RB, 3rd team Safety
+ */
+export type PositionDepthMap = {
+  [positionCode: string]: number;
+};
+
+/**
  * Database table: players (roster management)
+ * Multi-position support with per-position depth tracking
  */
 export interface PlayerRecord {
   id: string;
@@ -201,10 +212,15 @@ export interface PlayerRecord {
   jersey_number: string;
   first_name: string;
   last_name: string;
-  primary_position: string;
-  secondary_position?: string;
-  position_group: 'offense' | 'defense' | 'special_teams';
-  depth_order: number;
+
+  /**
+   * Position-to-depth mapping
+   * Example: { "QB": 1, "RB": 2, "S": 3 }
+   * - Key: Position code (QB, RB, WR, etc.)
+   * - Value: Depth order (1=1st team, 2=2nd team, 3=3rd team, 4=4th team)
+   */
+  position_depths: PositionDepthMap;
+
   is_active: boolean;
   grade_level?: string;
   weight?: number;
@@ -212,6 +228,29 @@ export interface PlayerRecord {
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Helper type for player form data
+ */
+export interface PlayerFormData {
+  jersey_number: string;
+  first_name: string;
+  last_name: string;
+  position_depths: PositionDepthMap;
+  grade_level?: string;
+  weight?: number;
+  height?: number;
+  notes?: string;
+}
+
+/**
+ * Position depth selection (used in UI forms)
+ */
+export interface PositionDepthSelection {
+  position: string;
+  depth: number;
+  positionName: string; // Full name for display
 }
 
 /**
@@ -312,6 +351,12 @@ export interface Drive {
   id: string;
   game_id: string;
   team_id?: string;
+
+  // Distinguish offensive vs defensive possessions
+  // 'offense' = your team has the ball
+  // 'defense' = opponent has the ball (defensive drive)
+  possession_type: 'offense' | 'defense';
+
   drive_number: number;
   quarter: number;
   start_time?: number;
@@ -322,7 +367,11 @@ export interface Drive {
   yards_gained: number;
   first_downs: number;
   result: 'touchdown' | 'field_goal' | 'punt' | 'turnover' | 'downs' | 'end_half' | 'end_game' | 'safety';
+
+  // For offense: points scored by your team
+  // For defense: points allowed (scored by opponent)
   points: number;
+
   three_and_out: boolean;
   reached_red_zone: boolean;
   scoring_drive: boolean;
@@ -719,6 +768,8 @@ export interface PracticePeriod {
   duration_minutes: number;
   period_type: 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
   notes?: string;
+  start_time?: number; // Minutes from practice start (0 = beginning). NULL means sequential.
+  is_concurrent?: boolean; // TRUE if runs at same time as other periods
   created_at: string;
 }
 

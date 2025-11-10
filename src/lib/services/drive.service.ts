@@ -11,6 +11,7 @@ export interface CreateDriveParams {
   driveNumber: number;
   quarter: number;
   startYardLine: number;
+  possessionType: 'offense' | 'defense';
   startTime?: number;
 }
 
@@ -43,6 +44,7 @@ export class DriveService {
         team_id: params.teamId,
         drive_number: params.driveNumber,
         quarter: params.quarter,
+        possession_type: params.possessionType,
         start_yard_line: params.startYardLine,
         start_time: params.startTime,
         end_yard_line: params.startYardLine, // Initial value
@@ -219,13 +221,19 @@ export class DriveService {
 
   /**
    * Get all drives for a game
+   * Optionally filter by possession type (offense/defense)
    */
-  async getDrivesForGame(gameId: string): Promise<Drive[]> {
-    const { data, error } = await this.supabase
+  async getDrivesForGame(gameId: string, possessionType?: 'offense' | 'defense'): Promise<Drive[]> {
+    let query = this.supabase
       .from('drives')
       .select('*')
-      .eq('game_id', gameId)
-      .order('drive_number', { ascending: true });
+      .eq('game_id', gameId);
+
+    if (possessionType) {
+      query = query.eq('possession_type', possessionType);
+    }
+
+    const { data, error } = await query.order('drive_number', { ascending: true });
 
     if (error) throw new Error(`Failed to fetch drives: ${error.message}`);
 
@@ -280,7 +288,7 @@ export class DriveService {
    * Groups consecutive plays into drives based on possession changes
    * Useful for importing legacy data
    */
-  async autoCreateDrives(gameId: string, teamId: string): Promise<Drive[]> {
+  async autoCreateDrives(gameId: string, teamId: string, possessionType: 'offense' | 'defense' = 'offense'): Promise<Drive[]> {
     // Get all play instances for this game/team, ordered by timestamp
     const { data: videos } = await this.supabase
       .from('videos')
@@ -291,12 +299,15 @@ export class DriveService {
 
     const videoIds = videos.map(v => v.id);
 
+    // Filter plays based on possession type
+    // offense = your team's plays (is_opponent_play = false)
+    // defense = opponent's plays (is_opponent_play = true)
     const { data: plays, error } = await this.supabase
       .from('play_instances')
       .select('*')
       .in('video_id', videoIds)
       .eq('team_id', teamId)
-      .eq('is_opponent_play', false)
+      .eq('is_opponent_play', possessionType === 'defense')
       .order('timestamp_start', { ascending: true });
 
     if (error || !plays || plays.length === 0) return [];
@@ -324,6 +335,7 @@ export class DriveService {
           driveNumber,
           quarter: play.quarter || 1,
           startYardLine: play.yard_line || 75, // Default to own 25
+          possessionType,
           startTime: play.timestamp_start
         };
         currentDrivePlays = [play.id];
@@ -369,6 +381,7 @@ export class DriveService {
           driveNumber,
           quarter: play.quarter || currentDrive.quarter,
           startYardLine: play.yard_line || 75,
+          possessionType,
           startTime: play.timestamp_start
         };
         currentDrivePlays = [play.id];
