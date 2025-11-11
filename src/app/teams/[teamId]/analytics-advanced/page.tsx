@@ -17,10 +17,19 @@ import OverallPerformanceSection from '@/components/analytics/offense/OverallPer
 import DownBreakdownSection from '@/components/analytics/offense/DownBreakdownSection';
 import DriveAnalyticsSection from '@/components/analytics/offense/DriveAnalyticsSection';
 import PlayerPerformanceSection from '@/components/analytics/offense/PlayerPerformanceSection';
+import QBStatsSection from '@/components/analytics/offense/QBStatsSection';
+import RBStatsSection from '@/components/analytics/offense/RBStatsSection';
+import WRTEStatsSection from '@/components/analytics/offense/WRTEStatsSection';
+import OLStatsSection from '@/components/analytics/offense/OLStatsSection';
 
 // Defense sections
 import OverallDefenseSection from '@/components/analytics/defense/OverallDefenseSection';
 import DefensivePerformanceSection from '@/components/analytics/defense/DefensivePerformanceSection';
+import DefensiveDriveAnalyticsSection from '@/components/analytics/defense/DefensiveDriveAnalyticsSection';
+import DefensiveDownBreakdownSection from '@/components/analytics/defense/DefensiveDownBreakdownSection';
+import DLStatsSection from '@/components/analytics/defense/DLStatsSection';
+import LBStatsSection from '@/components/analytics/defense/LBStatsSection';
+import DBStatsSection from '@/components/analytics/defense/DBStatsSection';
 
 interface Game {
   id: string;
@@ -28,6 +37,16 @@ interface Game {
   opponent?: string;
   date?: string;
   game_result: 'win' | 'loss' | 'tie' | null;
+}
+
+interface Player {
+  id: string;
+  jersey_number: string;
+  first_name: string;
+  last_name: string;
+  primary_position: string;
+  position_group: 'offense' | 'defense' | 'special_teams';
+  is_active: boolean;
 }
 
 type ODK = 'offense' | 'defense' | 'special_teams';
@@ -46,12 +65,24 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   const [selectedGameId, setSelectedGameId] = useState<string>('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
+  // Player state
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+
   // Data state
   const [basicAnalytics, setBasicAnalytics] = useState<any>(null);
   const [driveAnalytics, setDriveAnalytics] = useState<any>(null);
   const [playerStats, setPlayerStats] = useState<any[]>([]);
   const [defStats, setDefStats] = useState<any[]>([]);
   const [defensiveAnalytics, setDefensiveAnalytics] = useState<any>(null);
+
+  // Defensive team analytics
+  const [defensiveDriveAnalytics, setDefensiveDriveAnalytics] = useState<any>(null);
+  const [defensiveDownBreakdown, setDefensiveDownBreakdown] = useState<any[]>([]);
+
+  // Position-specific stats
+  const [positionStats, setPositionStats] = useState<any>(null);
+
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
@@ -62,6 +93,55 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   useEffect(() => {
     fetchData();
   }, [teamId]);
+
+  // Fetch position-specific stats when player is selected
+  useEffect(() => {
+    if (selectedLevel === 'player' && selectedPlayerId && config) {
+      fetchPositionStats();
+    } else {
+      setPositionStats(null);
+    }
+  }, [selectedPlayerId, selectedLevel, selectedGameId, config]);
+
+  const fetchPositionStats = async () => {
+    if (!selectedPlayerId) return;
+
+    const player = players.find(p => p.id === selectedPlayerId);
+    if (!player) return;
+
+    try {
+      const gameId = selectedGameId || undefined;
+      let stats = null;
+
+      // Determine position category and fetch appropriate stats
+      const position = player.primary_position;
+
+      // Offense positions
+      if (position === 'QB') {
+        stats = await advancedService.getQBStats(selectedPlayerId, gameId);
+      } else if (position === 'RB' || position === 'FB') {
+        stats = await advancedService.getRBStats(selectedPlayerId, gameId);
+      } else if (['WR', 'TE', 'SWR', 'X', 'Y', 'Z'].includes(position)) {
+        stats = await advancedService.getWRTEStats(selectedPlayerId, gameId);
+      } else if (['LT', 'LG', 'C', 'RG', 'RT'].includes(position) && config.enable_ol_tracking) {
+        const allOLStats = await advancedService.getOffensiveLineStats(teamId);
+        stats = allOLStats.find((s: any) => s.playerId === selectedPlayerId);
+      }
+      // Defense positions
+      else if (['DE', 'DT', 'NT'].includes(position) && config.enable_defensive_tracking) {
+        stats = await advancedService.getDLStats(selectedPlayerId, gameId);
+      } else if (['MLB', 'OLB', 'LB', 'ILB'].includes(position) && config.enable_defensive_tracking) {
+        stats = await advancedService.getLBStats(selectedPlayerId, gameId);
+      } else if (['CB', 'S', 'FS', 'SS', 'DB'].includes(position) && config.enable_defensive_tracking) {
+        stats = await advancedService.getDBStats(selectedPlayerId, gameId);
+      }
+
+      setPositionStats(stats);
+    } catch (error) {
+      console.error('Error fetching position stats:', error);
+      setPositionStats(null);
+    }
+  };
 
   // Helper function to calculate defensive stats from opponent plays
   const calculateDefensiveStats = async (teamId: string) => {
@@ -138,6 +218,16 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
 
       setGames(gamesData || []);
 
+      // Fetch players
+      const { data: playersData } = await supabase
+        .from('players')
+        .select('*')
+        .eq('team_id', teamId)
+        .eq('is_active', true)
+        .order('jersey_number');
+
+      setPlayers(playersData || []);
+
       // Get tier config
       const tierConfig = await advancedService.getTeamTier(teamId);
       setConfig(tierConfig);
@@ -150,6 +240,10 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
       if (tierConfig.enable_drive_analytics) {
         const drives = await advancedService.getDriveAnalytics(teamId);
         setDriveAnalytics(drives);
+
+        // Defensive drive analytics (Tier 2+)
+        const defDrives = await advancedService.getDefensiveDriveAnalytics(teamId);
+        setDefensiveDriveAnalytics(defDrives);
       }
 
       // Player stats (Tier 2+)
@@ -167,6 +261,10 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
       // Defensive analytics (all tiers - from opponent plays)
       const defenseStats = await calculateDefensiveStats(teamId);
       setDefensiveAnalytics(defenseStats);
+
+      // Defensive down breakdown (all tiers)
+      const defDownBreakdown = await advancedService.getDefensiveDownBreakdown(teamId);
+      setDefensiveDownBreakdown(defDownBreakdown);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -210,6 +308,17 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
   const selectedGame = selectedGameId ? games.find(g => g.id === selectedGameId) : null;
   const gameName = selectedGame ? `vs ${selectedGame.opponent}` : undefined;
 
+  // Get selected player details
+  const selectedPlayer = selectedPlayerId ? players.find(p => p.id === selectedPlayerId) : null;
+
+  // Filter players by position group matching selected ODK
+  const filteredPlayers = players.filter(p => {
+    if (selectedODK === 'offense') return p.position_group === 'offense';
+    if (selectedODK === 'defense') return p.position_group === 'defense';
+    if (selectedODK === 'special_teams') return p.position_group === 'special_teams';
+    return false;
+  });
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header with Tabs */}
@@ -235,6 +344,37 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
         onViewModeChange={setViewMode}
         onPrint={() => window.print()}
       />
+
+      {/* Player Selector (shown when Level is Player) */}
+      {selectedLevel === 'player' && (
+        <div className="border-b border-gray-200 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Player
+            </label>
+            <select
+              value={selectedPlayerId}
+              onChange={(e) => setSelectedPlayerId(e.target.value)}
+              className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            >
+              <option value="">-- Select a player --</option>
+              {filteredPlayers.map(player => (
+                <option key={player.id} value={player.id}>
+                  #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position})
+                </option>
+              ))}
+            </select>
+            {selectedPlayer && (
+              <div className="mt-2 text-sm text-gray-600">
+                Viewing {selectedGameId && gameName ? `${gameName} stats` : 'season stats'} for{' '}
+                <span className="font-medium text-gray-900">
+                  #{selectedPlayer.jersey_number} {selectedPlayer.first_name} {selectedPlayer.last_name}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-6">
 
@@ -271,12 +411,49 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
               />
             )}
 
-            {/* Player Performance (Player level, Tier 2+) */}
-            {selectedLevel === 'player' && config.enable_player_attribution && (
-              <PlayerPerformanceSection
-                data={playerStats}
-                gameName={selectedGameId && gameName}
-              />
+            {/* Position-Specific Player Stats (Player level, Tier 2+) */}
+            {selectedLevel === 'player' && selectedPlayer && config.enable_player_attribution && (
+              <>
+                {/* QB Stats */}
+                {selectedPlayer.primary_position === 'QB' && (
+                  <QBStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* RB Stats */}
+                {['RB', 'FB'].includes(selectedPlayer.primary_position) && (
+                  <RBStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* WR/TE Stats */}
+                {['WR', 'TE', 'SWR', 'X', 'Y', 'Z'].includes(selectedPlayer.primary_position) && (
+                  <WRTEStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* OL Stats (Tier 3 only) */}
+                {['LT', 'LG', 'C', 'RG', 'RT'].includes(selectedPlayer.primary_position) && config.enable_ol_tracking && (
+                  <OLStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* OL Tier 3 Required Message */}
+                {['LT', 'LG', 'C', 'RG', 'RT'].includes(selectedPlayer.primary_position) && !config.enable_ol_tracking && (
+                  <div className="border border-gray-200 rounded-lg p-12 text-center">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Tier 3 Required</h3>
+                    <p className="text-gray-600">
+                      Offensive line block tracking requires Tier 3 analytics.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Prompt to select player */}
+            {selectedLevel === 'player' && !selectedPlayerId && (
+              <div className="border border-gray-200 rounded-lg p-12 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Select a Player</h3>
+                <p className="text-gray-600">
+                  Choose a player from the dropdown above to view individual statistics.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -294,12 +471,54 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
               />
             )}
 
-            {/* Defensive Player Stats (Player level, Tier 3) */}
-            {selectedLevel === 'player' && config.enable_defensive_tracking && (
-              <DefensivePerformanceSection
-                data={defStats}
-                gameName={selectedGameId && gameName}
+            {/* Defensive Drive Analytics (Season/Game level, Tier 2+) */}
+            {selectedLevel !== 'player' && defensiveDriveAnalytics && config.enable_drive_analytics && (
+              <DefensiveDriveAnalyticsSection
+                data={defensiveDriveAnalytics}
+                viewMode={viewMode}
+                level={selectedLevel}
+                gameName={gameName}
               />
+            )}
+
+            {/* Defensive Down Breakdown (Season/Game level) - All Tiers */}
+            {selectedLevel !== 'player' && defensiveDownBreakdown.length > 0 && (
+              <DefensiveDownBreakdownSection
+                data={defensiveDownBreakdown}
+                viewMode={viewMode}
+                level={selectedLevel}
+                gameName={gameName}
+              />
+            )}
+
+            {/* Position-Specific Defensive Player Stats (Player level, Tier 3) */}
+            {selectedLevel === 'player' && selectedPlayer && config.enable_defensive_tracking && (
+              <>
+                {/* DL Stats */}
+                {['DE', 'DT', 'NT'].includes(selectedPlayer.primary_position) && (
+                  <DLStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* LB Stats */}
+                {['MLB', 'OLB', 'LB', 'ILB'].includes(selectedPlayer.primary_position) && (
+                  <LBStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+
+                {/* DB Stats */}
+                {['CB', 'S', 'FS', 'SS', 'DB'].includes(selectedPlayer.primary_position) && (
+                  <DBStatsSection data={positionStats} gameName={selectedGameId ? gameName : undefined} />
+                )}
+              </>
+            )}
+
+            {/* Prompt to select player */}
+            {selectedLevel === 'player' && !selectedPlayerId && (
+              <div className="border border-gray-200 rounded-lg p-12 text-center">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4">Select a Player</h3>
+                <p className="text-gray-600">
+                  Choose a defensive player from the dropdown above to view individual statistics.
+                </p>
+              </div>
             )}
 
             {/* Message when no defensive data */}
@@ -313,7 +532,7 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
             )}
 
             {/* Message when Player level but no Tier 3 */}
-            {selectedLevel === 'player' && !config.enable_defensive_tracking && (
+            {selectedLevel === 'player' && selectedPlayerId && !config.enable_defensive_tracking && (
               <div className="border border-gray-200 rounded-lg p-12 text-center">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Tier 3 Required</h3>
                 <p className="text-gray-600">
