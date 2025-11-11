@@ -251,20 +251,20 @@ export default function AnalyticsV2Page({ params }: { params: Promise<{ teamId: 
               />
             )}
 
-            {/* Down Breakdown (Season/Game level) */}
-            {selectedLevel !== 'player' && (
-              <DownBreakdownSection
-                data={basicAnalytics}
+            {/* Drive Analytics (Season/Game level, Tier 2+) */}
+            {selectedLevel !== 'player' && driveAnalytics && (
+              <DriveAnalyticsSection
+                data={driveAnalytics}
                 viewMode={viewMode}
                 level={selectedLevel}
                 gameName={gameName}
               />
             )}
 
-            {/* Drive Analytics (Season/Game level, Tier 2+) */}
-            {selectedLevel !== 'player' && driveAnalytics && (
-              <DriveAnalyticsSection
-                data={driveAnalytics}
+            {/* Down Breakdown (Season/Game level) */}
+            {selectedLevel !== 'player' && (
+              <DownBreakdownSection
+                data={basicAnalytics}
                 viewMode={viewMode}
                 level={selectedLevel}
                 gameName={gameName}
