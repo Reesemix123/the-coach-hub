@@ -590,7 +590,49 @@ export type VideoJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 /**
  * Timeline marker types
  */
-export type MarkerType = 'play' | 'quarter' | 'timeout' | 'custom';
+export type MarkerType =
+  | 'play'           // Play marker
+  | 'quarter_start'  // Quarter boundary start
+  | 'quarter_end'    // Quarter boundary end
+  | 'halftime'       // Halftime break
+  | 'overtime'       // Overtime period
+  | 'big_play'       // Significant play
+  | 'turnover'       // Turnover marker
+  | 'timeout'        // Timeout marker
+  | 'quarter'        // Legacy quarter marker
+  | 'custom';        // Custom marker
+
+/**
+ * Helper: Default colors for each marker type
+ */
+export const MARKER_COLORS: Record<MarkerType, string> = {
+  quarter_start: '#10B981', // green-500
+  quarter_end: '#EF4444',   // red-500
+  halftime: '#F59E0B',      // amber-500
+  overtime: '#8B5CF6',      // purple-500
+  big_play: '#3B82F6',      // blue-500
+  turnover: '#DC2626',      // red-600
+  timeout: '#6B7280',       // gray-500
+  play: '#3B82F6',          // blue-500
+  quarter: '#10B981',       // green-500 (legacy)
+  custom: '#6366F1'         // indigo-500
+};
+
+/**
+ * Helper: Display labels for each marker type
+ */
+export const MARKER_LABELS: Record<MarkerType, string> = {
+  quarter_start: 'Quarter Start',
+  quarter_end: 'Quarter End',
+  halftime: 'Halftime',
+  overtime: 'Overtime',
+  big_play: 'Big Play',
+  turnover: 'Turnover',
+  timeout: 'Timeout',
+  play: 'Play',
+  quarter: 'Quarter',
+  custom: 'Custom Marker'
+};
 
 /**
  * Database table: video_groups
@@ -680,18 +722,22 @@ export interface VideoProcessingJob {
 
 /**
  * Database table: video_timeline_markers
- * Map play instances to virtual timeline positions
+ * Map play instances to virtual timeline positions (video groups)
+ * OR mark specific timestamps on individual videos
  */
 export interface VideoTimelineMarker {
   id: string;
-  video_group_id: string;
+
+  // Either video_id OR video_group_id (mutually exclusive)
+  video_id?: string;        // For single-video markers (NEW)
+  video_group_id?: string;  // For virtual timeline markers (now optional)
   play_instance_id?: string;
 
-  // Virtual timeline
+  // Virtual timeline (in milliseconds)
   virtual_timestamp_start_ms: number;
   virtual_timestamp_end_ms?: number;
 
-  // Physical video
+  // Physical video (for video groups)
   actual_video_id?: string;
   actual_timestamp_start_ms?: number;
   actual_timestamp_end_ms?: number;
@@ -699,9 +745,13 @@ export interface VideoTimelineMarker {
   // Metadata
   label?: string;
   marker_type: MarkerType;
+  quarter?: number;         // 1-4 or 5 for OT (NEW)
+  color?: string;           // Hex color for visual styling (NEW)
   notes?: string;
 
+  created_by?: string;      // NEW
   created_at: string;
+  updated_at?: string;      // NEW
 }
 
 /**

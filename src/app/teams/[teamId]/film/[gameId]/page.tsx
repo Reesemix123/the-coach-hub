@@ -20,6 +20,12 @@ import { DLPerformanceSection } from '@/components/film/DLPerformanceSection';
 import { LBPerformanceSection } from '@/components/film/LBPerformanceSection';
 import { DBPerformanceSection } from '@/components/film/DBPerformanceSection';
 import { playerHasPosition, playerInPositionGroup, getPlayerDisplayName, getPositionDisplay } from '@/utils/playerHelpers';
+import VideoTimelineMarkers from '@/components/film/VideoTimelineMarkers';
+import MarkerList from '@/components/film/MarkerList';
+import AddMarkerModal from '@/components/film/AddMarkerModal';
+import { VideoMarkerService } from '@/lib/services/video-marker.service';
+import type { VideoTimelineMarker, MarkerType } from '@/types/football';
+import { Flag } from 'lucide-react';
 
 interface Game {
   id: string;
@@ -260,6 +266,12 @@ export default function GameFilmPage() {
   const [filterOffenseDefense, setFilterOffenseDefense] = useState<string>('all');
   const [filterDrive, setFilterDrive] = useState<string>('all');
 
+  // Marker state
+  const [markers, setMarkers] = useState<VideoTimelineMarker[]>([]);
+  const [showMarkerPanel, setShowMarkerPanel] = useState(false);
+  const [showAddMarkerModal, setShowAddMarkerModal] = useState(false);
+  const markerService = new VideoMarkerService();
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PlayTagForm>();
 
   useEffect(() => {
@@ -283,6 +295,7 @@ export default function GameFilmPage() {
     if (selectedVideo) {
       loadVideo(selectedVideo);
       fetchPlayInstances(selectedVideo.id);
+      fetchMarkers(selectedVideo.id);
     } else if (videos.length > 0) {
       setSelectedVideo(videos[0]);
     }
@@ -450,6 +463,64 @@ export default function GameFilmPage() {
       console.error('Error fetching drives:', error);
     }
   }
+
+  // Marker functions
+  async function fetchMarkers(videoId: string) {
+    try {
+      const markersData = await markerService.getMarkersForVideo(videoId);
+      setMarkers(markersData);
+    } catch (error) {
+      console.error('Error fetching markers:', error);
+    }
+  }
+
+  const handleMarkerClick = (marker: VideoTimelineMarker) => {
+    if (videoRef.current) {
+      // Convert milliseconds to seconds
+      videoRef.current.currentTime = marker.virtual_timestamp_start_ms / 1000;
+    }
+  };
+
+  const handleAddMarkerAtCurrentTime = () => {
+    setShowAddMarkerModal(true);
+  };
+
+  const handleCreateMarker = async (markerType: MarkerType, label?: string, quarter?: number) => {
+    if (!selectedVideo) return;
+
+    try {
+      const timestampMs = Math.floor(currentTime * 1000); // Convert seconds to milliseconds
+
+      await markerService.createMarker({
+        video_id: selectedVideo.id,
+        timestamp_start_ms: timestampMs,
+        marker_type: markerType,
+        label: label,
+        quarter: quarter
+      });
+
+      await fetchMarkers(selectedVideo.id);
+    } catch (error) {
+      console.error('Error adding marker:', error);
+    }
+  };
+
+  const handleDeleteMarker = async (markerId: string) => {
+    if (!selectedVideo) return;
+
+    try {
+      await markerService.deleteMarker(markerId);
+      await fetchMarkers(selectedVideo.id);
+    } catch (error) {
+      console.error('Error deleting marker:', error);
+    }
+  };
+
+  const handleJumpToMarker = (timestampMs: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = timestampMs / 1000; // Convert milliseconds to seconds
+    }
+  };
 
   async function fetchPlayInstances(videoId: string) {
     const { data, error } = await supabase
@@ -1134,18 +1205,37 @@ export default function GameFilmPage() {
                         controls
                         className="w-full rounded-lg bg-black"
                         style={{ maxHeight: '600px' }}
+                        onTimeUpdate={(e) => {
+                          const video = e.target as HTMLVideoElement;
+                          setCurrentTime(video.currentTime);
+                        }}
+                        onLoadedMetadata={(e) => {
+                          const video = e.target as HTMLVideoElement;
+                          setVideoDuration(video.duration);
+                        }}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
                       />
 
                     <div className="mt-4 space-y-4">
                       {/* Timeline */}
                       {videoDuration > 0 && (
-                        <div className="relative h-12 bg-gray-100 rounded overflow-hidden border border-gray-200">
-                          <div 
-                            className="absolute top-0 bottom-0 w-1 bg-red-500 z-20"
-                            style={{ left: `${(currentTime / videoDuration) * 100}%` }}
+                        <div className="space-y-2">
+                          {/* Video Markers */}
+                          <VideoTimelineMarkers
+                            markers={markers}
+                            currentTimeMs={currentTime * 1000}
+                            durationMs={videoDuration * 1000}
+                            onMarkerClick={handleMarkerClick}
                           />
-                          
-                          {playInstances.map((instance, index) => {
+
+                          <div className="relative h-12 bg-gray-100 rounded overflow-hidden border border-gray-200">
+                            <div
+                              className="absolute top-0 bottom-0 w-1 bg-red-500 z-20"
+                              style={{ left: `${(currentTime / videoDuration) * 100}%` }}
+                            />
+
+                            {playInstances.map((instance, index) => {
                             const startPercent = (instance.timestamp_start / videoDuration) * 100;
                             const endPercent = instance.timestamp_end 
                               ? (instance.timestamp_end / videoDuration) * 100 
@@ -1175,6 +1265,7 @@ export default function GameFilmPage() {
                             <span>{formatTime(videoDuration)}</span>
                           </div>
                         </div>
+                        </div>
                       )}
 
                       {/* Controls */}
@@ -1183,15 +1274,37 @@ export default function GameFilmPage() {
                           Current Time: <span className="text-gray-900">{formatTime(currentTime)}</span>
                           {videoDuration > 0 && <span className="text-gray-500"> / {formatTime(videoDuration)}</span>}
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           {!isSettingEndTime ? (
-                            <button
-                              onClick={handleMarkPlayStart}
-                              className="px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 font-semibold transition-colors"
-                            >
-                              ▶ Mark Start
-                            </button>
+                            <>
+                              <button
+                                onClick={handleMarkPlayStart}
+                                className="px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 font-semibold transition-colors"
+                              >
+                                ▶ Mark Start
+                              </button>
+                              <button
+                                onClick={handleAddMarkerAtCurrentTime}
+                                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-semibold transition-colors flex items-center gap-2"
+                                title="Add marker at current time"
+                              >
+                                <Flag size={16} />
+                                Add Marker
+                              </button>
+                              <button
+                                onClick={() => setShowMarkerPanel(!showMarkerPanel)}
+                                className={`px-4 py-3 rounded-md font-semibold transition-colors flex items-center gap-2 ${
+                                  showMarkerPanel
+                                    ? 'bg-gray-900 text-white hover:bg-gray-800'
+                                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                }`}
+                                title="Toggle marker panel"
+                              >
+                                <Flag size={16} />
+                                Markers {markers.length > 0 && `(${markers.length})`}
+                              </button>
+                            </>
                           ) : (
                             <>
                               <div className="px-4 py-2 bg-yellow-50 text-yellow-800 rounded font-semibold text-sm border border-yellow-200">
@@ -1220,6 +1333,21 @@ export default function GameFilmPage() {
                       <li>Fill in play details and save</li>
                     </ol>
                   </div>
+
+                  {/* Marker Panel */}
+                  {showMarkerPanel && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Video Markers</h3>
+                        <span className="text-sm text-gray-600">{markers.length} marker{markers.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <MarkerList
+                        markers={markers}
+                        onJumpToMarker={handleJumpToMarker}
+                        onDeleteMarker={handleDeleteMarker}
+                      />
+                    </div>
+                  )}
                 </>
                 ) : (
                   <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
@@ -2405,6 +2533,14 @@ export default function GameFilmPage() {
           </div>
         </div>
       )}
+
+      {/* Add Marker Modal */}
+      <AddMarkerModal
+        isOpen={showAddMarkerModal}
+        onClose={() => setShowAddMarkerModal(false)}
+        onAdd={handleCreateMarker}
+        currentTimestamp={`${Math.floor(currentTime / 60)}:${Math.floor(currentTime % 60).toString().padStart(2, '0')}`}
+      />
     </AuthGuard>
   );
 }
