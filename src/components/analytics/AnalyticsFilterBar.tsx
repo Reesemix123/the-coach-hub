@@ -17,13 +17,13 @@ interface Game {
 }
 
 interface AnalyticsFilterBarProps {
-  // ODK
-  selectedODK: 'offense' | 'defense' | 'special_teams';
-  onODKChange: (odk: 'offense' | 'defense' | 'special_teams') => void;
+  // ODK (now includes 'player')
+  selectedODK: 'offense' | 'defense' | 'special_teams' | 'player';
+  onODKChange: (odk: 'offense' | 'defense' | 'special_teams' | 'player') => void;
 
-  // Level
-  selectedLevel: 'season' | 'game' | 'player';
-  onLevelChange: (level: 'season' | 'game' | 'player') => void;
+  // Level (removed 'player', moved to ODK)
+  selectedLevel: 'season' | 'game';
+  onLevelChange: (level: 'season' | 'game') => void;
 
   // Game
   games: Game[];
@@ -63,6 +63,7 @@ export default function AnalyticsFilterBar({
               { value: 'offense', label: 'Offense' },
               { value: 'defense', label: 'Defense' },
               { value: 'special_teams', label: 'Special Teams' },
+              { value: 'player', label: 'Player' },
             ].map((tab) => (
               <button
                 key={tab.value}
@@ -81,14 +82,13 @@ export default function AnalyticsFilterBar({
 
         {/* Horizontal Filters */}
         <div className="flex items-center gap-6 flex-wrap">
-          {/* Level Selector - Segmented Control */}
+          {/* Level Selector - Segmented Control (Season/Game only, Player moved to Phase) */}
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">View:</span>
             <div className="inline-flex rounded-lg border border-gray-300 p-1">
               {[
                 { value: 'season', label: 'Season' },
                 { value: 'game', label: 'Game' },
-                { value: 'player', label: 'Player' },
               ].map((level) => (
                 <button
                   key={level.value}

@@ -350,6 +350,7 @@ export class AdvancedAnalyticsService {
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
         position: player.primary_position,
+        position_depths: player.position_depths || {}, // Include all positions for multi-position filtering
 
         carries,
         rushYards,
@@ -390,149 +391,463 @@ export class AdvancedAnalyticsService {
       throw new Error('OL tracking not enabled for this team tier');
     }
 
-    // Get all OL players
-    const { data: olPlayers } = await this.supabase
+    // Get all active players for the team
+    const { data: allPlayers } = await this.supabase
       .from('players')
       .select('*')
       .eq('team_id', teamId)
-      .in('primary_position', ['LT', 'LG', 'C', 'RG', 'RT'])
       .eq('is_active', true);
 
-    if (!olPlayers || olPlayers.length === 0) return [];
+    if (!allPlayers || allPlayers.length === 0) return [];
+
+    // Filter to players who have ANY OL position in their position_depths
+    // This supports multi-position players (e.g., a TE who also plays RT)
+    const OL_POSITIONS = ['LT', 'LG', 'C', 'RG', 'RT'];
+    const olPlayers = allPlayers.filter(player => {
+      const positions = Object.keys(player.position_depths || {});
+      return positions.some(pos => OL_POSITIONS.includes(pos));
+    });
+
+    if (olPlayers.length === 0) return [];
 
     // Calculate block win rate for each player using database function
-    const stats: OffensiveLineStats[] = [];
+    // PARALLELIZED: Fetch all players at once instead of sequential loop
+    const startTime = performance.now();
 
-    for (const player of olPlayers) {
-      const { data: blockStats } = await this.supabase
-        .rpc('calculate_block_win_rate', { p_player_id: player.id });
+    const statsPromises = olPlayers.map(async (player) => {
+      try {
+        // Parallel fetch: block stats + penalty count
+        const [blockStatsResult, penaltyResult] = await Promise.allSettled([
+          this.supabase.rpc('calculate_block_win_rate', { p_player_id: player.id }),
+          this.supabase
+            .from('play_instances')
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('ol_penalty_player_id', player.id)
+        ]);
 
-      if (blockStats && blockStats.length > 0) {
+        // Handle block stats
+        if (blockStatsResult.status === 'rejected') {
+          console.warn(`⚠️ Block win rate RPC failed for player ${player.id}:`, blockStatsResult.reason?.message);
+          return null;
+        }
+
+        const { data: blockStats, error: rpcError } = blockStatsResult.value;
+        if (rpcError) {
+          console.warn(`⚠️ Block win rate RPC failed for player ${player.id}:`, rpcError.message);
+          return null;
+        }
+
+        if (!blockStats || blockStats.length === 0) {
+          return null;
+        }
+
         const stat = blockStats[0];
 
-        // Get penalty count
-        const { data: plays } = await this.supabase
-          .from('play_instances')
-          .select('id')
-          .eq('team_id', teamId)
-          .eq('ol_penalty_player_id', player.id);
+        // Handle penalty count
+        let penalties = 0;
+        if (penaltyResult.status === 'fulfilled') {
+          const { data: plays, error: penaltyError } = penaltyResult.value;
+          if (!penaltyError && plays) {
+            penalties = plays.length;
+          } else if (penaltyError) {
+            console.warn(`⚠️ Penalty query failed (column might not exist yet):`, penaltyError.message);
+          }
+        }
 
-        stats.push({
+        return {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
           position: player.primary_position,
+          position_depths: player.position_depths || {}, // Include all positions for multi-position filtering
           totalAssignments: stat.assignments,
           blockWins: stat.wins,
           blockLosses: stat.losses,
           blockNeutral: stat.neutral,
           blockWinRate: stat.win_rate || 0,
-          penalties: plays?.length || 0
-        });
+          penalties: penalties
+        };
+      } catch (playerError: any) {
+        console.warn(`⚠️ Failed to get OL stats for player ${player.id}:`, playerError.message);
+        return null;
       }
-    }
+    });
+
+    const results = await Promise.allSettled(statsPromises);
+    const stats = results
+      .filter(r => r.status === 'fulfilled' && r.value !== null)
+      .map(r => (r as PromiseFulfilledResult<OffensiveLineStats>).value);
+
+    const elapsedTime = performance.now() - startTime;
+    console.log(`📊 OL stats completed: ${stats.length} players in ${elapsedTime.toFixed(0)}ms (${olPlayers.length} total)`);
 
     return stats;
   }
 
   /**
-   * Get defensive player stats using database functions
+   * Get defensive player stats using CLIENT-SIDE aggregation
    * Requires Tier 3 (hs_advanced)
+   *
+   * ARCHITECTURE NOTE: With small play counts (<100), client-side aggregation
+   * is faster and more reliable than RPC functions. We fetch all plays once
+   * and calculate stats in memory.
    */
   async getDefensiveStats(teamId: string): Promise<DefensivePlayerStats[]> {
+    const startTime = performance.now();
+
     // Verify tier supports defensive tracking
     const config = await this.getTeamTier(teamId);
     if (!config.enable_defensive_tracking) {
       throw new Error('Defensive tracking not enabled for this team tier');
     }
 
-    // Get all defensive players
-    const { data: defPlayers } = await this.supabase
+    // Fetch all defensive plays for the team ONCE (single query)
+    const { data: plays, error: playsError } = await this.supabase
+      .from('play_instances')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('is_opponent_play', false);
+
+    if (playsError) {
+      console.error('❌ Failed to fetch plays for defensive stats:', playsError.message);
+      throw new Error('Failed to fetch defensive plays');
+    }
+
+    if (!plays || plays.length === 0) {
+      console.log('ℹ️ No plays found for defensive stats');
+      return [];
+    }
+
+    console.log(`📊 Fetched ${plays.length} plays for defensive stat calculation`);
+
+    // Get all active players
+    const { data: allPlayers } = await this.supabase
       .from('players')
       .select('*')
       .eq('team_id', teamId)
-      .eq('position_group', 'defense')
       .eq('is_active', true);
 
-    if (!defPlayers || defPlayers.length === 0) return [];
+    if (!allPlayers || allPlayers.length === 0) return [];
 
-    // Calculate stats for each player using database functions
-    const stats: DefensivePlayerStats[] = [];
+    // Filter to defensive players
+    const DEFENSIVE_POSITIONS = ['DE', 'DT', 'DT1', 'DT2', 'NT', 'LB', 'MLB', 'SAM', 'WILL', 'OLB', 'ILB', 'CB', 'LCB', 'RCB', 'S', 'FS', 'SS'];
+    const defPlayers = allPlayers.filter(player => {
+      const positions = Object.keys(player.position_depths || {});
+      return positions.some(pos => DEFENSIVE_POSITIONS.includes(pos));
+    });
 
-    for (const player of defPlayers) {
+    if (defPlayers.length === 0) return [];
+
+    console.log(`📊 Calculating stats for ${defPlayers.length} defensive players`);
+
+    // Calculate stats for each player (in-memory, instant for <100 plays)
+    const stats: DefensivePlayerStats[] = defPlayers.map(player => {
       // Tackle stats
-      const { data: tackleStats } = await this.supabase
-        .rpc('calculate_tackle_participation', {
-          p_player_id: player.id,
-          p_team_id: teamId
-        });
+      const primaryTackles = plays.filter(p =>
+        p.tackler_ids && Array.isArray(p.tackler_ids) && p.tackler_ids[0] === player.id
+      ).length;
+
+      const assistTackles = plays.filter(p =>
+        p.tackler_ids && Array.isArray(p.tackler_ids) &&
+        p.tackler_ids.length > 1 &&
+        p.tackler_ids.slice(1).includes(player.id)
+      ).length;
+
+      const totalTackles = primaryTackles + assistTackles;
+
+      const missedTackles = plays.filter(p =>
+        p.missed_tackle_ids && Array.isArray(p.missed_tackle_ids) &&
+        p.missed_tackle_ids.includes(player.id)
+      ).length;
 
       // Pressure stats
-      const { data: pressureStats } = await this.supabase
-        .rpc('calculate_pressure_rate', {
-          p_player_id: player.id,
-          p_team_id: teamId
-        });
+      const pressures = plays.filter(p =>
+        p.pressure_player_ids && Array.isArray(p.pressure_player_ids) &&
+        p.pressure_player_ids.includes(player.id)
+      ).length;
+
+      const sacks = plays.filter(p => p.sack_player_id === player.id).length;
 
       // Coverage stats
-      const { data: coverageStats } = await this.supabase
-        .rpc('calculate_coverage_success', {
-          p_player_id: player.id,
-          p_team_id: teamId
-        });
+      const targets = plays.filter(p => p.coverage_player_id === player.id).length;
+      const coverageWins = plays.filter(p =>
+        p.coverage_player_id === player.id && p.coverage_result === 'win'
+      ).length;
+      const coverageLosses = targets - coverageWins;
 
-      // Havoc events
-      const { data: havocPlays } = await this.supabase
-        .from('play_instances')
-        .select('is_tfl, is_sack, is_forced_fumble, is_interception, is_pbu')
-        .eq('team_id', teamId)
-        .or(`tackler_ids.cs.{${player.id}},sack_player_id.eq.${player.id}`);
+      // Havoc plays
+      const tfls = plays.filter(p =>
+        p.is_tfl && (
+          (p.tackler_ids && p.tackler_ids.includes(player.id)) ||
+          p.sack_player_id === player.id
+        )
+      ).length;
 
-      const tackle = tackleStats?.[0] || {};
-      const pressure = pressureStats?.[0] || {};
-      const coverage = coverageStats?.[0] || {};
+      const forcedFumbles = plays.filter(p => p.is_forced_fumble && p.tackler_ids?.includes(player.id)).length;
+      const interceptions = plays.filter(p => p.is_interception && p.coverage_player_id === player.id).length;
+      const pbus = plays.filter(p => p.is_pbu && p.coverage_player_id === player.id).length;
 
-      // Count havoc events
-      let tfls = 0, forcedFumbles = 0, interceptions = 0, pbus = 0;
-      if (havocPlays) {
-        tfls = havocPlays.filter(p => p.is_tfl).length;
-        forcedFumbles = havocPlays.filter(p => p.is_forced_fumble).length;
-        interceptions = havocPlays.filter(p => p.is_interception).length;
-        pbus = havocPlays.filter(p => p.is_pbu).length;
-      }
+      // Calculate rates
+      const defensiveSnaps = plays.length;
+      const tackleParticipation = defensiveSnaps > 0 ? (totalTackles / defensiveSnaps) * 100 : 0;
+      const totalTackleOpportunities = totalTackles + missedTackles;
+      const missedTackleRate = totalTackleOpportunities > 0 ? (missedTackles / totalTackleOpportunities) * 100 : 0;
 
-      stats.push({
+      const passRushSnaps = plays.filter(p => p.play_type === 'pass').length;
+      const pressureRate = passRushSnaps > 0 ? (pressures / passRushSnaps) * 100 : 0;
+      const sackRate = passRushSnaps > 0 ? (sacks / passRushSnaps) * 100 : 0;
+
+      const coverageSuccessRate = targets > 0 ? (coverageWins / targets) * 100 : 0;
+
+      return {
         playerId: player.id,
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
         position: player.primary_position,
+        position_depths: player.position_depths || {},
 
-        defensiveSnaps: tackle.defensive_snaps || 0,
-        primaryTackles: tackle.primary_tackles || 0,
-        assistTackles: tackle.assist_tackles || 0,
-        totalTackles: tackle.total_tackles || 0,
-        missedTackles: tackle.missed_tackles || 0,
-        tackleParticipation: tackle.participation_rate || 0,
-        missedTackleRate: tackle.missed_tackle_rate || 0,
+        defensiveSnaps,
+        primaryTackles,
+        assistTackles,
+        totalTackles,
+        missedTackles,
+        tackleParticipation: Math.round(tackleParticipation * 10) / 10,
+        missedTackleRate: Math.round(missedTackleRate * 10) / 10,
 
-        pressures: pressure.pressures || 0,
-        sacks: pressure.sacks || 0,
-        pressureRate: pressure.pressure_rate || 0,
-        sackRate: pressure.sack_rate || 0,
+        pressures,
+        sacks,
+        pressureRate: Math.round(pressureRate * 10) / 10,
+        sackRate: Math.round(sackRate * 10) / 10,
 
-        targets: coverage.targets || 0,
-        coverageWins: coverage.successes || 0,
-        coverageLosses: (coverage.targets || 0) - (coverage.successes || 0),
-        coverageSuccessRate: coverage.success_rate || 0,
+        targets,
+        coverageWins,
+        coverageLosses,
+        coverageSuccessRate: Math.round(coverageSuccessRate * 10) / 10,
 
         tfls,
         forcedFumbles,
         interceptions,
         pbus
-      });
+      };
+    }).filter(s => s.totalTackles > 0 || s.pressures > 0 || s.targets > 0); // Only include players with defensive participation
+
+    const elapsedTime = performance.now() - startTime;
+    console.log(`✅ Defensive stats calculated: ${stats.length} players in ${elapsedTime.toFixed(0)}ms (client-side)`);
+
+    return stats;
+  }
+
+  /**
+   * Get unified player statistics (offensive + OL + defensive)
+   * Merges all stat sources by player ID to support multi-position players
+   * Returns complete player profiles regardless of position group
+   *
+   * @param teamId Team ID
+   * @param gameId Optional game ID to filter stats
+   * @returns Array of unified player stats with all categories merged
+   */
+  async getUnifiedPlayerStats(teamId: string, gameId?: string): Promise<any[]> {
+    console.log('🔄 getUnifiedPlayerStats: Starting for teamId:', teamId, gameId ? `gameId: ${gameId}` : '(season)');
+
+    const config = await this.getTeamTier(teamId);
+
+    // 1. Fetch all data sources in parallel for better performance
+    console.log('📊 Fetching all stat sources in parallel...');
+    const [offensiveStats, olStats, defensiveStats] = await Promise.all([
+      // Always fetch offensive stats (Tier 2+)
+      config.enable_player_attribution
+        ? this.getPlayerAttributionStats(teamId, gameId).catch(err => {
+            console.warn('⚠️ Offensive stats failed:', err.message);
+            return [];
+          })
+        : Promise.resolve([]),
+
+      // Fetch OL stats if Tier 3
+      config.enable_ol_tracking
+        ? this.getOffensiveLineStats(teamId).catch(err => {
+            console.warn('⚠️ OL stats failed:', err.message);
+            return [];
+          })
+        : Promise.resolve([]),
+
+      // Fetch defensive stats if Tier 3 (with timeout protection)
+      config.enable_defensive_tracking
+        ? Promise.race([
+            this.getDefensiveStats(teamId),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Defensive stats timeout after 10s')), 10000)
+            )
+          ]).catch(err => {
+            console.warn('⚠️ Defensive stats failed or timed out:', err.message);
+            return [];
+          })
+        : Promise.resolve([])
+    ]);
+
+    console.log('✅ Stats fetched:', {
+      offensive: offensiveStats.length,
+      ol: olStats.length,
+      defensive: defensiveStats.length
+    });
+
+    // Log sample data to debug
+    if (offensiveStats.length > 0) {
+      console.log('📋 Sample offensive stat:', offensiveStats[0]);
+    }
+    if (olStats.length > 0) {
+      console.log('📋 Sample OL stat:', olStats[0]);
+    }
+    if (defensiveStats.length > 0) {
+      console.log('📋 Sample defensive stat:', defensiveStats[0]);
     }
 
-    return stats.filter(s => s.defensiveSnaps > 0);
+    // 2. Get ALL unique player IDs across all sources
+    const playerIdSet = new Set<string>();
+    offensiveStats.forEach((s: any) => {
+      if (s.playerId) {
+        playerIdSet.add(s.playerId);
+      } else {
+        console.warn('⚠️ Offensive stat missing playerId:', s);
+      }
+    });
+    olStats.forEach((s: any) => {
+      if (s.playerId) {
+        playerIdSet.add(s.playerId);
+      } else {
+        console.warn('⚠️ OL stat missing playerId:', s);
+      }
+    });
+    defensiveStats.forEach((s: any) => {
+      if (s.playerId) {
+        playerIdSet.add(s.playerId);
+      } else {
+        console.warn('⚠️ Defensive stat missing playerId:', s);
+      }
+    });
+
+    console.log('👥 Total unique players with stats:', playerIdSet.size);
+    console.log('👥 Player IDs:', Array.from(playerIdSet));
+
+    if (playerIdSet.size === 0) {
+      console.log('⚠️ No players with stats found - check if player attribution is enabled and plays are tagged');
+      return [];
+    }
+
+    // 3. Fetch player details for all players with stats
+    const { data: players } = await this.supabase
+      .from('players')
+      .select('*')
+      .in('id', Array.from(playerIdSet));
+
+    if (!players) {
+      console.log('❌ Failed to fetch player details');
+      return [];
+    }
+
+    console.log('👥 Player details fetched:', players.length);
+
+    // 4. Merge stats by player
+    const unified = players.map(player => {
+      const offStats = offensiveStats.find((s: any) => s.playerId === player.id);
+      const olStat = olStats.find((s: any) => s.playerId === player.id);
+      const defStat = defensiveStats.find((s: any) => s.playerId === player.id);
+
+      // Calculate derived totals
+      const offensiveSnaps = (offStats?.carries || 0) + (offStats?.passAttempts || 0) + (offStats?.targets || 0);
+      const defensiveSnaps = defStat?.defensiveSnaps || 0;
+      const totalSnaps = offensiveSnaps + defensiveSnaps;
+
+      const totalTouchdowns =
+        (offStats?.rushTouchdowns || 0) +
+        (offStats?.passTouchdowns || 0) +
+        (offStats?.recTouchdowns || 0) +
+        (defStat?.interceptions || 0); // Defensive TDs
+
+      return {
+        playerId: player.id,
+        playerName: `${player.first_name} ${player.last_name}`,
+        jerseyNumber: player.jersey_number,
+        positions: Object.keys(player.position_depths || {}),
+        primaryPosition: player.primary_position,
+
+        // Offensive stats (null if no offensive stats)
+        offense: offStats ? {
+          carries: offStats.carries || 0,
+          rushYards: offStats.rushYards || 0,
+          rushAvg: offStats.rushAvg || 0,
+          rushTouchdowns: offStats.rushTouchdowns || 0,
+          rushSuccessRate: offStats.rushSuccessRate || 0,
+
+          passAttempts: offStats.passAttempts || 0,
+          completions: offStats.completions || 0,
+          completionPct: offStats.completionPct || 0,
+          passYards: offStats.passYards || 0,
+          passTouchdowns: offStats.passTouchdowns || 0,
+          interceptions: offStats.interceptions || 0,
+
+          targets: offStats.targets || 0,
+          receptions: offStats.receptions || 0,
+          recYards: offStats.recYards || 0,
+          recAvg: offStats.recAvg || 0,
+          recTouchdowns: offStats.recTouchdowns || 0,
+          catchRate: offStats.catchRate || 0
+        } : null,
+
+        // Offensive line stats (null if no OL stats)
+        offensiveLine: olStat ? {
+          totalAssignments: olStat.totalAssignments || 0,
+          blockWins: olStat.blockWins || 0,
+          blockLosses: olStat.blockLosses || 0,
+          blockNeutral: olStat.blockNeutral || 0,
+          blockWinRate: olStat.blockWinRate || 0,
+          penalties: olStat.penalties || 0
+        } : null,
+
+        // Defensive stats (null if no defensive stats)
+        defense: defStat ? {
+          defensiveSnaps: defStat.defensiveSnaps || 0,
+          primaryTackles: defStat.primaryTackles || 0,
+          assistTackles: defStat.assistTackles || 0,
+          totalTackles: defStat.totalTackles || 0,
+          missedTackles: defStat.missedTackles || 0,
+          tackleParticipation: defStat.tackleParticipation || 0,
+          missedTackleRate: defStat.missedTackleRate || 0,
+
+          pressures: defStat.pressures || 0,
+          sacks: defStat.sacks || 0,
+          pressureRate: defStat.pressureRate || 0,
+          sackRate: defStat.sackRate || 0,
+
+          targets: defStat.targets || 0,
+          coverageWins: defStat.coverageWins || 0,
+          coverageLosses: defStat.coverageLosses || 0,
+          coverageSuccessRate: defStat.coverageSuccessRate || 0,
+
+          tfls: defStat.tfls || 0,
+          forcedFumbles: defStat.forcedFumbles || 0,
+          interceptions: defStat.interceptions || 0,
+          pbus: defStat.pbus || 0,
+          havocRate: defStat.defensiveSnaps > 0
+            ? (((defStat.tfls || 0) + (defStat.sacks || 0) + (defStat.interceptions || 0) + (defStat.pbus || 0) + (defStat.forcedFumbles || 0)) / defStat.defensiveSnaps) * 100
+            : 0
+        } : null,
+
+        // Derived totals
+        totalSnaps,
+        totalTouchdowns
+      };
+    });
+
+    // 5. Filter out players with no stats in any category
+    const filtered = unified.filter(s =>
+      s.offense !== null || s.offensiveLine !== null || s.defense !== null
+    );
+
+    console.log('✅ Unified stats created:', filtered.length, 'players with stats');
+    console.log('📊 Sample unified stat:', filtered[0]);
+
+    return filtered;
   }
 
   /**

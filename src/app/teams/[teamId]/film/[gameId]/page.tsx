@@ -871,18 +871,19 @@ export default function GameFilmPage() {
 
         if (error) throw error;
 
+        // TODO: Re-enable drive recalculation after optimizing performance
         // Recalculate drive stats if drive changed
-        if (driveId && editingInstance.drive_id !== driveId) {
-          // Recalc old drive if it existed
-          if (editingInstance.drive_id) {
-            await driveService.recalculateDriveStats(editingInstance.drive_id);
-          }
-          // Recalc new drive
-          await driveService.recalculateDriveStats(driveId);
-        } else if (driveId) {
-          // Same drive, just recalc it
-          await driveService.recalculateDriveStats(driveId);
-        }
+        // if (driveId && editingInstance.drive_id !== driveId) {
+        //   // Recalc old drive if it existed
+        //   if (editingInstance.drive_id) {
+        //     await driveService.recalculateDriveStats(editingInstance.drive_id);
+        //   }
+        //   // Recalc new drive
+        //   await driveService.recalculateDriveStats(driveId);
+        // } else if (driveId) {
+        //   // Same drive, just recalc it
+        //   await driveService.recalculateDriveStats(driveId);
+        // }
       } else {
         const { error } = await supabase
           .from('play_instances')
@@ -890,10 +891,11 @@ export default function GameFilmPage() {
 
         if (error) throw error;
 
+        // TODO: Re-enable drive recalculation after optimizing performance
         // Recalculate drive stats after adding new play
-        if (driveId) {
-          await driveService.recalculateDriveStats(driveId);
-        }
+        // if (driveId) {
+        //   await driveService.recalculateDriveStats(driveId);
+        // }
       }
 
       // Refresh drives to show updated play counts

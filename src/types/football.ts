@@ -867,3 +867,117 @@ export type NewPracticePeriod = Omit<PracticePeriod, 'id' | 'created_at'>;
  * Helper type for creating new practice drills
  */
 export type NewPracticeDrill = Omit<PracticeDrill, 'id' | 'created_at'>;
+
+// ============================================================================
+// UNIFIED PLAYER STATS (Multi-Position Support)
+// ============================================================================
+
+/**
+ * Offensive player statistics (from player attribution)
+ * Includes rushing, passing, and receiving stats
+ */
+export interface OffensivePlayerStats {
+  // Rushing
+  carries: number;
+  rushYards: number;
+  rushAvg: number;
+  rushTouchdowns: number;
+  rushSuccessRate: number;
+
+  // Passing
+  passAttempts: number;
+  completions: number;
+  completionPct: number;
+  passYards: number;
+  passTouchdowns: number;
+  interceptions: number;
+
+  // Receiving
+  targets: number;
+  receptions: number;
+  recYards: number;
+  recAvg: number;
+  recTouchdowns: number;
+  catchRate: number;
+}
+
+/**
+ * Offensive line player statistics (Tier 3)
+ * Includes block win rates and penalties
+ */
+export interface OffensiveLinePlayerStats {
+  totalAssignments: number;
+  blockWins: number;
+  blockLosses: number;
+  blockNeutral: number;
+  blockWinRate: number;
+  penalties: number;
+}
+
+/**
+ * Defensive player statistics (Tier 3)
+ * Includes tackling, pass rush, coverage, and havoc stats
+ */
+export interface DefensivePlayerStats {
+  // Tackling
+  defensiveSnaps: number;
+  primaryTackles: number;
+  assistTackles: number;
+  totalTackles: number;
+  missedTackles: number;
+  tackleParticipation: number;
+  missedTackleRate: number;
+
+  // Pass Rush
+  pressures: number;
+  sacks: number;
+  pressureRate: number;
+  sackRate: number;
+
+  // Coverage
+  targets: number;
+  coverageWins: number;
+  coverageLosses: number;
+  coverageSuccessRate: number;
+
+  // Havoc
+  tfls: number;
+  forcedFumbles: number;
+  interceptions: number;
+  pbus: number;
+  havocRate?: number;
+}
+
+/**
+ * Unified player statistics merging offensive, OL, and defensive data
+ * Supports multi-position players by showing ALL stats regardless of position group
+ */
+export interface UnifiedPlayerStats {
+  playerId: string;
+  playerName: string;
+  jerseyNumber: string;
+  positions: string[]; // All positions from position_depths
+  primaryPosition: string;
+
+  // Stat categories (null if player has no stats in that category)
+  offense: OffensivePlayerStats | null;
+  offensiveLine: OffensiveLinePlayerStats | null;
+  defense: DefensivePlayerStats | null;
+
+  // Derived totals
+  totalSnaps: number; // Sum of offensive and defensive snaps
+  totalTouchdowns: number; // All TDs combined (rushing + passing + receiving + defensive)
+}
+
+/**
+ * Filter options for unified player stats view
+ */
+export type PlayerStatFilter = 'all' | 'offense' | 'defense' | 'ol' | 'position_group';
+
+/**
+ * Configuration for filtering unified player stats
+ */
+export interface PlayerStatFilterConfig {
+  filter: PlayerStatFilter;
+  positionGroup?: string; // Only used when filter = 'position_group'
+}
