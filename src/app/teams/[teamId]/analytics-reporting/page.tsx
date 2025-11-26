@@ -19,6 +19,11 @@ import PlaceholderReport from './components/reports/PlaceholderReport';
 import SeasonOverviewReport from './components/reports/SeasonOverviewReport';
 import OffensiveReport from './components/reports/OffensiveReport';
 import DefensiveReport from './components/reports/DefensiveReport';
+import SpecialTeamsReport from './components/reports/SpecialTeamsReport';
+import PlayerReport from './components/reports/PlayerReport';
+import SituationalReport from './components/reports/SituationalReport';
+import DriveAnalysisReport from './components/reports/DriveAnalysisReport';
+import GameReport from './components/reports/GameReport';
 
 interface AnalyticsReportingPageProps {
   params: Promise<{ teamId: string }>;
@@ -168,6 +173,14 @@ export default function AnalyticsReportingPage({
                   />
                 )}
 
+                {selectedReport === 'game-report' && (
+                  <GameReport
+                    teamId={teamId}
+                    gameId={filters.gameId}
+                    filters={filters}
+                  />
+                )}
+
                 {selectedReport === 'offensive' && (
                   <OffensiveReport
                     teamId={teamId}
@@ -182,10 +195,29 @@ export default function AnalyticsReportingPage({
                   />
                 )}
 
-                {/* Placeholder for other reports (will be implemented in later phases) */}
-                {!['season-overview', 'offensive', 'defensive'].includes(selectedReport) && (
-                  <PlaceholderReport
-                    reportName={currentReportConfig.name}
+                {selectedReport === 'special-teams' && (
+                  <SpecialTeamsReport
+                    teamId={teamId}
+                    filters={filters}
+                  />
+                )}
+
+                {selectedReport === 'player' && (
+                  <PlayerReport
+                    teamId={teamId}
+                    filters={filters}
+                  />
+                )}
+
+                {selectedReport === 'situational' && (
+                  <SituationalReport
+                    teamId={teamId}
+                    filters={filters}
+                  />
+                )}
+
+                {selectedReport === 'drives' && (
+                  <DriveAnalysisReport
                     teamId={teamId}
                     filters={filters}
                   />
