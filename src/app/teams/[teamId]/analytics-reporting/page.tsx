@@ -17,6 +17,7 @@ import ReportFilters from './components/ReportFilters';
 import ReportActions from './components/ReportActions';
 import PlaceholderReport from './components/reports/PlaceholderReport';
 import SeasonOverviewReport from './components/reports/SeasonOverviewReport';
+import OffensiveReport from './components/reports/OffensiveReport';
 
 interface AnalyticsReportingPageProps {
   params: Promise<{ teamId: string }>;
@@ -166,8 +167,15 @@ export default function AnalyticsReportingPage({
                   />
                 )}
 
+                {selectedReport === 'offensive' && (
+                  <OffensiveReport
+                    teamId={teamId}
+                    filters={filters}
+                  />
+                )}
+
                 {/* Placeholder for other reports (will be implemented in later phases) */}
-                {selectedReport !== 'season-overview' && (
+                {!['season-overview', 'offensive'].includes(selectedReport) && (
                   <PlaceholderReport
                     reportName={currentReportConfig.name}
                     teamId={teamId}
