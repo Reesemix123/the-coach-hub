@@ -118,19 +118,19 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               title="Total Kickoffs"
-              value={metrics.specialTeams.kickoff.kickoffs.toString()}
+              value={(metrics.specialTeams?.kickoff?.kickoffs || 0).toString()}
               subtitle="Total kickoffs"
               tooltip={METRIC_DEFINITIONS.kickoffs}
             />
             <StatCard
               title="Touchbacks"
-              value={metrics.specialTeams.kickoff.touchbacks.toString()}
-              subtitle={`${(metrics.specialTeams.kickoff.touchbackRate || 0).toFixed(1)}% touchback rate`}
+              value={(metrics.specialTeams?.kickoff?.touchbacks || 0).toString()}
+              subtitle={`${(metrics.specialTeams?.kickoff?.touchbackRate || 0).toFixed(1)}% touchback rate`}
               tooltip={METRIC_DEFINITIONS.touchbacks}
             />
             <StatCard
               title="Avg Starting Field Position"
-              value={`${(metrics.specialTeams.kickoff.averageKickoffYardLine || 0).toFixed(1)}`}
+              value={`${(metrics.specialTeams?.kickoff?.averageKickoffYardLine || 0).toFixed(1)}`}
               subtitle="Average starting yard line"
               tooltip={METRIC_DEFINITIONS.averageKickoffYardLine}
             />
@@ -156,19 +156,19 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               title="Total Punts"
-              value={metrics.specialTeams.punt.punts.toString()}
+              value={(metrics.specialTeams?.punt?.punts || 0).toString()}
               subtitle="Total punts"
               tooltip={METRIC_DEFINITIONS.punts}
             />
             <StatCard
               title="Average Punt Yards"
-              value={`${(metrics.specialTeams.punt.averagePuntYards || 0).toFixed(1)}`}
+              value={`${(metrics.specialTeams?.punt?.averagePuntYards || 0).toFixed(1)}`}
               subtitle="Average yards per punt"
               tooltip={METRIC_DEFINITIONS.averagePuntYards}
             />
             <StatCard
               title="Net Punt Average"
-              value={`${(metrics.specialTeams.punt.netPuntAverage || 0).toFixed(1)}`}
+              value={`${(metrics.specialTeams?.punt?.netPuntAverage || 0).toFixed(1)}`}
               subtitle="Net yards after returns"
               tooltip={METRIC_DEFINITIONS.netPuntAverage}
             />
@@ -194,19 +194,19 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               title="Total Returns"
-              value={metrics.specialTeams.returns.returns.toString()}
+              value={(metrics.specialTeams?.returns?.returns || 0).toString()}
               subtitle="Kickoff and punt returns"
               tooltip={METRIC_DEFINITIONS.returns}
             />
             <StatCard
               title="Average Return Yards"
-              value={`${(metrics.specialTeams.returns.averageReturnYards || 0).toFixed(1)}`}
+              value={`${(metrics.specialTeams?.returns?.averageReturnYards || 0).toFixed(1)}`}
               subtitle="Average yards per return"
               tooltip={METRIC_DEFINITIONS.averageReturnYards}
             />
             <StatCard
               title="Longest Return"
-              value={metrics.specialTeams.returns.longestReturn.toString()}
+              value={(metrics.specialTeams?.returns?.longestReturn || 0).toString()}
               subtitle="Longest return yards"
               tooltip={METRIC_DEFINITIONS.longestReturn}
             />
