@@ -43,7 +43,7 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
     async function loadData() {
       setLoading(true);
 
-      const selectedGameId = filters.gameId || gameId;
+      const selectedGameId = filters.gameId || gameId || null;
 
       if (!selectedGameId) {
         setLoading(false);
@@ -51,25 +51,32 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
       }
 
       // Fetch game details
-      const { data: gameData } = await supabase
+      const { data: gameData, error: gameError } = await supabase
         .from('games')
         .select('*')
         .eq('id', selectedGameId)
         .single();
+
+      if (gameError) {
+        console.error('Error loading game:', gameError);
+        setLoading(false);
+        return;
+      }
 
       setGame(gameData);
 
       // Get comprehensive metrics for the specific game
       const { data: metricsData, error: metricsError } = await supabase.rpc('calculate_team_metrics', {
         p_team_id: teamId,
-        p_game_id: selectedGameId,
+        p_game_id: selectedGameId || null,
         p_start_date: null,
         p_end_date: null,
         p_opponent: null,
       });
 
       if (metricsError) {
-        console.error('Error loading metrics:', metricsError);
+        console.error('Error loading metrics for game:', metricsError);
+        console.error('Parameters:', { teamId, gameId: selectedGameId });
         setLoading(false);
         return;
       }
