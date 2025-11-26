@@ -12,15 +12,18 @@ import { createClient } from '@/utils/supabase/client';
 import { ReportProps } from '@/types/reports';
 import StatCard from '@/components/analytics/StatCard';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { AnalyticsService, PlayerStats } from '@/lib/services/analytics.service';
 
 export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
   const [player, setPlayer] = useState<any>(null);
+  const [stats, setStats] = useState<PlayerStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [expandedSections, setExpandedSections] = useState({
     overview: true,
     stats: true,
+    byDown: true,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -39,6 +42,7 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
 
       setLoading(true);
 
+      // Fetch player data
       const { data: playerData } = await supabase
         .from('players')
         .select('*')
@@ -46,11 +50,21 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
         .single();
 
       setPlayer(playerData);
+
+      // Fetch player stats using analytics service
+      try {
+        const analyticsService = new AnalyticsService();
+        const playerStats = await analyticsService.getPlayerStats(filters.playerId, teamId, filters.gameId);
+        setStats(playerStats);
+      } catch (error) {
+        console.error('Error loading player stats:', error);
+      }
+
       setLoading(false);
     }
 
     loadPlayer();
-  }, [filters.playerId]);
+  }, [filters.playerId, filters.gameId, teamId]);
 
   if (loading) {
     return (
@@ -78,6 +92,9 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
       </div>
     );
   }
+
+  const isQB = player.primary_position === 'QB';
+  const isOffensiveSkill = ['QB', 'RB', 'WR', 'TE'].includes(player.primary_position);
 
   return (
     <div>
@@ -136,44 +153,178 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
       </section>
 
       {/* Player Statistics */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('stats')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Performance Statistics</span>
-          {expandedSections.stats ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
+      {stats && (
+        <section className="mb-12">
+          <button
+            onClick={() => toggleSection('stats')}
+            className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+          >
+            <span>Performance Statistics</span>
+            {expandedSections.stats ? (
+              <ChevronUp className="h-6 w-6" />
+            ) : (
+              <ChevronDown className="h-6 w-6" />
+            )}
+          </button>
 
-        {expandedSections.stats && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Individual Player Stats Coming Soon
-              </h3>
-              <p className="text-gray-600 mb-4">
-                We're building detailed individual player performance analytics including:
-              </p>
-              <ul className="text-sm text-gray-600 space-y-2 text-left bg-white rounded-lg p-4">
-                <li>• Play-by-play performance tracking</li>
-                <li>• Position-specific metrics and grades</li>
-                <li>• Game-by-game trends and progressions</li>
-                <li>• Comparison to team and league averages</li>
-                <li>• Video highlights of key plays</li>
-              </ul>
-              <p className="text-sm text-gray-500 mt-4">
-                For now, you can view this player's stats in the position-specific sections of the
-                Offensive or Defensive Reports.
-              </p>
+          {expandedSections.stats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                title="Total Plays"
+                value={stats.totalPlays.toString()}
+                subtitle="Plays involved"
+              />
+              <StatCard
+                title="Total Yards"
+                value={stats.totalYards.toString()}
+                subtitle="Yards gained"
+                color={(stats.totalYards || 0) > 0 ? 'green' : 'default'}
+              />
+              <StatCard
+                title="Average Yards"
+                value={(stats.avgYards || 0).toFixed(1)}
+                subtitle="Yards per play"
+              />
+              <StatCard
+                title="Success Rate"
+                value={`${((stats.successRate || 0) * 100).toFixed(1)}%`}
+                subtitle="Successful plays"
+                color={(stats.successRate || 0) >= 0.5 ? 'green' : 'default'}
+              />
+
+              {/* QB-specific stats */}
+              {isQB && stats.passingStats && (
+                <>
+                  <StatCard
+                    title="Completions"
+                    value={`${stats.passingStats.completions}/${stats.passingStats.attempts}`}
+                    subtitle={`${((stats.passingStats.completions / stats.passingStats.attempts) * 100).toFixed(1)}% completion`}
+                  />
+                  <StatCard
+                    title="Passing Yards"
+                    value={stats.passingStats.yards.toString()}
+                    subtitle="Yards through air"
+                    color="green"
+                  />
+                  <StatCard
+                    title="Touchdowns"
+                    value={stats.passingStats.touchdowns.toString()}
+                    subtitle="Passing TDs"
+                    color={stats.passingStats.touchdowns > 0 ? 'green' : 'default'}
+                  />
+                  <StatCard
+                    title="Interceptions"
+                    value={stats.passingStats.interceptions.toString()}
+                    subtitle="Picks thrown"
+                    color={stats.passingStats.interceptions > 0 ? 'red' : 'green'}
+                  />
+                </>
+              )}
+
+              {/* Offensive skill position stats */}
+              {isOffensiveSkill && stats.carries && stats.carries > 0 && (
+                <>
+                  <StatCard
+                    title="Carries"
+                    value={stats.carries.toString()}
+                    subtitle="Rushing attempts"
+                  />
+                  <StatCard
+                    title="Rushing Yards"
+                    value={(stats.rushingYards || 0).toString()}
+                    subtitle="Yards on ground"
+                    color={(stats.rushingYards || 0) > 0 ? 'green' : 'default'}
+                  />
+                  <StatCard
+                    title="Yards Per Carry"
+                    value={((stats.rushingYards || 0) / stats.carries).toFixed(1)}
+                    subtitle="YPC"
+                  />
+                </>
+              )}
+
+              {isOffensiveSkill && stats.receptions !== undefined && (
+                <>
+                  <StatCard
+                    title="Receptions"
+                    value={(stats.receptions || 0).toString()}
+                    subtitle="Catches"
+                  />
+                  <StatCard
+                    title="Receiving Yards"
+                    value={(stats.receivingYards || 0).toString()}
+                    subtitle="Yards receiving"
+                    color={(stats.receivingYards || 0) > 0 ? 'green' : 'default'}
+                  />
+                  <StatCard
+                    title="Yards Per Reception"
+                    value={stats.receptions > 0 ? ((stats.receivingYards || 0) / stats.receptions).toFixed(1) : '0.0'}
+                    subtitle="YPR"
+                  />
+                </>
+              )}
             </div>
+          )}
+        </section>
+      )}
+
+      {/* Performance by Down */}
+      {stats && stats.yardsByDown && (
+        <section className="mb-12">
+          <button
+            onClick={() => toggleSection('byDown')}
+            className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+          >
+            <span>Performance by Down</span>
+            {expandedSections.byDown ? (
+              <ChevronUp className="h-6 w-6" />
+            ) : (
+              <ChevronDown className="h-6 w-6" />
+            )}
+          </button>
+
+          {expandedSections.byDown && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                title="1st Down"
+                value={`${stats.yardsByDown.firstDown?.plays || 0} plays`}
+                subtitle={`${(stats.yardsByDown.firstDown?.avgYards || 0).toFixed(1)} avg yards`}
+              />
+              <StatCard
+                title="2nd Down"
+                value={`${stats.yardsByDown.secondDown?.plays || 0} plays`}
+                subtitle={`${(stats.yardsByDown.secondDown?.avgYards || 0).toFixed(1)} avg yards`}
+              />
+              <StatCard
+                title="3rd Down"
+                value={`${stats.yardsByDown.thirdDown?.plays || 0} plays`}
+                subtitle={`${(stats.yardsByDown.thirdDown?.avgYards || 0).toFixed(1)} avg yards`}
+              />
+              <StatCard
+                title="4th Down"
+                value={`${stats.yardsByDown.fourthDown?.plays || 0} plays`}
+                subtitle={`${(stats.yardsByDown.fourthDown?.avgYards || 0).toFixed(1)} avg yards`}
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* No stats available */}
+      {!stats && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="text-6xl mb-4">📊</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No Stats Available
+            </h3>
+            <p className="text-gray-600">
+              This player doesn't have any recorded stats yet. Stats will appear once plays
+              are tagged with this player in the Film Room.
+            </p>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   );
 }
