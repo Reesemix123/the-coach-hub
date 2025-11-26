@@ -95,19 +95,19 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Total Yards/Game"
               value={metrics.offense.volume.totalYardsPerGame?.toFixed(1) || '0.0'}
-              subtitle="Offensive production"
+              subtitle="Total offense per game"
               tooltip={METRIC_DEFINITIONS.totalYardsPerGame}
             />
             <StatCard
               title="Rushing Yards/Game"
               value={metrics.offense.volume.rushingYardsPerGame?.toFixed(1) || '0.0'}
-              subtitle="Ground game"
+              subtitle="Average rushing yards"
               tooltip={METRIC_DEFINITIONS.rushingYardsPerGame}
             />
             <StatCard
               title="Passing Yards/Game"
               value={metrics.offense.volume.passingYardsPerGame?.toFixed(1) || '0.0'}
-              subtitle="Air attack"
+              subtitle="Average passing yards"
               tooltip={METRIC_DEFINITIONS.passingYardsPerGame}
             />
             <StatCard
@@ -127,26 +127,26 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Yards Per Play"
               value={metrics.offense.efficiency.yardsPerPlay?.toFixed(2) || '0.00'}
-              subtitle="Most important efficiency metric"
+              subtitle="Overall efficiency"
               tooltip={METRIC_DEFINITIONS.yardsPerPlay}
               color={(metrics.offense.efficiency.yardsPerPlay || 0) >= 5.5 ? 'green' : 'default'}
             />
             <StatCard
               title="Yards Per Carry"
               value={metrics.offense.efficiency.yardsPerCarry?.toFixed(2) || '0.00'}
-              subtitle="Run efficiency"
+              subtitle="Rushing efficiency"
               tooltip={METRIC_DEFINITIONS.yardsPerCarry}
             />
             <StatCard
               title="Yards Per Completion"
               value={metrics.offense.efficiency.yardsPerCompletion?.toFixed(1) || '0.0'}
-              subtitle="Big play ability"
+              subtitle="Average yards per catch"
               tooltip={METRIC_DEFINITIONS.yardsPerCompletion}
             />
             <StatCard
               title="Completion %"
               value={`${(metrics.offense.efficiency.completionPercentage || 0).toFixed(1)}%`}
-              subtitle="Pass accuracy"
+              subtitle="Passing accuracy"
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -223,24 +223,24 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Total Yards Allowed/Game"
               value={metrics.defense.volume.totalYardsAllowedPerGame?.toFixed(1) || '0.0'}
-              subtitle="Overall defense"
+              subtitle="Total yards given up"
               tooltip={METRIC_DEFINITIONS.totalYardsAllowedPerGame}
               color={(metrics.defense.volume.totalYardsAllowedPerGame || 999) < 300 ? 'green' : 'default'}
             />
             <StatCard
               title="Rush Yards Allowed/Game"
               value={metrics.defense.volume.rushingYardsAllowedPerGame?.toFixed(1) || '0.0'}
-              subtitle="Run defense"
+              subtitle="Rushing yards allowed"
             />
             <StatCard
               title="Pass Yards Allowed/Game"
               value={metrics.defense.volume.passingYardsAllowedPerGame?.toFixed(1) || '0.0'}
-              subtitle="Pass defense"
+              subtitle="Passing yards allowed"
             />
             <StatCard
               title="Points Allowed/Game"
               value={metrics.defense.volume.pointsAllowedPerGame?.toFixed(1) || '0.0'}
-              subtitle="Scoring defense"
+              subtitle="Points given up per game"
               tooltip={METRIC_DEFINITIONS.pointsAllowedPerGame}
               color={(metrics.defense.volume.pointsAllowedPerGame || 999) < 20 ? 'green' : 'default'}
             />
@@ -254,7 +254,7 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Yards Per Play Allowed"
               value={metrics.defense.efficiency.yardsPerPlayAllowed?.toFixed(2) || '0.00'}
-              subtitle="Defensive efficiency"
+              subtitle="Yards allowed per play"
               tooltip={METRIC_DEFINITIONS.yardsPerPlayAllowed}
               color={(metrics.defense.efficiency.yardsPerPlayAllowed || 999) < 5.0 ? 'green' : 'default'}
             />
@@ -268,7 +268,7 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Red Zone Defense"
               value={`${(metrics.defense.efficiency.redZoneDefense || 0).toFixed(1)}%`}
-              subtitle="Opponent TD rate"
+              subtitle="Opponent TDs in red zone"
               tooltip={METRIC_DEFINITIONS.redZoneDefense}
               color={(metrics.defense.efficiency.redZoneDefense || 100) < 50 ? 'green' : 'default'}
             />
@@ -301,7 +301,7 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             <StatCard
               title="Havoc Rate"
               value={`${(metrics.defense.disruptive.havocRate || 0).toFixed(1)}%`}
-              subtitle="Disruptive play rate"
+              subtitle="Disruptive plays per snap"
               tooltip={METRIC_DEFINITIONS.havocRate}
               color={(metrics.defense.disruptive.havocRate || 0) >= 10 ? 'green' : 'default'}
             />
@@ -360,7 +360,7 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
           <StatCard
             title="Avg Starting Field Position"
             value={metrics.specialTeams.averageStartingFieldPosition?.toFixed(1) || '0.0'}
-            subtitle="Yard line"
+            subtitle="Average starting yard line"
             tooltip={METRIC_DEFINITIONS.averageStartingFieldPosition}
           />
         </div>
