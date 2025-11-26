@@ -12,11 +12,28 @@ import { createClient } from '@/utils/supabase/client';
 import { METRIC_DEFINITIONS, type ComprehensiveTeamMetrics } from '@/lib/services/team-metrics.types';
 import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function SeasonOverviewReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
   const [metrics, setMetrics] = useState<ComprehensiveTeamMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Collapsible sections state (all expanded by default)
+  const [expandedSections, setExpandedSections] = useState({
+    offensive: true,
+    defensive: true,
+    specialTeams: true,
+    overall: true,
+    summary: true,
+  });
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
 
   useEffect(() => {
     async function loadMetrics() {
@@ -84,12 +101,22 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
 
       {/* Offensive Metrics */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
-          Offensive Metrics
-        </h2>
+        <button
+          onClick={() => toggleSection('offensive')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>Offensive Metrics</span>
+          {expandedSections.offensive ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
 
-        {/* Volume */}
-        <div className="mb-8">
+        {expandedSections.offensive && (
+          <>
+            {/* Volume */}
+            <div className="mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -208,15 +235,27 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             />
           </div>
         </div>
+          </>
+        )}
       </section>
 
       {/* Defensive Metrics */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
-          Defensive Metrics
-        </h2>
+        <button
+          onClick={() => toggleSection('defensive')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>Defensive Metrics</span>
+          {expandedSections.defensive ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
 
-        {/* Volume */}
+        {expandedSections.defensive && (
+          <>
+            {/* Volume */}
         <div className="mb-8">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -324,13 +363,26 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             />
           </div>
         </div>
+          </>
+        )}
       </section>
 
       {/* Special Teams Metrics */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
-          Special Teams Metrics
-        </h2>
+        <button
+          onClick={() => toggleSection('specialTeams')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>Special Teams Metrics</span>
+          {expandedSections.specialTeams ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
+
+        {expandedSections.specialTeams && (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Field Goal %"
@@ -364,13 +416,26 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             tooltip={METRIC_DEFINITIONS.averageStartingFieldPosition}
           />
         </div>
+          </>
+        )}
       </section>
 
       {/* Overall Metrics */}
       <section className="mb-12">
-        <h2 className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
-          Overall Team Metrics
-        </h2>
+        <button
+          onClick={() => toggleSection('overall')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>Overall Team Metrics</span>
+          {expandedSections.overall ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
+
+        {expandedSections.overall && (
+          <>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <StatCard
             title="Turnover Differential"
@@ -389,12 +454,27 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
             }
           />
         </div>
+          </>
+        )}
       </section>
 
       {/* Performance Summary */}
       {hasData && (
         <section className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Summary</h3>
+          <button
+            onClick={() => toggleSection('summary')}
+            className="w-full flex items-center justify-between text-lg font-semibold text-gray-900 mb-4 hover:text-gray-700 transition-colors"
+          >
+            <span>Performance Summary</span>
+            {expandedSections.summary ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
+          </button>
+
+          {expandedSections.summary && (
+            <>
           <div className="space-y-2 text-sm">
             <p className="text-gray-700">
               <span className="font-medium">Offensive Rating:</span>{' '}
@@ -424,6 +504,8 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
               }
             </p>
           </div>
+            </>
+          )}
         </section>
       )}
     </div>
