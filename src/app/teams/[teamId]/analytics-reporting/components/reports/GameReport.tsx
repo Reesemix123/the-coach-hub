@@ -66,11 +66,40 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
       setGame(gameData);
 
       // Fetch play instances for this game to calculate simple metrics
-      // This is much faster than the full calculate_team_metrics RPC
+      // First get videos for this game, then get plays for those videos
+      const { data: videos, error: videosError } = await supabase
+        .from('videos')
+        .select('id')
+        .eq('game_id', selectedGameId);
+
+      if (videosError || !videos || videos.length === 0) {
+        console.error('Error loading videos:', videosError);
+        // No videos for this game yet - show empty metrics
+        setMetrics({
+          offense: {
+            volume: { totalYards: 0, rushingYards: 0, passingYards: 0, touchdowns: 0 },
+            efficiency: { yardsPerPlay: 0, thirdDownConversions: 0, thirdDownAttempts: 0, thirdDownConversionRate: 0 },
+            ballSecurity: { turnovers: 0 },
+          },
+          defense: {
+            volume: { totalYardsAllowed: 0, rushingYardsAllowed: 0, passingYardsAllowed: 0, pointsAllowed: gameData?.opponent_score || 0 },
+            disruptive: { turnoversForced: 0, sacks: 0, tacklesForLoss: 0, havocRate: 0 },
+          },
+          specialTeams: {
+            kickoff: { averageKickoffYardLine: 0 },
+            returns: { averageReturnYards: 0 },
+          },
+        } as any);
+        setLoading(false);
+        return;
+      }
+
+      const videoIds = videos.map(v => v.id);
+
       const { data: plays, error: playsError } = await supabase
         .from('play_instances')
         .select('*')
-        .eq('game_id', selectedGameId);
+        .in('video_id', videoIds);
 
       if (playsError) {
         console.error('Error loading plays:', playsError);
