@@ -65,23 +65,86 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
 
       setGame(gameData);
 
-      // Get comprehensive metrics for the specific game
-      const { data: metricsData, error: metricsError } = await supabase.rpc('calculate_team_metrics', {
-        p_team_id: teamId,
-        p_game_id: selectedGameId || null,
-        p_start_date: null,
-        p_end_date: null,
-        p_opponent: null,
-      });
+      // Fetch play instances for this game to calculate simple metrics
+      // This is much faster than the full calculate_team_metrics RPC
+      const { data: plays, error: playsError } = await supabase
+        .from('play_instances')
+        .select('*')
+        .eq('game_id', selectedGameId);
 
-      if (metricsError) {
-        console.error('Error loading metrics for game:', metricsError);
-        console.error('Parameters:', { teamId, gameId: selectedGameId });
+      if (playsError) {
+        console.error('Error loading plays:', playsError);
         setLoading(false);
         return;
       }
 
-      setMetrics(metricsData as ComprehensiveTeamMetrics);
+      // Calculate simple game metrics from plays
+      const offensivePlays = (plays || []).filter(p => !p.is_opponent_play);
+      const defensivePlays = (plays || []).filter(p => p.is_opponent_play);
+
+      // Offensive stats
+      const totalYards = offensivePlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const rushingPlays = offensivePlays.filter(p => p.play_type === 'run');
+      const passingPlays = offensivePlays.filter(p => p.play_type === 'pass');
+      const rushingYards = rushingPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const passingYards = passingPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const touchdowns = offensivePlays.filter(p => p.result === 'touchdown').length;
+      const turnovers = offensivePlays.filter(p => p.is_turnover).length;
+      const thirdDowns = offensivePlays.filter(p => p.down === 3);
+      const thirdDownConversions = thirdDowns.filter(p => p.resulted_in_first_down).length;
+
+      // Defensive stats
+      const yardsAllowed = defensivePlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const rushingYardsAllowed = defensivePlays.filter(p => p.play_type === 'run').reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const passingYardsAllowed = defensivePlays.filter(p => p.play_type === 'pass').reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+      const turnoversForced = defensivePlays.filter(p => p.is_turnover).length;
+      const sacks = defensivePlays.filter(p => p.result === 'sack').length;
+      const tacklesForLoss = defensivePlays.filter(p => p.yards_gained && p.yards_gained < 0).length;
+
+      // Create simplified metrics object
+      const gameMetrics = {
+        offense: {
+          volume: {
+            totalYards,
+            rushingYards,
+            passingYards,
+            touchdowns,
+          },
+          efficiency: {
+            yardsPerPlay: offensivePlays.length > 0 ? totalYards / offensivePlays.length : 0,
+            thirdDownConversions,
+            thirdDownAttempts: thirdDowns.length,
+            thirdDownConversionRate: thirdDowns.length > 0 ? (thirdDownConversions / thirdDowns.length) * 100 : 0,
+          },
+          ballSecurity: {
+            turnovers,
+          },
+        },
+        defense: {
+          volume: {
+            totalYardsAllowed: yardsAllowed,
+            rushingYardsAllowed,
+            passingYardsAllowed,
+            pointsAllowed: gameData?.opponent_score || 0,
+          },
+          disruptive: {
+            turnoversForced,
+            sacks,
+            tacklesForLoss,
+            havocRate: defensivePlays.length > 0 ? ((sacks + turnoversForced + tacklesForLoss) / defensivePlays.length) * 100 : 0,
+          },
+        },
+        specialTeams: {
+          kickoff: {
+            averageKickoffYardLine: 0,
+          },
+          returns: {
+            averageReturnYards: 0,
+          },
+        },
+      };
+
+      setMetrics(gameMetrics as any);
       setLoading(false);
     }
 
