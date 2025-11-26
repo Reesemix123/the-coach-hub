@@ -95,7 +95,7 @@ export default function LBStatsSection({ data, gameName }: LBStatsProps) {
         {/* Tackles */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Tackles</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Snaps</div>
               <div className="text-2xl font-bold text-gray-900">{data.defensiveSnaps}</div>
@@ -122,7 +122,7 @@ export default function LBStatsSection({ data, gameName }: LBStatsProps) {
         {data.coverageSnaps > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Coverage</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">Coverage Snaps</div>
                 <div className="text-2xl font-bold text-gray-900">{data.coverageSnaps}</div>
@@ -143,7 +143,7 @@ export default function LBStatsSection({ data, gameName }: LBStatsProps) {
         {data.blitzSnaps > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Blitz</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">Blitz Snaps</div>
                 <div className="text-2xl font-bold text-gray-900">{data.blitzSnaps}</div>
@@ -164,7 +164,7 @@ export default function LBStatsSection({ data, gameName }: LBStatsProps) {
         {/* Havoc */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Havoc</h4>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
               <div className="text-xs text-gray-600 mb-1">Havoc Rate</div>
               <div className="text-3xl font-bold text-red-600">{data.havocRate.toFixed(1)}%</div>

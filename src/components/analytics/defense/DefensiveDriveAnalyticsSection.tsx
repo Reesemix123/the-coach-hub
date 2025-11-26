@@ -57,7 +57,7 @@ export default function DefensiveDriveAnalyticsSection({
       {viewMode === 'cards' ? (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard
               label="Points Allowed/Drive"
               value={data.pointsAllowedPerDrive.toFixed(2)}
@@ -85,7 +85,7 @@ export default function DefensiveDriveAnalyticsSection({
           </div>
 
           {/* Additional Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Total Drives"
               value={data.totalDrives.toString()}
@@ -111,7 +111,7 @@ export default function DefensiveDriveAnalyticsSection({
           {/* Drive Results */}
           <div className="mt-6 pt-6 border-t border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Drive Results</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">TDs Allowed</div>
                 <div className="text-2xl font-bold text-red-600">{data.touchdownsAllowed}</div>

@@ -384,12 +384,24 @@ export class AdvancedAnalyticsService {
    * Get offensive line stats using database function
    * Requires Tier 3 (hs_advanced)
    */
+  /**
+   * Get offensive line stats using JUNCTION TABLE queries
+   * Requires Tier 3 (hs_advanced)
+   *
+   * ARCHITECTURE NOTE (Migration 032):
+   * Now uses normalized player_participation table instead of arrays.
+   * Benefits: O(log n) queries, scalable to 100k+ plays, no timeouts.
+   */
   async getOffensiveLineStats(teamId: string): Promise<OffensiveLineStats[]> {
+    const startTime = performance.now();
+
     // Verify tier supports OL tracking
     const config = await this.getTeamTier(teamId);
     if (!config.enable_ol_tracking) {
       throw new Error('OL tracking not enabled for this team tier');
     }
+
+    console.log('🏈 Fetching OL stats from player_participation table...');
 
     // Get all active players for the team
     const { data: allPlayers } = await this.supabase
@@ -401,7 +413,6 @@ export class AdvancedAnalyticsService {
     if (!allPlayers || allPlayers.length === 0) return [];
 
     // Filter to players who have ANY OL position in their position_depths
-    // This supports multi-position players (e.g., a TE who also plays RT)
     const OL_POSITIONS = ['LT', 'LG', 'C', 'RG', 'RT'];
     const olPlayers = allPlayers.filter(player => {
       const positions = Object.keys(player.position_depths || {});
@@ -410,63 +421,69 @@ export class AdvancedAnalyticsService {
 
     if (olPlayers.length === 0) return [];
 
-    // Calculate block win rate for each player using database function
-    // PARALLELIZED: Fetch all players at once instead of sequential loop
-    const startTime = performance.now();
+    console.log(`📊 Calculating stats for ${olPlayers.length} OL players`);
 
+    // OPTIMIZATION: Batch query ALL OL participation data at once (not per-player)
+    // This reduces N queries to just 1 query!
+    console.log('  Fetching ALL OL participation data in one query...');
+
+    const playerIds = olPlayers.map(p => p.id);
+    const { data: allOLParticipations } = await this.supabase
+      .from('player_participation')
+      .select('player_id, participation_type, result')
+      .eq('team_id', teamId)
+      .in('player_id', playerIds)
+      .in('participation_type', ['ol_lt', 'ol_lg', 'ol_c', 'ol_rg', 'ol_rt', 'ol_penalty']);
+
+    console.log(`  Fetched ${allOLParticipations?.length || 0} OL participation records`);
+
+    // Group data by player for fast lookup
+    const olDataByPlayer = new Map<string, typeof allOLParticipations>();
+
+    allOLParticipations?.forEach(p => {
+      if (!olDataByPlayer.has(p.player_id)) {
+        olDataByPlayer.set(p.player_id, []);
+      }
+      olDataByPlayer.get(p.player_id)!.push(p);
+    });
+
+    // Calculate stats for each player using batched data
     const statsPromises = olPlayers.map(async (player) => {
       try {
-        // Parallel fetch: block stats + penalty count
-        const [blockStatsResult, penaltyResult] = await Promise.allSettled([
-          this.supabase.rpc('calculate_block_win_rate', { p_player_id: player.id }),
-          this.supabase
-            .from('play_instances')
-            .select('id')
-            .eq('team_id', teamId)
-            .eq('ol_penalty_player_id', player.id)
-        ]);
+        const playerData = olDataByPlayer.get(player.id) || [];
 
-        // Handle block stats
-        if (blockStatsResult.status === 'rejected') {
-          console.warn(`⚠️ Block win rate RPC failed for player ${player.id}:`, blockStatsResult.reason?.message);
+        // Filter to blocking assignments (exclude penalties)
+        const blockData = playerData.filter(p =>
+          p.participation_type !== 'ol_penalty'
+        );
+
+        const penalties = playerData.filter(p => p.participation_type === 'ol_penalty').length;
+
+        // If no block data, skip this player
+        if (blockData.length === 0 && penalties === 0) {
           return null;
         }
 
-        const { data: blockStats, error: rpcError } = blockStatsResult.value;
-        if (rpcError) {
-          console.warn(`⚠️ Block win rate RPC failed for player ${player.id}:`, rpcError.message);
-          return null;
-        }
-
-        if (!blockStats || blockStats.length === 0) {
-          return null;
-        }
-
-        const stat = blockStats[0];
-
-        // Handle penalty count
-        let penalties = 0;
-        if (penaltyResult.status === 'fulfilled') {
-          const { data: plays, error: penaltyError } = penaltyResult.value;
-          if (!penaltyError && plays) {
-            penalties = plays.length;
-          } else if (penaltyError) {
-            console.warn(`⚠️ Penalty query failed (column might not exist yet):`, penaltyError.message);
-          }
-        }
+        // Aggregate block stats
+        const totalAssignments = blockData.length;
+        const blockWins = blockData.filter(p => p.result === 'win').length;
+        const blockLosses = blockData.filter(p => p.result === 'loss').length;
+        const blockWinRate = totalAssignments > 0
+          ? Math.round((blockWins / totalAssignments) * 1000) / 10  // Round to 1 decimal
+          : 0;
 
         return {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
           position: player.primary_position,
-          position_depths: player.position_depths || {}, // Include all positions for multi-position filtering
-          totalAssignments: stat.assignments,
-          blockWins: stat.wins,
-          blockLosses: stat.losses,
-          blockNeutral: stat.neutral,
-          blockWinRate: stat.win_rate || 0,
-          penalties: penalties
+          position_depths: player.position_depths || {},
+          totalAssignments,
+          blockWins,
+          blockLosses,
+          blockNeutral: 0, // Not tracked in new schema
+          blockWinRate,
+          penalties
         };
       } catch (playerError: any) {
         console.warn(`⚠️ Failed to get OL stats for player ${player.id}:`, playerError.message);
@@ -477,10 +494,11 @@ export class AdvancedAnalyticsService {
     const results = await Promise.allSettled(statsPromises);
     const stats = results
       .filter(r => r.status === 'fulfilled' && r.value !== null)
-      .map(r => (r as PromiseFulfilledResult<OffensiveLineStats>).value);
+      .map(r => (r as PromiseFulfilledResult<OffensiveLineStats>).value)
+      .filter(s => s.totalAssignments > 0 || s.penalties > 0);
 
     const elapsedTime = performance.now() - startTime;
-    console.log(`📊 OL stats completed: ${stats.length} players in ${elapsedTime.toFixed(0)}ms (${olPlayers.length} total)`);
+    console.log(`✅ OL stats calculated: ${stats.length} players in ${elapsedTime.toFixed(0)}ms (junction table)`);
 
     return stats;
   }
@@ -524,7 +542,8 @@ export class AdvancedAnalyticsService {
 
     console.log(`📊 Calculating stats for ${defPlayers.length} defensive players`);
 
-    // Get total defensive snaps for denominator
+    // OPTIMIZATION: Query snap count ONCE (not per-player)
+    // NOTE: Removed pass rush snap count query - it was causing 500 errors
     const { count: totalSnaps } = await this.supabase
       .from('play_instances')
       .select('*', { count: 'exact', head: true })
@@ -533,59 +552,64 @@ export class AdvancedAnalyticsService {
 
     const defensiveSnaps = totalSnaps || 0;
 
-    // Calculate stats for each player using efficient junction table queries
+    console.log(`  Total defensive snaps: ${defensiveSnaps}`);
+
+    // OPTIMIZATION: Batch query ALL participation data at once (not per-player)
+    // This reduces 42 queries (14 players × 3 queries) to just 1 query!
+    console.log('  Fetching ALL player participation data in one query...');
+
+    const playerIds = defPlayers.map(p => p.id);
+    const { data: allParticipations } = await this.supabase
+      .from('player_participation')
+      .select('player_id, participation_type, result')
+      .eq('team_id', teamId)
+      .in('player_id', playerIds);
+
+    console.log(`  Fetched ${allParticipations?.length || 0} participation records`);
+
+    // Group data by player for fast lookup
+    const participationsByPlayer = new Map<string, typeof allParticipations>();
+
+    allParticipations?.forEach(p => {
+      if (!participationsByPlayer.has(p.player_id)) {
+        participationsByPlayer.set(p.player_id, []);
+      }
+      participationsByPlayer.get(p.player_id)!.push(p);
+    });
+
+    // Calculate stats for each player using batched data
     const statsPromises = defPlayers.map(async (player) => {
       try {
-        // Use RPC functions for tackle and pressure stats (fast!)
-        const [tackleStats, pressureStats] = await Promise.all([
-          this.supabase.rpc('get_player_tackle_stats', {
-            p_player_id: player.id,
-            p_team_id: teamId
-          }),
-          this.supabase.rpc('get_player_pressure_stats', {
-            p_player_id: player.id,
-            p_team_id: teamId
-          })
-        ]);
+        const playerData = participationsByPlayer.get(player.id) || [];
 
-        // Coverage stats (single query)
-        const { data: coverageData } = await this.supabase
-          .from('player_participation')
-          .select('result')
-          .eq('player_id', player.id)
-          .eq('team_id', teamId)
-          .eq('participation_type', 'coverage_assignment');
+        // Aggregate tackle stats
+        const primaryTackles = playerData.filter(p => p.participation_type === 'primary_tackle').length;
+        const assistTackles = playerData.filter(p => p.participation_type === 'assist_tackle').length;
+        const missedTackles = playerData.filter(p => p.participation_type === 'missed_tackle').length;
+        const totalTackles = primaryTackles + assistTackles;
 
-        const targets = coverageData?.length || 0;
-        const coverageWins = coverageData?.filter(c => c.result === 'win').length || 0;
+        // Aggregate pressure stats
+        const pressureData = playerData.filter(p => p.participation_type === 'pressure');
+        const sacks = pressureData.filter(p => p.result === 'sack').length;
+        const hurries = pressureData.filter(p => p.result === 'hurry').length;
+        const hits = pressureData.filter(p => p.result === 'hit').length;
+        const totalPressures = pressureData.length;
+
+        // Aggregate coverage stats
+        const coverageData = playerData.filter(p => p.participation_type === 'coverage_assignment');
+        const targets = coverageData.length;
+        const coverageWins = coverageData.filter(c => c.result === 'win').length;
         const coverageLosses = targets - coverageWins;
 
-        // Extract stats from RPC results
-        const primaryTackles = tackleStats.data?.[0]?.primary_tackles || 0;
-        const assistTackles = tackleStats.data?.[0]?.assist_tackles || 0;
-        const missedTackles = tackleStats.data?.[0]?.missed_tackles || 0;
-        const totalTackles = tackleStats.data?.[0]?.total_tackles || 0;
-
-        const sacks = pressureStats.data?.[0]?.sacks || 0;
-        const hurries = pressureStats.data?.[0]?.hurries || 0;
-        const hits = pressureStats.data?.[0]?.hits || 0;
-        const totalPressures = pressureStats.data?.[0]?.total_pressures || 0;
-
-        // Get pass rush snaps for rate calculations
-        const { count: passRushSnaps } = await this.supabase
-          .from('play_instances')
-          .select('*', { count: 'exact', head: true })
-          .eq('team_id', teamId)
-          .eq('is_opponent_play', false)
-          .eq('play_type', 'pass');
-
-        // Calculate rates
+        // Calculate rates (using snap counts from above - no more queries!)
         const tackleParticipation = defensiveSnaps > 0 ? (totalTackles / defensiveSnaps) * 100 : 0;
         const totalTackleOpportunities = totalTackles + missedTackles;
         const missedTackleRate = totalTackleOpportunities > 0 ? (missedTackles / totalTackleOpportunities) * 100 : 0;
 
-        const pressureRate = (passRushSnaps || 0) > 0 ? (totalPressures / (passRushSnaps || 1)) * 100 : 0;
-        const sackRate = (passRushSnaps || 0) > 0 ? (sacks / (passRushSnaps || 1)) * 100 : 0;
+        // TEMP FIX: Calculate pressure/sack rates based on total defensive snaps
+        // (Removed pass rush snap count query due to 500 errors)
+        const pressureRate = defensiveSnaps > 0 ? (totalPressures / defensiveSnaps) * 100 : 0;
+        const sackRate = defensiveSnaps > 0 ? (sacks / defensiveSnaps) * 100 : 0;
         const coverageSuccessRate = targets > 0 ? (coverageWins / targets) * 100 : 0;
 
         // Get havoc plays (TFL, FF, INT, PBU) - would need additional fields in player_participation
@@ -1228,10 +1252,10 @@ export class AdvancedAnalyticsService {
 
     if (!player) throw new Error('Player not found');
 
-    // Build query for defensive plays where player participated
-    let query = this.supabase
+    // Get all defensive plays for snap count
+    let playsQuery = this.supabase
       .from('play_instances')
-      .select('*')
+      .select('id, play_type, success, is_tfl, is_forced_fumble, video_id')
       .eq('team_id', player.team_id)
       .eq('is_opponent_play', true);
 
@@ -1242,50 +1266,65 @@ export class AdvancedAnalyticsService {
         .eq('game_id', gameId);
 
       if (videos && videos.length > 0) {
-        query = query.in('video_id', videos.map(v => v.id));
+        playsQuery = playsQuery.in('video_id', videos.map(v => v.id));
       }
     }
 
-    const { data: allPlays } = await query;
+    const { data: allPlays } = await playsQuery;
     if (!allPlays || allPlays.length === 0) return null;
 
-    // Filter plays where this player was involved
-    const plays = allPlays.filter(p =>
-      p.tackler_ids?.includes(playerId) ||
-      p.missed_tackle_ids?.includes(playerId) ||
-      p.pressure_player_ids?.includes(playerId) ||
-      p.sack_player_id === playerId
+    // Query player_participation junction table for this player's stats
+    let participationQuery = this.supabase
+      .from('player_participation')
+      .select('play_instance_id, participation_type, result, created_at')
+      .eq('player_id', playerId)
+      .eq('team_id', player.team_id);
+
+    const { data: participations } = await participationQuery;
+    if (!participations || participations.length === 0) return null;
+
+    // Filter participations to only include plays from our game scope
+    const playIds = new Set(allPlays.map(p => p.id));
+    const relevantParticipations = participations.filter(p => playIds.has(p.play_instance_id));
+
+    if (relevantParticipations.length === 0) return null;
+
+    // Calculate tackle stats from junction table
+    const primaryTackles = relevantParticipations.filter(p => p.participation_type === 'primary_tackle').length;
+    const assistTackles = relevantParticipations.filter(p => p.participation_type === 'assist_tackle').length;
+    const missedTackles = relevantParticipations.filter(p => p.participation_type === 'missed_tackle').length;
+
+    // Calculate pass rush stats from junction table
+    const passPlayIds = new Set(allPlays.filter(p => p.play_type === 'pass').map(p => p.id));
+    const pressureParticipations = relevantParticipations.filter(p =>
+      p.participation_type === 'pressure' && passPlayIds.has(p.play_instance_id)
+    );
+    const pressures = pressureParticipations.length;
+    const sacks = pressureParticipations.filter(p => p.result === 'sack').length;
+
+    // Calculate run defense stats
+    const runPlayIds = new Set(allPlays.filter(p => p.play_type === 'run').map(p => p.id));
+    const tackleParticipations = relevantParticipations.filter(p =>
+      (p.participation_type === 'primary_tackle' || p.participation_type === 'assist_tackle') &&
+      runPlayIds.has(p.play_instance_id)
     );
 
-    if (plays.length === 0) return null;
+    // Run stops: tackles on unsuccessful run plays
+    const runStops = tackleParticipations.filter(participation => {
+      const play = allPlays.find(p => p.id === participation.play_instance_id);
+      return play && !play.success;
+    }).length;
 
-    // Tackle stats
-    const primaryTackles = plays.filter(p => p.tackler_ids?.[0] === playerId).length;
-    const assistTackles = plays.filter(p =>
-      p.tackler_ids?.includes(playerId) && p.tackler_ids?.[0] !== playerId
-    ).length;
-    const missedTackles = plays.filter(p => p.missed_tackle_ids?.includes(playerId)).length;
+    // Calculate havoc stats
+    const tflParticipations = relevantParticipations.filter(p => p.participation_type === 'tackle_for_loss');
+    const tfls = tflParticipations.length;
 
-    // Pass rush stats
-    const passPlays = allPlays.filter(p => p.play_type === 'pass');
-    const pressures = passPlays.filter(p => p.pressure_player_ids?.includes(playerId)).length;
-    const sacks = passPlays.filter(p => p.sack_player_id === playerId).length;
-
-    // Run defense
-    const runPlays = allPlays.filter(p => p.play_type === 'run');
-    const runStops = runPlays.filter(p =>
-      p.tackler_ids?.includes(playerId) && !p.success
-    ).length;
-
-    // Havoc
-    const tfls = plays.filter(p =>
-      p.is_tfl && p.tackler_ids?.includes(playerId)
-    ).length;
-    const forcedFumbles = plays.filter(p =>
-      p.is_forced_fumble && p.tackler_ids?.includes(playerId)
-    ).length;
+    const forcedFumbleParticipations = relevantParticipations.filter(p => p.participation_type === 'forced_fumble');
+    const forcedFumbles = forcedFumbleParticipations.length;
 
     const defensiveSnaps = allPlays.length;
+    const passPlays = allPlays.filter(p => p.play_type === 'pass');
+    const runPlays = allPlays.filter(p => p.play_type === 'run');
 
     return {
       playerName: `${player.first_name} ${player.last_name}`,
@@ -1336,10 +1375,10 @@ export class AdvancedAnalyticsService {
 
     if (!player) throw new Error('Player not found');
 
-    // Build query for defensive plays
-    let query = this.supabase
+    // Get all defensive plays for snap count
+    let playsQuery = this.supabase
       .from('play_instances')
-      .select('*')
+      .select('id, play_type, success, is_tfl, is_forced_fumble, is_interception, is_pbu, video_id')
       .eq('team_id', player.team_id)
       .eq('is_opponent_play', true);
 
@@ -1350,51 +1389,55 @@ export class AdvancedAnalyticsService {
         .eq('game_id', gameId);
 
       if (videos && videos.length > 0) {
-        query = query.in('video_id', videos.map(v => v.id));
+        playsQuery = playsQuery.in('video_id', videos.map(v => v.id));
       }
     }
 
-    const { data: allPlays } = await query;
+    const { data: allPlays } = await playsQuery;
     if (!allPlays || allPlays.length === 0) return null;
 
-    const plays = allPlays.filter(p =>
-      p.tackler_ids?.includes(playerId) ||
-      p.missed_tackle_ids?.includes(playerId) ||
-      p.coverage_player_id === playerId ||
-      p.pressure_player_ids?.includes(playerId)
-    );
+    // Query player_participation junction table
+    let participationQuery = this.supabase
+      .from('player_participation')
+      .select('play_instance_id, participation_type, result')
+      .eq('player_id', playerId)
+      .eq('team_id', player.team_id);
 
-    if (plays.length === 0) return null;
+    const { data: participations } = await participationQuery;
+    if (!participations || participations.length === 0) return null;
+
+    // Filter participations to game scope
+    const playIds = new Set(allPlays.map(p => p.id));
+    const relevantParticipations = participations.filter(p => playIds.has(p.play_instance_id));
+    if (relevantParticipations.length === 0) return null;
 
     // Tackle stats
-    const primaryTackles = plays.filter(p => p.tackler_ids?.[0] === playerId).length;
-    const assistTackles = plays.filter(p =>
-      p.tackler_ids?.includes(playerId) && p.tackler_ids?.[0] !== playerId
+    const primaryTackles = relevantParticipations.filter(p => p.participation_type === 'primary_tackle').length;
+    const assistTackles = relevantParticipations.filter(p => p.participation_type === 'assist_tackle').length;
+    const missedTackles = relevantParticipations.filter(p => p.participation_type === 'missed_tackle').length;
+
+    // Coverage stats (NEW - using objective results)
+    const coverageParticipations = relevantParticipations.filter(p => p.participation_type === 'coverage_assignment');
+    const coverageSnaps = coverageParticipations.length;
+    // Coverage wins = incompletion, interception, or pass_breakup
+    const coverageWins = coverageParticipations.filter(p =>
+      p.result === 'incompletion' || p.result === 'interception' || p.result === 'pass_breakup'
     ).length;
-    const missedTackles = plays.filter(p => p.missed_tackle_ids?.includes(playerId)).length;
 
-    // Coverage stats
-    const coverageSnaps = allPlays.filter(p => p.coverage_player_id === playerId);
-    const coverageWins = coverageSnaps.filter(p => p.coverage_result === 'win').length;
-
-    // Blitz stats
-    const blitzSnaps = allPlays.filter(p =>
-      p.play_type === 'pass' && p.pressure_player_ids?.includes(playerId)
+    // Blitz/Pressure stats
+    const passPlayIds = new Set(allPlays.filter(p => p.play_type === 'pass').map(p => p.id));
+    const pressureParticipations = relevantParticipations.filter(p =>
+      p.participation_type === 'pressure' && passPlayIds.has(p.play_instance_id)
     );
-    const pressures = blitzSnaps.filter(p => p.pressure_player_ids?.includes(playerId)).length;
-    const sacks = blitzSnaps.filter(p => p.sack_player_id === playerId).length;
+    const blitzSnaps = pressureParticipations.length;
+    const pressures = pressureParticipations.length;
+    const sacks = pressureParticipations.filter(p => p.result === 'sack').length;
 
-    // Havoc
-    const tfls = plays.filter(p => p.is_tfl && p.tackler_ids?.includes(playerId)).length;
-    const forcedFumbles = plays.filter(p =>
-      p.is_forced_fumble && p.tackler_ids?.includes(playerId)
-    ).length;
-    const interceptions = plays.filter(p =>
-      p.is_interception && p.coverage_player_id === playerId
-    ).length;
-    const pbus = plays.filter(p =>
-      p.is_pbu && p.coverage_player_id === playerId
-    ).length;
+    // Havoc stats
+    const tfls = relevantParticipations.filter(p => p.participation_type === 'tackle_for_loss').length;
+    const forcedFumbles = relevantParticipations.filter(p => p.participation_type === 'forced_fumble').length;
+    const interceptions = relevantParticipations.filter(p => p.participation_type === 'interception').length;
+    const pbus = relevantParticipations.filter(p => p.participation_type === 'pass_breakup').length;
 
     const defensiveSnaps = allPlays.length;
 
@@ -1445,10 +1488,10 @@ export class AdvancedAnalyticsService {
 
     if (!player) throw new Error('Player not found');
 
-    // Build query for defensive plays
-    let query = this.supabase
+    // Get all defensive plays for snap count
+    let playsQuery = this.supabase
       .from('play_instances')
-      .select('*')
+      .select('id, play_type, result, yards_gained, is_interception, is_pbu, video_id')
       .eq('team_id', player.team_id)
       .eq('is_opponent_play', true);
 
@@ -1459,46 +1502,62 @@ export class AdvancedAnalyticsService {
         .eq('game_id', gameId);
 
       if (videos && videos.length > 0) {
-        query = query.in('video_id', videos.map(v => v.id));
+        playsQuery = playsQuery.in('video_id', videos.map(v => v.id));
       }
     }
 
-    const { data: allPlays } = await query;
+    const { data: allPlays } = await playsQuery;
     if (!allPlays || allPlays.length === 0) return null;
 
-    const plays = allPlays.filter(p =>
-      p.tackler_ids?.includes(playerId) ||
-      p.coverage_player_id === playerId
-    );
+    // Query player_participation junction table
+    let participationQuery = this.supabase
+      .from('player_participation')
+      .select('play_instance_id, participation_type, result')
+      .eq('player_id', playerId)
+      .eq('team_id', player.team_id);
 
-    if (plays.length === 0) return null;
+    const { data: participations } = await participationQuery;
+    if (!participations || participations.length === 0) return null;
 
-    // Coverage stats
-    const coverageSnaps = allPlays.filter(p => p.coverage_player_id === playerId);
-    const targets = coverageSnaps.filter(p => p.play_type === 'pass');
-    const coverageWins = targets.filter(p => p.coverage_result === 'win').length;
-    const completionsAllowed = targets.filter(p =>
-      (p.result?.includes('complete') || p.result?.includes('touchdown')) &&
-      p.coverage_result !== 'win'
+    // Filter participations to game scope
+    const playIds = new Set(allPlays.map(p => p.id));
+    const relevantParticipations = participations.filter(p => playIds.has(p.play_instance_id));
+    if (relevantParticipations.length === 0) return null;
+
+    // Coverage stats (NEW - using objective results)
+    const coverageParticipations = relevantParticipations.filter(p => p.participation_type === 'coverage_assignment');
+    const coverageSnaps = coverageParticipations.length;
+
+    // Targets = coverage snaps on pass plays
+    const passPlayIds = new Set(allPlays.filter(p => p.play_type === 'pass').map(p => p.id));
+    const targets = coverageParticipations.filter(p => passPlayIds.has(p.play_instance_id));
+
+    // Coverage wins = incompletion, interception, or pass_breakup
+    const coverageWins = targets.filter(p =>
+      p.result === 'incompletion' || p.result === 'interception' || p.result === 'pass_breakup'
     ).length;
-    const yardsAllowed = targets
-      .filter(p => p.result?.includes('complete') || p.result?.includes('touchdown'))
+
+    // Completions allowed = completion_allowed or target_allowed with completion
+    const completionsAllowed = targets.filter(p =>
+      p.result === 'completion_allowed'
+    ).length;
+
+    // Yards allowed - sum yards from plays where completion was allowed
+    const completionPlayIds = targets
+      .filter(p => p.result === 'completion_allowed')
+      .map(p => p.play_instance_id);
+    const yardsAllowed = allPlays
+      .filter(p => completionPlayIds.includes(p.id))
       .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
 
     // Ball production
-    const interceptions = plays.filter(p =>
-      p.is_interception && p.coverage_player_id === playerId
-    ).length;
-    const pbus = plays.filter(p =>
-      p.is_pbu && p.coverage_player_id === playerId
-    ).length;
+    const interceptions = relevantParticipations.filter(p => p.participation_type === 'interception').length;
+    const pbus = relevantParticipations.filter(p => p.participation_type === 'pass_breakup').length;
 
     // Tackle stats
-    const primaryTackles = plays.filter(p => p.tackler_ids?.[0] === playerId).length;
-    const assistTackles = plays.filter(p =>
-      p.tackler_ids?.includes(playerId) && p.tackler_ids?.[0] !== playerId
-    ).length;
-    const missedTackles = plays.filter(p => p.missed_tackle_ids?.includes(playerId)).length;
+    const primaryTackles = relevantParticipations.filter(p => p.participation_type === 'primary_tackle').length;
+    const assistTackles = relevantParticipations.filter(p => p.participation_type === 'assist_tackle').length;
+    const missedTackles = relevantParticipations.filter(p => p.participation_type === 'missed_tackle').length;
 
     const defensiveSnaps = allPlays.length;
 
@@ -1547,7 +1606,7 @@ export class AdvancedAnalyticsService {
       .from('drives')
       .select('*')
       .eq('team_id', teamId)
-      .eq('is_offensive_drive', false);
+      .eq('possession_type', 'defense');
 
     if (gameId) {
       query = query.eq('game_id', gameId);

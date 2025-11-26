@@ -37,9 +37,11 @@ export class DriveService {
     const { data: { user } } = await this.supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // UPSERT: Insert new drive OR update if it already exists
+    // (based on unique constraint: game_id + team_id + drive_number + possession_type)
     const { data, error } = await this.supabase
       .from('drives')
-      .insert({
+      .upsert({
         game_id: params.gameId,
         team_id: params.teamId,
         drive_number: params.driveNumber,
@@ -57,6 +59,8 @@ export class DriveService {
         reached_red_zone: false,
         scoring_drive: false,
         created_by: user.id
+      }, {
+        onConflict: 'game_id,team_id,drive_number,possession_type'
       })
       .select()
       .single();
@@ -192,8 +196,9 @@ export class DriveService {
     // Get all plays for this drive
     const { data: plays, error: playsError } = await this.supabase
       .from('play_instances')
-      .select('yards_gained, resulted_in_first_down, yard_line')
-      .eq('drive_id', driveId);
+      .select('yards_gained, resulted_in_first_down, yard_line, result_type, is_turnover')
+      .eq('drive_id', driveId)
+      .order('created_at', { ascending: true });
 
     if (playsError) throw new Error(`Failed to fetch plays: ${playsError.message}`);
 
@@ -204,6 +209,42 @@ export class DriveService {
     // Check if drive reached red zone (any play inside 20)
     const reachedRedZone = plays?.some(p => p.yard_line && p.yard_line >= 80) || false;
 
+    // Determine drive result and points from plays
+    let result = 'end_half'; // default
+    let points = 0;
+
+    if (plays && plays.length > 0) {
+      // Check for turnover
+      if (plays.some(p => p.is_turnover)) {
+        result = 'turnover';
+        points = 0;
+      }
+      // Check for scoring plays
+      else if (plays.some(p => p.result_type === 'touchdown' || p.result_type === 'pass_touchdown')) {
+        result = 'touchdown';
+        points = 6; // Base touchdown points (PAT would add 1 or 2)
+      }
+      else if (plays.some(p => p.result_type === 'field_goal')) {
+        result = 'field_goal';
+        points = 3;
+      }
+      // Check last play for other results
+      else {
+        const lastPlay = plays[plays.length - 1];
+        if (lastPlay.result_type === 'punt') {
+          result = 'punt';
+        } else if (lastPlay.result_type === 'turnover_on_downs') {
+          result = 'downs';
+        }
+      }
+    }
+
+    // Calculate three_and_out: exactly 3 plays with no first down
+    const threeAndOut = playsCount === 3 && firstDowns === 0;
+
+    // Scoring drive: any points scored
+    const scoringDrive = points > 0;
+
     // Update drive
     const { error: updateError } = await this.supabase
       .from('drives')
@@ -212,6 +253,10 @@ export class DriveService {
         yards_gained: yardsGained,
         first_downs: firstDowns,
         reached_red_zone: reachedRedZone,
+        result: result,
+        points: points,
+        three_and_out: threeAndOut,
+        scoring_drive: scoringDrive,
         updated_at: new Date().toISOString()
       })
       .eq('id', driveId);

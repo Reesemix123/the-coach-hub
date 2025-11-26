@@ -115,9 +115,12 @@ export default function TeamDashboardPage({ params }: { params: Promise<{ teamId
       }
 
       // Fetch stats
+      const gameIds = gamesData?.map(g => g.id) || [];
       const [playsResult, videosResult, playInstancesResult, playersResult, practicesResult] = await Promise.all([
         supabase.from('playbook_plays').select('id', { count: 'exact' }).eq('team_id', teamId).eq('is_archived', false),
-        supabase.from('videos').select('id', { count: 'exact' }).eq('team_id', teamId),
+        gameIds.length > 0
+          ? supabase.from('videos').select('id', { count: 'exact' }).in('game_id', gameIds)
+          : Promise.resolve({ count: 0 }),
         supabase.from('play_instances').select('id', { count: 'exact' }).eq('team_id', teamId),
         supabase.from('players').select('id', { count: 'exact' }).eq('team_id', teamId).eq('is_active', true),
         supabase.from('practice_plans').select('id', { count: 'exact' }).eq('team_id', teamId).eq('is_template', false),

@@ -171,6 +171,23 @@ interface PlayTagForm {
   is_pbu?: boolean;
   is_interception?: boolean;
   qb_decision_grade?: number;
+
+  // Player Attribution for Big Plays
+  forced_fumble_player_id?: string;
+  interception_player_id?: string;
+
+  // Multi-Player Defensive Tracking (NEW)
+  dl_run_defense_players?: string;
+  dl_run_defense_data?: string;
+  dl_pass_rush_data?: string;
+  lb_run_stop_players?: string;
+  lb_run_stop_data?: string;
+  lb_pass_coverage_players?: string;
+  lb_pass_coverage_data?: string;
+  db_run_support_players?: string;
+  db_run_support_data?: string;
+  db_pass_coverage_players?: string;
+  db_pass_coverage_data?: string;
 }
 
 const DOWNS = [
@@ -729,8 +746,8 @@ export default function GameFilmPage() {
     }
 
     setValue('tackler_ids', instance.tackler_ids?.join(', ') || '');
-    setValue('missed_tackle_ids', instance.missed_tackle_ids?.join(', ') || '');
-    setValue('pressure_player_ids', instance.pressure_player_ids?.join(', ') || '');
+    setValue('missed_tackle_ids', instance.missed_tackle_ids?.join(',') || '');
+    setValue('pressure_player_ids', instance.pressure_player_ids?.join(',') || '');
     setValue('sack_player_id', instance.sack_player_id);
     setValue('coverage_player_id', instance.coverage_player_id);
     setValue('coverage_result', instance.coverage_result);
@@ -792,12 +809,12 @@ export default function GameFilmPage() {
           ? (values.opponent_play_type || 'Unknown')
           : (values.play_code || ''),
 
-        player_id: isTaggingOpponent ? undefined : (values.player_id || undefined),
-
         formation: values.formation || undefined,
         result_type: values.result_type || undefined,
         resulted_in_first_down: values.resulted_in_first_down || false,
-        is_turnover: values.result_type === 'pass_interception' || values.result_type === 'fumble_lost',
+        // Turnovers determined by Result dropdown ONLY (not checkboxes)
+        is_turnover: values.result_type === 'pass_interception' ||
+                     values.result_type === 'fumble_lost',
         turnover_type: values.result_type === 'pass_interception' ? 'interception' :
                        values.result_type === 'fumble_lost' ? 'fumble' : undefined,
 
@@ -857,11 +874,14 @@ export default function GameFilmPage() {
         is_sack: isTaggingOpponent ? (values.is_sack || false) : undefined,
         is_forced_fumble: isTaggingOpponent ? (values.is_forced_fumble || false) : undefined,
         is_pbu: isTaggingOpponent ? (values.is_pbu || false) : undefined,
-        is_interception: isTaggingOpponent ? (values.is_interception || false) : undefined,
+        // Auto-set is_interception based on Result dropdown
+        is_interception: isTaggingOpponent ? (values.result_type === 'pass_interception') : undefined,
         qb_decision_grade: isTaggingOpponent && values.qb_decision_grade !== undefined
           ? parseInt(String(values.qb_decision_grade))
           : undefined
       };
+
+      let playInstanceId: string;
 
       if (editingInstance) {
         const { error } = await supabase
@@ -870,36 +890,300 @@ export default function GameFilmPage() {
           .eq('id', editingInstance.id);
 
         if (error) throw error;
+        playInstanceId = editingInstance.id;
 
-        // TODO: Re-enable drive recalculation after optimizing performance
+        // Clear existing participations when editing
+        await supabase
+          .from('player_participation')
+          .delete()
+          .eq('play_instance_id', playInstanceId);
+
         // Recalculate drive stats if drive changed
-        // if (driveId && editingInstance.drive_id !== driveId) {
-        //   // Recalc old drive if it existed
-        //   if (editingInstance.drive_id) {
-        //     await driveService.recalculateDriveStats(editingInstance.drive_id);
-        //   }
-        //   // Recalc new drive
-        //   await driveService.recalculateDriveStats(driveId);
-        // } else if (driveId) {
-        //   // Same drive, just recalc it
-        //   await driveService.recalculateDriveStats(driveId);
-        // }
+        if (driveId && editingInstance.drive_id !== driveId) {
+          // Recalc old drive if it existed
+          if (editingInstance.drive_id) {
+            await driveService.recalculateDriveStats(editingInstance.drive_id);
+          }
+          // Recalc new drive
+          await driveService.recalculateDriveStats(driveId);
+        } else if (driveId) {
+          // Same drive, just recalc it
+          await driveService.recalculateDriveStats(driveId);
+        }
       } else {
-        const { error } = await supabase
+        const { data: newPlay, error } = await supabase
           .from('play_instances')
-          .insert([instanceData]);
+          .insert([instanceData])
+          .select('id')
+          .single();
 
         if (error) throw error;
+        playInstanceId = newPlay.id;
 
-        // TODO: Re-enable drive recalculation after optimizing performance
         // Recalculate drive stats after adding new play
-        // if (driveId) {
-        //   await driveService.recalculateDriveStats(driveId);
-        // }
+        if (driveId) {
+          await driveService.recalculateDriveStats(driveId);
+        }
+      }
+
+      // ======================================================================
+      // JUNCTION TABLE: Write player participations
+      // ======================================================================
+      const participations: any[] = [];
+
+      // OFFENSIVE LINE (Tier 3) - Convert OL columns to junction table
+      if (!isTaggingOpponent) {
+        const olPositions = [
+          { id: values.lt_id, pos: 'ol_lt', result: values.lt_block_result },
+          { id: values.lg_id, pos: 'ol_lg', result: values.lg_block_result },
+          { id: values.c_id, pos: 'ol_c', result: values.c_block_result },
+          { id: values.rg_id, pos: 'ol_rg', result: values.rg_block_result },
+          { id: values.rt_id, pos: 'ol_rt', result: values.rt_block_result }
+        ];
+
+        olPositions.forEach(({ id, pos, result }) => {
+          if (id) {
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: id,
+              team_id: game.team_id,
+              participation_type: pos,
+              result: result || null
+            });
+          }
+        });
+      }
+
+      // DEFENSIVE TRACKING (Tier 3)
+      if (isTaggingOpponent) {
+        // Tackles - primary vs assists
+        if (tacklerIdsArray && tacklerIdsArray.length > 0) {
+          tacklerIdsArray.forEach((tacklerId: string) => {
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: tacklerId,
+              team_id: game.team_id,
+              participation_type: tacklerId === primaryTacklerId ? 'primary_tackle' : 'assist_tackle',
+              result: 'made'
+            });
+          });
+        }
+
+        // Missed tackles (NEW - now using UUIDs directly)
+        if (values.missed_tackle_ids) {
+          const missedIds = values.missed_tackle_ids.split(',').filter(Boolean);
+
+          missedIds.forEach(playerId => {
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'missed_tackle',
+              result: 'missed'
+            });
+          });
+        }
+
+        // Pressures (NEW - now using UUIDs directly)
+        if (values.pressure_player_ids) {
+          const pressureIds = values.pressure_player_ids.split(',').filter(Boolean);
+
+          pressureIds.forEach(playerId => {
+            // Determine result: sack, hurry, or hit
+            let result = 'hurry'; // default
+            if (values.sack_player_id === playerId) {
+              result = 'sack';
+            }
+            // You can add logic for 'hit' if you have that field
+
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'pressure',
+              result
+            });
+          });
+        }
+
+        // Coverage
+        if (values.coverage_player_id) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.coverage_player_id,
+            team_id: game.team_id,
+            participation_type: 'coverage_assignment',
+            result: values.coverage_result || null
+          });
+        }
+
+        // DL Run Defense (NEW - multi-player tracking)
+        if (values.dl_run_defense_players && values.dl_run_defense_data) {
+          const playerIds = values.dl_run_defense_players.split(',').filter(Boolean);
+          const playerDataMap = JSON.parse(values.dl_run_defense_data || '{}');
+
+          playerIds.forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'dl_run_defense',
+              result: data.result || null,
+              metadata: {
+                gap_assignment: data.gap || null,
+                double_teamed: data.doubleTeamed || false
+              }
+            });
+          });
+        }
+
+        // DL Pass Rush (NEW - metadata for existing pressure tracking)
+        if (values.dl_pass_rush_data) {
+          const playerDataMap = JSON.parse(values.dl_pass_rush_data || '{}');
+
+          // Update existing pressure participations with DL-specific metadata
+          Object.keys(playerDataMap).forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            // Find the pressure participation for this player and add metadata
+            const pressureParticipation = participations.find(
+              p => p.player_id === playerId && p.participation_type === 'pressure'
+            );
+            if (pressureParticipation) {
+              pressureParticipation.metadata = {
+                rush_technique: data.rushTechnique || null,
+                gap: data.gap || null,
+                qb_impact: data.qbImpact || false
+              };
+            }
+          });
+        }
+
+        // LB Run Stop (NEW - multi-player tracking)
+        if (values.lb_run_stop_players && values.lb_run_stop_data) {
+          const playerIds = values.lb_run_stop_players.split(',').filter(Boolean);
+          const playerDataMap = JSON.parse(values.lb_run_stop_data || '{}');
+
+          playerIds.forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'lb_run_stop',
+              result: data.result || null,
+              metadata: {
+                gap_assignment: data.gap || null,
+                scrape_exchange: data.scrapeExchange || false
+              }
+            });
+          });
+        }
+
+        // LB Pass Coverage (NEW - multi-player tracking)
+        if (values.lb_pass_coverage_players && values.lb_pass_coverage_data) {
+          const playerIds = values.lb_pass_coverage_players.split(',').filter(Boolean);
+          const playerDataMap = JSON.parse(values.lb_pass_coverage_data || '{}');
+
+          playerIds.forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'lb_pass_coverage',
+              result: data.result || null,
+              metadata: {
+                coverage_zone: data.zone || null
+              }
+            });
+          });
+        }
+
+        // DB Run Support (NEW - multi-player tracking)
+        if (values.db_run_support_players && values.db_run_support_data) {
+          const playerIds = values.db_run_support_players.split(',').filter(Boolean);
+          const playerDataMap = JSON.parse(values.db_run_support_data || '{}');
+
+          playerIds.forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'db_run_support',
+              result: data.result || null,
+              metadata: {
+                force_contain: data.forceContain || false,
+                alley_fill: data.alleyFill || false
+              }
+            });
+          });
+        }
+
+        // DB Pass Coverage (NEW - multi-player tracking)
+        if (values.db_pass_coverage_players && values.db_pass_coverage_data) {
+          const playerIds = values.db_pass_coverage_players.split(',').filter(Boolean);
+          const playerDataMap = JSON.parse(values.db_pass_coverage_data || '{}');
+
+          playerIds.forEach((playerId: string) => {
+            const data = playerDataMap[playerId] || {};
+            participations.push({
+              play_instance_id: playInstanceId,
+              player_id: playerId,
+              team_id: game.team_id,
+              participation_type: 'db_pass_coverage',
+              result: data.result || null,
+              metadata: {
+                coverage_zone: data.zone || null,
+                alignment: data.alignment || null
+              }
+            });
+          });
+        }
+      }
+
+      // Add interception participation (from "Intercepted By" dropdown)
+      if (values.interception_player_id) {
+        participations.push({
+          play_instance_id: playInstanceId,
+          player_id: values.interception_player_id,
+          team_id: game.team_id,
+          participation_type: 'interception',
+          result: 'interception',
+          metadata: {}
+        });
+      }
+
+      // Add forced fumble participation (from "Forced By" dropdown)
+      if (values.forced_fumble_player_id) {
+        participations.push({
+          play_instance_id: playInstanceId,
+          player_id: values.forced_fumble_player_id,
+          team_id: game.team_id,
+          participation_type: 'forced_fumble',
+          result: 'forced_fumble',
+          metadata: {}
+        });
+      }
+
+      // Batch insert all participations
+      if (participations.length > 0) {
+        const { error: participationError } = await supabase
+          .from('player_participation')
+          .insert(participations);
+
+        if (participationError) {
+          console.error('Failed to save player participations:', participationError);
+          // Don't throw - play instance is saved, participations are supplementary
+        }
       }
 
       // Refresh drives to show updated play counts
       await fetchDrives();
+
+      // Show success notification
+      alert(editingInstance ? 'Play updated successfully!' : 'Play saved successfully!');
 
       setShowTagModal(false);
       setEditingInstance(null);
@@ -2336,11 +2620,230 @@ export default function GameFilmPage() {
                       )}
                     </div>
 
+                    {/* Missed Tackles - NEW */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Missed Tackles {watch('missed_tackle_ids')?.split(',').filter(Boolean).length > 0 && (
+                          <span className="text-gray-500">
+                            ({watch('missed_tackle_ids')?.split(',').filter(Boolean).length} players)
+                          </span>
+                        )}
+                      </label>
+                      <p className="text-xs text-gray-500 mb-2">Players who attempted but missed the tackle</p>
+
+                      <div className="border border-gray-300 rounded-md max-h-32 overflow-y-auto">
+                        {players.filter(p => playerInPositionGroup(p, 'defense')).length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-gray-500">No defensive players found</div>
+                        ) : (
+                          players.filter(p => playerInPositionGroup(p, 'defense')).map(player => {
+                            const missedIds = watch('missed_tackle_ids')?.split(',').filter(Boolean) || [];
+                            const isSelected = missedIds.includes(player.id);
+
+                            return (
+                              <label
+                                key={player.id}
+                                className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer ${
+                                  isSelected ? 'bg-yellow-50' : ''
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const currentIds = watch('missed_tackle_ids')?.split(',').filter(Boolean) || [];
+                                    const newIds = e.target.checked
+                                      ? [...currentIds, player.id]
+                                      : currentIds.filter(id => id !== player.id);
+                                    setValue('missed_tackle_ids', newIds.join(','));
+                                  }}
+                                  className="h-4 w-4 text-yellow-600 rounded border-gray-300 focus:ring-yellow-500"
+                                />
+                                <span className="text-sm text-gray-900">
+                                  #{player.jersey_number} {player.first_name} {player.last_name}
+                                  <span className="text-xs text-gray-500 ml-1">({getPositionDisplay(player)})</span>
+                                </span>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Pressure Players & Sacks - NEW (Pass Plays Only) */}
+                    {watch('opponent_play_type')?.toLowerCase().includes('pass') && (
+                      <div className="space-y-3 pt-4 border-t border-gray-200">
+                        <label className="block text-xs font-semibold text-gray-700">Pass Rush</label>
+
+                        {/* Pressure Players */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">
+                            Pressured QB {watch('pressure_player_ids')?.split(',').filter(Boolean).length > 0 && (
+                              <span className="text-gray-500">
+                                ({watch('pressure_player_ids')?.split(',').filter(Boolean).length} players)
+                              </span>
+                            )}
+                          </label>
+                          <p className="text-xs text-gray-500 mb-2">Players who hurried, hit, or sacked the QB</p>
+
+                          <div className="border border-gray-300 rounded-md max-h-32 overflow-y-auto">
+                            {players.filter(p => playerInPositionGroup(p, 'defense')).length === 0 ? (
+                              <div className="px-3 py-2 text-xs text-gray-500">No defensive players found</div>
+                            ) : (
+                              players.filter(p => playerInPositionGroup(p, 'defense')).map(player => {
+                                const pressureIds = watch('pressure_player_ids')?.split(',').filter(Boolean) || [];
+                                const isSelected = pressureIds.includes(player.id);
+
+                                return (
+                                  <label
+                                    key={player.id}
+                                    className={`flex items-center gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer ${
+                                      isSelected ? 'bg-red-50' : ''
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        const currentIds = watch('pressure_player_ids')?.split(',').filter(Boolean) || [];
+                                        const newIds = e.target.checked
+                                          ? [...currentIds, player.id]
+                                          : currentIds.filter(id => id !== player.id);
+                                        setValue('pressure_player_ids', newIds.join(','));
+
+                                        // If unchecking and this was the sack player, clear sack player
+                                        if (!e.target.checked && watch('sack_player_id') === player.id) {
+                                          setValue('sack_player_id', '');
+                                        }
+                                      }}
+                                      className="h-4 w-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+                                    />
+                                    <span className="text-sm text-gray-900">
+                                      #{player.jersey_number} {player.first_name} {player.last_name}
+                                      <span className="text-xs text-gray-500 ml-1">({getPositionDisplay(player)})</span>
+                                    </span>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Sack Player - Only show if pressures selected */}
+                        {watch('pressure_player_ids')?.split(',').filter(Boolean).length > 0 && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              Sack (if QB was sacked)
+                            </label>
+                            <select
+                              {...register('sack_player_id')}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                            >
+                              <option value="">No sack (just pressure)</option>
+                              {watch('pressure_player_ids')?.split(',').filter(Boolean).map((playerId: string) => {
+                                const player = players.find(p => p.id === playerId);
+                                if (!player) return null;
+                                return (
+                                  <option key={playerId} value={playerId}>
+                                    #{player.jersey_number} {player.first_name} {player.last_name} ({getPositionDisplay(player)})
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Coverage Tracking - NEW (Pass Plays Only) */}
+                    {watch('opponent_play_type')?.toLowerCase().includes('pass') && (
+                      <div className="space-y-3 pt-4 border-t border-gray-200">
+                        <label className="block text-xs font-semibold text-gray-700">Coverage</label>
+
+                        {/* Coverage Player */}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-2">
+                            Player in Coverage
+                          </label>
+                          <p className="text-xs text-gray-500 mb-2">Defender assigned to cover the target/zone</p>
+                          <select
+                            {...register('coverage_player_id')}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                          >
+                            <option value="">-</option>
+                            {players
+                              .filter(p => playerInPositionGroup(p, 'defense'))
+                              .map(player => (
+                                <option key={player.id} value={player.id}>
+                                  #{player.jersey_number} {player.first_name} {player.last_name} ({getPositionDisplay(player)})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        {/* Coverage Result - Only show if coverage player selected */}
+                        {watch('coverage_player_id') && (
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              Coverage Result
+                            </label>
+                            <p className="text-xs text-gray-500 mb-2">What happened on this coverage assignment?</p>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  {...register('coverage_result')}
+                                  type="radio"
+                                  value="target_allowed"
+                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-900">Target Allowed <span className="text-xs text-gray-500">(ball thrown at receiver)</span></span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  {...register('coverage_result')}
+                                  type="radio"
+                                  value="completion_allowed"
+                                  className="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500"
+                                />
+                                <span className="text-sm text-gray-900">Completion Allowed <span className="text-xs text-gray-500">(receiver caught it)</span></span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  {...register('coverage_result')}
+                                  type="radio"
+                                  value="incompletion"
+                                  className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                />
+                                <span className="text-sm text-gray-900">Incompletion <span className="text-xs text-gray-500">(pass defended/dropped)</span></span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  {...register('coverage_result')}
+                                  type="radio"
+                                  value="interception"
+                                  className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                />
+                                <span className="text-sm text-gray-900">Interception <span className="text-xs text-gray-500">(INT by coverage player)</span></span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  {...register('coverage_result')}
+                                  type="radio"
+                                  value="pass_breakup"
+                                  className="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500"
+                                />
+                                <span className="text-sm text-gray-900">Pass Breakup <span className="text-xs text-gray-500">(PBU by coverage player)</span></span>
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Position-Specific Defensive Performance (Tier 3) */}
                     <div className="space-y-3 pt-4">
-                      <DLPerformanceSection register={register} players={players} />
-                      <LBPerformanceSection register={register} players={players} />
-                      <DBPerformanceSection register={register} players={players} />
+                      <DLPerformanceSection register={register} watch={watch} setValue={setValue} players={players} />
+                      <LBPerformanceSection register={register} watch={watch} setValue={setValue} players={players} />
+                      <DBPerformanceSection register={register} watch={watch} setValue={setValue} players={players} />
                     </div>
 
                     {/* Defensive Events - Keep these as quick checkboxes */}
@@ -2379,31 +2882,52 @@ export default function GameFilmPage() {
                           />
                           <span className="text-xs font-medium text-gray-700">Pass Breakup</span>
                         </label>
-                        <label className="flex items-center space-x-2">
-                          <input
-                            {...register('is_interception')}
-                            type="checkbox"
-                            className="w-4 h-4 text-red-600 border-gray-300 rounded"
-                          />
-                          <span className="text-xs font-medium text-gray-700">Interception</span>
-                        </label>
+                        {/* Interception removed - use "Pass - Interception" in Result dropdown instead */}
                       </div>
-                    </div>
 
-                    {/* QB Decision Grade (for opponent QB evaluation) */}
-                    <div className="pt-3">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Opponent QB Decision Grade</label>
-                      <select
-                        {...register('qb_decision_grade')}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
-                      >
-                        <option value="">-</option>
-                        {QB_DECISION_GRADES.map(grade => (
-                          <option key={grade.value} value={grade.value}>{grade.label}</option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">Grade the opponent QB's decision-making</p>
+                      {/* Player Attribution for Big Plays */}
+                      {watch('is_forced_fumble') && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Forced By <span className="text-red-600">*</span>
+                          </label>
+                          <select
+                            {...register('forced_fumble_player_id')}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                          >
+                            <option value="">Select player...</option>
+                            {players
+                              ?.filter(p => ['DL', 'LB', 'DB', 'S', 'CB'].some(pos => p.primary_position?.includes(pos)))
+                              .map(player => (
+                                <option key={player.id} value={player.id}>
+                                  #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* QB Evaluation - For evaluating opposing QB (shows for defensive plays only) */}
+              {isTaggingOpponent && watch('opponent_play_type')?.toLowerCase().includes('pass') && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-900">Opponent QB Evaluation</label>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">QB Decision Grade</label>
+                    <select
+                      {...register('qb_decision_grade')}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">-</option>
+                      {QB_DECISION_GRADES.map(grade => (
+                        <option key={grade.value} value={grade.value}>{grade.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Grade the opponent QB's decision-making on this play</p>
                   </div>
                 </div>
               )}
@@ -2424,6 +2948,29 @@ export default function GameFilmPage() {
                 </select>
                 {errors.result_type && <p className="text-red-600 text-sm mt-1">{errors.result_type.message}</p>}
               </div>
+
+              {/* Intercepted By - shows when Pass-Interception is selected */}
+              {isTaggingOpponent && watch('result_type') === 'pass_interception' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Intercepted By <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    {...register('interception_player_id')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                  >
+                    <option value="">Select player...</option>
+                    {players
+                      ?.filter(p => ['DL', 'LB', 'DB', 'S', 'CB'].some(pos => p.primary_position?.includes(pos)))
+                      .map(player => (
+                        <option key={player.id} value={player.id}>
+                          #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position})
+                        </option>
+                      ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Select the defensive player who intercepted the pass</p>
+                </div>
+              )}
 
               {/* Yards Gained */}
               <div>

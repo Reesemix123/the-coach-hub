@@ -95,7 +95,7 @@ export default function DLStatsSection({ data, gameName }: DLStatsProps) {
         {/* Tackles */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Tackles</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Snaps</div>
               <div className="text-2xl font-bold text-gray-900">{data.defensiveSnaps}</div>
@@ -120,7 +120,7 @@ export default function DLStatsSection({ data, gameName }: DLStatsProps) {
         {/* Pass Rush */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Pass Rush</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Pass Rush Snaps</div>
               <div className="text-2xl font-bold text-gray-900">{data.passRushSnaps}</div>
@@ -141,7 +141,7 @@ export default function DLStatsSection({ data, gameName }: DLStatsProps) {
         {/* Run Defense */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Run Defense</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Run Defense Snaps</div>
               <div className="text-2xl font-bold text-gray-900">{data.runDefenseSnaps}</div>
@@ -157,7 +157,7 @@ export default function DLStatsSection({ data, gameName }: DLStatsProps) {
         {/* Havoc */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Havoc</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg border-2 border-red-200">
               <div className="text-xs text-gray-600 mb-1">Havoc Rate</div>
               <div className="text-3xl font-bold text-red-600">{data.havocRate.toFixed(1)}%</div>

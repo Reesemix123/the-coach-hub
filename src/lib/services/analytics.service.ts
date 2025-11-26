@@ -277,11 +277,11 @@ export class AnalyticsService {
 
     if (!player) throw new Error('Player not found');
 
-    // Fetch all plays by this player
+    // Fetch all plays by this player (check all player attribution columns)
     const { data: plays } = await this.supabase
       .from('play_instances')
       .select('*')
-      .eq('player_id', playerId)
+      .or(`ball_carrier_id.eq.${playerId},qb_id.eq.${playerId},target_id.eq.${playerId}`)
       .eq('team_id', teamId)
       .eq('is_opponent_play', false);
 
@@ -296,65 +296,51 @@ export class AnalyticsService {
     );
     const successRate = (successfulPlays.length / totalPlays) * 100;
 
-    // Rushing stats
-    const rushPlays = plays.filter(p => 
-      p.result_type?.startsWith('rush_') || 
-      p.result_type === 'touchdown' && p.play_code && 
-      ['Inside Zone', 'Outside Zone', 'Power', 'Counter', 'Sweep', 'Trap', 'QB Run'].includes(p.play_code)
-    );
+    // Rushing stats (plays where this player was the ball carrier)
+    const rushPlays = plays.filter(p => p.ball_carrier_id === playerId);
     const rushingAttempts = rushPlays.length;
     const rushingYards = rushPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const rushingAvg = rushingAttempts > 0 ? rushingYards / rushingAttempts : 0;
-    const rushingTouchdowns = rushPlays.filter(p => 
-      p.result_type === 'touchdown' || (p.yard_line && p.yard_line <= 0)
+    const rushingTouchdowns = rushPlays.filter(p =>
+      p.result?.includes('touchdown') || (p.yard_line && p.yard_line >= 100)
     ).length;
-    const rushingFumbles = rushPlays.filter(p => 
-      p.result_type === 'fumble_lost' || p.is_turnover
-    ).length;
+    const rushingFumbles = rushPlays.filter(p => p.is_turnover).length;
 
-    // Passing stats (for QBs)
-    const passPlays = plays.filter(p => 
-      p.result_type?.startsWith('pass_') || 
-      p.result_type === 'touchdown' && p.play_code && 
-      !['Inside Zone', 'Outside Zone', 'Power', 'Counter', 'Sweep', 'Trap'].includes(p.play_code)
-    );
+    // Passing stats (plays where this player was the QB)
+    const passPlays = plays.filter(p => p.qb_id === playerId);
     const passingAttempts = passPlays.length;
-    const completions = passPlays.filter(p => 
-      p.result_type === 'pass_complete' || 
-      (p.result_type === 'touchdown' && !p.result_type?.startsWith('rush_'))
+    const completions = passPlays.filter(p =>
+      p.result?.includes('complete') ||
+      (p.result?.includes('touchdown') && p.target_id)
     ).length;
     const completionPct = passingAttempts > 0 ? (completions / passingAttempts) * 100 : 0;
     const passingYards = passPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const passingTouchdowns = passPlays.filter(p => 
-      p.result_type === 'touchdown' || (p.yard_line && p.yard_line <= 0)
+    const passingTouchdowns = passPlays.filter(p =>
+      p.result?.includes('touchdown') && p.target_id
     ).length;
-    const interceptions = plays.filter(p => p.result_type === 'pass_interception').length;
-    const passingFumbles = passPlays.filter(p => 
-      p.result_type === 'fumble_lost' || (p.is_turnover && p.result_type?.startsWith('pass_'))
+    const interceptions = passPlays.filter(p =>
+      p.result?.includes('interception') || p.is_interception
     ).length;
+    const passingFumbles = passPlays.filter(p => p.is_turnover && !p.is_interception).length;
 
-    // Receiving stats (for WR/TE/RB)
-    const targetPlays = plays.filter(p => 
-      p.result_type === 'pass_complete' || 
-      p.result_type === 'pass_incomplete' ||
-      (p.result_type === 'touchdown' && !p.result_type?.startsWith('rush_'))
-    );
+    // Receiving stats (plays where this player was the target)
+    const targetPlays = plays.filter(p => p.target_id === playerId);
     const targets = targetPlays.length;
-    const receptions = targetPlays.filter(p => 
-      p.result_type === 'pass_complete' || 
-      (p.result_type === 'touchdown' && !p.result_type?.startsWith('rush_'))
+    const receptions = targetPlays.filter(p =>
+      p.result?.includes('complete') ||
+      (p.result?.includes('touchdown') && p.target_id === playerId)
     ).length;
-    const drops = targetPlays.filter(p => p.result_type === 'pass_incomplete').length;
-    const receivingYards = receptions > 0 ? targetPlays
-      .filter(p => p.result_type === 'pass_complete' || p.result_type === 'touchdown')
-      .reduce((sum, p) => sum + (p.yards_gained || 0), 0) : 0;
+    const drops = targetPlays.filter(p =>
+      p.result?.includes('incomplete') && !p.result?.includes('defended')
+    ).length;
+    const receivingYards = targetPlays
+      .filter(p => p.result?.includes('complete') || p.result?.includes('touchdown'))
+      .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const receivingAvg = receptions > 0 ? receivingYards / receptions : 0;
-    const receivingTouchdowns = targetPlays.filter(p => 
-      p.result_type === 'touchdown' || (p.yard_line && p.yard_line <= 0)
+    const receivingTouchdowns = targetPlays.filter(p =>
+      p.result?.includes('touchdown')
     ).length;
-    const receivingFumbles = targetPlays.filter(p => 
-      p.result_type === 'fumble_lost' || (p.is_turnover && p.result_type?.startsWith('pass_'))
-    ).length;
+    const receivingFumbles = targetPlays.filter(p => p.is_turnover).length;
 
     // Yards by down
     const firstDownPlays = plays.filter(p => p.down === 1);
@@ -449,7 +435,7 @@ export class AnalyticsService {
         first_name: player.first_name,
         last_name: player.last_name,
         jersey_number: player.jersey_number || '',
-        position: player.position || ''
+        position: player.primary_position || player.position || ''
       },
       totalPlays,
       successRate,
@@ -487,7 +473,7 @@ export class AnalyticsService {
         first_name: player.first_name,
         last_name: player.last_name,
         jersey_number: player.jersey_number || '',
-        position: player.position || ''
+        position: player.primary_position || player.position || ''
       },
       totalPlays: 0,
       successRate: 0,

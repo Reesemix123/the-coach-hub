@@ -95,7 +95,7 @@ export default function QBStatsSection({ data, gameName }: QBStatsProps) {
         {/* Passing Stats */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Passing</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Comp/Att</div>
               <div className="text-2xl font-bold text-gray-900">
@@ -127,7 +127,7 @@ export default function QBStatsSection({ data, gameName }: QBStatsProps) {
         {data.rushAttempts > 0 && (
           <div>
             <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Rushing</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="text-xs text-gray-600 mb-1">Attempts</div>
                 <div className="text-2xl font-bold text-gray-900">{data.rushAttempts}</div>

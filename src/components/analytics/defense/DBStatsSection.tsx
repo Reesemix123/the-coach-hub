@@ -90,7 +90,7 @@ export default function DBStatsSection({ data, gameName }: DBStatsProps) {
         {/* Coverage */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Coverage</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Snaps</div>
               <div className="text-2xl font-bold text-gray-900">{data.defensiveSnaps}</div>
@@ -110,7 +110,7 @@ export default function DBStatsSection({ data, gameName }: DBStatsProps) {
               <div className="text-sm text-gray-600">{data.coverageWins} wins</div>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Yards Allowed</div>
               <div className="text-2xl font-bold text-gray-900">{data.yardsAllowed}</div>
@@ -122,7 +122,7 @@ export default function DBStatsSection({ data, gameName }: DBStatsProps) {
         {/* Ball Production */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Ball Production</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg border-2 border-blue-200">
               <div className="text-xs text-gray-600 mb-1">Ball Production Rate</div>
               <div className="text-3xl font-bold text-blue-600">{data.ballProductionRate.toFixed(1)}%</div>
@@ -142,7 +142,7 @@ export default function DBStatsSection({ data, gameName }: DBStatsProps) {
         {/* Tackles */}
         <div>
           <h4 className="text-sm font-semibold text-gray-700 uppercase mb-3">Tackles</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">Total Tackles</div>
               <div className="text-2xl font-bold text-gray-900">{data.totalTackles}</div>

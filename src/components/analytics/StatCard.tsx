@@ -41,8 +41,8 @@ export default function StatCard({
 
   return (
     <div className={`${colorClasses[color]} rounded-lg p-6 print:bg-white print:border print:border-gray-200`}>
-      <div className="text-4xl font-semibold text-gray-900">{value}</div>
-      <div className="text-sm text-gray-600 mt-2 flex items-center gap-1">
+      <div className="text-4xl font-semibold text-gray-900 break-words overflow-hidden">{value}</div>
+      <div className="text-sm text-gray-600 mt-2 flex items-center gap-1 break-words">
         {tooltip ? (
           <Tooltip content={tooltip}>
             <span>{label}</span>
@@ -52,7 +52,7 @@ export default function StatCard({
         )}
       </div>
       {subtitle && (
-        <div className="text-xs text-gray-500 mt-1">{subtitle}</div>
+        <div className="text-xs text-gray-500 mt-1 break-words">{subtitle}</div>
       )}
     </div>
   );

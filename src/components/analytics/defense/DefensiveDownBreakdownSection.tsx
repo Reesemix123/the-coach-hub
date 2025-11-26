@@ -57,7 +57,7 @@ export default function DefensiveDownBreakdownSection({
       defaultExpanded={false}
     >
       {viewMode === 'cards' ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* 1st Down */}
           {first && (
             <div className="border border-gray-200 rounded-lg p-4 print-keep-together">
