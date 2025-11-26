@@ -23,8 +23,6 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import DLStatsSection from '@/components/analytics/defense/DLStatsSection';
 import LBStatsSection from '@/components/analytics/defense/LBStatsSection';
 import DBStatsSection from '@/components/analytics/defense/DBStatsSection';
-import DefensiveDriveAnalyticsSection from '@/components/analytics/defense/DefensiveDriveAnalyticsSection';
-import DefensiveDownBreakdownSection from '@/components/analytics/defense/DefensiveDownBreakdownSection';
 
 export default function DefensiveReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
@@ -37,8 +35,6 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
     dl: true,
     lb: true,
     db: true,
-    drives: true,
-    downs: true,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -284,44 +280,6 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
 
         {expandedSections.db && (
           <DBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
-
-      {/* Drive Analytics */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('drives')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Drive Analytics</span>
-          {expandedSections.drives ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.drives && (
-          <DefensiveDriveAnalyticsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
-
-      {/* Down Breakdown */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('downs')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Down & Distance Breakdown</span>
-          {expandedSections.downs ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.downs && (
-          <DefensiveDownBreakdownSection teamId={teamId} gameId={filters.gameId || gameId} />
         )}
       </section>
     </div>
