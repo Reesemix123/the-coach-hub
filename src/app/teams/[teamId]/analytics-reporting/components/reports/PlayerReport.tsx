@@ -175,91 +175,98 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
                 subtitle="Plays involved"
               />
               <StatCard
-                title="Total Yards"
-                value={stats.totalYards.toString()}
-                subtitle="Yards gained"
-                color={(stats.totalYards || 0) > 0 ? 'green' : 'default'}
-              />
-              <StatCard
-                title="Average Yards"
-                value={(stats.avgYards || 0).toFixed(1)}
-                subtitle="Yards per play"
-              />
-              <StatCard
                 title="Success Rate"
-                value={`${((stats.successRate || 0) * 100).toFixed(1)}%`}
+                value={`${(stats.successRate || 0).toFixed(1)}%`}
                 subtitle="Successful plays"
-                color={(stats.successRate || 0) >= 0.5 ? 'green' : 'default'}
+                color={(stats.successRate || 0) >= 50 ? 'green' : 'default'}
               />
 
               {/* QB-specific stats */}
-              {isQB && stats.passingStats && (
+              {isQB && stats.passingAttempts > 0 && (
                 <>
                   <StatCard
                     title="Completions"
-                    value={`${stats.passingStats.completions}/${stats.passingStats.attempts}`}
-                    subtitle={`${((stats.passingStats.completions / stats.passingStats.attempts) * 100).toFixed(1)}% completion`}
+                    value={`${stats.completions}/${stats.passingAttempts}`}
+                    subtitle={`${(stats.completionPct || 0).toFixed(1)}% completion`}
                   />
                   <StatCard
                     title="Passing Yards"
-                    value={stats.passingStats.yards.toString()}
+                    value={stats.passingYards.toString()}
                     subtitle="Yards through air"
-                    color="green"
+                    color={stats.passingYards > 0 ? 'green' : 'default'}
                   />
                   <StatCard
                     title="Touchdowns"
-                    value={stats.passingStats.touchdowns.toString()}
+                    value={stats.passingTouchdowns.toString()}
                     subtitle="Passing TDs"
-                    color={stats.passingStats.touchdowns > 0 ? 'green' : 'default'}
+                    color={stats.passingTouchdowns > 0 ? 'green' : 'default'}
                   />
                   <StatCard
                     title="Interceptions"
-                    value={stats.passingStats.interceptions.toString()}
+                    value={stats.interceptions.toString()}
                     subtitle="Picks thrown"
-                    color={stats.passingStats.interceptions > 0 ? 'red' : 'green'}
+                    color={stats.interceptions > 0 ? 'red' : 'green'}
                   />
                 </>
               )}
 
-              {/* Offensive skill position stats */}
-              {isOffensiveSkill && stats.carries && stats.carries > 0 && (
+              {/* Offensive skill position stats - Rushing */}
+              {isOffensiveSkill && stats.rushingAttempts > 0 && (
                 <>
                   <StatCard
                     title="Carries"
-                    value={stats.carries.toString()}
+                    value={stats.rushingAttempts.toString()}
                     subtitle="Rushing attempts"
                   />
                   <StatCard
                     title="Rushing Yards"
-                    value={(stats.rushingYards || 0).toString()}
+                    value={stats.rushingYards.toString()}
                     subtitle="Yards on ground"
-                    color={(stats.rushingYards || 0) > 0 ? 'green' : 'default'}
+                    color={stats.rushingYards > 0 ? 'green' : 'default'}
                   />
                   <StatCard
                     title="Yards Per Carry"
-                    value={((stats.rushingYards || 0) / stats.carries).toFixed(1)}
+                    value={stats.rushingAvg.toFixed(1)}
                     subtitle="YPC"
+                  />
+                  <StatCard
+                    title="Rushing TDs"
+                    value={stats.rushingTouchdowns.toString()}
+                    subtitle="Touchdowns"
+                    color={stats.rushingTouchdowns > 0 ? 'green' : 'default'}
                   />
                 </>
               )}
 
-              {isOffensiveSkill && stats.receptions !== undefined && (
+              {/* Offensive skill position stats - Receiving */}
+              {isOffensiveSkill && stats.receptions > 0 && (
                 <>
                   <StatCard
+                    title="Targets"
+                    value={stats.targets.toString()}
+                    subtitle="Times targeted"
+                  />
+                  <StatCard
                     title="Receptions"
-                    value={(stats.receptions || 0).toString()}
+                    value={stats.receptions.toString()}
                     subtitle="Catches"
                   />
                   <StatCard
                     title="Receiving Yards"
-                    value={(stats.receivingYards || 0).toString()}
+                    value={stats.receivingYards.toString()}
                     subtitle="Yards receiving"
-                    color={(stats.receivingYards || 0) > 0 ? 'green' : 'default'}
+                    color={stats.receivingYards > 0 ? 'green' : 'default'}
                   />
                   <StatCard
                     title="Yards Per Reception"
-                    value={stats.receptions > 0 ? ((stats.receivingYards || 0) / stats.receptions).toFixed(1) : '0.0'}
+                    value={stats.receivingAvg.toFixed(1)}
                     subtitle="YPR"
+                  />
+                  <StatCard
+                    title="Receiving TDs"
+                    value={stats.receivingTouchdowns.toString()}
+                    subtitle="Touchdowns"
+                    color={stats.receivingTouchdowns > 0 ? 'green' : 'default'}
                   />
                 </>
               )}
@@ -287,22 +294,22 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 title="1st Down"
-                value={`${stats.yardsByDown.firstDown?.plays || 0} plays`}
+                value={`${stats.yardsByDown.firstDown?.attempts || 0} plays`}
                 subtitle={`${(stats.yardsByDown.firstDown?.avgYards || 0).toFixed(1)} avg yards`}
               />
               <StatCard
                 title="2nd Down"
-                value={`${stats.yardsByDown.secondDown?.plays || 0} plays`}
+                value={`${stats.yardsByDown.secondDown?.attempts || 0} plays`}
                 subtitle={`${(stats.yardsByDown.secondDown?.avgYards || 0).toFixed(1)} avg yards`}
               />
               <StatCard
                 title="3rd Down"
-                value={`${stats.yardsByDown.thirdDown?.plays || 0} plays`}
+                value={`${stats.yardsByDown.thirdDown?.attempts || 0} plays`}
                 subtitle={`${(stats.yardsByDown.thirdDown?.avgYards || 0).toFixed(1)} avg yards`}
               />
               <StatCard
                 title="4th Down"
-                value={`${stats.yardsByDown.fourthDown?.plays || 0} plays`}
+                value={`${stats.yardsByDown.fourthDown?.attempts || 0} plays`}
                 subtitle={`${(stats.yardsByDown.fourthDown?.avgYards || 0).toFixed(1)} avg yards`}
               />
             </div>
