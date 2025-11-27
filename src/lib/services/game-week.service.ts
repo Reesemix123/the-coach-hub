@@ -338,7 +338,7 @@ async function getFilmStationData(
     },
     secondaryActions: [
       { label: 'Scout Opponent', href: `/teams/${teamId}/film?filter=opponent` },
-      { label: 'View Analytics', href: `/teams/${teamId}/analytics-advanced` }
+      { label: 'View Analytics', href: `/teams/${teamId}/analytics-reporting` }
     ]
   };
 }
@@ -643,7 +643,7 @@ async function getStrategyStationData(
       href: `/teams/${teamId}/strategy-assistant?game=${gameId}`
     },
     secondaryActions: [
-      { label: 'View Analytics', href: `/teams/${teamId}/analytics-advanced` },
+      { label: 'View Analytics', href: `/teams/${teamId}/analytics-reporting` },
       { label: 'View Film', href: `/teams/${teamId}/film` }
     ]
   };
