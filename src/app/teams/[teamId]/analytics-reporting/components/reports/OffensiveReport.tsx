@@ -20,10 +20,10 @@ import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-// Import existing offensive components
-import QBStatsSection from '@/components/analytics/offense/QBStatsSection';
-import RBStatsSection from '@/components/analytics/offense/RBStatsSection';
-import WRTEStatsSection from '@/components/analytics/offense/WRTEStatsSection';
+// Import data-fetching sections
+import AllQBStatsSection from '../sections/AllQBStatsSection';
+import AllRBStatsSection from '../sections/AllRBStatsSection';
+import AllWRTEStatsSection from '../sections/AllWRTEStatsSection';
 import OLPerformanceSection from '../sections/OLPerformanceSection';
 
 export default function OffensiveReport({ teamId, gameId, filters }: ReportProps) {
@@ -252,61 +252,19 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
       </section>
 
       {/* QB Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('qb')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Quarterback Stats</span>
-          {expandedSections.qb ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.qb && (
-          <QBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.qb && (
+        <AllQBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
 
       {/* RB Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('rb')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Running Back Stats</span>
-          {expandedSections.rb ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.rb && (
-          <RBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.rb && (
+        <AllRBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
 
       {/* WR/TE Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('wrte')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Receiver Stats (WR/TE)</span>
-          {expandedSections.wrte ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.wrte && (
-          <WRTEStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.wrte && (
+        <AllWRTEStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
 
       {/* OL Stats */}
       {expandedSections.ol && (
