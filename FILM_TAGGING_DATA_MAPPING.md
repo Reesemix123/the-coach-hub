@@ -46,33 +46,37 @@ This document maps every field from the Film Tagging page through the database t
 
 | Film Field | DB Table.Column | Report(s) | Report Field / Usage |
 |------------|----------------|-----------|---------------------|
-| **Left Tackle (LT)** | `play_instances.lt_id` | N/A | Future: OL Performance section |
-| **LT Block Result** | `play_instances.lt_block_result` | N/A | Future: Block Win Rate calculations |
-| **Left Guard (LG)** | `play_instances.lg_id` | N/A | Future: OL Performance section |
-| **LG Block Result** | `play_instances.lg_block_result` | N/A | Future: Block Win Rate calculations |
-| **Center (C)** | `play_instances.c_id` | N/A | Future: OL Performance section |
-| **C Block Result** | `play_instances.c_block_result` | N/A | Future: Block Win Rate calculations |
-| **Right Guard (RG)** | `play_instances.rg_id` | N/A | Future: OL Performance section |
-| **RG Block Result** | `play_instances.rg_block_result` | N/A | Future: Block Win Rate calculations |
-| **Right Tackle (RT)** | `play_instances.rt_id` | N/A | Future: OL Performance section |
-| **RT Block Result** | `play_instances.rt_block_result` | N/A | Future: Block Win Rate calculations |
+| **Left Tackle (LT)** | `play_instances.lt_id` | **Offensive Report** | **OL Performance Section** - Player snap counts |
+| **LT Block Result** | `play_instances.lt_block_result` | **Offensive Report** | **OL Performance Section** - "Block Win Rate" (Win/Loss/Neutral)<br>Individual OL player performance |
+| **Left Guard (LG)** | `play_instances.lg_id` | **Offensive Report** | **OL Performance Section** - Player snap counts |
+| **LG Block Result** | `play_instances.lg_block_result` | **Offensive Report** | **OL Performance Section** - "Block Win Rate" calculations |
+| **Center (C)** | `play_instances.c_id` | **Offensive Report** | **OL Performance Section** - Player snap counts |
+| **C Block Result** | `play_instances.c_block_result` | **Offensive Report** | **OL Performance Section** - "Block Win Rate" calculations |
+| **Right Guard (RG)** | `play_instances.rg_id` | **Offensive Report** | **OL Performance Section** - Player snap counts |
+| **RG Block Result** | `play_instances.rg_block_result` | **Offensive Report** | **OL Performance Section** - "Block Win Rate" calculations |
+| **Right Tackle (RT)** | `play_instances.rt_id` | **Offensive Report** | **OL Performance Section** - Player snap counts |
+| **RT Block Result** | `play_instances.rt_block_result` | **Offensive Report** | **OL Performance Section** - "Block Win Rate" calculations |
 
 ---
 
 ## DEFENSIVE TRACKING (Tier 3 - HS Advanced - When Tagging Opponent Plays)
 
+**Note:** Defensive player actions are stored in TWO places:
+1. `play_instances` table - Legacy array fields for backward compatibility
+2. `player_participation` table - NEW normalized junction table (preferred, used by reports)
+
 | Film Field | DB Table.Column | Report(s) | Report Field / Usage |
 |------------|----------------|-----------|---------------------|
-| **Tacklers** (Primary + Assists) | `play_instances.tackler_ids` (array) | Defensive Report | DL/LB/DB Stats Sections - "Tackles" count<br>Individual player tackle stats |
-| **Missed Tackles** | `play_instances.missed_tackle_ids` (array) | Defensive Report | DL/LB/DB Stats Sections - "Missed Tackles" count |
-| **Pressure Players** | `play_instances.pressure_player_ids` (array) | Defensive Report | DL/LB Stats Sections - "Pressures" count<br>Used in havoc rate calculations |
-| **Sack Player** | `play_instances.sack_player_id` | Defensive Report | "Sacks" count<br>"Sacks Per Game" average<br>DL/LB player stats<br>Havoc rate calculations |
-| **Coverage Player** | `play_instances.coverage_player_id` | Defensive Report | DB Stats Section - Coverage assignments |
-| **Coverage Result** | `play_instances.coverage_result` | Defensive Report | DB Stats Section - Coverage win rate |
-| **Target Allowed** | `play_instances.target_allowed` | Defensive Report | DB Stats Section - Targets allowed in coverage |
-| **Tackle for Loss (TFL)** | `play_instances.is_tfl` | Defensive Report | "Tackles For Loss" count<br>"TFL Per Game" average<br>DL/LB player stats<br>Havoc rate calculations |
-| **Forced Fumble** | `play_instances.is_forced_fumble` | Defensive Report | Used in "Turnovers Forced" calculation<br>Havoc rate calculations |
-| **Pass Breakup (PBU)** | `play_instances.is_pbu` | Defensive Report | DB Stats Section - "Pass Breakups"<br>Havoc rate calculations |
+| **Tacklers** (Primary + Assists) | `play_instances.tackler_ids` (array)<br>**→ `player_participation`** (participation_type: 'primary_tackle', 'assist_tackle') | **Defensive Report** | **DL/LB/DB Stats Sections:**<br>- "Solo Tackles" (primary_tackle count)<br>- "Ast" (assist_tackle count)<br>- "Tackles" (total: primary + assists)<br>Individual defensive player stats |
+| **Missed Tackles** | `play_instances.missed_tackle_ids` (array)<br>**→ `player_participation`** (participation_type: 'missed_tackle') | **Defensive Report** | **DL/LB/DB Stats Sections:**<br>- "Miss" count (highlighted in red)<br>Tackle efficiency tracking |
+| **Pressure Players** | `play_instances.pressure_player_ids` (array)<br>**→ `player_participation`** (participation_type: 'pressure') | **Defensive Report** | **DL/LB Stats Sections:**<br>- "Pressures" count<br>- "Sacks" (when result='sack')<br>Pass rush analytics |
+| **Sack Player** | `play_instances.sack_player_id`<br>**→ `player_participation`** (participation_type: 'pressure', result: 'sack') | **Defensive Report** | **DL/LB Stats Sections:**<br>- "Sacks" count (highlighted in green)<br>- Team "Sacks Per Game"<br>Havoc rate calculations |
+| **Coverage Player** | `play_instances.coverage_player_id`<br>**→ `player_participation`** (participation_type: 'coverage_assignment') | **Defensive Report** | **LB/DB Stats Sections:**<br>- "Cov Snaps" (coverage assignments)<br>- Coverage assignments by player |
+| **Coverage Result** | `play_instances.coverage_result`<br>**→ `player_participation.result`** | **Defensive Report** | **DB Stats Section:**<br>- Coverage success rate<br>**Values:** 'target_allowed', 'completion_allowed', 'incompletion', 'interception', 'pass_breakup'<br>**Fixed in Migration 038** |
+| **Tackle for Loss (TFL)** | `play_instances.is_tfl`<br>**→ `player_participation`** (participation_type: 'tackle_for_loss') | **Defensive Report** | **DL/LB Stats Sections:**<br>- "TFLs" count (highlighted in red)<br>- Team "TFL Per Game"<br>Havoc plays calculation |
+| **Forced Fumble** | `play_instances.is_forced_fumble`<br>**→ `player_participation`** (participation_type: 'forced_fumble') | **Defensive Report** | **DL/LB/DB Stats Sections:**<br>- "FF" count<br>- Team "Turnovers Forced"<br>Havoc plays calculation |
+| **Interception** | `play_instances.is_interception`<br>**→ `player_participation`** (participation_type: 'interception') | **Defensive Report** | **LB/DB Stats Sections:**<br>- "INT" count (highlighted in green)<br>- Team "Turnovers Forced"<br>Havoc plays calculation |
+| **Pass Breakup (PBU)** | `play_instances.is_pbu`<br>**→ `player_participation`** (participation_type: 'pass_breakup') | **Defensive Report** | **LB/DB Stats Sections:**<br>- "PBU" count<br>Havoc plays calculation |
 | **QB Decision Grade** | `play_instances.qb_decision_grade` | N/A | Future: QB decision quality analytics |
 | **Motion on Play** | `play_instances.has_motion` | N/A | Future: Situational splits |
 | **Play Action** | `play_instances.is_play_action` | N/A | Future: Situational splits |
@@ -168,9 +172,9 @@ This document maps every field from the Film Tagging page through the database t
 |--------|---------------------|-------------|
 | **Season Overview** | `play_instances`, `playbook_plays` | Plays, yards, success rate, first downs, turnovers, top/bottom plays |
 | **Game Report** | `play_instances` (filtered by game) | Same as Season Overview, game-specific |
-| **Offensive Report** | `play_instances` (is_opponent_play = false), `players`, `playbook_plays` | Volume, efficiency, QB stats, RB stats, WR/TE stats |
-| **Defensive Report** | `play_instances` (is_opponent_play = true), `players` | Yards allowed, efficiency, disruptive plays, DL/LB/DB stats, havoc rate |
-| **Special Teams Report** | `calculate_team_metrics` RPC | Kickoff, punt, return performance (not yet implemented) |
+| **Offensive Report** | `play_instances` (is_opponent_play = false), `players`, `playbook_plays`<br>**Sections:** AllQBStatsSection, AllRBStatsSection, AllWRTEStatsSection, OLPerformanceSection | **Team Metrics:** Volume, efficiency, ball security, possession<br>**QB Stats:** Completions, yards, TDs, INTs, sacks (by player)<br>**RB Stats:** Rushing + receiving stats (by player)<br>**WR/TE Stats:** Targets, receptions, yards, TDs (by player)<br>**OL Stats:** Block win rate by position and player |
+| **Defensive Report** | `play_instances` (is_opponent_play = true), `players`, **`player_participation`** (Tier 3)<br>**Sections:** AllDLStatsSection, AllLBStatsSection, AllDBStatsSection | **Team Metrics:** Yards allowed, efficiency, disruptive plays, havoc rate<br>**DL Stats:** Tackles, pressures, sacks, TFLs, FFs (by player from player_participation)<br>**LB Stats:** Tackles, pressures, sacks, coverage, TFLs, INTs, PBUs (by player)<br>**DB Stats:** Tackles, coverage assignments, INTs, PBUs, FFs (by player) |
+| **Special Teams Report** | `calculate_team_metrics` RPC | Kickoff, punt, return performance |
 | **Player Report** | `play_instances`, `players` | Position-specific stats, performance by down, success rate |
 | **Situational Report** | `play_instances` | Performance by down, distance, field position |
 | **Drive Analysis Report** | `drives`, `play_instances` | Points per drive, yards per drive, 3-and-outs, scoring %, red zone efficiency |
@@ -223,11 +227,12 @@ These fields are collected and stored but not yet shown in reports:
 1. **Hash Mark** - Could be used for tendency analysis
 2. **Direction** (Left/Middle/Right) - Could be used for run game analytics
 3. **Play Type** - Used for calculations but not directly displayed
-4. **Offensive Line Tracking** (Tier 3) - 5 positions + block results stored, awaiting OL Performance section
+4. ~~**Offensive Line Tracking** (Tier 3)~~ - ✅ **IMPLEMENTED** in OL Performance Section (Offensive Report)
 5. **QB Decision Grades** - Stored, awaiting QB development analytics
 6. **Situational Flags** (motion, play action, blitz, box count) - Stored, awaiting situational splits feature
-7. **Coverage Result** - Partially implemented in DB stats, could be expanded
-8. **Special Teams Fields** - Special Teams Report shows "coming soon" placeholder
+7. ~~**Coverage Result**~~ - ✅ **IMPLEMENTED** in DB Stats Section (Defensive Report) + **FIXED** in Migration 038
+8. ~~**Defensive Player Tracking**~~ - ✅ **IMPLEMENTED** via player_participation table (DL/LB/DB Stats Sections)
+9. **Special Teams Fields** - Special Teams Report shows basic metrics (kickoff, punt, return performance)
 
 ---
 
@@ -269,10 +274,17 @@ These fields are collected and stored but not yet shown in reports:
 ## NOTES
 
 1. **Film Tagging Page Location**: `/teams/[teamId]/film/[gameId]`
-2. **Database Table**: All play data stored in `play_instances` table
-3. **Player Data**: Player names/positions fetched from `players` table via foreign keys
-4. **Playbook Integration**: `play_code` links to `playbook_plays` table
-5. **Drive Analytics**: Requires `drives` table and drive_id linkage
-6. **RPC Functions**: Some aggregations use `calculate_team_metrics` Postgres function
-7. **Success Formula**: Standard football analytics - 40% on 1st, 60% on 2nd, 100% on 3rd/4th
-8. **Explosive Thresholds**: 10+ yards rushing, 15+ yards passing
+2. **Analytics & Reporting Location**: `/teams/[teamId]/analytics-reporting` ✅ **CONSOLIDATED**
+3. **Legacy Analytics Page**: `/teams/[teamId]/analytics-advanced` → **DEPRECATED** (redirects to analytics-reporting)
+4. **Database Tables**:
+   - All play data stored in `play_instances` table
+   - Tier 3 defensive actions stored in `player_participation` junction table (normalized)
+   - Drive data stored in `drives` table
+5. **Player Data**: Player names/positions fetched from `players` table via foreign keys
+6. **Playbook Integration**: `play_code` links to `playbook_plays` table
+7. **Drive Analytics**: Requires `drives` table and drive_id linkage
+8. **RPC Functions**: Some aggregations use `calculate_team_metrics` Postgres function
+9. **Success Formula**: Standard football analytics - 40% on 1st, 60% on 2nd, 100% on 3rd/4th
+10. **Explosive Thresholds**: 10+ yards rushing, 15+ yards passing
+11. **Component Architecture**: All stat sections are data-fetching components (fetch their own data via Supabase)
+12. **Coverage Tracking**: Migration 038 fixed coverage_result constraint to accept detailed values ('target_allowed', 'completion_allowed', 'incompletion', 'interception', 'pass_breakup')
