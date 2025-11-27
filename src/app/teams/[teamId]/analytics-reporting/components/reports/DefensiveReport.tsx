@@ -19,10 +19,10 @@ import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
-// Import existing defensive components
-import DLStatsSection from '@/components/analytics/defense/DLStatsSection';
-import LBStatsSection from '@/components/analytics/defense/LBStatsSection';
-import DBStatsSection from '@/components/analytics/defense/DBStatsSection';
+// Import data-fetching sections
+import AllDLStatsSection from '../sections/AllDLStatsSection';
+import AllLBStatsSection from '../sections/AllLBStatsSection';
+import AllDBStatsSection from '../sections/AllDBStatsSection';
 
 export default function DefensiveReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
@@ -227,61 +227,19 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
       </section>
 
       {/* DL Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('dl')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Defensive Line Stats</span>
-          {expandedSections.dl ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.dl && (
-          <DLStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.dl && (
+        <AllDLStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
 
       {/* LB Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('lb')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Linebacker Stats</span>
-          {expandedSections.lb ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.lb && (
-          <LBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.lb && (
+        <AllLBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
 
       {/* DB Stats */}
-      <section className="mb-12">
-        <button
-          onClick={() => toggleSection('db')}
-          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
-        >
-          <span>Defensive Back Stats</span>
-          {expandedSections.db ? (
-            <ChevronUp className="h-6 w-6" />
-          ) : (
-            <ChevronDown className="h-6 w-6" />
-          )}
-        </button>
-
-        {expandedSections.db && (
-          <DBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
-        )}
-      </section>
+      {expandedSections.db && (
+        <AllDBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      )}
     </div>
   );
 }
