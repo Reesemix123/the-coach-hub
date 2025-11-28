@@ -2926,20 +2926,22 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Formation */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Formation</label>
-                <input
-                  {...register('formation')}
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  placeholder="e.g., Shotgun Spread, I-Formation"
-                />
-                <p className="text-xs text-gray-500 mt-1">Auto-filled from playbook when available</p>
-              </div>
+              {/* Formation - Only for Offense/Defense, not Special Teams */}
+              {taggingMode !== 'specialTeams' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Formation</label>
+                  <input
+                    {...register('formation')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    placeholder="e.g., Shotgun Spread, I-Formation"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Auto-filled from playbook when available</p>
+                </div>
+              )}
 
-              {/* Player Performance Section (All Tiers) - Only for Offense */}
-              {!isTaggingOpponent && (
+              {/* Player Performance Section (All Tiers) - Only for Offense, not Special Teams */}
+              {taggingMode === 'offense' && (
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Player Performance</h4>
 
@@ -3034,8 +3036,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Advanced Offensive Position Performance (Tier 3) - Only for Offense */}
-              {!isTaggingOpponent && analyticsTier === 'hs_advanced' && (
+              {/* Advanced Offensive Position Performance (Tier 3) - Only for Offense, not Special Teams */}
+              {taggingMode === 'offense' && analyticsTier === 'hs_advanced' && (
                 <div className="space-y-3">
                   <QBPerformanceSection register={register} />
                   <RBPerformanceSection register={register} />
@@ -3044,8 +3046,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Basic Defensive Tracking (All Tiers) - Only for Defense */}
-              {isTaggingOpponent && (analyticsTier === 'little_league' || analyticsTier === 'hs_basic') && (
+              {/* Basic Defensive Tracking (All Tiers) - Only for Defense, not Special Teams */}
+              {taggingMode === 'defense' && (analyticsTier === 'little_league' || analyticsTier === 'hs_basic') && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Defensive Players</h4>
                   <p className="text-xs text-gray-600 mb-3">Track which of your players made tackles on this opponent play</p>
@@ -3107,8 +3109,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Advanced Defensive Performance (Tier 3) - Only for Defense */}
-              {isTaggingOpponent && analyticsTier === 'hs_advanced' && (
+              {/* Advanced Defensive Performance (Tier 3) - Only for Defense, not Special Teams */}
+              {taggingMode === 'defense' && analyticsTier === 'hs_advanced' && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Defensive Stats (Tier 3)</h4>
 
@@ -3478,22 +3480,24 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Result Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Result <span className="text-red-600">*</span>
-                </label>
-                <select
-                  {...register('result_type', { required: 'Please select result' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                >
-                  <option value="">Select result...</option>
-                  {RESULT_TYPES.map(result => (
-                    <option key={result.value} value={result.value}>{result.label}</option>
-                  ))}
-                </select>
-                {errors.result_type && <p className="text-red-600 text-sm mt-1">{errors.result_type.message}</p>}
-              </div>
+              {/* Result Type - Only for Offense/Defense, Special Teams uses kick_result */}
+              {taggingMode !== 'specialTeams' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Result <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    {...register('result_type', { required: taggingMode !== 'specialTeams' ? 'Please select result' : false })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                  >
+                    <option value="">Select result...</option>
+                    {RESULT_TYPES.map(result => (
+                      <option key={result.value} value={result.value}>{result.label}</option>
+                    ))}
+                  </select>
+                  {errors.result_type && <p className="text-red-600 text-sm mt-1">{errors.result_type.message}</p>}
+                </div>
+              )}
 
               {/* Intercepted By - shows when Pass-Interception is selected */}
               {isTaggingOpponent && watch('result_type') === 'pass_interception' && (
@@ -3518,46 +3522,50 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Yards Gained */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Yards Gained</label>
-                <input
-                  {...register('yards_gained', {
-                    onChange: (e) => {
-                      const yards = parseInt(e.target.value);
-                      const distance = parseInt(String(watch('distance') || '0'));
-                      const down = parseInt(String(watch('down') || '0'));
+              {/* Yards Gained - Only for Offense/Defense, Special Teams uses return_yards/kick_distance */}
+              {taggingMode !== 'specialTeams' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Yards Gained</label>
+                  <input
+                    {...register('yards_gained', {
+                      onChange: (e) => {
+                        const yards = parseInt(e.target.value);
+                        const distance = parseInt(String(watch('distance') || '0'));
+                        const down = parseInt(String(watch('down') || '0'));
 
-                      // Only auto-check first down if:
-                      // 1. It's 2nd, 3rd, or 4th down (not 1st down - you can't result in first down if already on 1st)
-                      // 2. Yards gained >= distance needed
-                      if (!isNaN(yards) && !isNaN(distance) && down > 1) {
-                        setValue('resulted_in_first_down', yards >= distance);
-                      } else if (down === 1) {
-                        // If it's 1st down, this play can't "result in" a first down
-                        setValue('resulted_in_first_down', false);
+                        // Only auto-check first down if:
+                        // 1. It's 2nd, 3rd, or 4th down (not 1st down - you can't result in first down if already on 1st)
+                        // 2. Yards gained >= distance needed
+                        if (!isNaN(yards) && !isNaN(distance) && down > 1) {
+                          setValue('resulted_in_first_down', yards >= distance);
+                        } else if (down === 1) {
+                          // If it's 1st down, this play can't "result in" a first down
+                          setValue('resulted_in_first_down', false);
+                        }
                       }
-                    }
-                  })}
-                  type="number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                  placeholder="Negative for loss, positive for gain"
-                />
-                <p className="text-xs text-gray-500 mt-1">Auto-checks if down is 2nd-4th and yards ≥ distance</p>
-              </div>
+                    })}
+                    type="number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    placeholder="Negative for loss, positive for gain"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Auto-checks if down is 2nd-4th and yards ≥ distance</p>
+                </div>
+              )}
 
-              {/* First Down Checkbox */}
-              <div className="flex items-center space-x-2">
-                <input
-                  {...register('resulted_in_first_down')}
-                  type="checkbox"
-                  id="first-down"
-                  className="w-4 h-4 text-gray-900 border-gray-300 rounded"
-                />
-                <label htmlFor="first-down" className="text-sm font-medium text-gray-700">
-                  Resulted in First Down
-                </label>
-              </div>
+              {/* First Down Checkbox - Only for Offense/Defense */}
+              {taggingMode !== 'specialTeams' && (
+                <div className="flex items-center space-x-2">
+                  <input
+                    {...register('resulted_in_first_down')}
+                    type="checkbox"
+                    id="first-down"
+                    className="w-4 h-4 text-gray-900 border-gray-300 rounded"
+                  />
+                  <label htmlFor="first-down" className="text-sm font-medium text-gray-700">
+                    Resulted in First Down
+                  </label>
+                </div>
+              )}
 
               {/* Notes */}
               <div>
