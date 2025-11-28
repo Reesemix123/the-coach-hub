@@ -403,7 +403,7 @@ export function getKickResultsForUnit(unit: SpecialTeamsUnit): typeof KICK_RESUL
       );
     case 'fg_block':
       return KICK_RESULTS.filter(r =>
-        ['blocked_recovered', 'blocked_returned', 'blocked_td', 'blocked_lost'].includes(r.value)
+        ['made', 'missed', 'blocked_recovered', 'blocked_returned', 'blocked_td', 'blocked_lost'].includes(r.value)
       );
     default:
       return [...KICK_RESULTS];
