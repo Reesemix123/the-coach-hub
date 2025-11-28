@@ -245,6 +245,7 @@ interface PlayTagForm {
   snap_quality?: SnapQuality;
   holder_id?: string;
   coverage_tackler_id?: string;
+  blocker_id?: string; // For FG Block plays
   penalty_on_play?: boolean;
   penalty_type?: string;
   penalty_yards?: number;
@@ -1000,6 +1001,10 @@ export default function GameFilmPage() {
         // Coverage tracking - for kickoffs
         coverage_tackler_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'kickoff'
           ? (values.coverage_tackler_id || undefined) : undefined,
+
+        // FG Block - who blocked the kick
+        blocker_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'fg_block'
+          ? (values.blocker_id || undefined) : undefined,
 
         // Penalty tracking (special teams)
         penalty_on_play: taggingMode === 'specialTeams' ? (values.penalty_on_play || false) : undefined,
@@ -2513,6 +2518,33 @@ export default function GameFilmPage() {
                   </div>
                 )}
 
+                {/* FG Block: Blocker Selection */}
+                {selectedSpecialTeamsUnit === 'fg_block' && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Blocked By</label>
+                    <select
+                      {...register('blocker_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select player who blocked...</option>
+                      {players
+                        .filter(p => playerHasPosition(p, ['DL', 'LB', 'DE', 'DT', 'NT']))
+                        .map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      <optgroup label="All Players">
+                        {players.map(player => (
+                          <option key={`all-${player.id}`} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
                 {/* Kickoff Type */}
                 {selectedSpecialTeamsUnit === 'kickoff' && (
                   <div className="mb-3">
@@ -2580,7 +2612,7 @@ export default function GameFilmPage() {
                   )}
 
                   {/* Return Yards */}
-                  {['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) && (
+                  {['kick_return', 'punt_return', 'fg_block'].includes(selectedSpecialTeamsUnit) && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Return Yards</label>
                       <input

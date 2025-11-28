@@ -322,6 +322,7 @@ export const SPECIAL_TEAMS_UNITS = [
   { value: 'punt', label: 'Punt' },
   { value: 'punt_return', label: 'Punt Return' },
   { value: 'field_goal', label: 'Field Goal' },
+  { value: 'fg_block', label: 'FG Block' },
   { value: 'pat', label: 'PAT (Extra Point)' },
 ] as const;
 
@@ -329,6 +330,10 @@ export const KICK_RESULTS = [
   { value: 'made', label: 'Made' },
   { value: 'missed', label: 'Missed' },
   { value: 'blocked', label: 'Blocked' },
+  { value: 'blocked_recovered', label: 'Blocked - Recovered' },
+  { value: 'blocked_returned', label: 'Blocked - Returned' },
+  { value: 'blocked_td', label: 'Blocked - Returned for TD' },
+  { value: 'blocked_lost', label: 'Blocked - Kicking Team Recovered' },
   { value: 'touchback', label: 'Touchback' },
   { value: 'fair_catch', label: 'Fair Catch' },
   { value: 'returned', label: 'Returned' },
@@ -395,6 +400,10 @@ export function getKickResultsForUnit(unit: SpecialTeamsUnit): typeof KICK_RESUL
     case 'punt_return':
       return KICK_RESULTS.filter(r =>
         ['returned', 'fair_catch', 'touchback', 'muffed', 'blocked'].includes(r.value)
+      );
+    case 'fg_block':
+      return KICK_RESULTS.filter(r =>
+        ['blocked_recovered', 'blocked_returned', 'blocked_td', 'blocked_lost'].includes(r.value)
       );
     default:
       return [...KICK_RESULTS];
@@ -486,7 +495,7 @@ export interface Drive {
 /**
  * Special teams unit types
  */
-export type SpecialTeamsUnit = 'kickoff' | 'kick_return' | 'punt' | 'punt_return' | 'field_goal' | 'pat';
+export type SpecialTeamsUnit = 'kickoff' | 'kick_return' | 'punt' | 'punt_return' | 'field_goal' | 'fg_block' | 'pat';
 
 /**
  * Kick result outcomes
