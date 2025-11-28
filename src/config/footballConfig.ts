@@ -591,6 +591,25 @@ export const OFFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'Z', x: 550, y: 210, label: 'Z' },
     { position: 'QB', x: 300, y: 230, label: 'QB' },
     { position: 'RB', x: 300, y: 260, label: 'RB' }
+  ],
+
+  // ========== GOALLINE FORMATION ==========
+
+  'Goalline': [
+    // Heavy formation for short yardage/goalline situations
+    // 7 on LOS - Double TE, tight splits
+    { position: 'TE1', x: 160, y: 200, label: 'TE1' },
+    { position: 'LT', x: 220, y: 200, label: 'LT' },
+    { position: 'LG', x: 260, y: 200, label: 'LG' },
+    { position: 'C', x: 300, y: 200, label: 'C' },
+    { position: 'RG', x: 340, y: 200, label: 'RG' },
+    { position: 'RT', x: 380, y: 200, label: 'RT' },
+    { position: 'TE2', x: 440, y: 200, label: 'TE2' },
+    // 4 in backfield - QB under center, FB, 2 RBs (I-formation style)
+    { position: 'QB', x: 300, y: 215, label: 'QB' },
+    { position: 'FB', x: 300, y: 245, label: 'FB' },
+    { position: 'TB', x: 300, y: 280, label: 'TB' },
+    { position: 'HB', x: 240, y: 250, label: 'HB' }
   ]
 };
 
@@ -1120,6 +1139,15 @@ export const FORMATION_METADATA = {
     strengths: 'QB closer for handoffs, good read option, versatile',
     weaknesses: 'Jack of all trades, master of none',
     commonPlays: ['Power Read', 'Inside Zone', 'Counter', 'Boot']
+  },
+  'Goalline': {
+    usage: 'Goalline and short yardage situations',
+    runPercent: 95,
+    passPercent: 5,
+    personnel: '23 personnel (2RB, 3TE, 0WR)',
+    strengths: 'Maximum blockers, overwhelming power at point of attack, multiple lead blockers',
+    weaknesses: 'Extremely predictable, no passing threat, vulnerable to goal line stunts',
+    commonPlays: ['QB Sneak', 'Iso', 'Power', 'Dive', 'Toss']
   }
 };
 
@@ -1281,6 +1309,31 @@ export const DEFENSIVE_FORMATIONS: FormationConfig = {
     { position: 'NB', x: 420, y: 155, label: 'NB', responsibility: 'nickel apex #2' },
     { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'strong safety box' },
     { position: 'FS', x: 300, y: 90, label: 'FS', responsibility: 'free safety' }
+  ],
+
+  // ============================================
+  // GOALLINE DEFENSE (6-5 heavy front)
+  // DL (6): Extra linemen to clog gaps
+  // LB (3): Stacked tight behind DL
+  // DB (2): Only 2 DBs, both in run support
+  // ============================================
+  'Goalline': [
+    // Defensive Line (6 players - heavy front to stop run)
+    { position: 'DE', x: 120, y: 185, label: 'SDE', responsibility: 'C-gap contain' },
+    { position: 'DT1', x: 200, y: 185, label: 'DT1', responsibility: 'B-gap strong' },
+    { position: 'NT', x: 270, y: 185, label: 'NT', responsibility: 'A-gap strong' },
+    { position: 'NT2', x: 330, y: 185, label: 'NT2', responsibility: 'A-gap weak' },
+    { position: 'DT2', x: 400, y: 185, label: 'DT2', responsibility: 'B-gap weak' },
+    { position: 'DE', x: 480, y: 185, label: 'WDE', responsibility: 'C-gap contain' },
+
+    // Linebackers (3 players - stacked tight, fill gaps)
+    { position: 'SAM', x: 160, y: 160, label: 'SAM', responsibility: 'D-gap strong' },
+    { position: 'MIKE', x: 300, y: 160, label: 'MIKE', responsibility: 'scrape over ball' },
+    { position: 'WILL', x: 440, y: 160, label: 'WILL', responsibility: 'D-gap weak' },
+
+    // Defensive Backs (2 players - both in run support)
+    { position: 'SS', x: 200, y: 130, label: 'SS', responsibility: 'alley strong, run support' },
+    { position: 'FS', x: 400, y: 130, label: 'FS', responsibility: 'alley weak, run support' }
   ]
 };
 // ============================================
