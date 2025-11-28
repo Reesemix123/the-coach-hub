@@ -73,7 +73,12 @@ import {
   getGapPositionFromName,
   isDefensiveLineman,
   isLinebacker,
-  isDefensiveBack
+  isDefensiveBack,
+  getKickoffPlayPaths,
+  getKickReturnPlayPaths,
+  getFieldGoalPlayPaths,
+  getPuntPlayPaths,
+  getPuntReturnPlayPaths
 } from '@/config/footballConfig';
 import {
   validateOffensiveFormation,
@@ -109,6 +114,7 @@ interface Player {
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift'; // Pre-snap motion type
   motionDirection?: 'toward-center' | 'away-from-center';         // Motion direction
   motionEndpoint?: { x: number; y: number };                       // Final motion position
+  motionControlPoint?: { x: number; y: number };                   // Bezier control point for curved motion path
   coverageRole?: string;                                           // Defensive coverage assignment
   coverageDepth?: number;                                          // Coverage depth in yards
   coverageDescription?: string;                                    // Human-readable coverage role
@@ -144,6 +150,51 @@ interface PlayBuilderProps {
   };
   onSave?: () => void;      // Callback after successful save (e.g., navigate back)
 }
+
+/**
+ * Play Type Utility Functions
+ *
+ * These functions help categorize play types for proper handling of hybrid types
+ * like RPO, Screen, Draw, and Play Action.
+ */
+
+// Play types that show run-specific UI (target hole, ball carrier)
+const RUN_BASED_PLAY_TYPES = ['Run', 'Draw', 'RPO'];
+
+// Play types that use pass-based assignments (routes, pass protection)
+const PASS_BASED_PLAY_TYPES = ['Pass', 'Screen', 'Play Action'];
+
+// All valid offensive play types
+const ALL_OFFENSIVE_PLAY_TYPES = ['Run', 'Pass', 'RPO', 'Screen', 'Draw', 'Play Action'];
+
+/**
+ * Determines if a play type should show run-specific UI (target hole, ball carrier)
+ */
+const isRunBasedPlayType = (playType: string): boolean => {
+  return RUN_BASED_PLAY_TYPES.includes(playType);
+};
+
+/**
+ * Returns 'run' or 'pass' category for assignment options
+ * - Run, Draw: run assignments (blocking, carries)
+ * - Pass, Screen, Play Action: pass assignments (routes, pass protection)
+ * - RPO: defaults to run assignments (QB reads determine pass vs run)
+ */
+const getPlayTypeCategory = (playType: string): 'run' | 'pass' => {
+  if (PASS_BASED_PLAY_TYPES.includes(playType)) return 'pass';
+  return 'run'; // Run, Draw, RPO default to run
+};
+
+/**
+ * Determines route type for database storage
+ * - Pass, Screen, Play Action: pass routes
+ * - Run, Draw: run paths
+ * - RPO: hybrid (can be either)
+ */
+const getRouteTypeForPlayType = (playType: string): 'pass' | 'run' => {
+  if (['Pass', 'Screen', 'Play Action'].includes(playType)) return 'pass';
+  return 'run';
+};
 
 /**
  * Main PlayBuilder Component
@@ -196,13 +247,17 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   // Drag & Drop State
   const [draggedPlayer, setDraggedPlayer] = useState<string | null>(null);
   const [draggedMotionEndpoint, setDraggedMotionEndpoint] = useState<string | null>(null);
+  const [draggedMotionControlPoint, setDraggedMotionControlPoint] = useState<string | null>(null);
   const [draggedBlockDirection, setDraggedBlockDirection] = useState<string | null>(null);
   const [draggedZoneEndpoint, setDraggedZoneEndpoint] = useState<string | null>(null);
+  const [draggedSpecialTeamsPath, setDraggedSpecialTeamsPath] = useState<string | null>(null);
 
   // Route Drawing Mode
   const [isDrawingRoute, setIsDrawingRoute] = useState(false);
+  const [isDrawingDrag, setIsDrawingDrag] = useState(false); // True while mouse is held down during drawing
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [currentRoute, setCurrentRoute] = useState<Array<{ x: number; y: number }>>([]);
+  const [routeSegmentIndices, setRouteSegmentIndices] = useState<number[]>([]); // Indices where segments end (for undo)
 
   // Validation & Save State
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -216,8 +271,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   const draftRestorePromptShown = useRef(false);
   const validationModalShown = useRef(false);
 
-  // Refs
-  const svgRef = useRef<SVGSVGElement>(null);
+  // Note: SVG ref is managed by FieldDiagram component - we use e.currentTarget in handlers
 
   // Auto-save draft to localStorage
   useEffect(() => {
@@ -389,7 +443,8 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         coverageDepth: p.coverageDepth,
         coverageDescription: p.coverageDescription,
         blitzGap: p.blitzGap,
-        zoneEndpoint: p.zoneEndpoint
+        zoneEndpoint: p.zoneEndpoint,
+        specialTeamsPath: p.specialTeamsPath
       })));
       setRoutes(existingPlay.diagram.routes || []);
     }
@@ -444,18 +499,90 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       const formationCenter = formationData.reduce((sum, pos) => sum + pos.x, 0) / formationData.length;
       const offset = centerX - formationCenter;
 
-      const newPlayers: Player[] = formationData.map((pos, idx) => ({
-        id: `${odk}-${idx}`,
-        x: pos.x + offset,
-        y: pos.y,
-        label: pos.label,
-        position: pos.position,
-        side: odk === 'defense' ? 'defense' : 'offense',
-        isPrimary: false,
-        motionType: 'None',
-        motionDirection: 'toward-center'
-      }));
-      
+      // Determine if this is a kickoff-style (move down/toward opponent) or return-style (move up/toward own end zone)
+      // Kickoff/Punt coverage teams start above LOS and move down
+      // Return teams start below LOS and move up
+      const isKickoffStyle = formationName.toLowerCase().includes('kickoff') && !formationName.toLowerCase().includes('return');
+      const isPuntCoverage = formationName.toLowerCase().includes('punt') && !formationName.toLowerCase().includes('return');
+      const isDownwardMovement = isKickoffStyle || isPuntCoverage;
+
+      // For Kickoff, use the default "Deep Center" play paths
+      const kickoffPaths = formationName === 'Kickoff' ? getKickoffPlayPaths('Deep Center') : null;
+      // For Kick Return, use the default "Return Middle" play paths
+      const kickReturnPaths = formationName === 'Kick Return' ? getKickReturnPlayPaths('Return Middle') : null;
+      // For Field Goal, use the default "Standard Field Goal" play paths
+      const fieldGoalPaths = formationName === 'Field Goal' ? getFieldGoalPlayPaths('Standard Field Goal') : null;
+      // For Punt, use the default "Punt" play paths
+      const puntPaths = formationName === 'Punt' ? getPuntPlayPaths('Punt') : null;
+      // For Punt Return, use the default "Return Middle" play paths
+      const puntReturnPaths = formationName === 'Punt Return' ? getPuntReturnPlayPaths('Return Middle') : null;
+
+      const newPlayers: Player[] = formationData.map((pos, idx) => {
+        const playerX = pos.x + offset;
+        const playerY = pos.y;
+
+        // For special teams, auto-initialize a path in the appropriate direction
+        let specialTeamsPath: { x: number; y: number } | undefined;
+        if (odk === 'specialTeams') {
+          // For Kickoff, use the pre-defined play paths
+          if (kickoffPaths) {
+            const pathConfig = kickoffPaths.find(p => p.position === pos.position);
+            if (pathConfig) {
+              specialTeamsPath = pathConfig.endpoint;
+            }
+          } else if (kickReturnPaths) {
+            // For Kick Return, use the pre-defined return paths
+            const pathConfig = kickReturnPaths.find(p => p.position === pos.position);
+            if (pathConfig) {
+              specialTeamsPath = pathConfig.endpoint;
+            }
+          } else if (fieldGoalPaths) {
+            // For Field Goal, use the pre-defined blocking paths
+            const pathConfig = fieldGoalPaths.find(p => p.position === pos.position);
+            if (pathConfig) {
+              specialTeamsPath = pathConfig.endpoint;
+            }
+            // Holder and Kicker don't have paths (no entry in fieldGoalPaths)
+          } else if (puntPaths) {
+            // For Punt, use the pre-defined blocking/coverage paths
+            const pathConfig = puntPaths.find(p => p.position === pos.position);
+            if (pathConfig) {
+              specialTeamsPath = pathConfig.endpoint;
+            }
+            // PP and P don't have paths (no entry in puntPaths)
+          } else if (puntReturnPaths) {
+            // For Punt Return, use the pre-defined return paths
+            const pathConfig = puntReturnPaths.find(p => p.position === pos.position);
+            if (pathConfig) {
+              specialTeamsPath = pathConfig.endpoint;
+            }
+          } else {
+            // For other special teams, use a generic path
+            const pathLength = 80;
+            if (isDownwardMovement) {
+              // Kickoff/punt coverage: move downward (increasing Y)
+              specialTeamsPath = { x: playerX, y: playerY + pathLength };
+            } else {
+              // Return teams: move upward (decreasing Y)
+              specialTeamsPath = { x: playerX, y: playerY - pathLength };
+            }
+          }
+        }
+
+        return {
+          id: `${odk}-${idx}`,
+          x: playerX,
+          y: playerY,
+          label: pos.label,
+          position: pos.position,
+          side: odk === 'defense' ? 'defense' : 'offense',
+          isPrimary: false,
+          motionType: 'None',
+          motionDirection: 'toward-center',
+          ...(specialTeamsPath && { specialTeamsPath })
+        };
+      });
+
       setPlayers(newPlayers);
       setRoutes([]);
     }
@@ -572,6 +699,139 @@ const loadSpecialTeamFormation = (teamType: string) => {
     setPlayType(type);
     setTargetHole('');
     setBallCarrier('');
+  };
+
+  // Handle special teams play selection and update player paths
+  const handleSpecialTeamPlayChange = (playName: string) => {
+    setSpecialTeamPlay(playName);
+
+    // If no play is selected, clear all special teams paths
+    if (!playName) {
+      setPlayers(prev =>
+        prev.map(player => ({
+          ...player,
+          specialTeamsPath: undefined
+        }))
+      );
+      return;
+    }
+
+    // If this is a Kickoff formation, update the coverage paths
+    if (formation === 'Kickoff' && playName) {
+      const paths = getKickoffPlayPaths(playName);
+
+      setPlayers(prev =>
+        prev.map(player => {
+          const pathConfig = paths.find(p => p.position === player.position);
+          if (pathConfig) {
+            return {
+              ...player,
+              specialTeamsPath: pathConfig.endpoint
+            };
+          }
+          // Clear paths for players without config
+          return {
+            ...player,
+            specialTeamsPath: undefined
+          };
+        })
+      );
+    }
+
+    // If this is a Kick Return formation, update the return/blocking paths
+    if (formation === 'Kick Return' && playName) {
+      const paths = getKickReturnPlayPaths(playName);
+
+      setPlayers(prev =>
+        prev.map(player => {
+          const pathConfig = paths.find(p => p.position === player.position);
+          if (pathConfig) {
+            // For onside recovery plays, also update player starting positions
+            const updatedPlayer: typeof player = {
+              ...player,
+              specialTeamsPath: pathConfig.endpoint
+            };
+            // If startPosition is provided (for onside recovery), move the player
+            if (pathConfig.startPosition) {
+              updatedPlayer.x = pathConfig.startPosition.x;
+              updatedPlayer.y = pathConfig.startPosition.y;
+            }
+            return updatedPlayer;
+          }
+          // Clear paths for players without config
+          return {
+            ...player,
+            specialTeamsPath: undefined
+          };
+        })
+      );
+    }
+
+    // If this is a Field Goal formation, update the blocking paths
+    if (formation === 'Field Goal' && playName) {
+      const paths = getFieldGoalPlayPaths(playName);
+
+      setPlayers(prev =>
+        prev.map(player => {
+          const pathConfig = paths.find(p => p.position === player.position);
+          if (pathConfig) {
+            return {
+              ...player,
+              specialTeamsPath: pathConfig.endpoint
+            };
+          }
+          // Players without paths (Holder, Kicker) keep no specialTeamsPath
+          return {
+            ...player,
+            specialTeamsPath: undefined
+          };
+        })
+      );
+    }
+
+    // If this is a Punt formation, update the blocking/coverage paths
+    if (formation === 'Punt' && playName) {
+      const paths = getPuntPlayPaths(playName);
+
+      setPlayers(prev =>
+        prev.map(player => {
+          const pathConfig = paths.find(p => p.position === player.position);
+          if (pathConfig) {
+            return {
+              ...player,
+              specialTeamsPath: pathConfig.endpoint
+            };
+          }
+          // Players without paths (PP, P) keep no specialTeamsPath
+          return {
+            ...player,
+            specialTeamsPath: undefined
+          };
+        })
+      );
+    }
+
+    // If this is a Punt Return formation, update the paths
+    if (formation === 'Punt Return' && playName) {
+      const paths = getPuntReturnPlayPaths(playName);
+
+      setPlayers(prev =>
+        prev.map(player => {
+          const pathConfig = paths.find(p => p.position === player.position);
+          if (pathConfig) {
+            return {
+              ...player,
+              specialTeamsPath: pathConfig.endpoint
+            };
+          }
+          // Players without paths keep no specialTeamsPath
+          return {
+            ...player,
+            specialTeamsPath: undefined
+          };
+        })
+      );
+    }
   };
 
   const generateRoutePath = (player: Player, routeType: string): Array<{ x: number; y: number }> => {
@@ -702,9 +962,24 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
   const updatePlayerAssignment = (playerId: string, assignment: string) => {
     setPlayers(prev =>
-      prev.map(p =>
-        p.id === playerId ? { ...p, assignment } : p
-      )
+      prev.map(p => {
+        if (p.id !== playerId) return p;
+
+        // When changing assignment, clear block-related fields if not blocking
+        // and clear isPrimary when switching to non-route assignments
+        const updates: Partial<Player> = { assignment };
+
+        if (assignment !== 'Block') {
+          updates.blockType = undefined;
+          updates.blockDirection = undefined;
+        }
+
+        if (assignment === 'Block' || assignment === 'Draw Route (Custom)') {
+          updates.isPrimary = false;
+        }
+
+        return { ...p, ...updates };
+      })
     );
 
     if (assignment === 'Draw Route (Custom)') {
@@ -812,14 +1087,43 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
     setPlayers(prev =>
       prev.map(p =>
-        p.id === playerId 
-          ? { 
-              ...p, 
+        p.id === playerId
+          ? {
+              ...p,
               motionType: motionType as Player['motionType'],
               motionEndpoint: endpoint
-            } 
+            }
           : p
       )
+    );
+
+    // Update route if player has a custom drawn route - translate entire route
+    setRoutes(prev =>
+      prev.map(route => {
+        if (route.playerId === playerId && route.points.length > 0) {
+          // Get the current starting point of the route (where it was drawn from)
+          const currentStart = route.points[0];
+
+          // Calculate where the route should now start from
+          // If motion was added: start from motion endpoint
+          // If motion was removed: start from player position
+          const newStartX = endpoint?.x ?? player.x;
+          const newStartY = endpoint?.y ?? player.y;
+
+          // Calculate the translation delta
+          const deltaX = newStartX - currentStart.x;
+          const deltaY = newStartY - currentStart.y;
+
+          // Translate all points in the route by this delta
+          const updatedPoints = route.points.map(point => ({
+            x: point.x + deltaX,
+            y: point.y + deltaY
+          }));
+
+          return { ...route, points: updatedPoints };
+        }
+        return route;
+      })
     );
   };
 
@@ -840,11 +1144,36 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
     setPlayers(prev =>
       prev.map(p =>
-        p.id === playerId 
-          ? { ...p, motionDirection: direction, motionEndpoint: endpoint } 
+        p.id === playerId
+          ? { ...p, motionDirection: direction, motionEndpoint: endpoint }
           : p
       )
     );
+
+    // Update route if player has a custom drawn route - translate entire route
+    if (endpoint) {
+      setRoutes(prev =>
+        prev.map(route => {
+          if (route.playerId === playerId && route.points.length > 0) {
+            // Get the current starting point of the route
+            const currentStart = route.points[0];
+
+            // Calculate the translation delta to the new motion endpoint
+            const deltaX = endpoint.x - currentStart.x;
+            const deltaY = endpoint.y - currentStart.y;
+
+            // Translate all points in the route by this delta
+            const updatedPoints = route.points.map(point => ({
+              x: point.x + deltaX,
+              y: point.y + deltaY
+            }));
+
+            return { ...route, points: updatedPoints };
+          }
+          return route;
+        })
+      );
+    }
   };
 
   const togglePrimaryReceiver = (playerId: string) => {
@@ -873,19 +1202,32 @@ const loadSpecialTeamFormation = (teamType: string) => {
   };
 
   const getAssignmentOptionsForPlayer = (player: Player): string[] => {
-    return getAssignmentOptions(player.position, playType === 'Run' ? 'run' : 'pass');
+    return getAssignmentOptions(player.position, getPlayTypeCategory(playType));
   };
 
   // PHASE 2: Updated drag handlers to support dummy offense
   const handleMouseDown = (
-    playerId: string, 
-    isMotionEndpoint: boolean = false, 
+    playerId: string,
+    isMotionEndpoint: boolean = false,
     isBlockDirection: boolean = false,
-    isZoneEndpoint: boolean = false
+    isZoneEndpoint: boolean = false,
+    isMotionControlPoint: boolean = false,
+    isSpecialTeamsPath: boolean = false
   ) => {
-    if (isDrawingRoute) return;
-    
-    if (isZoneEndpoint) {
+    // If in drawing mode and clicking on a player, cancel drawing mode
+    // This allows users to drag players even if they accidentally entered drawing mode
+    if (isDrawingRoute) {
+      setIsDrawingRoute(false);
+      setCurrentRoute([]);
+      setSelectedPlayer(null);
+      // Don't return - continue to allow the drag
+    }
+
+    if (isSpecialTeamsPath) {
+      setDraggedSpecialTeamsPath(playerId);
+    } else if (isMotionControlPoint) {
+      setDraggedMotionControlPoint(playerId);
+    } else if (isZoneEndpoint) {
       setDraggedZoneEndpoint(playerId);
     } else if (isBlockDirection) {
       setDraggedBlockDirection(playerId);
@@ -897,9 +1239,11 @@ const loadSpecialTeamFormation = (teamType: string) => {
   };
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
+    // Use e.currentTarget which is the SVG element the event is attached to
+    const svgElement = e.currentTarget;
+    if (!svgElement) return;
 
-    const rect = svgRef.current.getBoundingClientRect();
+    const rect = svgElement.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
     const y = ((e.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
 
@@ -927,8 +1271,16 @@ const loadSpecialTeamFormation = (teamType: string) => {
     } else if (draggedMotionEndpoint) {
       setPlayers(prev =>
         prev.map(p =>
-          p.id === draggedMotionEndpoint 
-            ? { ...p, motionEndpoint: { x, y } } 
+          p.id === draggedMotionEndpoint
+            ? { ...p, motionEndpoint: { x, y } }
+            : p
+        )
+      );
+    } else if (draggedMotionControlPoint) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedMotionControlPoint
+            ? { ...p, motionControlPoint: { x, y } }
             : p
         )
       );
@@ -943,19 +1295,57 @@ const loadSpecialTeamFormation = (teamType: string) => {
     } else if (draggedZoneEndpoint) {
       setPlayers(prev =>
         prev.map(p =>
-          p.id === draggedZoneEndpoint 
-            ? { ...p, zoneEndpoint: { x, y } } 
+          p.id === draggedZoneEndpoint
+            ? { ...p, zoneEndpoint: { x, y } }
+            : p
+        )
+      );
+    } else if (draggedSpecialTeamsPath) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedSpecialTeamsPath
+            ? { ...p, specialTeamsPath: { x, y } }
             : p
         )
       );
     }
-  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection, draggedZoneEndpoint]);
+  }, [draggedPlayer, draggedMotionEndpoint, draggedMotionControlPoint, draggedBlockDirection, draggedZoneEndpoint, draggedSpecialTeamsPath]);
 
   const handleMouseUp = () => {
+    // If we were dragging a motion endpoint, update the route to match
+    if (draggedMotionEndpoint) {
+      const player = players.find(p => p.id === draggedMotionEndpoint);
+      if (player?.motionEndpoint) {
+        setRoutes(prev =>
+          prev.map(route => {
+            if (route.playerId === draggedMotionEndpoint && route.points.length > 0) {
+              // Get the current starting point of the route
+              const currentStart = route.points[0];
+
+              // Calculate the translation delta to the new motion endpoint
+              const deltaX = player.motionEndpoint!.x - currentStart.x;
+              const deltaY = player.motionEndpoint!.y - currentStart.y;
+
+              // Translate all points in the route by this delta
+              const updatedPoints = route.points.map(point => ({
+                x: point.x + deltaX,
+                y: point.y + deltaY
+              }));
+
+              return { ...route, points: updatedPoints };
+            }
+            return route;
+          })
+        );
+      }
+    }
+
     setDraggedPlayer(null);
     setDraggedMotionEndpoint(null);
+    setDraggedMotionControlPoint(null);
     setDraggedBlockDirection(null);
     setDraggedZoneEndpoint(null);
+    setDraggedSpecialTeamsPath(null);
   };
 
   // Touch event handlers for mobile support
@@ -963,11 +1353,24 @@ const loadSpecialTeamFormation = (teamType: string) => {
     playerId: string,
     isMotionEndpoint: boolean = false,
     isBlockDirection: boolean = false,
-    isZoneEndpoint: boolean = false
+    isZoneEndpoint: boolean = false,
+    isMotionControlPoint: boolean = false,
+    isSpecialTeamsPath: boolean = false
   ) => {
-    if (isDrawingRoute) return;
+    // If in drawing mode and touching a player, cancel drawing mode
+    // This allows users to drag players even if they accidentally entered drawing mode
+    if (isDrawingRoute) {
+      setIsDrawingRoute(false);
+      setCurrentRoute([]);
+      setSelectedPlayer(null);
+      // Don't return - continue to allow the drag
+    }
 
-    if (isZoneEndpoint) {
+    if (isSpecialTeamsPath) {
+      setDraggedSpecialTeamsPath(playerId);
+    } else if (isMotionControlPoint) {
+      setDraggedMotionControlPoint(playerId);
+    } else if (isZoneEndpoint) {
       setDraggedZoneEndpoint(playerId);
     } else if (isBlockDirection) {
       setDraggedBlockDirection(playerId);
@@ -979,12 +1382,14 @@ const loadSpecialTeamFormation = (teamType: string) => {
   };
 
   const handleTouchMove = useCallback((e: React.TouchEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
+    // Use e.currentTarget which is the SVG element the event is attached to
+    const svgElement = e.currentTarget;
+    if (!svgElement) return;
 
     // Prevent scrolling while dragging
     e.preventDefault();
 
-    const rect = svgRef.current.getBoundingClientRect();
+    const rect = svgElement.getBoundingClientRect();
     const touch = e.touches[0];
     const x = ((touch.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
     const y = ((touch.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
@@ -1018,6 +1423,14 @@ const loadSpecialTeamFormation = (teamType: string) => {
             : p
         )
       );
+    } else if (draggedMotionControlPoint) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedMotionControlPoint
+            ? { ...p, motionControlPoint: { x, y } }
+            : p
+        )
+      );
     } else if (draggedBlockDirection) {
       setPlayers(prev =>
         prev.map(p =>
@@ -1034,14 +1447,52 @@ const loadSpecialTeamFormation = (teamType: string) => {
             : p
         )
       );
+    } else if (draggedSpecialTeamsPath) {
+      setPlayers(prev =>
+        prev.map(p =>
+          p.id === draggedSpecialTeamsPath
+            ? { ...p, specialTeamsPath: { x, y } }
+            : p
+        )
+      );
     }
-  }, [draggedPlayer, draggedMotionEndpoint, draggedBlockDirection, draggedZoneEndpoint]);
+  }, [draggedPlayer, draggedMotionEndpoint, draggedMotionControlPoint, draggedBlockDirection, draggedZoneEndpoint, draggedSpecialTeamsPath]);
 
   const handleTouchEnd = () => {
+    // If we were dragging a motion endpoint, update the route to match
+    if (draggedMotionEndpoint) {
+      const player = players.find(p => p.id === draggedMotionEndpoint);
+      if (player?.motionEndpoint) {
+        setRoutes(prev =>
+          prev.map(route => {
+            if (route.playerId === draggedMotionEndpoint && route.points.length > 0) {
+              // Get the current starting point of the route
+              const currentStart = route.points[0];
+
+              // Calculate the translation delta to the new motion endpoint
+              const deltaX = player.motionEndpoint!.x - currentStart.x;
+              const deltaY = player.motionEndpoint!.y - currentStart.y;
+
+              // Translate all points in the route by this delta
+              const updatedPoints = route.points.map(point => ({
+                x: point.x + deltaX,
+                y: point.y + deltaY
+              }));
+
+              return { ...route, points: updatedPoints };
+            }
+            return route;
+          })
+        );
+      }
+    }
+
     setDraggedPlayer(null);
     setDraggedMotionEndpoint(null);
+    setDraggedMotionControlPoint(null);
     setDraggedBlockDirection(null);
     setDraggedZoneEndpoint(null);
+    setDraggedSpecialTeamsPath(null);
   };
 
   const startCustomRoute = (playerId: string) => {
@@ -1053,25 +1504,112 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
     setSelectedPlayer(playerId);
     setIsDrawingRoute(true);
+    setIsDrawingDrag(false);
     setCurrentRoute([{ x: startX, y: startY }]);
+    setRouteSegmentIndices([0]); // First segment starts at index 0
+    toast.info('Click and drag to draw route. Release to pause. Click Finish when done.');
   };
 
-  const handleFieldClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current || !isDrawingRoute || !selectedPlayer) return;
+  // Edit an existing custom route - load it into drawing mode
+  const editCustomRoute = (playerId: string) => {
+    const player = players.find(p => p.id === playerId);
+    const existingRoute = routes.find(r => r.playerId === playerId);
 
-    const rect = svgRef.current.getBoundingClientRect();
+    if (!player) return;
+
+    // Remove the existing route from routes array (we'll add it back when done)
+    setRoutes(prev => prev.filter(r => r.playerId !== playerId));
+
+    // Load the existing route points into currentRoute for editing
+    if (existingRoute && existingRoute.points.length > 0) {
+      setCurrentRoute([...existingRoute.points]);
+      // Create segment indices - treat each point as potentially being undoable
+      // Start with index 0 (first point from player) and mark every few points as a segment
+      setRouteSegmentIndices([0]);
+    } else {
+      // No existing route, start fresh from player position
+      const startX = player.motionEndpoint?.x || player.x;
+      const startY = player.motionEndpoint?.y || player.y;
+      setCurrentRoute([{ x: startX, y: startY }]);
+      setRouteSegmentIndices([0]);
+    }
+
+    setSelectedPlayer(playerId);
+    setIsDrawingRoute(true);
+    setIsDrawingDrag(false);
+    toast.info('Editing route. Click and drag to continue drawing, or Finish to save.');
+  };
+
+  // Start drawing when mouse is pressed down in drawing mode
+  const handleDrawingMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDrawingRoute || !selectedPlayer) return;
+
+    const svgElement = e.currentTarget;
+    if (!svgElement) return;
+
+    const rect = svgElement.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
     const y = ((e.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
 
+    // Mark the start of a new segment (current length before adding new point)
+    setRouteSegmentIndices(prev => [...prev, currentRoute.length]);
+
+    // If there's already points, we need to connect from the last point to this click
+    // The drawing will continue from this click position
     setCurrentRoute(prev => [...prev, { x, y }]);
+    setIsDrawingDrag(true);
   };
 
-  const handleFieldDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!isDrawingRoute || !selectedPlayer || currentRoute.length < 2) return;
-    
+  // Continue drawing while mouse is held down
+  const handleDrawingMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDrawingRoute || !selectedPlayer || !isDrawingDrag) return;
+
+    const svgElement = e.currentTarget;
+    if (!svgElement) return;
+
+    const rect = svgElement.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * FIELD_CONFIG.WIDTH;
+    const y = ((e.clientY - rect.top) / rect.height) * FIELD_CONFIG.HEIGHT;
+
+    // Only add point if it's far enough from the last point (avoid too many points)
+    const lastPoint = currentRoute[currentRoute.length - 1];
+    if (lastPoint) {
+      const distance = Math.sqrt(Math.pow(x - lastPoint.x, 2) + Math.pow(y - lastPoint.y, 2));
+      if (distance > 5) { // Minimum distance between points
+        setCurrentRoute(prev => [...prev, { x, y }]);
+      }
+    }
+  };
+
+  // Stop drawing segment when mouse is released
+  const handleDrawingMouseUp = () => {
+    if (isDrawingDrag) {
+      setIsDrawingDrag(false);
+    }
+  };
+
+  // Undo last drawn segment
+  const undoLastSegment = () => {
+    if (!isDrawingRoute || routeSegmentIndices.length <= 1) return;
+
+    // Get the index where the last segment started
+    const lastSegmentIndex = routeSegmentIndices[routeSegmentIndices.length - 1];
+
+    // Remove all points from that segment
+    setCurrentRoute(prev => prev.slice(0, lastSegmentIndex));
+    setRouteSegmentIndices(prev => prev.slice(0, -1));
+  };
+
+  // Finish drawing and save the route
+  const finishDrawing = () => {
+    if (!isDrawingRoute || !selectedPlayer || currentRoute.length < 2) {
+      toast.error('Draw at least one segment before finishing');
+      return;
+    }
+
     const player = players.find(p => p.id === selectedPlayer);
     const filteredRoutes = routes.filter(r => r.playerId !== selectedPlayer);
-    
+
     setRoutes([
       ...filteredRoutes,
       {
@@ -1082,10 +1620,34 @@ const loadSpecialTeamFormation = (teamType: string) => {
         isPrimary: player?.isPrimary || false
       }
     ]);
-    
+
     setIsDrawingRoute(false);
+    setIsDrawingDrag(false);
     setCurrentRoute([]);
+    setRouteSegmentIndices([]);
     setSelectedPlayer(null);
+    toast.success('Route saved!');
+  };
+
+  // Cancel drawing mode
+  const cancelDrawing = () => {
+    setIsDrawingRoute(false);
+    setIsDrawingDrag(false);
+    setCurrentRoute([]);
+    setRouteSegmentIndices([]);
+    setSelectedPlayer(null);
+    toast.info('Drawing cancelled');
+  };
+
+  // Legacy handlers - kept for backwards compatibility but not used in new drawing mode
+  const handleFieldClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Now handled by handleDrawingMouseDown
+    if (!isDrawingRoute || !selectedPlayer) return;
+  };
+
+  const handleFieldDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Now handled by finishDrawing button
+    if (!isDrawingRoute || !selectedPlayer) return;
   };
 
   const savePlay = useCallback(async () => {
@@ -1164,13 +1726,14 @@ const loadSpecialTeamFormation = (teamType: string) => {
         coverageDepth: p.coverageDepth,
         coverageDescription: p.coverageDescription,
         blitzGap: p.blitzGap,
-        zoneEndpoint: p.zoneEndpoint
+        zoneEndpoint: p.zoneEndpoint,
+        specialTeamsPath: p.specialTeamsPath
       })),
       routes: routes.map(r => ({
         id: r.id,
         playerId: r.playerId,
         path: r.points,
-        type: playType === 'Pass' ? 'pass' : 'run',
+        type: getRouteTypeForPlayType(playType),
         routeType: r.assignment,
         isPrimary: r.isPrimary
       })),
@@ -1891,7 +2454,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onTargetHoleChange={setTargetHole}
             onBallCarrierChange={setBallCarrier}
             onCoverageChange={setCoverage}
-            onSpecialTeamPlayChange={setSpecialTeamPlay}
+            onSpecialTeamPlayChange={handleSpecialTeamPlayChange}
             onDummyOffenseChange={loadDummyOffense}
             onDummyDefenseChange={loadDummyDefense}
           />
@@ -1901,6 +2464,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
             playType={playType}
             coverage={coverage}
             players={players}
+            routes={routes}
             linemen={linemen}
             backs={backs}
             receivers={receivers}
@@ -1918,6 +2482,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onResetToTechnique={resetPlayerToTechnique}
             onUpdateCoverageRole={updatePlayerCoverageRole}
             onResetToRole={resetPlayerToRole}
+            onEditCustomRoute={editCustomRoute}
           />
 
         </div>
@@ -1931,10 +2496,13 @@ const loadSpecialTeamFormation = (teamType: string) => {
             dummyOffenseFormation={dummyOffenseFormation}
             dummyDefenseFormation={dummyDefenseFormation}
             isDrawingRoute={isDrawingRoute}
+            isDrawingDrag={isDrawingDrag}
             currentRoute={currentRoute}
             playType={playType}
             targetHole={targetHole}
             ballCarrier={ballCarrier}
+            selectedPlayer={selectedPlayer}
+            formation={formation}
             onMouseDown={handleMouseDown}
             onTouchStart={handleTouchStart}
             onMouseMove={handleMouseMove}
@@ -1943,6 +2511,13 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onTouchEnd={handleTouchEnd}
             onFieldClick={handleFieldClick}
             onFieldDoubleClick={handleFieldDoubleClick}
+            onDrawingMouseDown={handleDrawingMouseDown}
+            onDrawingMouseMove={handleDrawingMouseMove}
+            onDrawingMouseUp={handleDrawingMouseUp}
+            onUndoSegment={undoLastSegment}
+            onFinishDrawing={finishDrawing}
+            onCancelDrawing={cancelDrawing}
+            onEditCustomRoute={editCustomRoute}
           />
         </div>
 
@@ -1953,6 +2528,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
         validationResult={validationResult}
         onClose={() => {
           setShowValidationModal(false);
+          setValidationResult(null); // Clear old validation result
           validationModalShown.current = false; // Reset flag for next save
         }}
         onSaveAnyway={handleSaveAnyway}

@@ -30,6 +30,7 @@ interface Player {
   coverageDescription?: string;
   blitzGap?: string;
   zoneEndpoint?: { x: number; y: number };
+  specialTeamsPath?: { x: number; y: number }; // Endpoint for special teams player path/lane
   isDummy?: boolean;
 }
 
@@ -55,8 +56,9 @@ interface FieldDiagramProps {
   targetHole: string;
   ballCarrier: string;
   selectedPlayer: string | null;
-  onMouseDown: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean) => void;
-  onTouchStart: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean) => void;
+  formation?: string; // Current formation - used to hide LOS for kickoff/kick return
+  onMouseDown: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean, isSpecialTeamsPath?: boolean) => void;
+  onTouchStart: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean, isSpecialTeamsPath?: boolean) => void;
   onMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
   onMouseUp: () => void;
   onTouchMove: (e: React.TouchEvent<SVGSVGElement>) => void;
@@ -86,6 +88,7 @@ export default function FieldDiagram({
   targetHole,
   ballCarrier,
   selectedPlayer,
+  formation,
   onMouseDown,
   onTouchStart,
   onMouseMove,
@@ -432,27 +435,52 @@ export default function FieldDiagram({
 
     const color = route.isPrimary ? '#FF0000' : '#FFD700';
 
+    // Check if this is a blocking assignment
+    const isBlockingRoute = route.assignment === 'Block';
+
+    // Calculate T-shape perpendicular for blocking routes
+    const lastPoint = route.points[route.points.length - 1];
+    const secondLastPoint = route.points[route.points.length - 2];
+    const dx = lastPoint.x - secondLastPoint.x;
+    const dy = lastPoint.y - secondLastPoint.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const perpX = length > 0 ? (-dy / length) * 8 : 0;
+    const perpY = length > 0 ? (dx / length) * 8 : 0;
+
     return (
       <g key={route.id}>
-        <defs>
-          <marker
-            id={`arrowhead-route-${route.id}`}
-            markerWidth="6"
-            markerHeight="6"
-            refX="5"
-            refY="3"
-            orient="auto"
-          >
-            <path d="M 0 0 L 6 3 L 0 6 z" fill={color} />
-          </marker>
-        </defs>
+        {!isBlockingRoute && (
+          <defs>
+            <marker
+              id={`arrowhead-route-${route.id}`}
+              markerWidth="6"
+              markerHeight="6"
+              refX="5"
+              refY="3"
+              orient="auto"
+            >
+              <path d="M 0 0 L 6 3 L 0 6 z" fill={color} />
+            </marker>
+          </defs>
+        )}
         <path
           d={pathD}
           fill="none"
           stroke={color}
           strokeWidth="2.5"
-          markerEnd={`url(#arrowhead-route-${route.id})`}
+          markerEnd={!isBlockingRoute ? `url(#arrowhead-route-${route.id})` : undefined}
         />
+        {isBlockingRoute && (
+          /* T-shape blocking symbol for WR/RB blocks */
+          <line
+            x1={lastPoint.x - perpX}
+            y1={lastPoint.y - perpY}
+            x2={lastPoint.x + perpX}
+            y2={lastPoint.y + perpY}
+            stroke={color}
+            strokeWidth="2.5"
+          />
+        )}
         {route.assignment && route.assignment !== 'Draw Route (Custom)' && (
           <text
             x={route.points[route.points.length - 1].x + 10}
@@ -589,6 +617,153 @@ export default function FieldDiagram({
     );
   };
 
+  const renderSpecialTeamsPath = (player: Player) => {
+    // Only render for players that have a specialTeamsPath defined
+    if (!player.specialTeamsPath) return null;
+
+    const startX = player.x;
+    const startY = player.y;
+    const endX = player.specialTeamsPath.x;
+    const endY = player.specialTeamsPath.y;
+
+    // Use green for special teams paths, red/pink for run paths, yellow for pass routes
+    // Run paths: Holder (FG fake), PP (Punt fake), R (Punt/Kick Return) - when they have significant horizontal movement
+    // Pass routes: WR (FG fake), WingR (Punt fake) - when they have significant horizontal movement
+    const runPathPositions = ['Holder', 'PP', 'R'];
+    const passRoutePositions = ['WR', 'WingR'];
+    const hasSignificantHorizontalMovement = Math.abs(endX - startX) > 50;
+
+    const isRunPath = runPathPositions.includes(player.position) && hasSignificantHorizontalMovement;
+    const isPassRoute = passRoutePositions.includes(player.position) && hasSignificantHorizontalMovement;
+    const pathColor = isRunPath ? '#E11D48' : isPassRoute ? '#EAB308' : '#22C55E'; // Red for run, Yellow for pass, Green for others
+
+    // Determine if this is a blocker (FL, SL, Field Goal/Punt line positions, or Punt Return blockers)
+    // Note: WR/WingR is NOT a blocker if running a pass route, PP is NOT a blocker if running
+    const linePositions = ['LS', 'LG', 'RG', 'LT', 'RT', 'TEL', 'TER', 'WL'];
+    const puntReturnBlockers = ['Box1', 'Box2', 'Box3', 'Box4', 'Box5', 'Box6', 'JamL', 'JamR', 'R2'];
+    const isBlocker = !isPassRoute && !isRunPath && (
+      player.position.startsWith('FL') ||
+      player.position.startsWith('SL') ||
+      linePositions.includes(player.position) ||
+      puntReturnBlockers.includes(player.position)
+    );
+
+    // Calculate perpendicular for T-shape blocking symbol
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const perpX = length > 0 ? (-dy / length) * 10 : 0;
+    const perpY = length > 0 ? (dx / length) * 10 : 0;
+
+    // For run paths or pass routes, create a curved path
+    const isCurvedPath = isRunPath || isPassRoute;
+    // Control point for the curve
+    const isReturner = player.position === 'R';
+    const isGoingDown = endY > startY; // Returner going toward LOS
+    const isGoingRight = endX > startX;
+
+    // For returners going down and to the side, curve outward first
+    let controlX, controlY;
+    if (isReturner && isGoingDown) {
+      // Curve outward in the direction of travel, staying near start Y
+      controlX = startX + (endX - startX) * 0.8;
+      controlY = startY + 20; // Slight dip, then curve to destination
+    } else {
+      controlX = startX + (endX - startX) * 0.7;
+      // Pass routes curve slightly, run paths curve based on direction
+      controlY = isPassRoute ? startY - 20 :
+                 isReturner ? startY + 40 : // Returners going up curve down first
+                 (endX < startX ? startY - 40 : startY + 20);
+    }
+
+    return (
+      <g key={`st-path-${player.id}`}>
+        {(!isBlocker || isCurvedPath) && (
+          <defs>
+            <marker
+              id={`arrowhead-st-${player.id}`}
+              markerWidth="6"
+              markerHeight="6"
+              refX="5"
+              refY="3"
+              orient="auto"
+            >
+              <path d="M 0 0 L 6 3 L 0 6 z" fill={pathColor} />
+            </marker>
+          </defs>
+        )}
+        {/* Special teams path - curved for run paths, straight for others */}
+        {isCurvedPath ? (
+          <path
+            d={`M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`}
+            stroke={pathColor}
+            strokeWidth="2.5"
+            fill="none"
+            markerEnd={`url(#arrowhead-st-${player.id})`}
+          />
+        ) : (
+          <line
+            x1={startX}
+            y1={startY}
+            x2={endX}
+            y2={endY}
+            stroke={pathColor}
+            strokeWidth="2.5"
+            markerEnd={!isBlocker ? `url(#arrowhead-st-${player.id})` : undefined}
+          />
+        )}
+        {isBlocker && !isCurvedPath ? (
+          <>
+            {/* T-shape blocking symbol - perpendicular line at end */}
+            <line
+              x1={endX - perpX}
+              y1={endY - perpY}
+              x2={endX + perpX}
+              y2={endY + perpY}
+              stroke={pathColor}
+              strokeWidth="3"
+            />
+            {/* Invisible larger hit area for dragging */}
+            <circle
+              cx={endX}
+              cy={endY}
+              r="12"
+              fill="transparent"
+              className="cursor-move"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                onMouseDown(player.id, false, false, false, false, true);
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation();
+                onTouchStart(player.id, false, false, false, false, true);
+              }}
+            />
+          </>
+        ) : (
+          /* Draggable path endpoint handle (circle for returners and run paths) */
+          <circle
+            cx={endX}
+            cy={endY}
+            r="6"
+            fill={pathColor}
+            stroke="#ffffff"
+            strokeWidth="2"
+            className="cursor-move"
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onMouseDown(player.id, false, false, false, false, true);
+            }}
+            onTouchStart={(e) => {
+              e.stopPropagation();
+              onTouchStart(player.id, false, false, false, false, true);
+            }}
+          />
+        )}
+      </g>
+    );
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
       <div className="flex items-center gap-2 mb-4">
@@ -701,7 +876,10 @@ export default function FieldDiagram({
           <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
           <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
 
-          <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="white" strokeWidth="3" />
+          {/* Hide line of scrimmage for kickoff and kick return plays */}
+          {formation !== 'Kickoff' && formation !== 'Kick Return' && (
+            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="white" strokeWidth="3" />
+          )}
 
           {/* Dummy Offense (for defensive plays) */}
           {dummyOffensePlayers.map(player => (
@@ -819,6 +997,9 @@ export default function FieldDiagram({
               {renderBlitzArrow(player)}
             </g>
           ))}
+
+          {/* Special teams path arrows */}
+          {players.map(player => renderSpecialTeamsPath(player))}
 
           {/* Ball carrier arrows, blocking arrows, motion arrows */}
           {players.map(player => (

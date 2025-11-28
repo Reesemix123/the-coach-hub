@@ -337,6 +337,9 @@ export const PASSING_ROUTES = [
  * Eliminates artificial restrictions, enables creative play design
  */
 export const SKILL_POSITION_ASSIGNMENTS = [
+  // Custom Drawing - at top so coaches know it's available
+  'Draw Route (Custom)',
+
   // Pass Routes
   'Go/Streak/9',
   'Post',
@@ -351,10 +354,9 @@ export const SKILL_POSITION_ASSIGNMENTS = [
   'Wheel',
   'Seam',
   'Fade',
-  
+
   // Actions
-  'Block',  // Then specify block type via dropdown
-  'Draw Route (Custom)'
+  'Block'  // Then specify block type via dropdown
 ] as const;
 /**
  * Position group categorization
@@ -1718,44 +1720,53 @@ export function validatePlayAttributes(attributes: Partial<PlayAttributes>): boo
   return true;
 }
 // Special Teams Formations Configuration
+// Kickoff: Players start near top of field (y=50) to show coverage lanes going down
 export const SPECIAL_TEAMS_FORMATIONS = {
   'Kickoff': [
-    { position: 'K', label: 'K', x: 350, y: 200 },
-    { position: 'KL1', label: 'L1', x: 290, y: 200 },
-    { position: 'KL2', label: 'L2', x: 240, y: 200 },
-    { position: 'KL3', label: 'L3', x: 190, y: 200 },
-    { position: 'KL4', label: 'L4', x: 140, y: 200 },
-    { position: 'KL5', label: 'L5', x: 90, y: 200 },
-    { position: 'KR1', label: 'R1', x: 410, y: 200 },
-    { position: 'KR2', label: 'R2', x: 460, y: 200 },
-    { position: 'KR3', label: 'R3', x: 510, y: 200 },
-    { position: 'KR4', label: 'R4', x: 560, y: 200 },
-    { position: 'KR5', label: 'R5', x: 610, y: 200 },
+    { position: 'K', label: 'K', x: 350, y: 50 },
+    { position: 'KL1', label: 'L1', x: 290, y: 50 },
+    { position: 'KL2', label: 'L2', x: 240, y: 50 },
+    { position: 'KL3', label: 'L3', x: 190, y: 50 },
+    { position: 'KL4', label: 'L4', x: 140, y: 50 },
+    { position: 'KL5', label: 'L5', x: 90, y: 50 },
+    { position: 'KR1', label: 'R1', x: 410, y: 50 },
+    { position: 'KR2', label: 'R2', x: 460, y: 50 },
+    { position: 'KR3', label: 'R3', x: 510, y: 50 },
+    { position: 'KR4', label: 'R4', x: 560, y: 50 },
+    { position: 'KR5', label: 'R5', x: 610, y: 50 },
   ],
   'Kick Return': [
-    { position: 'R', label: 'R', x: 350, y: 60 },
-    { position: 'R2', label: 'R2', x: 380, y: 90 },
-    { position: 'FL1', label: 'FL1', x: 210, y: 180 },
-    { position: 'FL2', label: 'FL2', x: 280, y: 180 },
-    { position: 'FL3', label: 'FL3', x: 350, y: 180 },
-    { position: 'FL4', label: 'FL4', x: 420, y: 180 },
-    { position: 'FL5', label: 'FL5', x: 490, y: 180 },
-    { position: 'SL1', label: 'SL1', x: 280, y: 130 },
-    { position: 'SL2', label: 'SL2', x: 350, y: 130 },
-    { position: 'SL3', label: 'SL3', x: 420, y: 130 },
+    // Front line of blockers at TOP (closest to opponent, will block toward top)
+    { position: 'FL1', label: 'L1', x: 140, y: 210 },
+    { position: 'FL2', label: 'L2', x: 245, y: 210 },
+    { position: 'FL3', label: 'L3', x: 350, y: 210 },
+    { position: 'FL4', label: 'L4', x: 455, y: 210 },
+    { position: 'FL5', label: 'L5', x: 560, y: 210 },
+    // Second line of blockers (wedge) - in the MIDDLE
+    { position: 'SL1', label: 'L6', x: 280, y: 290 },
+    { position: 'SL2', label: 'L7', x: 350, y: 290 },
+    { position: 'SL3', label: 'L8', x: 420, y: 290 },
+    // Returners at the BOTTOM (deepest, catching kick, will return toward top)
+    { position: 'R', label: 'R', x: 320, y: 370 },
+    { position: 'R2', label: 'R2', x: 380, y: 370 },
   ],
   'Punt': [
-    { position: 'LS', label: 'LS', x: 350, y: 200 },
+    // Gunners (wide on each side)
+    { position: 'GunnerL', label: 'GL', x: 120, y: 200 },
+    { position: 'GunnerR', label: 'GR', x: 580, y: 200 },
+    // Wings (between gunners and line)
+    { position: 'WingL', label: 'WL', x: 240, y: 230 },
+    { position: 'WingR', label: 'WR', x: 460, y: 230 },
+    // Line (5 players) - LT, LG, LS, RG, RT
+    { position: 'LT', label: 'LT', x: 300, y: 200 },
     { position: 'LG', label: 'LG', x: 330, y: 200 },
+    { position: 'LS', label: 'LS', x: 350, y: 200 },
     { position: 'RG', label: 'RG', x: 370, y: 200 },
-    { position: 'LT', label: 'LT', x: 305, y: 200 },
-    { position: 'RT', label: 'RT', x: 395, y: 200 },
-    { position: 'WingL', label: 'WL', x: 275, y: 195 },
-    { position: 'WingR', label: 'WR', x: 425, y: 195 },
-    { position: 'PP', label: 'PP', x: 350, y: 160 },
-    { position: 'P', label: 'P', x: 350, y: 60 },
-    { position: 'GunnerL', label: 'GL', x: 150, y: 200 },
-    { position: 'GunnerR', label: 'GR', x: 550, y: 200 },
+    { position: 'RT', label: 'RT', x: 400, y: 200 },
+    // Personal Protector (behind line, slightly right)
+    { position: 'PP', label: 'PP', x: 380, y: 270 },
+    // Punter (deep)
+    { position: 'P', label: 'P', x: 350, y: 330 },
   ],
   'Punt Return': [
     { position: 'R', label: 'R', x: 350, y: 60 },
@@ -1770,15 +1781,20 @@ export const SPECIAL_TEAMS_FORMATIONS = {
     { position: 'Box6', label: 'B6', x: 500, y: 195 },
   ],
   'Field Goal': [
-    { position: 'LS', label: 'LS', x: 350, y: 200 },
-    { position: 'LG', label: 'LG', x: 330, y: 200 },
-    { position: 'RG', label: 'RG', x: 370, y: 200 },
-    { position: 'LT', label: 'LT', x: 305, y: 200 },
-    { position: 'RT', label: 'RT', x: 395, y: 200 },
-    { position: 'TEL', label: 'TL', x: 275, y: 200 },
-    { position: 'TER', label: 'TR', x: 425, y: 200 },
-    { position: 'Holder', label: 'H', x: 345, y: 130 },
-    { position: 'Kicker', label: 'K', x: 355, y: 115 },
+    // Line (9 players tight together)
+    { position: 'LS', label: 'LS', x: 350, y: 210 },
+    { position: 'LG', label: 'LG', x: 325, y: 210 },
+    { position: 'RG', label: 'RG', x: 375, y: 210 },
+    { position: 'LT', label: 'LT', x: 300, y: 210 },
+    { position: 'RT', label: 'RT', x: 400, y: 210 },
+    { position: 'TEL', label: 'TL', x: 275, y: 210 },
+    { position: 'TER', label: 'TR', x: 425, y: 210 },
+    // Wings (outside the tight ends)
+    { position: 'WL', label: 'WL', x: 250, y: 210 },
+    { position: 'WR', label: 'WR', x: 450, y: 210 },
+    // Holder and Kicker (behind the line, K to left and below H)
+    { position: 'Holder', label: 'H', x: 350, y: 280 },
+    { position: 'Kicker', label: 'K', x: 310, y: 310 },
   ],
 };
 
@@ -1799,13 +1815,12 @@ export const SPECIAL_TEAMS_PLAYS = {
     'Return Middle',
     'Return Right',
     'Onside Recovery Left',
-    'Onside Recovery Middle',
     'Onside Recovery Right',
   ],
   'Punt': [
-    'Deep Middle',
-    'Directional Left',
-    'Directional Right',
+    'Punt',
+    'Fake Punt Pass',
+    'Fake Punt Run Off Tackle',
   ],
   'Punt Return': [
     'Return Left',
@@ -1815,12 +1830,539 @@ export const SPECIAL_TEAMS_PLAYS = {
   ],
   'Field Goal': [
     'Standard Field Goal',
+    'Fake Field Goal Run',
+    'Fake Field Goal Pass',
   ],
 };
 
 export const isOffensiveStyleSpecialTeam = (teamType: string): boolean => {
   return ['Kickoff', 'Punt', 'Field Goal'].includes(teamType);
 };
+
+// Generate kickoff coverage paths based on the selected play
+// Returns an array of { position, endpoint } for each player
+export function getKickoffPlayPaths(playName: string): Array<{ position: string; endpoint: { x: number; y: number } }> {
+  // Field dimensions: 700w x 400h
+  // Players start at y=50, field goes down to y=400
+  // Center of field is x=350
+
+  // Define target landing zones for different kick types
+  // Players start at y=50, so all targets should be BELOW (higher Y values)
+  const deepY = 380;      // Deep kicks land near bottom of field
+  const squibY = 280;     // Squib kicks land mid-field
+  const onsideY = 150;    // Onside kicks: short distance downfield (~10 yards = ~100px from y=50)
+
+  // Horizontal targets
+  const centerX = 350;
+  const leftX = 180;
+  const rightX = 520;
+
+  // Player positions from formation (L5, L4, L3, L2, L1, K, R1, R2, R3, R4, R5)
+  // For coverage lanes, players generally converge toward the ball landing spot
+  // while maintaining their lane discipline
+
+  switch (playName) {
+    case 'Deep Center':
+      // All players run straight lanes to deep center
+      return [
+        { position: 'K', endpoint: { x: centerX, y: deepY } },
+        { position: 'KL1', endpoint: { x: centerX - 30, y: deepY } },
+        { position: 'KL2', endpoint: { x: centerX - 70, y: deepY } },
+        { position: 'KL3', endpoint: { x: centerX - 120, y: deepY } },
+        { position: 'KL4', endpoint: { x: centerX - 170, y: deepY } },
+        { position: 'KL5', endpoint: { x: leftX - 40, y: deepY } },
+        { position: 'KR1', endpoint: { x: centerX + 30, y: deepY } },
+        { position: 'KR2', endpoint: { x: centerX + 70, y: deepY } },
+        { position: 'KR3', endpoint: { x: centerX + 120, y: deepY } },
+        { position: 'KR4', endpoint: { x: centerX + 170, y: deepY } },
+        { position: 'KR5', endpoint: { x: rightX + 40, y: deepY } },
+      ];
+
+    case 'Deep Left':
+      // Players angle toward the left side
+      return [
+        { position: 'K', endpoint: { x: leftX + 50, y: deepY } },
+        { position: 'KL1', endpoint: { x: leftX + 20, y: deepY } },
+        { position: 'KL2', endpoint: { x: leftX - 10, y: deepY } },
+        { position: 'KL3', endpoint: { x: leftX - 40, y: deepY } },
+        { position: 'KL4', endpoint: { x: leftX - 60, y: deepY } },
+        { position: 'KL5', endpoint: { x: 50, y: deepY } },
+        { position: 'KR1', endpoint: { x: leftX + 80, y: deepY } },
+        { position: 'KR2', endpoint: { x: leftX + 120, y: deepY } },
+        { position: 'KR3', endpoint: { x: leftX + 170, y: deepY } },
+        { position: 'KR4', endpoint: { x: centerX + 80, y: deepY } },
+        { position: 'KR5', endpoint: { x: centerX + 150, y: deepY } },
+      ];
+
+    case 'Deep Right':
+      // Players angle toward the right side
+      return [
+        { position: 'K', endpoint: { x: rightX - 50, y: deepY } },
+        { position: 'KL1', endpoint: { x: rightX - 80, y: deepY } },
+        { position: 'KL2', endpoint: { x: rightX - 120, y: deepY } },
+        { position: 'KL3', endpoint: { x: rightX - 170, y: deepY } },
+        { position: 'KL4', endpoint: { x: centerX - 80, y: deepY } },
+        { position: 'KL5', endpoint: { x: centerX - 150, y: deepY } },
+        { position: 'KR1', endpoint: { x: rightX - 20, y: deepY } },
+        { position: 'KR2', endpoint: { x: rightX + 10, y: deepY } },
+        { position: 'KR3', endpoint: { x: rightX + 40, y: deepY } },
+        { position: 'KR4', endpoint: { x: rightX + 60, y: deepY } },
+        { position: 'KR5', endpoint: { x: 650, y: deepY } },
+      ];
+
+    case 'Squib Middle':
+      // Shorter paths, converge on mid-field center
+      return [
+        { position: 'K', endpoint: { x: centerX, y: squibY } },
+        { position: 'KL1', endpoint: { x: centerX - 40, y: squibY } },
+        { position: 'KL2', endpoint: { x: centerX - 90, y: squibY } },
+        { position: 'KL3', endpoint: { x: centerX - 140, y: squibY } },
+        { position: 'KL4', endpoint: { x: centerX - 180, y: squibY } },
+        { position: 'KL5', endpoint: { x: leftX - 30, y: squibY } },
+        { position: 'KR1', endpoint: { x: centerX + 40, y: squibY } },
+        { position: 'KR2', endpoint: { x: centerX + 90, y: squibY } },
+        { position: 'KR3', endpoint: { x: centerX + 140, y: squibY } },
+        { position: 'KR4', endpoint: { x: centerX + 180, y: squibY } },
+        { position: 'KR5', endpoint: { x: rightX + 30, y: squibY } },
+      ];
+
+    case 'Squib Left':
+      return [
+        { position: 'K', endpoint: { x: leftX + 30, y: squibY } },
+        { position: 'KL1', endpoint: { x: leftX, y: squibY } },
+        { position: 'KL2', endpoint: { x: leftX - 30, y: squibY } },
+        { position: 'KL3', endpoint: { x: leftX - 60, y: squibY } },
+        { position: 'KL4', endpoint: { x: 80, y: squibY } },
+        { position: 'KL5', endpoint: { x: 50, y: squibY } },
+        { position: 'KR1', endpoint: { x: leftX + 70, y: squibY } },
+        { position: 'KR2', endpoint: { x: leftX + 120, y: squibY } },
+        { position: 'KR3', endpoint: { x: centerX, y: squibY } },
+        { position: 'KR4', endpoint: { x: centerX + 80, y: squibY } },
+        { position: 'KR5', endpoint: { x: centerX + 150, y: squibY } },
+      ];
+
+    case 'Squib Right':
+      return [
+        { position: 'K', endpoint: { x: rightX - 30, y: squibY } },
+        { position: 'KL1', endpoint: { x: rightX - 70, y: squibY } },
+        { position: 'KL2', endpoint: { x: rightX - 120, y: squibY } },
+        { position: 'KL3', endpoint: { x: centerX, y: squibY } },
+        { position: 'KL4', endpoint: { x: centerX - 80, y: squibY } },
+        { position: 'KL5', endpoint: { x: centerX - 150, y: squibY } },
+        { position: 'KR1', endpoint: { x: rightX, y: squibY } },
+        { position: 'KR2', endpoint: { x: rightX + 30, y: squibY } },
+        { position: 'KR3', endpoint: { x: rightX + 60, y: squibY } },
+        { position: 'KR4', endpoint: { x: 620, y: squibY } },
+        { position: 'KR5', endpoint: { x: 650, y: squibY } },
+      ];
+
+    case 'Onside Center':
+      // Very short paths, everyone converges quickly to center
+      return [
+        { position: 'K', endpoint: { x: centerX, y: onsideY } },
+        { position: 'KL1', endpoint: { x: centerX - 20, y: onsideY } },
+        { position: 'KL2', endpoint: { x: centerX - 50, y: onsideY } },
+        { position: 'KL3', endpoint: { x: centerX - 80, y: onsideY } },
+        { position: 'KL4', endpoint: { x: centerX - 110, y: onsideY } },
+        { position: 'KL5', endpoint: { x: centerX - 140, y: onsideY } },
+        { position: 'KR1', endpoint: { x: centerX + 20, y: onsideY } },
+        { position: 'KR2', endpoint: { x: centerX + 50, y: onsideY } },
+        { position: 'KR3', endpoint: { x: centerX + 80, y: onsideY } },
+        { position: 'KR4', endpoint: { x: centerX + 110, y: onsideY } },
+        { position: 'KR5', endpoint: { x: centerX + 140, y: onsideY } },
+      ];
+
+    case 'Onside Left':
+      // Short paths converging to the left
+      return [
+        { position: 'K', endpoint: { x: leftX, y: onsideY } },
+        { position: 'KL1', endpoint: { x: leftX - 20, y: onsideY } },
+        { position: 'KL2', endpoint: { x: leftX - 50, y: onsideY } },
+        { position: 'KL3', endpoint: { x: leftX - 70, y: onsideY } },
+        { position: 'KL4', endpoint: { x: 70, y: onsideY } },
+        { position: 'KL5', endpoint: { x: 50, y: onsideY } },
+        { position: 'KR1', endpoint: { x: leftX + 30, y: onsideY } },
+        { position: 'KR2', endpoint: { x: leftX + 60, y: onsideY } },
+        { position: 'KR3', endpoint: { x: leftX + 100, y: onsideY } },
+        { position: 'KR4', endpoint: { x: leftX + 150, y: onsideY } },
+        { position: 'KR5', endpoint: { x: centerX + 50, y: onsideY } },
+      ];
+
+    case 'Onside Right':
+      // Short paths converging to the right
+      return [
+        { position: 'K', endpoint: { x: rightX, y: onsideY } },
+        { position: 'KL1', endpoint: { x: rightX - 30, y: onsideY } },
+        { position: 'KL2', endpoint: { x: rightX - 60, y: onsideY } },
+        { position: 'KL3', endpoint: { x: rightX - 100, y: onsideY } },
+        { position: 'KL4', endpoint: { x: rightX - 150, y: onsideY } },
+        { position: 'KL5', endpoint: { x: centerX - 50, y: onsideY } },
+        { position: 'KR1', endpoint: { x: rightX + 20, y: onsideY } },
+        { position: 'KR2', endpoint: { x: rightX + 50, y: onsideY } },
+        { position: 'KR3', endpoint: { x: rightX + 70, y: onsideY } },
+        { position: 'KR4', endpoint: { x: 630, y: onsideY } },
+        { position: 'KR5', endpoint: { x: 650, y: onsideY } },
+      ];
+
+    default:
+      // Default: straight lanes downfield
+      return [
+        { position: 'K', endpoint: { x: 350, y: deepY } },
+        { position: 'KL1', endpoint: { x: 290, y: deepY } },
+        { position: 'KL2', endpoint: { x: 240, y: deepY } },
+        { position: 'KL3', endpoint: { x: 190, y: deepY } },
+        { position: 'KL4', endpoint: { x: 140, y: deepY } },
+        { position: 'KL5', endpoint: { x: 90, y: deepY } },
+        { position: 'KR1', endpoint: { x: 410, y: deepY } },
+        { position: 'KR2', endpoint: { x: 460, y: deepY } },
+        { position: 'KR3', endpoint: { x: 510, y: deepY } },
+        { position: 'KR4', endpoint: { x: 560, y: deepY } },
+        { position: 'KR5', endpoint: { x: 610, y: deepY } },
+      ];
+  }
+}
+
+// Get play-specific paths for kick return plays
+// Positions: FL at y=210 (top), SL at y=290 (middle), R at y=370 (bottom)
+// All paths go UP (toward lower Y / top of screen) for the return
+// For onside recovery plays, startPosition moves players to clustered formation
+export function getKickReturnPlayPaths(playName: string): Array<{ position: string; endpoint: { x: number; y: number }; startPosition?: { x: number; y: number } }> {
+  // Field dimensions: 700w x 400h
+  // FL starts at y=210, SL at y=290, R at y=370
+  // All arrows point UP (toward y=0)
+
+  // Target zones - ALL paths are SHORT
+  const flBlockY = 160;       // Front line blocks - short path up from y=210 (just 50px)
+  const slBlockY = 230;       // Second line blocks - short path up from y=290 (just 60px)
+  const returnEndY = 300;     // Returners - short path up from y=370 (just 70px) - shows direction only
+  const onsideY = 250;        // Onside recovery zone (short upward movement)
+
+  // Horizontal targets
+  const centerX = 350;
+  const leftX = 150;
+  const rightX = 550;
+
+  switch (playName) {
+    case 'Return Left':
+      // Returners go up and left, blockers angle to create left lane
+      return [
+        // Returners go UP and LEFT
+        { position: 'R', endpoint: { x: leftX, y: returnEndY } },
+        { position: 'R2', endpoint: { x: leftX + 80, y: returnEndY + 20 } },
+        // Second line forms wedge going left (up from y=290)
+        { position: 'SL1', endpoint: { x: leftX - 20, y: slBlockY } },
+        { position: 'SL2', endpoint: { x: leftX + 60, y: slBlockY } },
+        { position: 'SL3', endpoint: { x: leftX + 140, y: slBlockY } },
+        // Front line blocks upfield, angling left (up from y=210)
+        { position: 'FL1', endpoint: { x: 60, y: flBlockY } },
+        { position: 'FL2', endpoint: { x: 150, y: flBlockY } },
+        { position: 'FL3', endpoint: { x: 250, y: flBlockY } },
+        { position: 'FL4', endpoint: { x: 360, y: flBlockY } },
+        { position: 'FL5', endpoint: { x: 480, y: flBlockY } },
+      ];
+
+    case 'Return Middle':
+      // Returners go straight up, blockers create middle wedge
+      return [
+        // Returners go UP the middle
+        { position: 'R', endpoint: { x: centerX - 30, y: returnEndY } },
+        { position: 'R2', endpoint: { x: centerX + 30, y: returnEndY + 20 } },
+        // Second line forms tight wedge in middle (up from y=290)
+        { position: 'SL1', endpoint: { x: centerX - 80, y: slBlockY } },
+        { position: 'SL2', endpoint: { x: centerX, y: slBlockY - 20 } },
+        { position: 'SL3', endpoint: { x: centerX + 80, y: slBlockY } },
+        // Front line blocks upfield, spread across (up from y=210)
+        { position: 'FL1', endpoint: { x: 100, y: flBlockY } },
+        { position: 'FL2', endpoint: { x: 220, y: flBlockY } },
+        { position: 'FL3', endpoint: { x: centerX, y: flBlockY - 20 } },
+        { position: 'FL4', endpoint: { x: 480, y: flBlockY } },
+        { position: 'FL5', endpoint: { x: 600, y: flBlockY } },
+      ];
+
+    case 'Return Right':
+      // Returners go up and right, blockers angle to create right lane
+      return [
+        // Returners go UP and RIGHT
+        { position: 'R', endpoint: { x: rightX, y: returnEndY } },
+        { position: 'R2', endpoint: { x: rightX - 80, y: returnEndY + 20 } },
+        // Second line forms wedge going right (up from y=290)
+        { position: 'SL1', endpoint: { x: rightX - 140, y: slBlockY } },
+        { position: 'SL2', endpoint: { x: rightX - 60, y: slBlockY } },
+        { position: 'SL3', endpoint: { x: rightX + 20, y: slBlockY } },
+        // Front line blocks upfield, angling right (up from y=210)
+        { position: 'FL1', endpoint: { x: 220, y: flBlockY } },
+        { position: 'FL2', endpoint: { x: 340, y: flBlockY } },
+        { position: 'FL3', endpoint: { x: 450, y: flBlockY } },
+        { position: 'FL4', endpoint: { x: 550, y: flBlockY } },
+        { position: 'FL5', endpoint: { x: 640, y: flBlockY } },
+      ];
+
+    case 'Onside Recovery Left':
+      // Players clustered on LEFT side with vertical blocking arrows
+      // R in center-bottom, R2 on right, L1-L8 clustered on left
+      // Field is 700x400, so keep all y values under 400
+      return [
+        // R - center-bottom, short upward arrow
+        { position: 'R', startPosition: { x: 400, y: 360 }, endpoint: { x: 400, y: 280 } },
+        // R2 - right side, short upward arrow
+        { position: 'R2', startPosition: { x: 680, y: 260 }, endpoint: { x: 680, y: 180 } },
+        // FL (L1-L5) - clustered on left at y=260, all arrows go to same height (y=220)
+        { position: 'FL1', startPosition: { x: 60, y: 260 }, endpoint: { x: 60, y: 220 } },
+        { position: 'FL2', startPosition: { x: 140, y: 260 }, endpoint: { x: 140, y: 220 } },
+        { position: 'FL3', startPosition: { x: 220, y: 260 }, endpoint: { x: 220, y: 220 } },
+        { position: 'FL4', startPosition: { x: 300, y: 260 }, endpoint: { x: 300, y: 220 } },
+        { position: 'FL5', startPosition: { x: 340, y: 310 }, endpoint: { x: 340, y: 270 } },
+        // SL (L6-L8) - below L1-L4 at y=320, all arrows go to same height (y=280)
+        { position: 'SL1', startPosition: { x: 100, y: 320 }, endpoint: { x: 100, y: 280 } },
+        { position: 'SL2', startPosition: { x: 180, y: 320 }, endpoint: { x: 180, y: 280 } },
+        { position: 'SL3', startPosition: { x: 260, y: 320 }, endpoint: { x: 260, y: 280 } },
+      ];
+
+    case 'Onside Recovery Right':
+      // Players clustered on RIGHT side with vertical blocking arrows
+      // R on left, R2 in center, L1-L8 clustered on right
+      return [
+        // R - left side, short upward arrow
+        { position: 'R', startPosition: { x: 140, y: 260 }, endpoint: { x: 140, y: 180 } },
+        // R2 - center, longer upward arrow
+        { position: 'R2', startPosition: { x: 400, y: 360 }, endpoint: { x: 400, y: 260 } },
+        // FL (L1-L5) - clustered on right at y=260, all arrows go to same height (y=220)
+        { position: 'FL1', startPosition: { x: 480, y: 260 }, endpoint: { x: 480, y: 220 } },
+        { position: 'FL2', startPosition: { x: 540, y: 260 }, endpoint: { x: 540, y: 220 } },
+        { position: 'FL3', startPosition: { x: 590, y: 260 }, endpoint: { x: 590, y: 220 } },
+        { position: 'FL4', startPosition: { x: 640, y: 260 }, endpoint: { x: 640, y: 220 } },
+        { position: 'FL5', startPosition: { x: 700, y: 260 }, endpoint: { x: 700, y: 220 } },
+        // SL (L6-L8) - below FL at y=320, all arrows go to same height (y=280)
+        { position: 'SL1', startPosition: { x: 520, y: 320 }, endpoint: { x: 520, y: 280 } },
+        { position: 'SL2', startPosition: { x: 580, y: 320 }, endpoint: { x: 580, y: 280 } },
+        { position: 'SL3', startPosition: { x: 640, y: 320 }, endpoint: { x: 640, y: 280 } },
+      ];
+
+    default:
+      // Default: Return Middle
+      return [
+        { position: 'R', endpoint: { x: centerX - 30, y: returnEndY } },
+        { position: 'R2', endpoint: { x: centerX + 30, y: returnEndY + 20 } },
+        { position: 'SL1', endpoint: { x: centerX - 80, y: slBlockY } },
+        { position: 'SL2', endpoint: { x: centerX, y: slBlockY - 20 } },
+        { position: 'SL3', endpoint: { x: centerX + 80, y: slBlockY } },
+        { position: 'FL1', endpoint: { x: 100, y: flBlockY } },
+        { position: 'FL2', endpoint: { x: 220, y: flBlockY } },
+        { position: 'FL3', endpoint: { x: centerX, y: flBlockY - 20 } },
+        { position: 'FL4', endpoint: { x: 480, y: flBlockY } },
+        { position: 'FL5', endpoint: { x: 600, y: flBlockY } },
+      ];
+  }
+}
+
+// Get play-specific paths for field goal plays
+// Line players have short T-shaped blocking arrows pointing UP
+// Holder and Kicker have no arrows (just their position) for standard FG
+export function getFieldGoalPlayPaths(playName: string): Array<{ position: string; endpoint: { x: number; y: number }; isRunPath?: boolean; isPassRoute?: boolean }> {
+  // All line players block straight up with short arrows
+  // Arrow endpoint is 40px above player position (y=210 -> endpoint y=170)
+  const blockEndY = 170;
+
+  switch (playName) {
+    case 'Fake Field Goal Run':
+      // Line players block, Holder runs right around the edge
+      return [
+        // Line players - all have short upward blocking arrows
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 325, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 375, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        { position: 'TEL', endpoint: { x: 275, y: blockEndY } },
+        { position: 'TER', endpoint: { x: 425, y: blockEndY } },
+        { position: 'WL', endpoint: { x: 250, y: blockEndY } },
+        { position: 'WR', endpoint: { x: 450, y: blockEndY } },
+        // Holder runs right around the edge (curved path to the right and up)
+        { position: 'Holder', endpoint: { x: 520, y: 140 }, isRunPath: true },
+        // Kicker has no path on fake
+      ];
+
+    case 'Fake Field Goal Pass':
+      // Line players block, WR runs a pass route, Holder throws
+      return [
+        // Line players - all have short upward blocking arrows
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 325, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 375, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        { position: 'TEL', endpoint: { x: 275, y: blockEndY } },
+        { position: 'TER', endpoint: { x: 425, y: blockEndY } },
+        { position: 'WL', endpoint: { x: 250, y: blockEndY } },
+        // WR runs a pass route - out and up to the right
+        { position: 'WR', endpoint: { x: 580, y: 120 }, isPassRoute: true },
+        // Holder stays to throw (no movement path needed)
+        // Kicker has no path on fake
+      ];
+
+    case 'Standard Field Goal':
+    default:
+      return [
+        // Line players - all have short upward blocking arrows
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 325, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 375, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        { position: 'TEL', endpoint: { x: 275, y: blockEndY } },
+        { position: 'TER', endpoint: { x: 425, y: blockEndY } },
+        { position: 'WL', endpoint: { x: 250, y: blockEndY } },
+        { position: 'WR', endpoint: { x: 450, y: blockEndY } },
+        // Holder and Kicker - no arrows (endpoint same as position means no visible arrow)
+      ];
+  }
+}
+
+// Get play-specific paths for punt plays
+// Line players have short T-shaped blocking arrows pointing UP
+// Gunners and Wings have longer arrows going downfield (coverage lanes)
+// PP and P have no arrows
+export function getPuntPlayPaths(playName: string): Array<{ position: string; endpoint: { x: number; y: number }; isRunPath?: boolean; isPassRoute?: boolean }> {
+  // Line players block straight up with short arrows
+  const blockEndY = 160;
+  // Coverage players release downfield - arrows going up
+  const coverageEndY = 60;
+
+  switch (playName) {
+    case 'Fake Punt Pass':
+      // Line players block, PP runs left, WR runs pass route
+      return [
+        // Line players (5) - short upward blocking arrows with T-shape
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 330, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 370, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        // Gunners - coverage arrows
+        { position: 'GunnerL', endpoint: { x: 120, y: coverageEndY } },
+        { position: 'GunnerR', endpoint: { x: 580, y: coverageEndY } },
+        // WL - coverage arrow going up and left
+        { position: 'WingL', endpoint: { x: 160, y: coverageEndY } },
+        // WR - pass route (curved, going right then up)
+        { position: 'WingR', endpoint: { x: 580, y: 120 }, isPassRoute: true },
+        // PP - run path going left and up
+        { position: 'PP', endpoint: { x: 240, y: 100 }, isRunPath: true },
+        // P stays (no arrow)
+      ];
+
+    case 'Fake Punt Run Off Tackle':
+      // Line players block, PP runs right off tackle
+      return [
+        // Line players (5) - short upward blocking arrows with T-shape
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 330, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 370, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        // PP - run path going right off tackle then upfield
+        { position: 'PP', endpoint: { x: 480, y: 80 }, isRunPath: true },
+        // Gunners, Wings, and P have no arrows on this play
+      ];
+
+    case 'Punt':
+    default:
+      return [
+        // Line players (5) - short upward blocking arrows with T-shape
+        { position: 'LS', endpoint: { x: 350, y: blockEndY } },
+        { position: 'LG', endpoint: { x: 330, y: blockEndY } },
+        { position: 'RG', endpoint: { x: 370, y: blockEndY } },
+        { position: 'LT', endpoint: { x: 300, y: blockEndY } },
+        { position: 'RT', endpoint: { x: 400, y: blockEndY } },
+        // Gunners - long coverage arrows going straight up
+        { position: 'GunnerL', endpoint: { x: 120, y: coverageEndY } },
+        { position: 'GunnerR', endpoint: { x: 580, y: coverageEndY } },
+        // Wings - coverage arrows going up (slightly inside)
+        { position: 'WingL', endpoint: { x: 200, y: coverageEndY } },
+        { position: 'WingR', endpoint: { x: 500, y: coverageEndY } },
+        // PP and P have no arrows
+      ];
+  }
+}
+
+// Get play-specific paths for punt return plays
+// Box players and Jam players block downward (toward punt team)
+// Returners have return paths
+export function getPuntReturnPlayPaths(playName: string): Array<{ position: string; endpoint: { x: number; y: number }; isReturnPath?: boolean }> {
+  // Box and Jam players block downward (toward the punting team at bottom of screen)
+  const blockEndY = 280;
+
+  switch (playName) {
+    case 'Return Left':
+      return [
+        // Box players - blocking arrows pointing down
+        { position: 'Box1', endpoint: { x: 250, y: blockEndY } },
+        { position: 'Box2', endpoint: { x: 300, y: blockEndY } },
+        { position: 'Box3', endpoint: { x: 350, y: blockEndY } },
+        { position: 'Box4', endpoint: { x: 400, y: blockEndY } },
+        { position: 'Box5', endpoint: { x: 450, y: blockEndY } },
+        { position: 'Box6', endpoint: { x: 500, y: blockEndY } },
+        // Jam players - blocking arrows pointing down
+        { position: 'JamL', endpoint: { x: 150, y: blockEndY } },
+        { position: 'JamR', endpoint: { x: 550, y: blockEndY } },
+        // R2 - arrow pointing down (setting up block or fair catch signal)
+        { position: 'R2', endpoint: { x: 380, y: 170 } },
+        // R - return path going left then up
+        { position: 'R', endpoint: { x: 120, y: 20 }, isReturnPath: true },
+      ];
+
+    case 'Return Middle':
+      return [
+        // Box players - blocking arrows pointing down
+        { position: 'Box1', endpoint: { x: 250, y: blockEndY } },
+        { position: 'Box2', endpoint: { x: 300, y: blockEndY } },
+        { position: 'Box3', endpoint: { x: 350, y: blockEndY } },
+        { position: 'Box4', endpoint: { x: 400, y: blockEndY } },
+        { position: 'Box5', endpoint: { x: 450, y: blockEndY } },
+        { position: 'Box6', endpoint: { x: 500, y: blockEndY } },
+        // Jam players - blocking arrows pointing down
+        { position: 'JamL', endpoint: { x: 150, y: blockEndY } },
+        { position: 'JamR', endpoint: { x: 550, y: blockEndY } },
+        // R2 - arrow pointing down
+        { position: 'R2', endpoint: { x: 380, y: 170 } },
+        // R - return path going straight up
+        { position: 'R', endpoint: { x: 350, y: 20 }, isReturnPath: true },
+      ];
+
+    case 'Return Right':
+      return [
+        // Box players - blocking arrows pointing down
+        { position: 'Box1', endpoint: { x: 250, y: blockEndY } },
+        { position: 'Box2', endpoint: { x: 300, y: blockEndY } },
+        { position: 'Box3', endpoint: { x: 350, y: blockEndY } },
+        { position: 'Box4', endpoint: { x: 400, y: blockEndY } },
+        { position: 'Box5', endpoint: { x: 450, y: blockEndY } },
+        { position: 'Box6', endpoint: { x: 500, y: blockEndY } },
+        // Jam players - blocking arrows pointing down
+        { position: 'JamL', endpoint: { x: 150, y: blockEndY } },
+        { position: 'JamR', endpoint: { x: 550, y: blockEndY } },
+        // R2 - arrow pointing down
+        { position: 'R2', endpoint: { x: 380, y: 170 } },
+        // R - return path curving down and to the right
+        { position: 'R', endpoint: { x: 580, y: 160 }, isReturnPath: true },
+      ];
+
+    case 'Rush/Block':
+    default:
+      return [
+        // All players rush/block - arrows pointing down
+        { position: 'Box1', endpoint: { x: 250, y: blockEndY } },
+        { position: 'Box2', endpoint: { x: 300, y: blockEndY } },
+        { position: 'Box3', endpoint: { x: 350, y: blockEndY } },
+        { position: 'Box4', endpoint: { x: 400, y: blockEndY } },
+        { position: 'Box5', endpoint: { x: 450, y: blockEndY } },
+        { position: 'Box6', endpoint: { x: 500, y: blockEndY } },
+        { position: 'JamL', endpoint: { x: 150, y: blockEndY } },
+        { position: 'JamR', endpoint: { x: 550, y: blockEndY } },
+        // Returners stay back
+      ];
+  }
+}
+
 export const FOOTBALL_CONFIG = {
   common: COMMON_ATTRIBUTES,
   offensive: OFFENSIVE_ATTRIBUTES,
