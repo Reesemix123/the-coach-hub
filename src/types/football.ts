@@ -394,7 +394,7 @@ export function getKickResultsForUnit(unit: SpecialTeamsUnit): typeof KICK_RESUL
       );
     case 'punt_return':
       return KICK_RESULTS.filter(r =>
-        ['returned', 'fair_catch', 'touchback', 'muffed'].includes(r.value)
+        ['returned', 'fair_catch', 'touchback', 'muffed', 'blocked'].includes(r.value)
       );
     default:
       return [...KICK_RESULTS];
