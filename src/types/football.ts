@@ -24,6 +24,8 @@ export interface Player {
   coverageDescription?: string;               // Description of coverage responsibility
   blitzGap?: string;                          // Blitz gap assignment (A, B, C, D)
   zoneEndpoint?: { x: number; y: number };    // Endpoint for zone coverage area or blitz arrow
+  // Special teams
+  specialTeamsPath?: { x: number; y: number }; // Endpoint for special teams player path/lane
 }
 
 /**
@@ -311,6 +313,95 @@ export const RESULT_TYPES = [
 ];
 
 // ============================================
+// SPECIAL TEAMS CONSTANTS
+// ============================================
+
+export const SPECIAL_TEAMS_UNITS = [
+  { value: 'kickoff', label: 'Kickoff' },
+  { value: 'kick_return', label: 'Kick Return' },
+  { value: 'punt', label: 'Punt' },
+  { value: 'punt_return', label: 'Punt Return' },
+  { value: 'field_goal', label: 'Field Goal' },
+  { value: 'pat', label: 'PAT (Extra Point)' },
+] as const;
+
+export const KICK_RESULTS = [
+  { value: 'made', label: 'Made' },
+  { value: 'missed', label: 'Missed' },
+  { value: 'blocked', label: 'Blocked' },
+  { value: 'touchback', label: 'Touchback' },
+  { value: 'fair_catch', label: 'Fair Catch' },
+  { value: 'returned', label: 'Returned' },
+  { value: 'out_of_bounds', label: 'Out of Bounds' },
+  { value: 'onside_recovered', label: 'Onside - Recovered' },
+  { value: 'onside_lost', label: 'Onside - Lost' },
+  { value: 'fake_success', label: 'Fake - Success' },
+  { value: 'fake_fail', label: 'Fake - Fail' },
+  { value: 'muffed', label: 'Muffed' },
+  { value: 'downed', label: 'Downed' },
+] as const;
+
+export const PUNT_TYPES = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'directional_left', label: 'Directional Left' },
+  { value: 'directional_right', label: 'Directional Right' },
+  { value: 'pooch', label: 'Pooch' },
+  { value: 'rugby', label: 'Rugby Style' },
+  { value: 'sky', label: 'Sky Punt' },
+] as const;
+
+export const KICKOFF_TYPES = [
+  { value: 'deep_center', label: 'Deep Center' },
+  { value: 'deep_left', label: 'Deep Left' },
+  { value: 'deep_right', label: 'Deep Right' },
+  { value: 'squib_center', label: 'Squib Center' },
+  { value: 'squib_left', label: 'Squib Left' },
+  { value: 'squib_right', label: 'Squib Right' },
+  { value: 'onside_center', label: 'Onside Center' },
+  { value: 'onside_left', label: 'Onside Left' },
+  { value: 'onside_right', label: 'Onside Right' },
+] as const;
+
+export const SNAP_QUALITY_OPTIONS = [
+  { value: 'good', label: 'Good' },
+  { value: 'low', label: 'Low' },
+  { value: 'high', label: 'High' },
+  { value: 'wide', label: 'Wide' },
+  { value: 'fumbled', label: 'Fumbled' },
+] as const;
+
+/**
+ * Get kick result options based on special teams unit
+ */
+export function getKickResultsForUnit(unit: SpecialTeamsUnit): typeof KICK_RESULTS[number][] {
+  switch (unit) {
+    case 'field_goal':
+    case 'pat':
+      return KICK_RESULTS.filter(r =>
+        ['made', 'missed', 'blocked', 'fake_success', 'fake_fail'].includes(r.value)
+      );
+    case 'kickoff':
+      return KICK_RESULTS.filter(r =>
+        ['touchback', 'returned', 'out_of_bounds', 'onside_recovered', 'onside_lost', 'muffed'].includes(r.value)
+      );
+    case 'kick_return':
+      return KICK_RESULTS.filter(r =>
+        ['returned', 'touchback', 'muffed', 'fair_catch'].includes(r.value)
+      );
+    case 'punt':
+      return KICK_RESULTS.filter(r =>
+        ['returned', 'touchback', 'fair_catch', 'out_of_bounds', 'downed', 'blocked', 'muffed', 'fake_success', 'fake_fail'].includes(r.value)
+      );
+    case 'punt_return':
+      return KICK_RESULTS.filter(r =>
+        ['returned', 'fair_catch', 'touchback', 'muffed'].includes(r.value)
+      );
+    default:
+      return [...KICK_RESULTS];
+  }
+}
+
+// ============================================
 // MULTI-COACH & ANALYTICS TYPES (Phase 1)
 // ============================================
 
@@ -387,6 +478,57 @@ export interface Drive {
   created_at: string;
   updated_at: string;
 }
+
+// ============================================
+// SPECIAL TEAMS TYPES
+// ============================================
+
+/**
+ * Special teams unit types
+ */
+export type SpecialTeamsUnit = 'kickoff' | 'kick_return' | 'punt' | 'punt_return' | 'field_goal' | 'pat';
+
+/**
+ * Kick result outcomes
+ */
+export type KickResult =
+  | 'made'
+  | 'missed'
+  | 'blocked'
+  | 'touchback'
+  | 'fair_catch'
+  | 'returned'
+  | 'out_of_bounds'
+  | 'onside_recovered'
+  | 'onside_lost'
+  | 'fake_success'
+  | 'fake_fail'
+  | 'muffed'
+  | 'downed';
+
+/**
+ * Punt type variations
+ */
+export type PuntType = 'standard' | 'directional_left' | 'directional_right' | 'pooch' | 'rugby' | 'sky';
+
+/**
+ * Kickoff type variations
+ */
+export type KickoffType =
+  | 'deep_center'
+  | 'deep_left'
+  | 'deep_right'
+  | 'squib_center'
+  | 'squib_left'
+  | 'squib_right'
+  | 'onside_center'
+  | 'onside_left'
+  | 'onside_right';
+
+/**
+ * Long snap quality ratings
+ */
+export type SnapQuality = 'good' | 'low' | 'high' | 'wide' | 'fumbled';
 
 /**
  * Database table: play_instances (enhanced with analytics fields)
@@ -476,6 +618,48 @@ export interface PlayInstance {
   target_depth?: 'behind_los' | 'short' | 'intermediate' | 'deep';
   pass_location?: 'left' | 'middle' | 'right';
   play_concept?: string;
+
+  // ============================================
+  // SPECIAL TEAMS TRACKING
+  // ============================================
+
+  // Unit identification
+  special_teams_unit?: SpecialTeamsUnit;
+
+  // Kicking plays (Kickoff, Punt, FG, PAT)
+  kicker_id?: string;
+  kick_result?: KickResult;
+  kick_distance?: number; // For FG: distance of attempt; For Punt: gross distance
+
+  // Return plays (Kick Return, Punt Return)
+  returner_id?: string;
+  return_yards?: number;
+  is_fair_catch?: boolean;
+  is_touchback?: boolean;
+  is_muffed?: boolean;
+
+  // Punt specific
+  punter_id?: string;
+  punt_type?: PuntType;
+  gunner_tackle_id?: string; // Which gunner made the tackle on coverage
+
+  // Kickoff specific
+  kickoff_type?: KickoffType;
+
+  // Long snapper tracking (Punt, FG, PAT)
+  long_snapper_id?: string;
+  snap_quality?: SnapQuality;
+
+  // Holder tracking (FG/PAT)
+  holder_id?: string;
+
+  // Coverage tracking - who made tackle on coverage team
+  coverage_tackler_id?: string;
+
+  // Penalty tracking (useful for special teams)
+  penalty_on_play?: boolean;
+  penalty_type?: string;
+  penalty_yards?: number;
 
   // Multi-coach attribution
   tagged_by_user_id?: string;

@@ -6,7 +6,20 @@ import AuthGuard from '@/components/AuthGuard';
 import { useForm } from "react-hook-form";
 import { createClient } from '@/utils/supabase/client';
 import { COMMON_ATTRIBUTES, OPPONENT_PLAY_TYPES } from '@/config/footballConfig';
-import { RESULT_TYPES } from '@/types/football';
+import {
+  RESULT_TYPES,
+  SPECIAL_TEAMS_UNITS,
+  KICK_RESULTS,
+  PUNT_TYPES,
+  KICKOFF_TYPES,
+  SNAP_QUALITY_OPTIONS,
+  getKickResultsForUnit,
+  type SpecialTeamsUnit,
+  type KickResult,
+  type PuntType,
+  type KickoffType,
+  type SnapQuality
+} from '@/types/football';
 import { DriveService } from '@/lib/services/drive.service';
 import type { Drive } from '@/types/football';
 import VirtualVideoPlayer from '@/components/VirtualVideoPlayer';
@@ -116,7 +129,32 @@ interface PlayInstance {
   is_pbu?: boolean;
   is_interception?: boolean;
   qb_decision_grade?: number;
+
+  // Special Teams tracking
+  special_teams_unit?: SpecialTeamsUnit;
+  kicker_id?: string;
+  kick_result?: KickResult;
+  kick_distance?: number;
+  returner_id?: string;
+  return_yards?: number;
+  is_fair_catch?: boolean;
+  is_touchback?: boolean;
+  is_muffed?: boolean;
+  punter_id?: string;
+  punt_type?: PuntType;
+  gunner_tackle_id?: string;
+  kickoff_type?: KickoffType;
+  long_snapper_id?: string;
+  snap_quality?: SnapQuality;
+  holder_id?: string;
+  coverage_tackler_id?: string;
+  penalty_on_play?: boolean;
+  penalty_type?: string;
+  penalty_yards?: number;
 }
+
+// Tagging mode: offense, defense, or special teams
+type TaggingMode = 'offense' | 'defense' | 'specialTeams';
 
 interface PlayTagForm {
   play_code?: string;
@@ -188,6 +226,28 @@ interface PlayTagForm {
   db_run_support_data?: string;
   db_pass_coverage_players?: string;
   db_pass_coverage_data?: string;
+
+  // Special Teams fields
+  special_teams_unit?: SpecialTeamsUnit;
+  kicker_id?: string;
+  kick_result?: KickResult;
+  kick_distance?: number;
+  returner_id?: string;
+  return_yards?: number;
+  is_fair_catch?: boolean;
+  is_touchback?: boolean;
+  is_muffed?: boolean;
+  punter_id?: string;
+  punt_type?: PuntType;
+  gunner_tackle_id?: string;
+  kickoff_type?: KickoffType;
+  long_snapper_id?: string;
+  snap_quality?: SnapQuality;
+  holder_id?: string;
+  coverage_tackler_id?: string;
+  penalty_on_play?: boolean;
+  penalty_type?: string;
+  penalty_yards?: number;
 }
 
 const DOWNS = [
@@ -272,9 +332,13 @@ export default function GameFilmPage() {
   const [tagEndTime, setTagEndTime] = useState<number | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [isSettingEndTime, setIsSettingEndTime] = useState(false);
-  const [isTaggingOpponent, setIsTaggingOpponent] = useState(false);
+  const [taggingMode, setTaggingMode] = useState<TaggingMode>('offense');
   const [analyticsTier, setAnalyticsTier] = useState<string>('hs_advanced');
-  const [selectedTab, setSelectedTab] = useState<'context' | 'players' | 'ol' | 'defense'>('context');
+  const [selectedTab, setSelectedTab] = useState<'context' | 'players' | 'ol' | 'defense' | 'specialTeams'>('context');
+  const [selectedSpecialTeamsUnit, setSelectedSpecialTeamsUnit] = useState<SpecialTeamsUnit | ''>('');
+
+  // Helper for backwards compatibility - is it a defensive play (opponent has the ball)?
+  const isTaggingOpponent = taggingMode === 'defense';
   const [selectedTacklers, setSelectedTacklers] = useState<string[]>([]);
   const [primaryTacklerId, setPrimaryTacklerId] = useState<string>('');
 
@@ -350,7 +414,7 @@ export default function GameFilmPage() {
     if (!error && data) {
       setGame(data);
       if (data.is_opponent_game) {
-        setIsTaggingOpponent(true);
+        setTaggingMode('defense');
       }
     }
   }
@@ -690,7 +754,15 @@ export default function GameFilmPage() {
     setEditingInstance(instance);
     setTagStartTime(instance.timestamp_start);
     setTagEndTime(instance.timestamp_end || null);
-    setIsTaggingOpponent(instance.is_opponent_play || false);
+    // Determine tagging mode based on instance data
+    if (instance.special_teams_unit) {
+      setTaggingMode('specialTeams');
+      setSelectedSpecialTeamsUnit(instance.special_teams_unit);
+    } else if (instance.is_opponent_play) {
+      setTaggingMode('defense');
+    } else {
+      setTaggingMode('offense');
+    }
     
     if (instance.is_opponent_play) {
       setValue('opponent_play_type', instance.play_code);
@@ -805,9 +877,11 @@ export default function GameFilmPage() {
         timestamp_end: tagEndTime || undefined,
         is_opponent_play: isTaggingOpponent,
 
-        play_code: isTaggingOpponent
-          ? (values.opponent_play_type || 'Unknown')
-          : (values.play_code || ''),
+        play_code: taggingMode === 'specialTeams'
+          ? `ST-${selectedSpecialTeamsUnit?.toUpperCase() || 'UNKNOWN'}`
+          : isTaggingOpponent
+            ? (values.opponent_play_type || 'Unknown')
+            : (values.play_code || ''),
 
         formation: values.formation || undefined,
         result_type: values.result_type || undefined,
@@ -878,7 +952,60 @@ export default function GameFilmPage() {
         is_interception: isTaggingOpponent ? (values.result_type === 'pass_interception') : undefined,
         qb_decision_grade: isTaggingOpponent && values.qb_decision_grade !== undefined
           ? parseInt(String(values.qb_decision_grade))
-          : undefined
+          : undefined,
+
+        // ======================================================================
+        // SPECIAL TEAMS TRACKING
+        // ======================================================================
+        special_teams_unit: taggingMode === 'specialTeams' ? (selectedSpecialTeamsUnit || undefined) : undefined,
+
+        // Kicking plays (Kickoff, Punt, FG, PAT)
+        kicker_id: taggingMode === 'specialTeams' && ['kickoff', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit)
+          ? (values.kicker_id || undefined) : undefined,
+        kick_result: taggingMode === 'specialTeams' ? (values.kick_result || undefined) : undefined,
+        kick_distance: taggingMode === 'specialTeams' && values.kick_distance
+          ? parseInt(String(values.kick_distance)) : undefined,
+
+        // Return plays (Kick Return, Punt Return)
+        returner_id: taggingMode === 'specialTeams' && ['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit)
+          ? (values.returner_id || undefined) : undefined,
+        return_yards: taggingMode === 'specialTeams' && values.return_yards
+          ? parseInt(String(values.return_yards)) : undefined,
+        is_fair_catch: taggingMode === 'specialTeams' ? (values.is_fair_catch || false) : undefined,
+        is_touchback: taggingMode === 'specialTeams' ? (values.is_touchback || false) : undefined,
+        is_muffed: taggingMode === 'specialTeams' ? (values.is_muffed || false) : undefined,
+
+        // Punt specific
+        punter_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'punt'
+          ? (values.punter_id || undefined) : undefined,
+        punt_type: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'punt'
+          ? (values.punt_type || undefined) : undefined,
+        gunner_tackle_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'punt'
+          ? (values.coverage_tackler_id || undefined) : undefined,
+
+        // Kickoff specific
+        kickoff_type: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'kickoff'
+          ? (values.kickoff_type || undefined) : undefined,
+
+        // Long snapper tracking (Punt, FG, PAT)
+        long_snapper_id: taggingMode === 'specialTeams' && ['punt', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit)
+          ? (values.long_snapper_id || undefined) : undefined,
+        snap_quality: taggingMode === 'specialTeams' && ['punt', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit)
+          ? (values.snap_quality || undefined) : undefined,
+
+        // Holder tracking (FG/PAT)
+        holder_id: taggingMode === 'specialTeams' && ['field_goal', 'pat'].includes(selectedSpecialTeamsUnit)
+          ? (values.holder_id || undefined) : undefined,
+
+        // Coverage tracking - for kickoffs
+        coverage_tackler_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'kickoff'
+          ? (values.coverage_tackler_id || undefined) : undefined,
+
+        // Penalty tracking (special teams)
+        penalty_on_play: taggingMode === 'specialTeams' ? (values.penalty_on_play || false) : undefined,
+        penalty_type: taggingMode === 'specialTeams' && values.penalty_on_play ? (values.penalty_type || undefined) : undefined,
+        penalty_yards: taggingMode === 'specialTeams' && values.penalty_on_play && values.penalty_yards
+          ? parseInt(String(values.penalty_yards)) : undefined
       };
 
       let playInstanceId: string;
@@ -1699,10 +1826,10 @@ export default function GameFilmPage() {
                     </select>
                   </div>
 
-                  {/* Offense/Defense Filter */}
+                  {/* Offense/Defense/Special Teams Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Offense/Defense
+                      Play Type
                     </label>
                     <select
                       value={filterOffenseDefense}
@@ -1712,6 +1839,7 @@ export default function GameFilmPage() {
                       <option value="all">All Plays</option>
                       <option value="offense">Our Offense</option>
                       <option value="defense">Our Defense (Opponent Plays)</option>
+                      <option value="specialTeams">Special Teams</option>
                     </select>
                   </div>
 
@@ -1760,11 +1888,14 @@ export default function GameFilmPage() {
                       return false;
                     }
 
-                    // Offense/Defense filter
-                    if (filterOffenseDefense === 'offense' && instance.is_opponent_play) {
+                    // Offense/Defense/Special Teams filter
+                    if (filterOffenseDefense === 'offense' && (instance.is_opponent_play || instance.special_teams_unit)) {
                       return false;
                     }
-                    if (filterOffenseDefense === 'defense' && !instance.is_opponent_play) {
+                    if (filterOffenseDefense === 'defense' && (!instance.is_opponent_play || instance.special_teams_unit)) {
+                      return false;
+                    }
+                    if (filterOffenseDefense === 'specialTeams' && !instance.special_teams_unit) {
                       return false;
                     }
 
@@ -1786,11 +1917,14 @@ export default function GameFilmPage() {
                     return false;
                   }
 
-                  // Offense/Defense filter
-                  if (filterOffenseDefense === 'offense' && instance.is_opponent_play) {
+                  // Offense/Defense/Special Teams filter
+                  if (filterOffenseDefense === 'offense' && (instance.is_opponent_play || instance.special_teams_unit)) {
                     return false;
                   }
-                  if (filterOffenseDefense === 'defense' && !instance.is_opponent_play) {
+                  if (filterOffenseDefense === 'defense' && (!instance.is_opponent_play || instance.special_teams_unit)) {
+                    return false;
+                  }
+                  if (filterOffenseDefense === 'specialTeams' && !instance.special_teams_unit) {
                     return false;
                   }
 
@@ -1836,7 +1970,12 @@ export default function GameFilmPage() {
                               #{index + 1}
                             </span>
                             <span className="font-semibold text-gray-900">{instance.play_code}</span>
-                            {instance.is_opponent_play && (
+                            {instance.special_teams_unit && (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
+                                {SPECIAL_TEAMS_UNITS.find(u => u.value === instance.special_teams_unit)?.label || 'Special Teams'}
+                              </span>
+                            )}
+                            {instance.is_opponent_play && !instance.special_teams_unit && (
                               <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
                                 Opponent
                               </span>
@@ -1945,7 +2084,8 @@ export default function GameFilmPage() {
             setShowTagModal(false);
             setEditingInstance(null);
             setIsSettingEndTime(false);
-            setIsTaggingOpponent(false);
+            setTaggingMode('offense');
+            setSelectedSpecialTeamsUnit('');
             setSelectedTacklers([]);
             setPrimaryTacklerId('');
             reset();
@@ -1976,7 +2116,8 @@ export default function GameFilmPage() {
                   setShowTagModal(false);
                   setEditingInstance(null);
                   setIsSettingEndTime(false);
-                  setIsTaggingOpponent(false);
+                  setTaggingMode('offense');
+                  setSelectedSpecialTeamsUnit('');
                   setSelectedTacklers([]);
                   setPrimaryTacklerId('');
                   reset();
@@ -2010,7 +2151,7 @@ export default function GameFilmPage() {
               {/* Right: Form */}
               <div className="w-full lg:w-[55%] flex flex-col bg-white overflow-y-auto px-8 py-6">
                 <form onSubmit={handleSubmit(onSubmitTag)} className="space-y-4">
-                  {/* Toggle: Offense vs Defense */}
+                  {/* Toggle: Offense vs Defense vs Special Teams */}
             <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {game.is_opponent_game ? 'Tagging Opponent:' : 'Tagging:'}
@@ -2018,35 +2159,72 @@ export default function GameFilmPage() {
               <div className="flex space-x-2">
                 <button
                   type="button"
-                  onClick={() => setIsTaggingOpponent(false)}
-                  className={isTaggingOpponent
-                    ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
-                    : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                  onClick={() => {
+                    setTaggingMode('offense');
+                    setSelectedSpecialTeamsUnit('');
+                  }}
+                  className={taggingMode === 'offense'
+                    ? 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                    : 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
                   }
                 >
                   Offense
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsTaggingOpponent(true)}
-                  className={!isTaggingOpponent
-                    ? 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
-                    : 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                  onClick={() => {
+                    setTaggingMode('defense');
+                    setSelectedSpecialTeamsUnit('');
+                  }}
+                  className={taggingMode === 'defense'
+                    ? 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                    : 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
                   }
                 >
                   Defense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTaggingMode('specialTeams')}
+                  className={taggingMode === 'specialTeams'
+                    ? 'flex-1 px-4 py-2 bg-black text-white rounded-md font-medium transition-colors'
+                    : 'flex-1 px-4 py-2 bg-white text-gray-700 rounded-md font-medium border border-gray-300 hover:bg-gray-50 transition-colors'
+                  }
+                >
+                  Special Teams
                 </button>
               </div>
               <p className="text-xs text-gray-600 mt-2">
                 {game.is_opponent_game
                   ? 'Offense = opponent offense, Defense = opponent defense'
-                  : 'Offense = your offense, Defense = opponent plays (what your defense faced)'
+                  : taggingMode === 'specialTeams'
+                    ? 'Special Teams = kickoffs, punts, field goals, PATs'
+                    : 'Offense = your offense, Defense = opponent plays (what your defense faced)'
                 }
               </p>
             </div>
 
-            {/* Drive Context - For Both Offense and Defense */}
-            {!game.is_opponent_game && (
+            {/* Special Teams Unit Selection */}
+            {taggingMode === 'specialTeams' && (
+              <div className="mb-4 bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Special Teams Unit
+                </label>
+                <select
+                  value={selectedSpecialTeamsUnit}
+                  onChange={(e) => setSelectedSpecialTeamsUnit(e.target.value as SpecialTeamsUnit | '')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                >
+                  <option value="">Select Unit...</option>
+                  {SPECIAL_TEAMS_UNITS.map(unit => (
+                    <option key={unit.value} value={unit.value}>{unit.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Drive Context - For Offense, Defense, and applicable Special Teams */}
+            {!game.is_opponent_game && taggingMode !== 'specialTeams' && (
               <div className={`mb-4 rounded-lg p-4 border ${isTaggingOpponent ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
                   Drive Context {isTaggingOpponent ? '(Defensive Drive)' : '(Offensive Drive)'}
@@ -2158,7 +2336,8 @@ export default function GameFilmPage() {
               </div>
             )}
 
-            {/* Situational Context - Down & Distance - VISIBLE FOR ALL */}
+            {/* Situational Context - Down & Distance - VISIBLE FOR OFFENSE/DEFENSE */}
+            {taggingMode !== 'specialTeams' && (
             <div className="mb-4 bg-white rounded p-3 border border-gray-200">
               <label className="block text-xs font-semibold text-gray-900 mb-2">Situation</label>
 
@@ -2244,9 +2423,376 @@ export default function GameFilmPage() {
                 </div>
               </div>
             </div>
+            )}
 
-              {/* Play Selection - CONDITIONAL */}
-              {isTaggingOpponent ? (
+            {/* Special Teams Form Section */}
+            {taggingMode === 'specialTeams' && selectedSpecialTeamsUnit && (
+              <div className="mb-4 bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                  {SPECIAL_TEAMS_UNITS.find(u => u.value === selectedSpecialTeamsUnit)?.label} Details
+                </label>
+
+                {/* Kickoff & Field Goal & PAT: Kicker Selection */}
+                {['kickoff', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Kicker</label>
+                    <select
+                      {...register('kicker_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select kicker...</option>
+                      {players
+                        .filter(p => playerHasPosition(p, 'K'))
+                        .map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      <optgroup label="All Players">
+                        {players.map(player => (
+                          <option key={`all-${player.id}`} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
+                {/* Punt: Punter Selection */}
+                {selectedSpecialTeamsUnit === 'punt' && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Punter</label>
+                    <select
+                      {...register('punter_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select punter...</option>
+                      {players
+                        .filter(p => playerHasPosition(p, 'P'))
+                        .map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      <optgroup label="All Players">
+                        {players.map(player => (
+                          <option key={`all-${player.id}`} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
+                {/* Return plays: Returner Selection */}
+                {['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Returner</label>
+                    <select
+                      {...register('returner_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select returner...</option>
+                      {players
+                        .filter(p => playerHasPosition(p, 'KR') || playerHasPosition(p, 'PR'))
+                        .map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      <optgroup label="All Players">
+                        {players.map(player => (
+                          <option key={`all-${player.id}`} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
+                {/* Kickoff Type */}
+                {selectedSpecialTeamsUnit === 'kickoff' && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Kickoff Type</label>
+                    <select
+                      {...register('kickoff_type')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select type...</option>
+                      {KICKOFF_TYPES.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Punt Type */}
+                {selectedSpecialTeamsUnit === 'punt' && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Punt Type</label>
+                    <select
+                      {...register('punt_type')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select type...</option>
+                      {PUNT_TYPES.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Kick Result - Based on Unit */}
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Result</label>
+                  <select
+                    {...register('kick_result')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                  >
+                    <option value="">Select result...</option>
+                    {getKickResultsForUnit(selectedSpecialTeamsUnit).map(result => (
+                      <option key={result.value} value={result.value}>{result.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Distance/Yards Fields */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {/* Kick Distance for FG/Punt/Kickoff */}
+                  {['field_goal', 'punt', 'kickoff'].includes(selectedSpecialTeamsUnit) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        {selectedSpecialTeamsUnit === 'field_goal' ? 'FG Distance (yds)' :
+                         selectedSpecialTeamsUnit === 'punt' ? 'Gross Punt Yards' : 'Kickoff Distance'}
+                      </label>
+                      <input
+                        {...register('kick_distance')}
+                        type="number"
+                        min="0"
+                        max="99"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        placeholder={selectedSpecialTeamsUnit === 'field_goal' ? '35' : '45'}
+                      />
+                    </div>
+                  )}
+
+                  {/* Return Yards */}
+                  {['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Return Yards</label>
+                      <input
+                        {...register('return_yards')}
+                        type="number"
+                        min="-99"
+                        max="109"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        placeholder="25"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Return Options: Fair Catch, Touchback, Muffed */}
+                {['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="flex flex-wrap gap-4 mb-3">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        {...register('is_fair_catch')}
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">Fair Catch</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        {...register('is_touchback')}
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">Touchback</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        {...register('is_muffed')}
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-gray-700">Muffed</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Long Snapper - For Punt, FG, PAT */}
+                {['punt', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Long Snapper</label>
+                      <select
+                        {...register('long_snapper_id')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                      >
+                        <option value="">Select...</option>
+                        {players
+                          .filter(p => playerHasPosition(p, 'LS'))
+                          .map(player => (
+                            <option key={player.id} value={player.id}>
+                              #{player.jersey_number} {getPlayerDisplayName(player)}
+                            </option>
+                          ))}
+                        <optgroup label="All Players">
+                          {players.map(player => (
+                            <option key={`all-${player.id}`} value={player.id}>
+                              #{player.jersey_number} {getPlayerDisplayName(player)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Snap Quality</label>
+                      <select
+                        {...register('snap_quality')}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                      >
+                        <option value="">Select...</option>
+                        {SNAP_QUALITY_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Holder - For FG, PAT */}
+                {['field_goal', 'pat'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Holder</label>
+                    <select
+                      {...register('holder_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select holder...</option>
+                      {players
+                        .filter(p => playerHasPosition(p, 'H') || playerHasPosition(p, 'P') || playerHasPosition(p, 'QB'))
+                        .map(player => (
+                          <option key={player.id} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      <optgroup label="All Players">
+                        {players.map(player => (
+                          <option key={`all-${player.id}`} value={player.id}>
+                            #{player.jersey_number} {getPlayerDisplayName(player)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
+                {/* Coverage Tackler - For Kickoff, Punt */}
+                {['kickoff', 'punt'].includes(selectedSpecialTeamsUnit) && (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {selectedSpecialTeamsUnit === 'punt' ? 'Gunner/Coverage Tackler' : 'Coverage Tackler'}
+                    </label>
+                    <select
+                      {...register('coverage_tackler_id')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">Select tackler...</option>
+                      {players.map(player => (
+                        <option key={player.id} value={player.id}>
+                          #{player.jersey_number} {getPlayerDisplayName(player)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Penalty Section */}
+                <div className="mt-4 pt-3 border-t border-amber-200">
+                  <label className="flex items-center space-x-2 mb-2">
+                    <input
+                      {...register('penalty_on_play')}
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Penalty on Play</span>
+                  </label>
+
+                  {watch('penalty_on_play') && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Type</label>
+                        <input
+                          {...register('penalty_type')}
+                          type="text"
+                          placeholder="e.g., Holding"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Yards</label>
+                        <input
+                          {...register('penalty_yards')}
+                          type="number"
+                          min="0"
+                          max="99"
+                          placeholder="10"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Yard Line for Special Teams */}
+            {taggingMode === 'specialTeams' && selectedSpecialTeamsUnit && (
+              <div className="mb-4 bg-white rounded p-3 border border-gray-200">
+                <label className="block text-xs font-semibold text-gray-900 mb-2">Field Position</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Yard Line</label>
+                    <input
+                      {...register('yard_line')}
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder={selectedSpecialTeamsUnit === 'kickoff' ? '35' : '25'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedSpecialTeamsUnit === 'kickoff' ? 'Where ball was kicked from' :
+                       ['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) ? 'Where return ended' :
+                       '0 = own goal, 50 = midfield'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Quarter</label>
+                    <select
+                      {...register('quarter')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    >
+                      <option value="">-</option>
+                      <option value="1">Q1</option>
+                      <option value="2">Q2</option>
+                      <option value="3">Q3</option>
+                      <option value="4">Q4</option>
+                      <option value="5">OT</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+              {/* Play Selection - CONDITIONAL - Hide for Special Teams */}
+              {taggingMode !== 'specialTeams' && (isTaggingOpponent ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Opponent Play Type <span className="text-red-600">*</span>
@@ -2362,7 +2908,7 @@ export default function GameFilmPage() {
                   </select>
                   {errors.play_code && <p className="text-red-600 text-sm mt-1">{errors.play_code.message}</p>}
                 </div>
-              )}
+              ))}
 
               {/* Opponent Player Number - Only for Defense */}
               {isTaggingOpponent && (
@@ -3032,7 +3578,8 @@ export default function GameFilmPage() {
                     setShowTagModal(false);
                     setEditingInstance(null);
                     setIsSettingEndTime(false);
-                    setIsTaggingOpponent(false);
+                    setTaggingMode('offense');
+                    setSelectedSpecialTeamsUnit('');
                     setSelectedTacklers([]);
                     setPrimaryTacklerId('');
                     reset();
