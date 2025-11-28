@@ -11,7 +11,10 @@ import ViewModeToggle, { VIEW_MODES } from '@/components/ViewModeToggle';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkArchive, bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
-import type { GamePlan, GamePlanPlayWithDetails, PlaybookPlay } from '@/types/football';
+import type { GamePlan, GamePlanPlayWithDetails, PlaybookPlay, PlayDiagram } from '@/types/football';
+import MiniPlayDiagram from '@/components/MiniPlayDiagram';
+import PlaybookCategorySidebar from '@/components/PlaybookCategorySidebar';
+import { filterPlaysByCategory, CategoryPath } from '@/config/playbookCategories';
 
 interface Team {
   id: string;
@@ -23,7 +26,7 @@ interface Team {
   };
 }
 
-type ViewMode = 'grid' | 'list' | 'gameplan';
+type ViewMode = 'madden' | 'grid' | 'list' | 'gameplan';
 
 export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
@@ -31,7 +34,15 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
   const [plays, setPlays] = useState<PlaybookPlay[]>([]);
   const [filteredPlays, setFilteredPlays] = useState<PlaybookPlay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('madden');
+
+  // Madden mode category selection
+  const [categoryPath, setCategoryPath] = useState<CategoryPath>({
+    odk: 'offense',
+    category: null,
+    subcategory: null,
+    viewMode: 'playType'
+  });
 
   // Multi-select system
   const {
@@ -64,17 +75,18 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
   const [searchTerm, setSearchTerm] = useState('');
   const [filterODK, setFilterODK] = useState<string>('all');
   const [filterFormation, setFilterFormation] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
     fetchData();
-  }, [teamId]);
+  }, [teamId, showArchived]);
 
   useEffect(() => {
     applyFilters();
-  }, [plays, searchTerm, filterODK, filterFormation]);
+  }, [plays, searchTerm, filterODK, filterFormation, categoryPath, viewMode]);
 
   async function fetchData() {
     try {
@@ -89,11 +101,17 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
       setTeam(teamData);
 
       // Fetch plays for this team
-      const { data: playsData, error: playsError } = await supabase
+      let playsQuery = supabase
         .from('playbook_plays')
         .select('*')
-        .eq('team_id', teamId)
-        .eq('is_archived', false)
+        .eq('team_id', teamId);
+
+      // Only filter by is_archived when NOT showing archived plays
+      if (!showArchived) {
+        playsQuery = playsQuery.eq('is_archived', false);
+      }
+
+      const { data: playsData, error: playsError } = await playsQuery
         .order('play_code', { ascending: true });
 
       if (playsError) throw playsError;
@@ -146,19 +164,25 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
   function applyFilters() {
     let filtered = [...plays];
 
-    if (searchTerm) {
-      filtered = filtered.filter(play =>
-        play.play_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        play.play_code.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+    // In Madden mode, use category-based filtering
+    if (viewMode === 'madden') {
+      filtered = filterPlaysByCategory(filtered, categoryPath);
+    } else {
+      // Traditional filtering for grid/list modes
+      if (searchTerm) {
+        filtered = filtered.filter(play =>
+          play.play_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          play.play_code.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
 
-    if (filterODK !== 'all') {
-      filtered = filtered.filter(play => play.attributes?.odk === filterODK);
-    }
+      if (filterODK !== 'all') {
+        filtered = filtered.filter(play => play.attributes?.odk === filterODK);
+      }
 
-    if (filterFormation !== 'all') {
-      filtered = filtered.filter(play => play.attributes?.formation === filterFormation);
+      if (filterFormation !== 'all') {
+        filtered = filtered.filter(play => play.attributes?.formation === filterFormation);
+      }
     }
 
     setFilteredPlays(filtered);
@@ -400,6 +424,21 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
     }
   }
 
+  async function handleRestorePlay(playId: string) {
+    try {
+      const { error } = await supabase
+        .from('playbook_plays')
+        .update({ is_archived: false })
+        .eq('id', playId);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error restoring play:', error);
+      alert('Error restoring play');
+    }
+  }
+
   const uniqueFormations = Array.from(
     new Set(plays.map(p => p.attributes?.formation).filter(Boolean))
   ).sort();
@@ -458,16 +497,27 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
             </div>
           </div>
 
-          {/* View Mode Toggle - Top Right (Grid/List only) */}
+          {/* View Mode Toggle - Top Right */}
           <ViewModeToggle
-            currentMode={viewMode === 'gameplan' ? 'grid' : viewMode}
+            currentMode={viewMode === 'gameplan' ? 'madden' : viewMode}
             modes={VIEW_MODES.PLAYBOOK}
-            onChange={(mode) => setViewMode(mode as 'grid' | 'list')}
+            onChange={(mode) => {
+              setViewMode(mode as 'madden' | 'grid' | 'list');
+              // Reset category path when switching away from madden mode
+              if (mode !== 'madden') {
+                setCategoryPath({
+                  odk: 'offense',
+                  category: null,
+                  subcategory: null,
+                  viewMode: 'playType'
+                });
+              }
+            }}
           />
         </div>
 
-        {/* Filters (Grid & List View) */}
-        {viewMode !== 'gameplan' && plays.length > 0 && (
+        {/* Filters (Grid & List View only - not in Madden mode) */}
+        {viewMode !== 'gameplan' && viewMode !== 'madden' && plays.length > 0 && (
           <div className="mb-8 flex items-center space-x-4">
             <input
               type="text"
@@ -503,22 +553,180 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
               </select>
             )}
 
-            {(searchTerm || filterODK !== 'all' || filterFormation !== 'all') && (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterODK('all');
-                  setFilterFormation('all');
-                }}
-                className="px-4 py-2 text-gray-700 hover:text-black font-medium transition-colors"
-              >
-                Clear
-              </button>
-            )}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              <span className="text-sm text-gray-700">Show Archived</span>
+            </label>
           </div>
         )}
 
         {/* Content based on view mode */}
+        {viewMode === 'madden' && (
+          <div className="flex gap-6">
+            {/* Category Sidebar */}
+            <PlaybookCategorySidebar
+              plays={plays}
+              categoryPath={categoryPath}
+              onCategoryChange={setCategoryPath}
+            />
+
+            {/* Plays Grid */}
+            <div className="flex-1">
+              {plays.length === 0 ? (
+                <div className="text-center py-20 bg-gray-50 rounded-lg">
+                  <div className="max-w-md mx-auto">
+                    <p className="text-2xl font-semibold text-gray-900 mb-3">No plays yet</p>
+                    <p className="text-gray-600 mb-8">Build your first play to get started.</p>
+                    <button
+                      onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
+                      className="px-8 py-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-lg"
+                    >
+                      Build First Play
+                    </button>
+                  </div>
+                </div>
+              ) : filteredPlays.length === 0 ? (
+                <div className="text-center py-20 bg-gray-50 rounded-lg">
+                  <p className="text-xl text-gray-600">
+                    {categoryPath.category
+                      ? `No plays in this category`
+                      : `No ${categoryPath.odk} plays yet`}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Breadcrumb / Current Selection */}
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium text-gray-900 capitalize">{categoryPath.odk}</span>
+                      {categoryPath.category && (
+                        <>
+                          <span className="mx-2 text-gray-400">/</span>
+                          <span className="font-medium text-gray-900">{categoryPath.category}</span>
+                        </>
+                      )}
+                      {categoryPath.subcategory && (
+                        <>
+                          <span className="mx-2 text-gray-400">/</span>
+                          <span className="font-medium text-gray-900">{categoryPath.subcategory}</span>
+                        </>
+                      )}
+                      <span className="ml-2 text-gray-500">({filteredPlays.length} plays)</span>
+                    </div>
+                  </div>
+
+                  {/* Plays Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {filteredPlays.map(play => (
+                      <div
+                        key={play.id}
+                        className={`
+                          relative group
+                          bg-white border rounded-xl overflow-hidden transition-all
+                          ${isSelected(play.play_code)
+                            ? 'border-blue-500 border-2 ring-2 ring-blue-200'
+                            : 'border-gray-200 hover:border-gray-400'
+                          }
+                        `}
+                      >
+                        {/* Selection Badge */}
+                        <SelectionBadge
+                          isSelected={isSelected(play.play_code)}
+                          onToggle={() => toggleSelect(play.play_code)}
+                        />
+
+                        {/* Play Diagram Preview */}
+                        <div className="w-full bg-gray-100">
+                          <MiniPlayDiagram
+                            diagram={play.diagram as PlayDiagram}
+                            attributes={play.attributes}
+                            width={320}
+                            height={160}
+                            className="w-full"
+                          />
+                        </div>
+
+                        <div className="p-4 border-b border-gray-100">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-sm font-medium text-gray-500">{play.play_code}</h3>
+                                {play.is_archived && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-700">
+                                    Archived
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-lg font-semibold text-gray-900 mt-1">{play.play_name}</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-0.5 text-sm text-gray-600">
+                            <p>{play.attributes?.formation || 'No formation'}</p>
+                            {play.attributes?.playType && (
+                              <p className="text-gray-500">{play.attributes.playType}</p>
+                            )}
+                            {play.attributes?.coverage && (
+                              <p className="text-gray-500">{play.attributes.coverage}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="p-3 bg-gray-50 flex items-center justify-between">
+                          <button
+                            onClick={() => router.push(`/teams/${teamId}/playbook/${play.id}`)}
+                            className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
+                          >
+                            View/Edit
+                          </button>
+
+                          <div className="flex items-center space-x-3">
+                            {play.is_archived ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRestorePlay(play.id);
+                                }}
+                                className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
+                              >
+                                Restore
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleArchivePlay(play.id);
+                                }}
+                                className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
+                              >
+                                Archive
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePlay(play.id);
+                              }}
+                              className="text-sm text-red-600 hover:text-red-700 font-medium transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {viewMode === 'grid' && (
           <>
             {plays.length === 0 ? (
@@ -558,10 +766,28 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                       onToggle={() => toggleSelect(play.play_code)}
                     />
 
+                    {/* Play Diagram Preview */}
+                    <div className="w-full bg-gray-100">
+                      <MiniPlayDiagram
+                        diagram={play.diagram as PlayDiagram}
+                        attributes={play.attributes}
+                        width={320}
+                        height={160}
+                        className="w-full"
+                      />
+                    </div>
+
                     <div className="p-6 border-b border-gray-100">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <h3 className="text-sm font-medium text-gray-500">{play.play_code}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-medium text-gray-500">{play.play_code}</h3>
+                            {play.is_archived && (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-700">
+                                Archived
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xl font-semibold text-gray-900 mt-1">{play.play_name}</p>
                         </div>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
@@ -587,22 +813,34 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
 
                     <div className="p-4 bg-gray-50 flex items-center justify-between">
                       <button
-                        onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
+                        onClick={() => router.push(`/teams/${teamId}/playbook/${play.id}`)}
                         className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
                       >
                         View/Edit
                       </button>
 
                       <div className="flex items-center space-x-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleArchivePlay(play.id);
-                          }}
-                          className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
-                        >
-                          Archive
-                        </button>
+                        {play.is_archived ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRestorePlay(play.id);
+                            }}
+                            className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors"
+                          >
+                            Restore
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleArchivePlay(play.id);
+                            }}
+                            className="text-sm text-gray-700 hover:text-black font-medium transition-colors"
+                          >
+                            Archive
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -694,7 +932,14 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                           />
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {play.play_code}
+                          <div className="flex items-center gap-2">
+                            {play.play_code}
+                            {play.is_archived && (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-700">
+                                Archived
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {play.play_name}
@@ -717,17 +962,26 @@ export default function TeamPlaybookPage({ params }: { params: Promise<{ teamId:
                         </td>
                         <td className="px-6 py-4 text-right text-sm space-x-3">
                           <button
-                            onClick={() => router.push(`/teams/${teamId}/playbook/new`)}
+                            onClick={() => router.push(`/teams/${teamId}/playbook/${play.id}`)}
                             className="text-gray-700 hover:text-black font-medium"
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => handleArchivePlay(play.id)}
-                            className="text-gray-700 hover:text-black font-medium"
-                          >
-                            Archive
-                          </button>
+                          {play.is_archived ? (
+                            <button
+                              onClick={() => handleRestorePlay(play.id)}
+                              className="text-green-600 hover:text-green-700 font-medium"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchivePlay(play.id)}
+                              className="text-gray-700 hover:text-black font-medium"
+                            >
+                              Archive
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeletePlay(play.id)}
                             className="text-red-600 hover:text-red-700 font-medium"

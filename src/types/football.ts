@@ -10,13 +10,20 @@ export interface Player {
   y: number;
   label: string;
   assignment?: string;
-  blockType?: string;           
+  blockType?: string;
   blockResponsibility?: string;
+  blockDirection?: { x: number; y: number }; // Vector for block arrow direction
   isPrimary?: boolean;
-  // Pre-snap motion (NEW)
+  // Pre-snap motion
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
   motionDirection?: 'toward-center' | 'away-from-center';
   motionEndpoint?: { x: number; y: number }; // Draggable endpoint for motion path
+  // Defensive assignments
+  coverageRole?: string;                      // Coverage assignment (Deep Third, Flat, Man, etc.)
+  coverageDepth?: string;                     // Coverage depth
+  coverageDescription?: string;               // Description of coverage responsibility
+  blitzGap?: string;                          // Blitz gap assignment (A, B, C, D)
+  zoneEndpoint?: { x: number; y: number };    // Endpoint for zone coverage area or blitz arrow
 }
 
 /**

@@ -2,8 +2,13 @@
 
 import { useRef, useCallback } from 'react';
 import Tooltip from '@/components/Tooltip';
-import { POSITION_GROUPS, isDefensiveLineman } from '@/config/footballConfig';
+import { POSITION_GROUPS, isDefensiveLineman, isLinebacker, isDefensiveBack, getGapPositionFromName } from '@/config/footballConfig';
 import { FIELD_CONFIG } from './fieldConstants';
+
+// Deep coverage roles that get blue zones (darker blue for visibility)
+const DEEP_COVERAGE_ROLES = ['Deep Third', 'Deep Half', 'Quarter'];
+const DEEP_ZONE_COLOR = '#1E40AF'; // Darker blue for better visibility
+const SHALLOW_ZONE_COLOR = '#CA8A04'; // Darker gold/yellow
 
 interface Player {
   id: string;
@@ -19,6 +24,7 @@ interface Player {
   motionType?: 'None' | 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
   motionDirection?: 'toward-center' | 'away-from-center';
   motionEndpoint?: { x: number; y: number };
+  motionControlPoint?: { x: number; y: number };
   coverageRole?: string;
   coverageDepth?: number;
   coverageDescription?: string;
@@ -43,18 +49,27 @@ interface FieldDiagramProps {
   dummyOffenseFormation: string;
   dummyDefenseFormation: string;
   isDrawingRoute: boolean;
+  isDrawingDrag: boolean;
   currentRoute: Array<{ x: number; y: number }>;
   playType: string;
   targetHole: string;
   ballCarrier: string;
-  onMouseDown: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean) => void;
-  onTouchStart: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean) => void;
+  selectedPlayer: string | null;
+  onMouseDown: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean) => void;
+  onTouchStart: (playerId: string, isMotionEndpoint?: boolean, isBlockDirection?: boolean, isZoneEndpoint?: boolean, isMotionControlPoint?: boolean) => void;
   onMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
   onMouseUp: () => void;
   onTouchMove: (e: React.TouchEvent<SVGSVGElement>) => void;
   onTouchEnd: () => void;
   onFieldClick: (e: React.MouseEvent<SVGSVGElement>) => void;
   onFieldDoubleClick: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onDrawingMouseDown: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onDrawingMouseMove: (e: React.MouseEvent<SVGSVGElement>) => void;
+  onDrawingMouseUp: () => void;
+  onUndoSegment: () => void;
+  onFinishDrawing: () => void;
+  onCancelDrawing: () => void;
+  onEditCustomRoute?: (playerId: string) => void;
 }
 
 export default function FieldDiagram({
@@ -65,10 +80,12 @@ export default function FieldDiagram({
   dummyOffenseFormation,
   dummyDefenseFormation,
   isDrawingRoute,
+  isDrawingDrag,
   currentRoute,
   playType,
   targetHole,
   ballCarrier,
+  selectedPlayer,
   onMouseDown,
   onTouchStart,
   onMouseMove,
@@ -76,9 +93,44 @@ export default function FieldDiagram({
   onTouchMove,
   onTouchEnd,
   onFieldClick,
-  onFieldDoubleClick
+  onFieldDoubleClick,
+  onDrawingMouseDown,
+  onDrawingMouseMove,
+  onDrawingMouseUp,
+  onUndoSegment,
+  onFinishDrawing,
+  onCancelDrawing,
+  onEditCustomRoute
 }: FieldDiagramProps) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const clickStartRef = useRef<{ x: number; y: number; playerId: string } | null>(null);
+
+  // Check if a player has a custom drawn route
+  const hasCustomRoute = (playerId: string): boolean => {
+    const player = players.find(p => p.id === playerId);
+    return player?.assignment === 'Draw Route (Custom)' && routes.some(r => r.playerId === playerId);
+  };
+
+  // Track mouse down position for click detection
+  const handlePlayerMouseDown = (playerId: string, e: React.MouseEvent) => {
+    clickStartRef.current = { x: e.clientX, y: e.clientY, playerId };
+    onMouseDown(playerId);
+  };
+
+  // Handle player click - only trigger if mouse didn't move much (not a drag)
+  const handlePlayerClick = (playerId: string, e: React.MouseEvent) => {
+    if (!clickStartRef.current || clickStartRef.current.playerId !== playerId) return;
+
+    const dx = Math.abs(e.clientX - clickStartRef.current.x);
+    const dy = Math.abs(e.clientY - clickStartRef.current.y);
+
+    // Only count as click if mouse moved less than 5 pixels (not a drag)
+    if (dx < 5 && dy < 5 && hasCustomRoute(playerId) && onEditCustomRoute) {
+      onEditCustomRoute(playerId);
+    }
+
+    clickStartRef.current = null;
+  };
 
   const getPositionGroup = (position: string): 'linemen' | 'backs' | 'receivers' => {
     if (POSITION_GROUPS.linemen.includes(position)) return 'linemen';
@@ -165,8 +217,11 @@ export default function FieldDiagram({
     };
   };
 
+  // Play types that show ball carrier arrow (run-based plays)
+  const runBasedPlayTypes = ['Run', 'Draw', 'RPO'];
+
   const renderBallCarrierArrow = (player: Player) => {
-    if (playType !== 'Run' || !targetHole || player.label !== ballCarrier) return null;
+    if (!runBasedPlayTypes.includes(playType) || !targetHole || player.label !== ballCarrier) return null;
 
     const holePos = getHolePosition(targetHole);
     const startX = player.motionEndpoint?.x || player.x;
@@ -259,51 +314,107 @@ export default function FieldDiagram({
     const endX = player.motionEndpoint.x;
     const endY = player.motionEndpoint.y;
 
-    const lineOfScrimmage = FIELD_CONFIG.LINE_OF_SCRIMMAGE;
-    const isOnLOS = Math.abs(startY - lineOfScrimmage) <= 5;
+    // Calculate default control point if not set (midpoint with vertical offset for curve)
+    const defaultControlX = (startX + endX) / 2;
+    const defaultControlY = Math.max(startY, endY) + 30; // Default curve below the line
 
-    let pathD;
-    if (isOnLOS) {
-      const controlY = startY + 15;
-      const controlX = (startX + endX) / 2;
-      pathD = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
-    } else {
-      pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
-    }
+    const controlX = player.motionControlPoint?.x ?? defaultControlX;
+    const controlY = player.motionControlPoint?.y ?? defaultControlY;
+
+    // Use quadratic bezier curve with the control point
+    const pathD = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
 
     return (
       <g key={`motion-${player.id}`}>
         <defs>
           <marker
             id={`motion-arrow-${player.id}`}
-            markerWidth="6"
-            markerHeight="6"
-            refX="5"
-            refY="3"
+            markerWidth="8"
+            markerHeight="8"
+            refX="6"
+            refY="4"
             orient="auto"
           >
-            <path d="M 0 0 L 6 3 L 0 6 z" fill="#4F46E5" />
+            <path d="M 0 0 L 8 4 L 0 8 z" fill="#00BFFF" />
           </marker>
         </defs>
+
+        {/* Control point guide lines (dashed lines from start/end to control point) */}
+        <line
+          x1={startX}
+          y1={startY}
+          x2={controlX}
+          y2={controlY}
+          stroke="#00BFFF"
+          strokeWidth="1"
+          strokeDasharray="3,3"
+          opacity="0.5"
+        />
+        <line
+          x1={endX}
+          y1={endY}
+          x2={controlX}
+          y2={controlY}
+          stroke="#00BFFF"
+          strokeWidth="1"
+          strokeDasharray="3,3"
+          opacity="0.5"
+        />
+
+        {/* Motion path with outline for better visibility */}
         <path
           d={pathD}
           fill="none"
-          stroke="#4F46E5"
-          strokeWidth="2"
-          strokeDasharray="5,5"
+          stroke="#000000"
+          strokeWidth="5"
+          strokeDasharray="8,4"
+        />
+        <path
+          d={pathD}
+          fill="none"
+          stroke="#00BFFF"
+          strokeWidth="3"
+          strokeDasharray="8,4"
           markerEnd={`url(#motion-arrow-${player.id})`}
         />
+
+        {/* Control point handle - draggable (diamond shape) */}
+        <rect
+          x={controlX - 6}
+          y={controlY - 6}
+          width="12"
+          height="12"
+          fill="#00BFFF"
+          stroke="#000000"
+          strokeWidth="2"
+          transform={`rotate(45 ${controlX} ${controlY})`}
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onMouseDown(player.id, false, false, false, true);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            onTouchStart(player.id, false, false, false, true);
+          }}
+        />
+
+        {/* Motion endpoint circle - draggable */}
         <circle
           cx={endX}
           cy={endY}
-          r="6"
-          fill="#4F46E5"
-          stroke="#ffffff"
+          r="8"
+          fill="#00BFFF"
+          stroke="#000000"
           strokeWidth="2"
           className="cursor-move"
           onMouseDown={(e) => {
             e.stopPropagation();
-            onMouseDown(player.id, true, false, false);
+            onMouseDown(player.id, true, false, false, false);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            onTouchStart(player.id, true, false, false, false);
           }}
         />
       </g>
@@ -357,6 +468,127 @@ export default function FieldDiagram({
     );
   };
 
+  const renderCoverageZone = (player: Player) => {
+    // Skip defensive linemen and players with blitz assignments or man coverage
+    if (isDefensiveLineman(player.position)) return null;
+    if (!player.coverageRole || player.blitzGap || player.coverageRole === 'Man') return null;
+
+    const startX = player.x;
+    const startY = player.y;
+
+    // Use saved zoneEndpoint or calculate default (30px above player)
+    const defaultDepth = player.coverageDepth || 30;
+    const endpoint = player.zoneEndpoint || { x: player.x, y: player.y - defaultDepth };
+
+    const isDeep = DEEP_COVERAGE_ROLES.includes(player.coverageRole);
+    const zoneColor = isDeep ? DEEP_ZONE_COLOR : SHALLOW_ZONE_COLOR;
+
+    // Calculate ellipse dimensions
+    const width = Math.abs(endpoint.x - startX) || 50;
+    const height = Math.abs(endpoint.y - startY) || 30;
+
+    return (
+      <g key={`zone-${player.id}`}>
+        {/* Line from player to zone center */}
+        <line
+          x1={startX}
+          y1={startY}
+          x2={endpoint.x}
+          y2={endpoint.y}
+          stroke={zoneColor}
+          strokeWidth="2"
+        />
+        {/* Zone ellipse */}
+        <ellipse
+          cx={endpoint.x}
+          cy={endpoint.y}
+          rx={Math.max(width / 2, 30)}
+          ry={Math.max(height / 2, 20)}
+          fill={zoneColor}
+          opacity={0.25}
+          stroke={zoneColor}
+          strokeWidth="2"
+          strokeDasharray="5,3"
+        />
+        {/* Draggable zone endpoint handle */}
+        <circle
+          cx={endpoint.x}
+          cy={endpoint.y}
+          r="6"
+          fill={zoneColor}
+          stroke="#ffffff"
+          strokeWidth="2"
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onMouseDown(player.id, false, false, true);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            onTouchStart(player.id, false, false, true);
+          }}
+        />
+      </g>
+    );
+  };
+
+  const renderBlitzArrow = (player: Player) => {
+    if (!player.blitzGap) return null;
+
+    const startX = player.x;
+    const startY = player.y;
+
+    // Use saved zoneEndpoint or calculate from gap name
+    const gapPos = player.zoneEndpoint || getGapPositionFromName(player.blitzGap, FIELD_CONFIG.CENTER_X);
+    const endX = gapPos.x;
+    const endY = gapPos.y;
+
+    return (
+      <g key={`blitz-${player.id}`}>
+        <defs>
+          <marker
+            id={`arrowhead-blitz-${player.id}`}
+            markerWidth="6"
+            markerHeight="6"
+            refX="5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M 0 0 L 6 3 L 0 6 z" fill="#DC2626" />
+          </marker>
+        </defs>
+        {/* Blitz arrow */}
+        <line
+          x1={startX}
+          y1={startY}
+          x2={endX}
+          y2={endY}
+          stroke="#DC2626"
+          strokeWidth="2.5"
+          markerEnd={`url(#arrowhead-blitz-${player.id})`}
+        />
+        {/* Draggable blitz endpoint handle */}
+        <circle
+          cx={endX}
+          cy={endY}
+          r="6"
+          fill="#DC2626"
+          stroke="#ffffff"
+          strokeWidth="2"
+          className="cursor-move"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onMouseDown(player.id, false, false, true);
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+            onTouchStart(player.id, false, false, true);
+          }}
+        />
+      </g>
+    );
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
       <div className="flex items-center gap-2 mb-4">
@@ -370,9 +602,9 @@ export default function FieldDiagram({
       
       <div className="mb-4 p-3 bg-gray-50 rounded-md text-xs leading-relaxed">
         <p className="text-gray-700">
-          <strong>Drag players</strong> to reposition. <strong>Select assignments</strong> from dropdowns - routes auto-generate! 
+          <strong>Drag players</strong> to reposition. <strong>Select assignments</strong> from dropdowns - routes auto-generate!
           {isDrawingRoute && (
-            <span className="text-orange-600 font-semibold"> ✏️ Drawing mode active: Click to add points, double-click to finish.</span>
+            <span className="text-orange-600 font-semibold"> ✏️ Drawing mode: Click and drag to draw route. Release to pause. Click Finish when done.</span>
           )}
           {dummyOffenseFormation && (
             <span className="text-blue-600 font-semibold"> 👁️ Reference offense visible - gaps adjust to O-line positions.</span>
@@ -384,14 +616,66 @@ export default function FieldDiagram({
       </div>
 
       <div className="border-2 border-gray-300 rounded-lg overflow-hidden relative">
+        {/* Drawing Mode Controls */}
+        {isDrawingRoute && (
+          <div className="absolute top-2 right-2 z-10 flex gap-2">
+            <button
+              onClick={onUndoSegment}
+              className="px-3 py-1.5 bg-yellow-500 text-white text-sm font-medium rounded shadow hover:bg-yellow-600 transition-colors flex items-center gap-1"
+              title="Undo last segment"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Undo
+            </button>
+            <button
+              onClick={onFinishDrawing}
+              className="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded shadow hover:bg-green-700 transition-colors flex items-center gap-1"
+              title="Finish drawing route"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Finish
+            </button>
+            <button
+              onClick={onCancelDrawing}
+              className="px-3 py-1.5 bg-red-500 text-white text-sm font-medium rounded shadow hover:bg-red-600 transition-colors flex items-center gap-1"
+              title="Cancel drawing"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Cancel
+            </button>
+          </div>
+        )}
+
         <svg
           ref={svgRef}
           viewBox={`0 0 ${FIELD_CONFIG.WIDTH} ${FIELD_CONFIG.HEIGHT}`}
           className="w-full h-auto bg-green-100"
-          style={{ touchAction: 'none' }}
+          style={{
+            touchAction: 'none',
+            cursor: isDrawingRoute ? 'crosshair' : 'default'
+          }}
           preserveAspectRatio="xMidYMid meet"
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
+          onMouseDown={isDrawingRoute ? onDrawingMouseDown : undefined}
+          onMouseMove={(e) => {
+            if (isDrawingRoute && isDrawingDrag) {
+              onDrawingMouseMove(e);
+            } else {
+              onMouseMove(e);
+            }
+          }}
+          onMouseUp={() => {
+            if (isDrawingRoute) {
+              onDrawingMouseUp();
+            } else {
+              onMouseUp();
+            }
+          }}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
           onClick={onFieldClick}
@@ -443,6 +727,7 @@ export default function FieldDiagram({
                 fontWeight="600"
                 fill="white"
                 opacity={0.6}
+                style={{ pointerEvents: 'none' }}
               >
                 {player.label}
               </text>
@@ -476,6 +761,7 @@ export default function FieldDiagram({
                     fontWeight="600"
                     fill="black"
                     opacity={0.6}
+                    style={{ pointerEvents: 'none' }}
                   >
                     {player.label}
                   </text>
@@ -514,6 +800,7 @@ export default function FieldDiagram({
                     fontWeight="600"
                     fill="white"
                     opacity={0.6}
+                    style={{ pointerEvents: 'none' }}
                   >
                     {player.label}
                   </text>
@@ -525,6 +812,14 @@ export default function FieldDiagram({
           {/* Routes */}
           {routes.map(route => renderPassRoute(route))}
 
+          {/* Coverage zones and blitz arrows for defensive players */}
+          {players.filter(p => p.side === 'defense').map(player => (
+            <g key={`defensive-${player.id}`}>
+              {renderCoverageZone(player)}
+              {renderBlitzArrow(player)}
+            </g>
+          ))}
+
           {/* Ball carrier arrows, blocking arrows, motion arrows */}
           {players.map(player => (
             <g key={`arrows-${player.id}`}>
@@ -535,77 +830,113 @@ export default function FieldDiagram({
           ))}
 
           {/* Real players */}
-          {players.map(player => (
-            <g key={player.id}>
-              {player.side === 'offense' ? (
-                <circle
-                  cx={player.x}
-                  cy={player.y}
-                  r={FIELD_CONFIG.PLAYER_RADIUS}
-                  fill={player.isPrimary ? '#DC2626' : '#DC2626'}
-                  stroke={player.isPrimary ? '#FBBF24' : 'black'}
-                  strokeWidth={player.isPrimary ? 3 : 2}
-                  className="cursor-move"
-                  onMouseDown={() => onMouseDown(player.id)}
-                  onTouchStart={() => onTouchStart(player.id)}
-                />
-              ) : isDefensiveLineman(player.position) ? (
-                <rect
-                  x={player.x - FIELD_CONFIG.PLAYER_RADIUS}
-                  y={player.y - FIELD_CONFIG.PLAYER_RADIUS}
-                  width={FIELD_CONFIG.PLAYER_RADIUS * 2}
-                  height={FIELD_CONFIG.PLAYER_RADIUS * 2}
-                  fill="white"
-                  stroke="black"
-                  strokeWidth="2"
-                  className="cursor-move"
-                  onMouseDown={() => onMouseDown(player.id)}
-                  onTouchStart={() => onTouchStart(player.id)}
-                />
-              ) : (
-                <>
-                  <line
-                    x1={player.x - 10}
-                    y1={player.y - 10}
-                    x2={player.x + 10}
-                    y2={player.y + 10}
-                    stroke="white"
-                    strokeWidth="3"
+          {players.map(player => {
+            const playerHasCustomRoute = hasCustomRoute(player.id);
+
+            return (
+              <g key={player.id}>
+                {/* Highlight ring for players with editable custom routes */}
+                {playerHasCustomRoute && (
+                  <circle
+                    cx={player.x}
+                    cy={player.y}
+                    r={FIELD_CONFIG.PLAYER_RADIUS + 4}
+                    fill="none"
+                    stroke="#FF8C00"
+                    strokeWidth="2"
+                    strokeDasharray="4,2"
+                    opacity="0.8"
+                  />
+                )}
+
+                {player.side === 'offense' ? (
+                  // Offense: circles (red)
+                  <circle
+                    cx={player.x}
+                    cy={player.y}
+                    r={FIELD_CONFIG.PLAYER_RADIUS}
+                    fill={player.isPrimary ? '#DC2626' : '#DC2626'}
+                    stroke={player.isPrimary ? '#FBBF24' : 'black'}
+                    strokeWidth={player.isPrimary ? 3 : 2}
+                    className={playerHasCustomRoute ? 'cursor-pointer' : 'cursor-move'}
+                    onMouseDown={(e) => handlePlayerMouseDown(player.id, e)}
+                    onTouchStart={() => onTouchStart(player.id)}
+                    onClick={(e) => handlePlayerClick(player.id, e)}
+                  />
+                ) : isDefensiveLineman(player.position) ? (
+                  // Defensive Linemen: squares (white)
+                  <rect
+                    x={player.x - FIELD_CONFIG.PLAYER_RADIUS}
+                    y={player.y - FIELD_CONFIG.PLAYER_RADIUS}
+                    width={FIELD_CONFIG.PLAYER_RADIUS * 2}
+                    height={FIELD_CONFIG.PLAYER_RADIUS * 2}
+                    fill="white"
+                    stroke="black"
+                    strokeWidth="2"
                     className="cursor-move"
                     onMouseDown={() => onMouseDown(player.id)}
                     onTouchStart={() => onTouchStart(player.id)}
                   />
-                  <line
-                    x1={player.x - 10}
-                    y1={player.y + 10}
-                    x2={player.x + 10}
-                    y2={player.y - 10}
-                    stroke="white"
-                    strokeWidth="3"
+                ) : isLinebacker(player.position) ? (
+                  // Linebackers: circles (white)
+                  <circle
+                    cx={player.x}
+                    cy={player.y}
+                    r={FIELD_CONFIG.PLAYER_RADIUS}
+                    fill="white"
+                    stroke="black"
+                    strokeWidth="2"
                     className="cursor-move"
                     onMouseDown={() => onMouseDown(player.id)}
                     onTouchStart={() => onTouchStart(player.id)}
                   />
-                </>
-              )}
-              <text
-                x={player.x}
-                y={player.y + (player.side === 'defense' && !isDefensiveLineman(player.position) ? 20 : 5)}
-                textAnchor="middle"
-                fontSize="10"
-                fontWeight="600"
-                fill={player.side === 'offense' ? 'white' : 'black'}
-              >
-                {player.label}
-              </text>
-            </g>
-          ))}
+                ) : (
+                  // DBs (Safeties/Cornerbacks): X shape (white)
+                  <>
+                    <line
+                      x1={player.x - 10}
+                      y1={player.y - 10}
+                      x2={player.x + 10}
+                      y2={player.y + 10}
+                      stroke="white"
+                      strokeWidth="3"
+                      className="cursor-move"
+                      onMouseDown={() => onMouseDown(player.id)}
+                      onTouchStart={() => onTouchStart(player.id)}
+                    />
+                    <line
+                      x1={player.x - 10}
+                      y1={player.y + 10}
+                      x2={player.x + 10}
+                      y2={player.y - 10}
+                      stroke="white"
+                      strokeWidth="3"
+                      className="cursor-move"
+                      onMouseDown={() => onMouseDown(player.id)}
+                      onTouchStart={() => onTouchStart(player.id)}
+                    />
+                  </>
+                )}
+                <text
+                  x={player.x}
+                  y={player.y + (player.side === 'defense' && isDefensiveBack(player.position) ? 20 : 5)}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fontWeight="600"
+                  fill={player.side === 'offense' ? 'white' : (isDefensiveBack(player.position) ? 'white' : 'black')}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {player.label}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Current route being drawn */}
           {isDrawingRoute && currentRoute.length > 0 && (
             <g>
               <path
-                d={`M ${currentRoute.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}`}
+                d={currentRoute.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
                 fill="none"
                 stroke="#FFD700"
                 strokeWidth="2.5"

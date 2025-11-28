@@ -58,6 +58,7 @@ export const VIEW_MODES = {
     { value: 'print', label: 'Print', icon: '⎙' },
   ],
   PLAYBOOK: [
+    { value: 'madden', label: 'Categories', icon: '◫' },
     { value: 'grid', label: 'Grid', icon: '▦' },
     { value: 'list', label: 'List', icon: '☰' },
   ],
