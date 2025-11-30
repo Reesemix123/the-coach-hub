@@ -1181,3 +1181,303 @@ export interface PlayerStatFilterConfig {
   filter: PlayerStatFilter;
   positionGroup?: string; // Only used when filter = 'position_group'
 }
+
+// ============================================
+// GAME PLAN BUILDER SYSTEM
+// ============================================
+
+/**
+ * Situational category IDs for organizing game plan plays
+ */
+export type SituationalCategoryId =
+  | '1st_down'
+  | '2nd_short'
+  | '2nd_medium'
+  | '2nd_long'
+  | '3rd_short'
+  | '3rd_medium'
+  | '3rd_long'
+  | '4th_short'
+  | 'red_zone'
+  | 'goal_line'
+  | '2_minute'
+  | 'backed_up'
+  | 'opening_script';
+
+/**
+ * Play type category IDs for sub-organizing game plan plays
+ */
+export type PlayTypeCategoryId =
+  | 'run'
+  | 'short_pass'
+  | 'medium_pass'
+  | 'long_pass'
+  | 'screen'
+  | 'play_action'
+  | 'rpo'
+  | 'draw';
+
+/**
+ * Extended GamePlanPlay with situation and play type fields
+ */
+export interface GamePlanPlayExtended extends GamePlanPlay {
+  situation?: SituationalCategoryId;
+  play_type_category?: PlayTypeCategoryId;
+  side?: 'offense' | 'defense' | 'special_teams';
+}
+
+/**
+ * Extended GamePlanPlay with full playbook play details
+ */
+export interface GamePlanPlayWithDetails extends GamePlanPlayExtended {
+  play?: PlaybookPlay;
+}
+
+/**
+ * Key defensive positions to watch for setup/counter plays
+ */
+export type KeyDefensivePosition =
+  | 'MLB'
+  | 'WILL'
+  | 'SAM'
+  | 'ILB'
+  | 'SS'
+  | 'FS'
+  | 'CB1'
+  | 'CB2'
+  | 'NB'
+  | 'NT'
+  | '3-tech'
+  | '5-tech'
+  | 'DE'
+  | 'EDGE'
+  | 'OLB';
+
+/**
+ * Key indicators for when a counter play is ready
+ */
+export type KeyIndicatorId =
+  | 'cheating_inside'
+  | 'cheating_outside'
+  | 'biting_motion'
+  | 'jumping_routes'
+  | 'run_fit_aggressive'
+  | 'deep_alignment'
+  | 'soft_coverage'
+  | 'press_alignment'
+  | 'spy_qb'
+  | 'robber_technique';
+
+/**
+ * Database table: play_relationships
+ * Links setup plays to counter plays with key position/indicator tracking
+ */
+export interface PlayRelationship {
+  id: string;
+  team_id: string;
+  setup_play_code: string;
+  counter_play_code: string;
+  key_position?: KeyDefensivePosition;
+  key_indicator?: KeyIndicatorId;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Extended play relationship with full play details
+ */
+export interface PlayRelationshipWithDetails extends PlayRelationship {
+  setup_play?: PlaybookPlay;
+  counter_play?: PlaybookPlay;
+}
+
+/**
+ * Database table: game_plan_counter_status
+ * Tracks when a counter play is marked as "ready" for a specific game plan
+ */
+export interface GamePlanCounterStatus {
+  id: string;
+  game_plan_id: string;
+  relationship_id: string;
+  is_ready: boolean;
+  marked_at?: string;
+  marked_by?: string;
+  notes?: string;
+}
+
+/**
+ * Extended counter status with relationship and play details
+ */
+export interface GamePlanCounterStatusWithDetails extends GamePlanCounterStatus {
+  relationship?: PlayRelationshipWithDetails;
+}
+
+/**
+ * Opponent profile from film analysis
+ * Used to project play success and identify tendencies
+ */
+export interface OpponentProfile {
+  teamName: string;
+  totalPlaysAnalyzed: number;
+  coverageDistribution: Record<string, number>;
+  blitzRate: number;
+  blitzRateBySituation: Record<string, number>;
+  runStopRate: number;
+  passDefenseRate: number;
+  tendenciesByDown: Record<string, DefensiveTendency>;
+}
+
+/**
+ * Defensive tendency by down/distance
+ */
+export interface DefensiveTendency {
+  plays: number;
+  mostCommonCoverage: string;
+  coveragePercentage: number;
+  blitzPercentage: number;
+  successRateAgainst: number;
+}
+
+/**
+ * Opponent offensive profile from film analysis
+ * Used for defensive game planning to understand opponent's offense
+ */
+export interface OpponentOffensiveProfile {
+  teamName: string;
+  totalPlaysAnalyzed: number;
+
+  // Run/Pass tendencies
+  runPercentage: number;
+  passPercentage: number;
+  runPercentageByDown: Record<string, number>; // e.g., { '1st': 60, '2nd_short': 70, '3rd_long': 20 }
+
+  // Formation tendencies
+  formationDistribution: Record<string, number>; // e.g., { 'Shotgun': 55, 'I-Form': 25, 'Pistol': 20 }
+  topFormations: Array<{ formation: string; percentage: number; runRate: number }>;
+
+  // Play concept tendencies
+  runConceptDistribution: Record<string, number>; // e.g., { 'Inside Zone': 40, 'Power': 30, 'Counter': 15 }
+  passConceptDistribution: Record<string, number>; // e.g., { 'Slant': 25, 'Curl': 20, 'Go': 15 }
+
+  // Personnel tendencies
+  personnelDistribution: Record<string, number>; // e.g., { '11': 60, '12': 25, '21': 15 }
+
+  // Situational tendencies
+  redZoneRunPercentage: number;
+  thirdDownConversionRate: number;
+  passingDownRunRate: number; // Run rate on 3rd & long, etc.
+
+  // Averages
+  avgYardsPerPlay: number;
+  avgYardsPerRun: number;
+  avgYardsPerPass: number;
+
+  // Tendencies by down
+  tendenciesByDown: Record<string, OffensiveTendency>;
+}
+
+/**
+ * Offensive tendency by down/distance
+ */
+export interface OffensiveTendency {
+  plays: number;
+  runPercentage: number;
+  passPercentage: number;
+  mostCommonFormation: string;
+  formationPercentage: number;
+  avgYards: number;
+  successRate: number;
+}
+
+/**
+ * Opponent special teams profile from film analysis
+ * Used for special teams game planning
+ */
+export interface OpponentSpecialTeamsProfile {
+  teamName: string;
+  totalPlaysAnalyzed: number;
+
+  // Kickoff tendencies (when they kick off)
+  kickoff: {
+    plays: number;
+    avgDistance: number;
+    touchbackRate: number;
+    onsideAttemptRate: number;
+    directionDistribution: Record<string, number>; // left, middle, right
+  };
+
+  // Kick return tendencies (when they return kicks)
+  kickReturn: {
+    plays: number;
+    avgReturnYards: number;
+    touchbackRate: number;
+    returnTDRate: number;
+  };
+
+  // Punt tendencies (when they punt)
+  punt: {
+    plays: number;
+    avgDistance: number;
+    avgHangTime: number;
+    directionDistribution: Record<string, number>;
+    fakeAttemptRate: number;
+    insideThe20Rate: number;
+  };
+
+  // Punt return tendencies (when they return punts)
+  puntReturn: {
+    plays: number;
+    avgReturnYards: number;
+    fairCatchRate: number;
+    blockAttemptRate: number;
+    returnTDRate: number;
+  };
+
+  // FG/PAT tendencies
+  fieldGoal: {
+    plays: number;
+    attemptsByRange: Record<string, number>; // '0-29', '30-39', '40-49', '50+'
+    accuracyByRange: Record<string, number>;
+    overallAccuracy: number;
+    blockRate: number;
+    fakeAttemptRate: number;
+  };
+
+  pat: {
+    plays: number;
+    accuracy: number;
+    twoPointAttemptRate: number;
+    twoPointConversionRate: number;
+  };
+}
+
+/**
+ * Play match score against opponent
+ */
+export interface PlayMatchScore {
+  playCode: string;
+  score: number; // 0-100
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+  keyMatchup?: string; // e.g., "LG vs 3-tech #95"
+}
+
+/**
+ * Key matchup within a play
+ */
+export interface KeyMatchup {
+  position: string; // 'LG', 'X', 'RB', etc.
+  versus: string; // '3-tech', 'CB1', 'MLB', etc.
+  importance: 'primary' | 'secondary';
+}
+
+/**
+ * Helper type for creating new play relationships
+ */
+export type NewPlayRelationship = Omit<PlayRelationship, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * Helper type for creating new counter status
+ */
+export type NewGamePlanCounterStatus = Omit<GamePlanCounterStatus, 'id'>;
