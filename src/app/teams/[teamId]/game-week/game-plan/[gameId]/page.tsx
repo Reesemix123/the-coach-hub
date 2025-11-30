@@ -78,6 +78,7 @@ export default async function GamePlanPage({ params }: GamePlanPageProps) {
         <TeamNavigation team={team} teamId={teamId} currentPage="game-week" />
         <GamePlanBuilder
           teamId={teamId}
+          teamName={team.name || 'Team'}
           gameId={gameId}
           game={game}
           gamePlan={gamePlanWithPlays}

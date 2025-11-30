@@ -8,6 +8,7 @@ import SituationAccordion from './SituationAccordion';
 import OpponentTendencies from './OpponentTendencies';
 import OpponentOffensiveTendencies from './OpponentOffensiveTendencies';
 import OpponentSpecialTeamsTendencies from './OpponentSpecialTeamsTendencies';
+import PrintPreviewModal from './PrintPreviewModal';
 import type {
   Game,
   PlaybookPlay,
@@ -25,6 +26,7 @@ import { projectPlaySuccess, projectDefensivePlaySuccess, projectSpecialTeamsPla
 
 interface GamePlanBuilderProps {
   teamId: string;
+  teamName: string;
   gameId: string;
   game: Game;
   gamePlan: GamePlanWithPlays;
@@ -37,6 +39,7 @@ interface GamePlanBuilderProps {
 
 export default function GamePlanBuilder({
   teamId,
+  teamName,
   gameId,
   game,
   gamePlan,
@@ -53,6 +56,7 @@ export default function GamePlanBuilder({
   const [specialTeamsPlaysBySituation, setSpecialTeamsPlaysBySituation] = useState(gamePlan.specialTeamsPlaysBySituation);
   const [isSaving, setIsSaving] = useState(false);
   const [activeSituation, setActiveSituation] = useState<SituationalCategoryId | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Get current plays based on active side
   const playsBySituation = activeSide === 'offense'
@@ -171,7 +175,7 @@ export default function GamePlanBuilder({
   };
 
   const handlePrint = () => {
-    router.push(`/teams/${teamId}/playbook/print-wristband/${gamePlan.id}`);
+    setShowPrintModal(true);
   };
 
   const formatDate = (dateStr: string) => {
@@ -283,11 +287,11 @@ export default function GamePlanBuilder({
 
           <button
             onClick={handlePrint}
-            disabled={currentSidePlays === 0}
+            disabled={offensePlaysCount === 0 && defensePlaysCount === 0 && specialTeamsPlaysCount === 0}
             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer className="w-4 h-4" />
-            Print Wristband
+            Print / Wristband
           </button>
           <button
             onClick={() => router.refresh()}
@@ -350,6 +354,18 @@ export default function GamePlanBuilder({
           />
         </div>
       </div>
+
+      {/* Print Preview Modal */}
+      <PrintPreviewModal
+        isOpen={showPrintModal}
+        onClose={() => setShowPrintModal(false)}
+        teamName={teamName}
+        opponent={game.opponent || 'Opponent'}
+        gameDate={game.date ? formatDate(game.date) : 'Date TBD'}
+        offensivePlaysBySituation={offensivePlaysBySituation}
+        defensivePlaysBySituation={defensivePlaysBySituation}
+        specialTeamsPlaysBySituation={specialTeamsPlaysBySituation}
+      />
     </div>
   );
 }
