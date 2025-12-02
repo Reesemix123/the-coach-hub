@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-# Titan First Read - Codebase Architecture
+# The Coach Hub - Codebase Architecture
 
 ## Overview
 
-**Titan First Read** is a comprehensive football coaching platform built with Next.js 15, React 19, TypeScript, and Supabase. It enables coaches to manage teams, build digital playbooks, analyze game film, and track performance analytics.
+**The Coach Hub** is a comprehensive football coaching platform built with Next.js 15, React 19, TypeScript, and Supabase. It enables coaches to manage teams, build digital playbooks, analyze game film, and track performance analytics.
 
 ### Application Type
 - **Framework**: Next.js 15 (App Router)
@@ -99,7 +99,7 @@ State Management:
 ## Directory Structure
 
 ```
-titan-first-read/
+the-coach-hub/
 ├── src/
 │   ├── app/                      # Next.js App Router pages
 │   │   ├── about/               # Static about page
@@ -1328,5 +1328,5 @@ For questions about this codebase, refer to:
 
 ---
 
-*Last Updated: 2025-10-30*
-*Version: refactor/playbuilder-modular branch*
+*Last Updated: 2025-12-02*
+*Version: feature/analytics-reporting branch*

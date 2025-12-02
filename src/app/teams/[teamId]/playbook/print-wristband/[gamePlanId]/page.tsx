@@ -243,7 +243,7 @@ export default function PrintWristbandPage({
             {/* Page Footer */}
             <div className="text-center mt-3">
               <p className="text-xs text-gray-500">
-                Generated with Titan First Read
+                Generated with The Coach Hub
               </p>
             </div>
           </div>

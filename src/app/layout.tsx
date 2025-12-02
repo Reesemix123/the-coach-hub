@@ -9,7 +9,7 @@ import AdminLink from "@/components/AdminLink";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "Titan First Read",
+  title: "The Coach Hub",
   description: "Football coaching made simple",
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({
               {/* Logo/Brand */}
               <div className="flex items-center gap-8">
                 <Link href="/" className="text-2xl font-semibold text-gray-900 hover:text-gray-700 transition-colors tracking-tight">
-                  Titan First Read
+                  The Coach Hub
                 </Link>
 
                 {/* Team Context */}
