@@ -3,9 +3,8 @@
 // Supports: GET (status), POST (start), PUT (extend), DELETE (end)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAdmin } from '@/lib/admin/auth';
+import { requirePlatformAdmin, logAdminAction } from '@/lib/admin/auth';
 import { getConfig } from '@/lib/admin/config';
-import { logAdminAction } from '@/lib/admin/audit';
 
 interface RouteParams {
   params: Promise<{ teamId: string }>;
