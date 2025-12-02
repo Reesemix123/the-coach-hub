@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the complete implementation of the video consolidation and multi-angle overlay system for Titan First Read.
+This document outlines the complete implementation of the video consolidation and multi-angle overlay system for The Coach Hub.
 
 ---
 

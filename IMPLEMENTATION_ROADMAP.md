@@ -1,5 +1,5 @@
 # Implementation Roadmap
-## Titan First Read - Coach Productivity Platform
+## The Coach Hub - Coach Productivity Platform
 
 **Date:** 2025-11-01
 **Vision:** Help coaches be more effective in preparation activities
@@ -307,7 +307,7 @@ ACCOUNT (User-Level)
 ### Navigation
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [Logo] Titan     [Bears Football ▼]                [@]     │
+│ [Logo] The Coach Hub     [Bears Football ▼]        [@]     │
 ├─────────────────────────────────────────────────────────────┤
 │ Schedule  Playbook  Film  Players  Analytics  Practice  ⚙️ │
 └─────────────────────────────────────────────────────────────┘

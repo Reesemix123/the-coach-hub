@@ -22,7 +22,7 @@ function prepareMigrations() {
 
   const outputPath = path.join(__dirname, '..', 'APPLY_THESE_MIGRATIONS.sql');
   let combinedSQL = `-- ============================================================================
--- TITAN FIRST READ - DATABASE MIGRATIONS
+-- THE COACH HUB - DATABASE MIGRATIONS
 -- ============================================================================
 -- INSTRUCTIONS:
 --   1. Copy ALL of this SQL
@@ -57,7 +57,7 @@ function prepareMigrations() {
 -- ✅ MIGRATIONS COMPLETE!
 -- ============================================================================
 -- If you see no errors above, the migrations were applied successfully.
--- Refresh your Titan First Read app to see player stats working.
+-- Refresh your The Coach Hub app to see player stats working.
 -- ============================================================================\n`;
 
   fs.writeFileSync(outputPath, combinedSQL, 'utf-8');

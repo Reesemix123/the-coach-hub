@@ -8,7 +8,7 @@ Successfully implemented defensive drive tracking (opponent possessions) to solv
 
 ### 1. Database Migration (026_defensive_drive_support.sql)
 
-**Location:** `/Users/markreese/titan-first-read/supabase/migrations/026_defensive_drive_support.sql`
+**Location:** `/Users/markreese/the-coach-hub/supabase/migrations/026_defensive_drive_support.sql`
 
 **Changes:**
 - Added `possession_type` column to `drives` table ('offense' | 'defense')
@@ -20,7 +20,7 @@ Successfully implemented defensive drive tracking (opponent possessions) to solv
 
 ### 2. TypeScript Types
 
-**Location:** `/Users/markreese/titan-first-read/src/types/football.ts`
+**Location:** `/Users/markreese/the-coach-hub/src/types/football.ts`
 
 **Changes:**
 - Added `possession_type: 'offense' | 'defense'` to `Drive` interface
@@ -28,7 +28,7 @@ Successfully implemented defensive drive tracking (opponent possessions) to solv
 
 ### 3. Service Layer
 
-**Location:** `/Users/markreese/titan-first-read/src/lib/services/drive.service.ts`
+**Location:** `/Users/markreese/the-coach-hub/src/lib/services/drive.service.ts`
 
 **Changes:**
 - Added `possessionType` to `CreateDriveParams`
@@ -38,7 +38,7 @@ Successfully implemented defensive drive tracking (opponent possessions) to solv
 
 ### 4. Film Tagging Page
 
-**Location:** `/Users/markreese/titan-first-read/src/app/teams/[teamId]/film/[gameId]/page.tsx`
+**Location:** `/Users/markreese/the-coach-hub/src/app/teams/[teamId]/film/[gameId]/page.tsx`
 
 **Changes:**
 - **Auto-detection**: When creating a drive, possession type is automatically set based on `isTaggingOpponent`:

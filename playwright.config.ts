@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright configuration for Titan First Read
+ * Playwright configuration for The Coach Hub
  * Tests Strategy Assistant and other features
  */
 export default defineConfig({

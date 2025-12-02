@@ -1,5 +1,5 @@
 # Coach-Focused Application Vision
-## Titan First Read - Coaching Staff Productivity Platform
+## The Coach Hub - Coaching Staff Productivity Platform
 
 **Date:** 2025-11-01
 **Core Vision:** Help coaches be more effective in preparation activities so they have the resources and actionable insights to be better coaches when working with players.
@@ -85,10 +85,10 @@
 
 ### The "Coach's Office" Metaphor
 
-Think of Titan First Read as the **digital coach's office** where the coaching staff:
+Think of The Coach Hub as the **digital coach's office** where the coaching staff:
 
 ```
-PHYSICAL COACH'S OFFICE               TITAN FIRST READ
+PHYSICAL COACH'S OFFICE               THE COACH HUB
 ─────────────────────────────────────────────────────────
 Whiteboard with plays           →     Digital playbook builder
 Filing cabinet of game film     →     Film library & tagging
@@ -262,7 +262,7 @@ Use case: "Offensive coordinator tags all offensive plays,
 
 ### Our Model (Single App, Coach-Only)
 
-**Titan First Read** - For coaching staff
+**The Coach Hub** - For coaching staff
 - Film library & tagging (like Hudl Coach)
 - Analytics (like Hudl Coach)
 - **PLUS:** Digital playbook builder (Hudl doesn't have this!)
@@ -310,7 +310,7 @@ Use case: "Offensive coordinator tags all offensive plays,
 
 ## Feature Comparison (Aligned with Vision)
 
-| Feature | Hudl | XOS | Krossover | TeamSnap | **Titan** | **Priority** |
+| Feature | Hudl | XOS | Krossover | TeamSnap | **The Coach Hub** | **Priority** |
 |---------|------|-----|-----------|----------|-----------|--------------|
 | Film upload & storage | ✅ | ✅ | ✅ | ❌ | ✅ | **P0** |
 | Film tagging | ✅ | ✅ | ✅ | ❌ | ✅ | **P0** |
@@ -330,7 +330,7 @@ Use case: "Offensive coordinator tags all offensive plays,
 
 ### Global Header
 ```
-[Logo] Titan First Read    [Bears Football ▼]    [@Coach]
+[Logo] The Coach Hub    [Bears Football ▼]    [@Coach]
                             Coaching Staff
 ```
 
@@ -422,7 +422,7 @@ Schedule  Playbook  Film  Players  Analytics  Settings
 - Less time actually coaching players
 - Hard to identify what's working without hours of film review
 
-**Solution (Titan First Read):**
+**Solution (The Coach Hub):**
 - Build digital playbook in 1/3 the time vs. hand-drawing
 - Tag film in real-time, find tendencies instantly
 - Auto-generated analytics show what to adjust
@@ -435,7 +435,7 @@ Schedule  Playbook  Film  Players  Analytics  Settings
 - No visibility into game plan or analytics
 - Can't help with film breakdown (don't have access)
 
-**Solution (Titan First Read):**
+**Solution (The Coach Hub):**
 - Invited to team workspace, can tag film to help head coach
 - View analytics together, collaborative game planning
 - Everyone on same page with digital playbook
@@ -448,7 +448,7 @@ Schedule  Playbook  Film  Players  Analytics  Settings
 - Need coaches to use data to improve, not just "gut feel"
 - Hard to track coaching staff effectiveness
 
-**Solution (Titan First Read):**
+**Solution (The Coach Hub):**
 - Coaches spend less time on admin, more on player development
 - Data-driven decisions improve win rate and player growth
 - Can see coaching activity (film tagging, play development)

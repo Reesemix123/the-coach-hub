@@ -126,7 +126,7 @@ Copy ALL the SQL (Cmd+A, Cmd+C)
 
 ### Step 4: Refresh Your App
 
-1. Go to your Titan First Read app
+1. Go to your The Coach Hub app
 2. Navigate to Team → Analytics (Advanced)
 3. Click "Player" phase
 4. You should see:
