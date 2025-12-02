@@ -45,7 +45,7 @@ export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSe
           .select(`
             player_id,
             participation_type,
-            block_result,
+            result,
             play_instances!inner (
               id,
               game_id,
@@ -89,7 +89,7 @@ export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSe
           const playerName = `${record.players.first_name} ${record.players.last_name}`;
           const jerseyNumber = record.players.jersey_number || '';
           const participationType = record.participation_type;
-          const blockResult = record.block_result;
+          const blockResult = record.result;
 
           // Map participation_type to position
           const positionMap: Record<string, 'LT' | 'LG' | 'C' | 'RG' | 'RT'> = {

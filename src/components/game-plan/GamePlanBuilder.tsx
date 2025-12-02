@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Printer, Save, Shield, Swords, Zap } from 'lucide-react';
+import { ChevronLeft, Printer, Shield, Swords, Zap } from 'lucide-react';
 import PlaybookBrowser from './PlaybookBrowser';
 import SituationAccordion from './SituationAccordion';
 import OpponentTendencies from './OpponentTendencies';
@@ -96,35 +96,81 @@ export default function GamePlanBuilder({
     Object.values(playsBySituation).flatMap(plays => plays.map(p => p.play_code))
   );
 
+  // Get set of (play_code, situation) combos already in game plan
+  const gamePlanPlaySituations = new Set(
+    Object.entries(playsBySituation).flatMap(([sit, plays]) =>
+      plays.map(p => `${p.play_code}::${sit}`)
+    )
+  );
+
+  // Helper to add a single play and update UI
+  const addSinglePlay = async (
+    playCode: string,
+    situation: SituationalCategoryId,
+    playTypeCategory: PlayTypeCategoryId
+  ): Promise<GamePlanPlayWithDetails | null> => {
+    // Check if already in this specific situation
+    if (gamePlanPlaySituations.has(`${playCode}::${situation}`)) {
+      return null; // Already in this situation
+    }
+
+    const result = await addPlayToSituation(gamePlan.id, playCode, situation, playTypeCategory, activeSide);
+
+    // Find the play in playbook
+    const play = playbook.find(p => p.play_code === playCode);
+    if (!play) return null;
+
+    return {
+      id: `temp-${Date.now()}-${playCode}`,
+      game_plan_id: gamePlan.id,
+      play_code: playCode,
+      call_number: result.callNumber,
+      sort_order: (playsBySituation[situation]?.length || 0) + 1,
+      situation,
+      play_type_category: playTypeCategory,
+      side: activeSide,
+      created_at: new Date().toISOString(),
+      play
+    };
+  };
+
   const handleAddPlay = async (playCode: string, situation: SituationalCategoryId, playTypeCategory: PlayTypeCategoryId) => {
-    if (gamePlanPlayCodes.has(playCode)) {
-      alert('This play is already in your game plan');
+    // Check if already in this specific situation
+    if (gamePlanPlaySituations.has(`${playCode}::${situation}`)) {
+      alert('This play is already in this situation');
       return;
     }
 
     setIsSaving(true);
     try {
-      await addPlayToSituation(gamePlan.id, playCode, situation, playTypeCategory, activeSide);
+      const playsToAdd: GamePlanPlayWithDetails[] = [];
 
-      // Optimistically update UI
-      const play = filteredPlaybook.find(p => p.play_code === playCode);
-      if (play) {
-        const newPlay: GamePlanPlayWithDetails = {
-          id: `temp-${Date.now()}`,
-          game_plan_id: gamePlan.id,
-          play_code: playCode,
-          call_number: Object.values(playsBySituation).flat().length + 1,
-          sort_order: Object.values(playsBySituation).flat().length + 1,
-          situation,
-          play_type_category: playTypeCategory,
-          side: activeSide,
-          created_at: new Date().toISOString(),
-          play
-        };
+      // Add the main play
+      const mainPlay = await addSinglePlay(playCode, situation, playTypeCategory);
+      if (mainPlay) {
+        playsToAdd.push(mainPlay);
+      }
 
+      // Find and auto-add counter plays
+      const counterRelationships = setupCounterRelationships.filter(
+        rel => rel.setup_play_code === playCode
+      );
+
+      for (const rel of counterRelationships) {
+        // Check if counter is already in the game plan (any situation)
+        if (!gamePlanPlayCodes.has(rel.counter_play_code)) {
+          const counterPlay = await addSinglePlay(rel.counter_play_code, situation, playTypeCategory);
+          if (counterPlay) {
+            playsToAdd.push(counterPlay);
+          }
+        }
+      }
+
+      // Update UI with all added plays
+      if (playsToAdd.length > 0) {
         setPlaysBySituation(prev => ({
           ...prev,
-          [situation]: [...(prev[situation] || []), newPlay]
+          [situation]: [...(prev[situation] || []), ...playsToAdd]
         }));
       }
     } catch (error) {
@@ -138,7 +184,8 @@ export default function GamePlanBuilder({
   const handleRemovePlay = async (playCode: string, situation: string) => {
     setIsSaving(true);
     try {
-      await removePlayFromGamePlan(gamePlan.id, playCode);
+      // Remove from this specific situation only
+      await removePlayFromGamePlan(gamePlan.id, playCode, situation as SituationalCategoryId);
 
       // Optimistically update UI
       setPlaysBySituation(prev => ({
@@ -287,19 +334,10 @@ export default function GamePlanBuilder({
 
           <button
             onClick={handlePrint}
-            disabled={offensePlaysCount === 0 && defensePlaysCount === 0 && specialTeamsPlaysCount === 0}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
           >
             <Printer className="w-4 h-4" />
             Print / Wristband
-          </button>
-          <button
-            onClick={() => router.refresh()}
-            disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -365,6 +403,7 @@ export default function GamePlanBuilder({
         offensivePlaysBySituation={offensivePlaysBySituation}
         defensivePlaysBySituation={defensivePlaysBySituation}
         specialTeamsPlaysBySituation={specialTeamsPlaysBySituation}
+        setupCounterRelationships={setupCounterRelationships}
       />
     </div>
   );

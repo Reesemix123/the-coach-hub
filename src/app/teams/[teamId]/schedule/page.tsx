@@ -38,6 +38,9 @@ type GameFormData = {
   notes: string;
   is_opponent_game?: boolean;
   opponent_team_name?: string;
+  game_result?: 'win' | 'loss' | 'tie' | null;
+  team_score?: number | null;
+  opponent_score?: number | null;
 };
 
 export default function TeamSchedulePage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -1153,7 +1156,10 @@ function GameModal({
     location: game?.location || '',
     notes: game?.notes || '',
     is_opponent_game: game?.is_opponent_game || false,
-    opponent_team_name: game?.opponent_team_name || ''
+    opponent_team_name: game?.opponent_team_name || '',
+    game_result: game?.game_result || null,
+    team_score: game?.team_score ?? null,
+    opponent_score: game?.opponent_score ?? null
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1300,6 +1306,71 @@ function GameModal({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
             />
           </div>
+
+          {/* Game Result Section - Only show for non-scouting games */}
+          {!formData.is_opponent_game && (
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Game Result</h3>
+              <p className="text-xs text-gray-600 mb-4">
+                Set the result after the game has been played
+              </p>
+
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Result
+                  </label>
+                  <select
+                    value={formData.game_result || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      game_result: e.target.value ? (e.target.value as 'win' | 'loss' | 'tie') : null
+                    })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 bg-white"
+                  >
+                    <option value="">Not played yet</option>
+                    <option value="win">Win</option>
+                    <option value="loss">Loss</option>
+                    <option value="tie">Tie</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Our Score
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.team_score ?? ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      team_score: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    placeholder="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opponent Score
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.opponent_score ?? ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      opponent_score: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    placeholder="0"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

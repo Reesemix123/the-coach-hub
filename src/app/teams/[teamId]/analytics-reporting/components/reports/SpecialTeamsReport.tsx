@@ -27,6 +27,9 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
     kickoff: true,
     punt: true,
     returns: true,
+    fieldGoal: true,
+    pat: true,
+    fgBlock: true,
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -117,19 +120,19 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
         {expandedSections.kickoff && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
-              title="Total Kickoffs"
+              label="Total Kickoffs"
               value={(metrics.specialTeams?.kickoff?.kickoffs || 0).toString()}
               subtitle="Total kickoffs"
               tooltip={METRIC_DEFINITIONS.kickoffs}
             />
             <StatCard
-              title="Touchbacks"
+              label="Touchbacks"
               value={(metrics.specialTeams?.kickoff?.touchbacks || 0).toString()}
               subtitle={`${(metrics.specialTeams?.kickoff?.touchbackRate || 0).toFixed(1)}% touchback rate`}
               tooltip={METRIC_DEFINITIONS.touchbacks}
             />
             <StatCard
-              title="Avg Starting Field Position"
+              label="Avg Starting Field Position"
               value={`${(metrics.specialTeams?.kickoff?.averageKickoffYardLine || 0).toFixed(1)}`}
               subtitle="Average starting yard line"
               tooltip={METRIC_DEFINITIONS.averageKickoffYardLine}
@@ -155,19 +158,19 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
         {expandedSections.punt && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
-              title="Total Punts"
+              label="Total Punts"
               value={(metrics.specialTeams?.punt?.punts || 0).toString()}
               subtitle="Total punts"
               tooltip={METRIC_DEFINITIONS.punts}
             />
             <StatCard
-              title="Average Punt Yards"
+              label="Average Punt Yards"
               value={`${(metrics.specialTeams?.punt?.averagePuntYards || 0).toFixed(1)}`}
               subtitle="Average yards per punt"
               tooltip={METRIC_DEFINITIONS.averagePuntYards}
             />
             <StatCard
-              title="Net Punt Average"
+              label="Net Punt Average"
               value={`${(metrics.specialTeams?.punt?.netPuntAverage || 0).toFixed(1)}`}
               subtitle="Net yards after returns"
               tooltip={METRIC_DEFINITIONS.netPuntAverage}
@@ -193,22 +196,142 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
         {expandedSections.returns && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
-              title="Total Returns"
+              label="Total Returns"
               value={(metrics.specialTeams?.returns?.returns || 0).toString()}
               subtitle="Kickoff and punt returns"
               tooltip={METRIC_DEFINITIONS.returns}
             />
             <StatCard
-              title="Average Return Yards"
+              label="Average Return Yards"
               value={`${(metrics.specialTeams?.returns?.averageReturnYards || 0).toFixed(1)}`}
               subtitle="Average yards per return"
               tooltip={METRIC_DEFINITIONS.averageReturnYards}
             />
             <StatCard
-              title="Longest Return"
+              label="Longest Return"
               value={(metrics.specialTeams?.returns?.longestReturn || 0).toString()}
               subtitle="Longest return yards"
               tooltip={METRIC_DEFINITIONS.longestReturn}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* Field Goal Performance */}
+      <section className="mb-12">
+        <button
+          onClick={() => toggleSection('fieldGoal')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>Field Goal Performance</span>
+          {expandedSections.fieldGoal ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
+
+        {expandedSections.fieldGoal && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Field Goals Made"
+              value={(metrics.specialTeams?.fieldGoal?.made || 0).toString()}
+              subtitle={`of ${metrics.specialTeams?.fieldGoal?.attempted || 0} attempts`}
+              tooltip={METRIC_DEFINITIONS.fieldGoalsMade}
+            />
+            <StatCard
+              label="FG Percentage"
+              value={`${(metrics.specialTeams?.fieldGoal?.percentage || 0).toFixed(1)}%`}
+              subtitle="Success rate"
+              tooltip={METRIC_DEFINITIONS.fieldGoalPercentage}
+            />
+            <StatCard
+              label="FGs Attempted"
+              value={(metrics.specialTeams?.fieldGoal?.attempted || 0).toString()}
+              subtitle="Total attempts"
+              tooltip={METRIC_DEFINITIONS.fieldGoalsAttempted}
+            />
+            <StatCard
+              label="FGs Blocked"
+              value={(metrics.specialTeams?.fieldGoal?.blocked || 0).toString()}
+              subtitle="Blocked by opponent"
+              tooltip={METRIC_DEFINITIONS.fieldGoalsBlocked}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* PAT Performance */}
+      <section className="mb-12">
+        <button
+          onClick={() => toggleSection('pat')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>PAT (Extra Point) Performance</span>
+          {expandedSections.pat ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
+
+        {expandedSections.pat && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard
+              label="PATs Made"
+              value={(metrics.specialTeams?.pat?.made || 0).toString()}
+              subtitle={`of ${metrics.specialTeams?.pat?.attempted || 0} attempts`}
+              tooltip={METRIC_DEFINITIONS.patsMade}
+            />
+            <StatCard
+              label="PAT Percentage"
+              value={`${(metrics.specialTeams?.pat?.percentage || 0).toFixed(1)}%`}
+              subtitle="Success rate"
+              tooltip={METRIC_DEFINITIONS.patPercentage}
+            />
+            <StatCard
+              label="PATs Attempted"
+              value={(metrics.specialTeams?.pat?.attempted || 0).toString()}
+              subtitle="Total attempts"
+              tooltip={METRIC_DEFINITIONS.patsAttempted}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* FG Block Performance */}
+      <section className="mb-12">
+        <button
+          onClick={() => toggleSection('fgBlock')}
+          className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
+        >
+          <span>FG Block Performance (Defense)</span>
+          {expandedSections.fgBlock ? (
+            <ChevronUp className="h-6 w-6" />
+          ) : (
+            <ChevronDown className="h-6 w-6" />
+          )}
+        </button>
+
+        {expandedSections.fgBlock && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard
+              label="FGs Blocked"
+              value={(metrics.specialTeams?.fgBlock?.blocks || 0).toString()}
+              subtitle="Field goals blocked"
+              tooltip={METRIC_DEFINITIONS.fgBlocks}
+            />
+            <StatCard
+              label="Blocks Recovered"
+              value={(metrics.specialTeams?.fgBlock?.blocksRecovered || 0).toString()}
+              subtitle="Blocked and recovered"
+              tooltip={METRIC_DEFINITIONS.fgBlocks}
+            />
+            <StatCard
+              label="Blocks Returned for TD"
+              value={(metrics.specialTeams?.fgBlock?.blocksReturnedForTD || 0).toString()}
+              subtitle="Returned for touchdowns"
+              tooltip={METRIC_DEFINITIONS.fgBlocksReturnedForTD}
             />
           </div>
         )}

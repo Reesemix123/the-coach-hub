@@ -2,6 +2,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface Team {
   id: string;
@@ -16,7 +18,7 @@ interface Team {
 interface TeamNavigationProps {
   team: Team;
   teamId: string;
-  currentPage: 'dashboard' | 'game-week' | 'schedule' | 'playbook' | 'film' | 'analytics-reporting' | 'metrics' | 'players' | 'practice' | 'settings';
+  currentPage: 'dashboard' | 'game-week' | 'schedule' | 'playbook' | 'film' | 'analytics-reporting' | 'players' | 'practice' | 'settings';
   wins?: number;
   losses?: number;
   ties?: number;
@@ -31,6 +33,8 @@ export default function TeamNavigation({
   ties = 0
 }: TeamNavigationProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [pendingTab, setPendingTab] = useState<string | null>(null);
 
   const showRecord = wins !== undefined || losses !== undefined;
   const winPercentage = wins + losses > 0
@@ -44,8 +48,7 @@ export default function TeamNavigation({
     { id: 'playbook', label: 'Playbook', path: `/teams/${teamId}/playbook` },
     { id: 'practice', label: 'Practice', path: `/teams/${teamId}/practice` },
     { id: 'film', label: 'Film', path: `/teams/${teamId}/film` },
-    { id: 'analytics-reporting', label: 'Analytics', path: `/teams/${teamId}/analytics-reporting` },
-    { id: 'metrics', label: 'Metrics', path: `/teams/${teamId}/metrics` },
+    { id: 'analytics-reporting', label: 'Analytics & Reports', path: `/teams/${teamId}/analytics-reporting` },
     { id: 'game-week', label: 'Game Week', path: `/teams/${teamId}/game-week` },
     { id: 'settings', label: 'Settings', path: `/teams/${teamId}/settings` }
   ];
@@ -79,19 +82,34 @@ export default function TeamNavigation({
 
         {/* Navigation Tabs */}
         <div className="flex gap-8">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => router.push(item.path)}
-              className={`py-4 text-base font-medium transition-colors ${
-                currentPage === item.id
-                  ? 'text-gray-900 border-b-2 border-gray-900'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
+          {navItems.map((item) => {
+            const isLoading = isPending && pendingTab === item.id;
+            const isCurrentPage = currentPage === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (isCurrentPage || isPending) return;
+                  setPendingTab(item.id);
+                  startTransition(() => {
+                    router.push(item.path);
+                  });
+                }}
+                disabled={isPending}
+                className={`py-4 text-base font-medium transition-colors flex items-center gap-2 ${
+                  isCurrentPage
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : isPending
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {item.label}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

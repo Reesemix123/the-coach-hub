@@ -240,6 +240,17 @@ export default function MiniPlayDiagram({
           >
             <path d="M 0 0 L 4 2 L 0 4 z" fill="#DC2626" />
           </marker>
+          {/* Special teams path arrow marker */}
+          <marker
+            id="mini-arrowhead-st"
+            markerWidth="4"
+            markerHeight="4"
+            refX="3"
+            refY="2"
+            orient="auto"
+          >
+            <path d="M 0 0 L 4 2 L 0 4 z" fill="#22C55E" />
+          </marker>
         </defs>
 
         {/* Line of scrimmage */}
@@ -389,6 +400,29 @@ export default function MiniPlayDiagram({
                 stroke="#DC2626"
                 strokeWidth={2}
                 markerEnd="url(#mini-arrowhead-blitz)"
+              />
+            );
+          })}
+
+        {/* Special teams path arrows */}
+        {mainPlayers
+          .filter(p => p.specialTeamsPath)
+          .map((player, index) => {
+            const startX = player.x * scaleX;
+            const startY = player.y * scaleY;
+            const endX = (player.specialTeamsPath?.x ?? player.x) * scaleX;
+            const endY = (player.specialTeamsPath?.y ?? player.y) * scaleY;
+
+            return (
+              <line
+                key={`st-path-${player.position}-${index}`}
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
+                stroke="#22C55E"
+                strokeWidth={2}
+                markerEnd="url(#mini-arrowhead-st)"
               />
             );
           })}

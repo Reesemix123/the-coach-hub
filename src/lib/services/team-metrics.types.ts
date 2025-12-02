@@ -100,7 +100,50 @@ export interface DefensiveMetrics {
   disruptive: DefensiveDisruptiveMetrics;
 }
 
+export interface KickoffMetrics {
+  kickoffs: number;
+  touchbacks: number;
+  touchbackRate: number;
+  averageKickoffYardLine: number;
+}
+
+export interface PuntMetrics {
+  punts: number;
+  totalYards: number;
+  averagePuntYards: number;
+  netPuntAverage: number;
+}
+
+export interface ReturnMetrics {
+  returns: number;
+  kickReturns: number;
+  puntReturns: number;
+  totalYards: number;
+  averageReturnYards: number;
+  longestReturn: number;
+}
+
+export interface FieldGoalMetrics {
+  made: number;
+  attempted: number;
+  percentage: number;
+  blocked: number;
+}
+
+export interface PATMetrics {
+  made: number;
+  attempted: number;
+  percentage: number;
+}
+
+export interface FGBlockMetrics {
+  blocks: number;
+  blocksRecovered: number;
+  blocksReturnedForTD: number;
+}
+
 export interface SpecialTeamsMetrics {
+  // Legacy flat structure (kept for backward compatibility)
   fieldGoalPercentage: number | null;
   fieldGoalsMade: number;
   fieldGoalsAttempted: number;
@@ -114,6 +157,14 @@ export interface SpecialTeamsMetrics {
   kickoffReturns: number;
   kickoffReturnYards: number;
   averageStartingFieldPosition: number | null;
+
+  // New structured metrics from RPC
+  kickoff?: KickoffMetrics;
+  punt?: PuntMetrics;
+  returns?: ReturnMetrics;
+  fieldGoal?: FieldGoalMetrics;
+  pat?: PATMetrics;
+  fgBlock?: FGBlockMetrics;
 }
 
 export interface OverallTeamMetrics {
@@ -249,20 +300,137 @@ export const METRIC_DEFINITIONS = {
     calculation: '((TFLs + sacks + forced fumbles + pass breakups) ÷ defensive plays) × 100',
   },
 
-  // Special Teams
+  // Special Teams - Kickoff
+  kickoffs: {
+    title: 'Total Kickoffs',
+    description: 'Number of kickoffs performed by the team.',
+    useful: 'Shows special teams volume and opportunities.',
+    calculation: 'Count of kickoff plays',
+  },
+  touchbacks: {
+    title: 'Touchbacks',
+    description: 'Kickoffs that result in touchbacks, placing the ball at the 25-yard line.',
+    useful: 'High touchback rate limits opponent return opportunities. Good kickers have 60%+.',
+    calculation: 'Count of kickoffs with touchback result',
+  },
+  averageKickoffYardLine: {
+    title: 'Average Starting Field Position',
+    description: 'Average yard line where opponents start after kickoffs.',
+    useful: 'Lower is better. Shows kickoff team effectiveness at limiting field position.',
+    calculation: 'Average starting yard line after kickoff returns',
+  },
+
+  // Special Teams - Punt
+  punts: {
+    title: 'Total Punts',
+    description: 'Number of punts performed by the team.',
+    useful: 'Shows field position battles. More punts may indicate offensive struggles.',
+    calculation: 'Count of punt plays',
+  },
+  averagePuntYards: {
+    title: 'Average Punt Yards',
+    description: 'Average gross yards per punt.',
+    useful: 'Good punters average 40+ yards. Helps flip field position.',
+    calculation: 'Total punt yards ÷ number of punts',
+  },
+  netPuntAverage: {
+    title: 'Net Punt Average',
+    description: 'Average net yards after accounting for returns.',
+    useful: 'Better than gross average - accounts for coverage team performance. 35+ is good.',
+    calculation: '(Punt yards - return yards) ÷ number of punts',
+  },
+
+  // Special Teams - Returns
+  returns: {
+    title: 'Total Returns',
+    description: 'Combined kickoff and punt returns.',
+    useful: 'Shows return opportunities. More returns = more chances for explosive plays.',
+    calculation: 'Kickoff returns + punt returns',
+  },
+  averageReturnYards: {
+    title: 'Average Return Yards',
+    description: 'Average yards gained per return.',
+    useful: 'Shows return unit effectiveness. 20+ on kickoffs, 10+ on punts is good.',
+    calculation: 'Total return yards ÷ number of returns',
+  },
+  longestReturn: {
+    title: 'Longest Return',
+    description: 'Longest single return yardage.',
+    useful: 'Shows explosive play potential in return game.',
+    calculation: 'Maximum return yards in a single play',
+  },
+
+  // Special Teams - Field Goals
   fieldGoalPercentage: {
     title: 'Field Goal Percentage',
     description: 'Crucial for capitalizing on stalled drives.',
+    useful: 'Shows kicker reliability. Elite kickers: 85%+. Game-changing in close games.',
     calculation: '(FGs made ÷ FG attempts) × 100',
   },
+  fieldGoalsMade: {
+    title: 'Field Goals Made',
+    description: 'Number of successful field goals.',
+    useful: 'Shows scoring ability when drives stall. Each FG is 3 points.',
+    calculation: 'Count of made field goals',
+  },
+  fieldGoalsAttempted: {
+    title: 'Field Goals Attempted',
+    description: 'Total field goal attempts.',
+    useful: 'Shows red zone opportunities and offensive drive finishing ability.',
+    calculation: 'Count of all field goal attempts',
+  },
+  fieldGoalsBlocked: {
+    title: 'Field Goals Blocked',
+    description: 'Field goals blocked by the opponent.',
+    useful: 'May indicate protection issues or slow operation. Review technique.',
+    calculation: 'Count of blocked field goals',
+  },
+
+  // Special Teams - PAT
+  patPercentage: {
+    title: 'PAT Percentage',
+    description: 'Extra point success rate.',
+    useful: 'Should be near 100%. Missed PATs can cost games. Routine but critical.',
+    calculation: '(PATs made ÷ PAT attempts) × 100',
+  },
+  patsMade: {
+    title: 'PATs Made',
+    description: 'Number of successful extra points.',
+    useful: 'Shows touchdown conversion follow-through.',
+    calculation: 'Count of made PATs',
+  },
+  patsAttempted: {
+    title: 'PATs Attempted',
+    description: 'Total extra point attempts.',
+    useful: 'Equals number of touchdowns scored (minus 2-pt attempts).',
+    calculation: 'Count of all PAT attempts',
+  },
+
+  // Special Teams - FG Block
+  fgBlocks: {
+    title: 'FG Blocks',
+    description: 'Field goals blocked by your team.',
+    useful: 'Game-changing plays. Denies 3 points and can create scoring opportunities.',
+    calculation: 'Count of blocked field goals on defense',
+  },
+  fgBlocksReturnedForTD: {
+    title: 'FG Blocks Returned for TD',
+    description: 'Blocked field goals returned for touchdowns.',
+    useful: 'Massive swing plays worth 9+ point differential.',
+    calculation: 'Count of FG blocks returned for TDs',
+  },
+
+  // Legacy metrics
   puntReturnAverage: {
     title: 'Punt Return Average',
     description: 'Measures ability to gain field position on opponent punts.',
+    useful: '10+ yards per return is good. Shows return game effectiveness.',
     calculation: 'Punt return yards ÷ number of returns',
   },
   averageStartingFieldPosition: {
     title: 'Average Starting Field Position',
     description: 'Huge impact on scoring probability. Better field position = easier scoring.',
+    useful: 'Starting inside own 30 is tough. Own 35+ is good. Affects scoring probability.',
     calculation: 'Average yard line where offensive drives begin',
   },
 

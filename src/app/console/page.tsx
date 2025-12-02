@@ -2,16 +2,61 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import AuthGuard from '@/components/AuthGuard';
+import Link from 'next/link';
+import {
+  Users,
+  Trophy,
+  Film,
+  Zap,
+  AlertCircle,
+  ChevronRight,
+  Plus,
+  Settings,
+  Trash2,
+  Shield
+} from 'lucide-react';
+import TrialBanner from '@/components/console/TrialBanner';
+
+interface OverviewData {
+  organization: {
+    id: string;
+    name: string;
+  } | null;
+  summary: {
+    teams_count: number;
+    active_users_count: number;
+    total_games: number;
+    total_plays_tagged: number;
+  };
+  ai_credits: {
+    used: number;
+    allowed: number;
+    percentage: number;
+  };
+  billing: {
+    status: string;
+    next_billing_date: string | null;
+    monthly_total: number;
+  };
+  alerts: Array<{
+    type: string;
+    message: string;
+    count?: number;
+    team_id?: string;
+    days_left?: number;
+    action_url: string;
+  }>;
+  legacy_mode: boolean;
+}
 
 interface Team {
   id: string;
   name: string;
   level: string;
-  colors: any;
+  colors: { primary?: string; secondary?: string } | null;
   created_at: string;
   user_id: string;
 }
@@ -24,35 +69,62 @@ interface TeamStats {
 
 export default function ConsolePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [ownedTeams, setOwnedTeams] = useState<Team[]>([]);
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [teamStats, setTeamStats] = useState<Record<string, TeamStats>>({});
   const [teamName, setTeamName] = useState('');
   const [teamLevel, setTeamLevel] = useState('High School');
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
-  const membershipService = new TeamMembershipService();
 
   useEffect(() => {
-    checkUser();
+    loadData();
   }, []);
 
-  async function checkUser() {
+  async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user);
 
-    if (user) {
-      await fetchOwnedTeams(user.id);
+    if (!user) {
+      setLoading(false);
+      return;
     }
 
+    // Check if user is platform admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_platform_admin')
+      .eq('id', user.id)
+      .single();
+
+    setIsPlatformAdmin(profile?.is_platform_admin === true);
+
+    // Fetch overview data from API
+    try {
+      const response = await fetch('/api/console/overview');
+      if (response.ok) {
+        const data = await response.json();
+        setOverview(data);
+      } else {
+        const errData = await response.json();
+        setError(errData.error || 'Failed to load overview');
+      }
+    } catch (err) {
+      setError('Failed to connect to server');
+    }
+
+    // Also fetch teams for the teams list
+    await fetchTeams(user.id);
     setLoading(false);
   }
 
-  async function fetchOwnedTeams(userId: string) {
-    // Fetch teams where user is the owner
+  async function fetchTeams(userId: string) {
     const { data, error } = await supabase
       .from('teams')
       .select('*')
@@ -60,12 +132,9 @@ export default function ConsolePage() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setOwnedTeams(data);
-
-      // Fetch stats for all teams in parallel (don't wait - stats can load in background)
-      Promise.all(
-        data.map(team => fetchTeamStats(team.id))
-      );
+      setTeams(data);
+      // Fetch stats for all teams
+      data.forEach(team => fetchTeamStats(team.id));
     }
   }
 
@@ -94,7 +163,7 @@ export default function ConsolePage() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('teams')
       .insert([{
         name: teamName.trim(),
@@ -113,12 +182,12 @@ export default function ConsolePage() {
       setTeamLevel('High School');
       setShowForm(false);
 
-      // Refresh teams
+      // Refresh data
       if (user) {
-        await fetchOwnedTeams(user.id);
+        await fetchTeams(user.id);
+        loadData(); // Refresh overview
       }
 
-      // Clear message after 3 seconds
       setTimeout(() => setMessage(''), 3000);
     }
   }
@@ -137,7 +206,8 @@ export default function ConsolePage() {
       alert('Error deleting team: ' + error.message);
     } else {
       if (user) {
-        await fetchOwnedTeams(user.id);
+        await fetchTeams(user.id);
+        loadData(); // Refresh overview
       }
     }
   }
@@ -161,7 +231,27 @@ export default function ConsolePage() {
         <div className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-center max-w-md mx-auto px-6">
             <h1 className="text-3xl font-semibold text-gray-900 mb-3">Sign in required</h1>
-            <p className="text-gray-600 mb-8">Access the owner console.</p>
+            <p className="text-gray-600 mb-8">Access the console.</p>
+          </div>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+  if (error) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-6">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-semibold text-gray-900 mb-3">Error Loading Console</h1>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => { setError(null); loadData(); }}
+              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </AuthGuard>
@@ -174,55 +264,217 @@ export default function ConsolePage() {
         {/* Header */}
         <div className="border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-8">
-            <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">Owner Console</h1>
-            <p className="mt-2 text-gray-600">Manage your teams and organization</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+                  {overview?.organization?.name || 'Console'}
+                </h1>
+                <p className="mt-2 text-gray-600">
+                  {overview?.legacy_mode ? 'Manage your teams' : 'Organization Overview'}
+                </p>
+              </div>
+              {isPlatformAdmin && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                >
+                  <Shield className="w-4 h-4" />
+                  Platform Admin
+                </Link>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          {/* Overview Stats */}
-          <div className="grid grid-cols-3 gap-6 mb-12">
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="text-4xl font-semibold text-gray-900">{ownedTeams.length}</div>
-              <div className="text-sm text-gray-600 mt-2">Teams Owned</div>
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Alerts Section */}
+          {overview && overview.alerts.length > 0 && (
+            <div className="mb-8 space-y-3">
+              {overview.alerts.map((alert, index) => (
+                <Link
+                  key={index}
+                  href={alert.action_url}
+                  className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    <span className="text-amber-900">{alert.message}</span>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-amber-600" />
+                </Link>
+              ))}
             </div>
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="text-4xl font-semibold text-gray-900">
-                {Object.values(teamStats).reduce((sum, stats) => sum + stats.games, 0)}
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Total Games</div>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-6">
-              <div className="text-4xl font-semibold text-gray-900">
-                {Object.values(teamStats).reduce((sum, stats) => sum + stats.plays, 0)}
-              </div>
-              <div className="text-sm text-gray-600 mt-2">Total Plays Tagged</div>
-            </div>
-          </div>
+          )}
 
-          {/* Create Team Section */}
-          <div className="mb-8">
-            {!showForm && ownedTeams.length > 0 && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+          {/* Trial Banners for each team */}
+          {teams.map((team) => (
+            <TrialBanner key={`trial-${team.id}`} teamId={team.id} teamName={team.name} />
+          ))}
+
+          {/* Stats Grid */}
+          {overview && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <Link
+                href="/console/teams"
+                className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 hover:shadow-sm transition-all"
               >
-                + Create New Team
-              </button>
-            )}
-
-            {showForm && (
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">Create New Team</h2>
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Users className="w-5 h-5 text-gray-700" />
+                  </div>
+                </div>
+                <div className="text-3xl font-semibold text-gray-900 mb-1">
+                  {overview.summary.teams_count}
+                </div>
+                <div className="text-sm text-gray-600">Teams</div>
+              </Link>
+
+              <Link
+                href="/console/people"
+                className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Users className="w-5 h-5 text-gray-700" />
+                  </div>
+                </div>
+                <div className="text-3xl font-semibold text-gray-900 mb-1">
+                  {overview.summary.active_users_count}
+                </div>
+                <div className="text-sm text-gray-600">Active Users</div>
+              </Link>
+
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Trophy className="w-5 h-5 text-gray-700" />
+                  </div>
+                </div>
+                <div className="text-3xl font-semibold text-gray-900 mb-1">
+                  {overview.summary.total_games}
+                </div>
+                <div className="text-sm text-gray-600">Games</div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Film className="w-5 h-5 text-gray-700" />
+                  </div>
+                </div>
+                <div className="text-3xl font-semibold text-gray-900 mb-1">
+                  {overview.summary.total_plays_tagged.toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-600">Plays Tagged</div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Credits & Billing Row */}
+          {overview && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+              {/* AI Credits Card */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">AI Credits</h3>
+                  <Zap className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="mb-4">
+                  <div className="flex items-end gap-2 mb-2">
+                    <span className="text-3xl font-semibold text-gray-900">
+                      {overview.ai_credits.used}
+                    </span>
+                    <span className="text-gray-500 mb-1">
+                      / {overview.ai_credits.allowed} used
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        overview.ai_credits.percentage >= 80
+                          ? 'bg-amber-500'
+                          : overview.ai_credits.percentage >= 50
+                          ? 'bg-blue-500'
+                          : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(overview.ai_credits.percentage, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  {overview.ai_credits.allowed - overview.ai_credits.used} credits remaining this period
+                </p>
+              </div>
+
+              {/* Billing Status Card */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Billing</h3>
+                  <Link
+                    href="/console/billing"
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
+                    Manage
+                  </Link>
+                </div>
+                <div className="mb-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    overview.billing.status === 'current' || overview.billing.status === 'waived'
+                      ? 'bg-green-100 text-green-800'
+                      : overview.billing.status === 'trial'
+                      ? 'bg-blue-100 text-blue-800'
+                      : overview.billing.status === 'past_due'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {overview.billing.status === 'current' && 'Current'}
+                    {overview.billing.status === 'waived' && 'Waived'}
+                    {overview.billing.status === 'trial' && 'Trial'}
+                    {overview.billing.status === 'past_due' && 'Past Due'}
+                    {overview.billing.status === 'none' && 'No Subscription'}
+                    {overview.billing.status === 'no_payment_method' && 'No Payment Method'}
+                  </span>
+                </div>
+                {overview.billing.next_billing_date && (
+                  <p className="text-sm text-gray-600">
+                    Next billing: {new Date(overview.billing.next_billing_date).toLocaleDateString()}
+                  </p>
+                )}
+                {overview.billing.status === 'waived' && (
+                  <p className="text-sm text-gray-600">
+                    Billing has been waived for your teams
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Teams Section */}
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900">Your Teams</h2>
+              {teams.length > 0 && !showForm && (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Team
+                </button>
+              )}
+            </div>
+
+            {/* Create Team Form */}
+            {showForm && (
+              <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Create New Team</h3>
                   <button
-                    onClick={() => {
-                      setShowForm(false);
-                      setMessage('');
-                    }}
+                    onClick={() => { setShowForm(false); setMessage(''); }}
                     className="text-gray-500 hover:text-gray-700"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -263,10 +515,7 @@ export default function ConsolePage() {
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowForm(false);
-                        setMessage('');
-                      }}
+                      onClick={() => { setShowForm(false); setMessage(''); }}
                       className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
                     >
                       Cancel
@@ -283,7 +532,7 @@ export default function ConsolePage() {
             )}
 
             {message && (
-              <div className={`mt-4 p-4 rounded-lg ${
+              <div className={`mb-6 p-4 rounded-lg ${
                 message.includes('Error')
                   ? 'bg-red-50 text-red-800 border border-red-200'
                   : 'bg-green-50 text-green-800 border border-green-200'
@@ -291,15 +540,12 @@ export default function ConsolePage() {
                 {message}
               </div>
             )}
-          </div>
 
-          {/* Teams List */}
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Your Teams</h2>
-
-            {ownedTeams.length === 0 && !showForm ? (
-              <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="text-gray-400 mb-4">No teams yet</div>
+            {/* Teams List */}
+            {teams.length === 0 && !showForm ? (
+              <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200">
+                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 mb-4">No teams yet</p>
                 <button
                   onClick={() => setShowForm(true)}
                   className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
@@ -307,56 +553,52 @@ export default function ConsolePage() {
                   Create Your First Team
                 </button>
               </div>
-            ) : ownedTeams.length > 0 ? (
-              <div className="space-y-4">
-                {ownedTeams.map((team) => {
+            ) : teams.length > 0 ? (
+              <div className="space-y-3">
+                {teams.map((team) => {
                   const stats = teamStats[team.id] || { games: 0, plays: 0, players: 0 };
 
                   return (
                     <div
                       key={team.id}
-                      className="border border-gray-200 rounded-lg p-6 hover:border-gray-300 transition-colors"
+                      className="bg-white border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors"
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-semibold text-gray-900">{team.name}</h3>
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
+                            <h3 className="text-lg font-semibold text-gray-900">{team.name}</h3>
+                            <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 text-sm rounded-full">
                               {team.level}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-6 text-sm text-gray-600 mt-4">
-                            <div>
-                              <span className="font-medium text-gray-900">{stats.games}</span> games
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-900">{stats.plays}</span> plays
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-900">{stats.players}</span> players
-                            </div>
+                          <div className="flex items-center gap-5 text-sm text-gray-600">
+                            <span><span className="font-medium text-gray-900">{stats.games}</span> games</span>
+                            <span><span className="font-medium text-gray-900">{stats.plays}</span> plays</span>
+                            <span><span className="font-medium text-gray-900">{stats.players}</span> players</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 ml-4">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => router.push(`/teams/${team.id}`)}
                             className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
                           >
-                            View Team
+                            View
                           </button>
                           <button
                             onClick={() => router.push(`/teams/${team.id}/settings`)}
-                            className="px-4 py-2 text-sm text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Settings"
                           >
-                            Settings
+                            <Settings className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => deleteTeam(team.id, team.name)}
-                            className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete"
                           >
-                            Delete
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>

@@ -44,7 +44,7 @@ export default function AllDBStatsSection({ teamId, gameId }: AllDBStatsSectionP
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(true);
 
-  useEffect() {
+  useEffect(() => {
     async function fetchDBStats() {
       setLoading(true);
 

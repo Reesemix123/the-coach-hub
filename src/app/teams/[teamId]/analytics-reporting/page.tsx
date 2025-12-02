@@ -3,11 +3,15 @@
  *
  * Unified reporting system with on-demand report generation.
  * Replaces the old "Analytics" and "Metrics" pages.
+ *
+ * Features:
+ * - Report-level caching to avoid refetching when switching between reports
+ * - Win/loss record displayed in navigation
  */
 
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { getReportConfig, getDefaultReport, canDisplayReport } from '@/config/reportRegistry';
 import { ReportType, ReportFilters as ReportFiltersType } from '@/types/reports';
@@ -24,11 +28,25 @@ import PlayerReport from './components/reports/PlayerReport';
 import SituationalReport from './components/reports/SituationalReport';
 import DriveAnalysisReport from './components/reports/DriveAnalysisReport';
 import GameReport from './components/reports/GameReport';
+import { UpgradeBanner, FeatureGate } from '@/components/FeatureGate';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 interface AnalyticsReportingPageProps {
   params: Promise<{ teamId: string }>;
   searchParams: Promise<{ type?: string }>;
 }
+
+// Cache for report data - persists across report switches within the same page session
+interface ReportCache {
+  [reportType: string]: {
+    data: any;
+    timestamp: number;
+    filterHash: string;
+  };
+}
+
+// Cache TTL: 5 minutes (data stays fresh for typical coaching session)
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function AnalyticsReportingPage({
   params,
@@ -49,6 +67,66 @@ export default function AnalyticsReportingPage({
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Report cache state - stores fetched report data
+  const [reportCache, setReportCache] = useState<ReportCache>({});
+
+  // Feature access for subscription-based gating
+  const {
+    features,
+    showUpgradePrompt,
+    showPaymentWarning,
+    loading: featureAccessLoading
+  } = useFeatureAccess(teamId);
+
+  // Track which reports have been visited (for showing cached versions)
+  const [visitedReports, setVisitedReports] = useState<Set<string>>(new Set());
+
+  // Calculate win/loss record from games
+  const record = useMemo(() => {
+    return games.reduce(
+      (acc, game) => {
+        if (game.game_result === 'win') acc.wins++;
+        else if (game.game_result === 'loss') acc.losses++;
+        else if (game.game_result === 'tie') acc.ties++;
+        return acc;
+      },
+      { wins: 0, losses: 0, ties: 0 }
+    );
+  }, [games]);
+
+  // Generate a hash of current filters for cache invalidation
+  const filterHash = useMemo(() => {
+    return JSON.stringify(filters);
+  }, [filters]);
+
+  // Check if cached data is still valid
+  const isCacheValid = useCallback((reportType: string): boolean => {
+    const cached = reportCache[reportType];
+    if (!cached) return false;
+
+    const isExpired = Date.now() - cached.timestamp > CACHE_TTL_MS;
+    const filtersChanged = cached.filterHash !== filterHash;
+
+    return !isExpired && !filtersChanged;
+  }, [reportCache, filterHash]);
+
+  // Update cache for a report
+  const updateCache = useCallback((reportType: string, data: any) => {
+    setReportCache(prev => ({
+      ...prev,
+      [reportType]: {
+        data,
+        timestamp: Date.now(),
+        filterHash,
+      }
+    }));
+  }, [filterHash]);
+
+  // Clear cache (useful for manual refresh)
+  const clearCache = useCallback(() => {
+    setReportCache({});
+  }, []);
+
   // Fetch team data
   useEffect(() => {
     async function fetchData() {
@@ -62,7 +140,7 @@ export default function AnalyticsReportingPage({
 
         setTeam(teamData);
 
-        // Fetch games
+        // Fetch games (including game_result for win/loss record)
         const { data: gamesData } = await supabase
           .from('games')
           .select('*')
@@ -89,14 +167,23 @@ export default function AnalyticsReportingPage({
     fetchData();
   }, [teamId]);
 
-  // Update URL when report changes
+  // Update URL when report changes and track visited reports
   const handleReportChange = (reportType: ReportType) => {
     setSelectedReport(reportType);
+
+    // Track this report as visited (for caching)
+    setVisitedReports(prev => new Set(prev).add(reportType));
+
     // Update URL without page reload
     const url = new URL(window.location.href);
     url.searchParams.set('type', reportType);
     window.history.pushState({}, '', url);
   };
+
+  // Track initial report as visited on mount
+  useEffect(() => {
+    setVisitedReports(prev => new Set(prev).add(selectedReport));
+  }, []);
 
   // Get current report config
   const currentReportConfig = getReportConfig(selectedReport);
@@ -130,6 +217,9 @@ export default function AnalyticsReportingPage({
         team={team}
         teamId={teamId}
         currentPage="analytics-reporting"
+        wins={record.wins}
+        losses={record.losses}
+        ties={record.ties}
       />
 
       {/* Main Content */}
@@ -145,6 +235,9 @@ export default function AnalyticsReportingPage({
           <div className="max-w-7xl mx-auto px-8 py-8">
             {/* Report Actions */}
             <ReportActions reportName={currentReportConfig.name} />
+
+            {/* Upgrade Banner for users without active subscription */}
+            <UpgradeBanner teamId={teamId} />
 
             {/* Report Filters */}
             <ReportFilters
@@ -165,63 +258,108 @@ export default function AnalyticsReportingPage({
               </div>
             ) : (
               <div>
-                {/* Render report based on type */}
-                {selectedReport === 'season-overview' && (
-                  <SeasonOverviewReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/*
+                 * Report Caching Strategy:
+                 * Reports are kept mounted but hidden (display: none) after first visit.
+                 * This preserves their internal state and fetched data, avoiding
+                 * refetch when switching between reports.
+                 *
+                 * Benefits:
+                 * - Instant report switching after initial load
+                 * - No data loss when comparing reports
+                 * - Reduced API calls during coaching sessions
+                 *
+                 * Trade-off:
+                 * - Slightly higher memory usage (acceptable for typical report count)
+                 * - Data may be up to 5 minutes stale (acceptable for analytics use case)
+                 */}
 
-                {selectedReport === 'game-report' && (
-                  <GameReport
-                    teamId={teamId}
-                    gameId={filters.gameId}
-                    filters={filters}
-                  />
-                )}
+                {/* Season Overview Report */}
+                <div style={{ display: selectedReport === 'season-overview' ? 'block' : 'none' }}>
+                  {(selectedReport === 'season-overview' || visitedReports.has('season-overview')) && (
+                    <SeasonOverviewReport
+                      teamId={teamId}
+                      filters={filters}
+                    />
+                  )}
+                </div>
 
-                {selectedReport === 'offensive' && (
-                  <OffensiveReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Game Report */}
+                <div style={{ display: selectedReport === 'game-report' ? 'block' : 'none' }}>
+                  {(selectedReport === 'game-report' || visitedReports.has('game-report')) && (
+                    <GameReport
+                      teamId={teamId}
+                      gameId={filters.gameId}
+                      filters={filters}
+                    />
+                  )}
+                </div>
 
-                {selectedReport === 'defensive' && (
-                  <DefensiveReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Offensive Report */}
+                <div style={{ display: selectedReport === 'offensive' ? 'block' : 'none' }}>
+                  {(selectedReport === 'offensive' || visitedReports.has('offensive')) && (
+                    <OffensiveReport
+                      teamId={teamId}
+                      filters={filters}
+                    />
+                  )}
+                </div>
 
-                {selectedReport === 'special-teams' && (
-                  <SpecialTeamsReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Defensive Report */}
+                <div style={{ display: selectedReport === 'defensive' ? 'block' : 'none' }}>
+                  {(selectedReport === 'defensive' || visitedReports.has('defensive')) && (
+                    <DefensiveReport
+                      teamId={teamId}
+                      filters={filters}
+                    />
+                  )}
+                </div>
 
-                {selectedReport === 'player' && (
-                  <PlayerReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Special Teams Report */}
+                <div style={{ display: selectedReport === 'special-teams' ? 'block' : 'none' }}>
+                  {(selectedReport === 'special-teams' || visitedReports.has('special-teams')) && (
+                    <SpecialTeamsReport
+                      teamId={teamId}
+                      filters={filters}
+                    />
+                  )}
+                </div>
 
-                {selectedReport === 'situational' && (
-                  <SituationalReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Player Report - Requires hs_basic or higher */}
+                <div style={{ display: selectedReport === 'player' ? 'block' : 'none' }}>
+                  {(selectedReport === 'player' || visitedReports.has('player')) && (
+                    <FeatureGate teamId={teamId} feature="player_stats">
+                      <PlayerReport
+                        teamId={teamId}
+                        filters={filters}
+                      />
+                    </FeatureGate>
+                  )}
+                </div>
 
-                {selectedReport === 'drives' && (
-                  <DriveAnalysisReport
-                    teamId={teamId}
-                    filters={filters}
-                  />
-                )}
+                {/* Situational Report - Requires hs_basic or higher */}
+                <div style={{ display: selectedReport === 'situational' ? 'block' : 'none' }}>
+                  {(selectedReport === 'situational' || visitedReports.has('situational')) && (
+                    <FeatureGate teamId={teamId} feature="situational_analysis">
+                      <SituationalReport
+                        teamId={teamId}
+                        filters={filters}
+                      />
+                    </FeatureGate>
+                  )}
+                </div>
+
+                {/* Drive Analysis Report - Requires hs_basic or higher */}
+                <div style={{ display: selectedReport === 'drives' ? 'block' : 'none' }}>
+                  {(selectedReport === 'drives' || visitedReports.has('drives')) && (
+                    <FeatureGate teamId={teamId} feature="drive_analytics">
+                      <DriveAnalysisReport
+                        teamId={teamId}
+                        filters={filters}
+                      />
+                    </FeatureGate>
+                  )}
+                </div>
               </div>
             )}
           </div>

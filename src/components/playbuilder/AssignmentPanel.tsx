@@ -30,11 +30,20 @@ interface Player {
   isDummy?: boolean;
 }
 
+interface Route {
+  id: string;
+  playerId: string;
+  points: Array<{ x: number; y: number }>;
+  assignment?: string;
+  isPrimary?: boolean;
+}
+
 interface AssignmentPanelProps {
   odk: 'offense' | 'defense' | 'specialTeams';
   playType: string;
   coverage: string;
   players: Player[];
+  routes: Route[];
   linemen: Player[];
   backs: Player[];
   receivers: Player[];
@@ -52,6 +61,7 @@ interface AssignmentPanelProps {
   onResetToTechnique: (id: string) => void;
   onUpdateCoverageRole: (id: string, role: string, depth?: number, description?: string) => void;
   onResetToRole: (id: string) => void;
+  onEditCustomRoute: (id: string) => void;
 }
 
 export default function AssignmentPanel({
@@ -59,6 +69,7 @@ export default function AssignmentPanel({
   playType,
   coverage,
   players,
+  routes,
   linemen,
   backs,
   receivers,
@@ -75,10 +86,14 @@ export default function AssignmentPanel({
   onUpdateBlitz,
   onResetToTechnique,
   onUpdateCoverageRole,
-  onResetToRole
+  onResetToRole,
+  onEditCustomRoute
 }: AssignmentPanelProps) {
+  // All offensive play types that need assignments
+  const offensivePlayTypes = ['Run', 'Pass', 'RPO', 'Screen', 'Draw', 'Play Action'];
+
   // Offensive assignments
-  if (odk === 'offense' && (playType === 'Run' || playType === 'Pass') && players.length > 0) {
+  if (odk === 'offense' && offensivePlayTypes.includes(playType) && players.length > 0) {
     return (
       <div className="space-y-3">
         <h3 className="text-lg font-bold text-gray-900 border-b pb-2">Player Assignments</h3>
@@ -92,6 +107,7 @@ export default function AssignmentPanel({
 
         <BacksSection
           players={backs}
+          routes={routes}
           playType={playType}
           ballCarrier={ballCarrier}
           targetHole={targetHole}
@@ -102,10 +118,12 @@ export default function AssignmentPanel({
           onUpdateMotionType={onUpdateMotionType}
           onUpdateMotionDirection={onUpdateMotionDirection}
           onTogglePrimary={onTogglePrimary}
+          onEditCustomRoute={onEditCustomRoute}
         />
 
         <ReceiversSection
           players={receivers}
+          routes={routes}
           assignmentOptions={getAssignmentOptionsForPlayer}
           onUpdateAssignment={onUpdateAssignment}
           onUpdateBlockType={onUpdateBlockType}
@@ -113,6 +131,7 @@ export default function AssignmentPanel({
           onUpdateMotionType={onUpdateMotionType}
           onUpdateMotionDirection={onUpdateMotionDirection}
           onTogglePrimary={onTogglePrimary}
+          onEditCustomRoute={onEditCustomRoute}
         />
       </div>
     );

@@ -47,16 +47,21 @@ const PrintableWristband = forwardRef<HTMLDivElement, PrintableWristbandProps>(
       ? 'w-6 h-6 text-[10pt]'
       : 'w-5 h-5 text-[8pt]';
 
-    // Collect all plays for this side
+    // Collect all unique plays for this side (deduplicated by play_code)
+    const seenPlayCodes = new Set<string>();
     const allPlays: Array<{ play: GamePlanPlayWithDetails; situation: string; categoryLabel: string }> = [];
     situationalCategories.forEach(category => {
       const plays = playsBySituation[category.id] || [];
       plays.forEach(play => {
-        allPlays.push({
-          play,
-          situation: category.id,
-          categoryLabel: category.shortLabel || category.label.slice(0, 8)
-        });
+        // Only add each play_code once
+        if (!seenPlayCodes.has(play.play_code)) {
+          seenPlayCodes.add(play.play_code);
+          allPlays.push({
+            play,
+            situation: category.id,
+            categoryLabel: category.shortLabel || category.label.slice(0, 8)
+          });
+        }
       });
     });
 
@@ -93,44 +98,24 @@ const PrintableWristband = forwardRef<HTMLDivElement, PrintableWristbandProps>(
           </span>
         </div>
 
-        {/* Plays Grid - Organized by Situation */}
-        <div className="space-y-1">
-          {situationalCategories.map(category => {
-            const plays = playsBySituation[category.id] || [];
-            if (plays.length === 0) return null;
+        {/* Plays Grid - Simple list sorted by call number */}
+        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 px-1 py-1">
+          {allPlays.map((item, index) => (
+            <div
+              key={item.play.id || `${item.play.play_code}-${index}`}
+              className={`flex items-center gap-1 ${textSize}`}
+            >
+              {/* Call Number */}
+              <span className={`${numberBg} text-white ${numberSize} rounded flex-shrink-0 flex items-center justify-center font-bold`}>
+                {item.play.call_number}
+              </span>
 
-            // Short label for wristband
-            const shortLabel = category.shortLabel || category.label.slice(0, 12);
-
-            return (
-              <div key={category.id} className="wristband-section">
-                {/* Category Header */}
-                <div className={`${categoryBg} ${categoryText} px-1 py-0.5 font-bold ${textSize} border-b border-gray-300`}>
-                  {shortLabel}
-                </div>
-
-                {/* Plays Grid - 2 columns */}
-                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 px-1 py-0.5">
-                  {plays.map((play, index) => (
-                    <div
-                      key={play.id || `${play.play_code}-${index}`}
-                      className={`flex items-center gap-1 ${textSize}`}
-                    >
-                      {/* Call Number */}
-                      <span className={`${numberBg} text-white ${numberSize} rounded flex-shrink-0 flex items-center justify-center font-bold`}>
-                        {play.call_number}
-                      </span>
-
-                      {/* Play Name - truncated */}
-                      <span className="truncate text-gray-900 font-medium">
-                        {abbreviatePlayName(play.play?.play_name || play.play_code)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              {/* Play Name - truncated */}
+              <span className="truncate text-gray-900 font-medium">
+                {abbreviatePlayName(item.play.play?.play_name || item.play.play_code)}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Cutline indicator */}

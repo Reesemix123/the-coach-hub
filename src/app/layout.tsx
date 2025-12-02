@@ -5,6 +5,7 @@ import ScrollingNavbar from "@/components/ScrollingNavbar";
 import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ConsoleLink from "@/components/ConsoleLink";
+import AdminLink from "@/components/AdminLink";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -33,6 +34,7 @@ export default function RootLayout({
                 <div className="hidden md:flex items-center gap-6">
                   <TeamSwitcher />
                   <ConsoleLink />
+                  <AdminLink />
                 </div>
               </div>
               {/* User Menu */}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface Game {
   id: string;
@@ -26,11 +27,14 @@ export default function GameSelector({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showAll, setShowAll] = useState(searchParams.get('showAll') === 'true');
+  const [isPending, startTransition] = useTransition();
 
   const handleGameChange = (gameId: string) => {
     const params = new URLSearchParams(searchParams);
     params.set('game', gameId);
-    router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+    });
   };
 
   const toggleShowAll = () => {
@@ -46,7 +50,9 @@ export default function GameSelector({
     if (selectedGameId) {
       params.set('game', selectedGameId);
     }
-    router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+    startTransition(() => {
+      router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+    });
   };
 
   // Format date for display
@@ -77,33 +83,42 @@ export default function GameSelector({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Preparing For:
           </label>
-          <select
-            value={selectedGameId || ''}
-            onChange={(e) => handleGameChange(e.target.value)}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg
-                       focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900
-                       bg-white text-lg font-medium"
-          >
-            {upcomingGames.map(game => {
-              const isNext = game.id === nextGameId;
-              let label = '';
+          <div className="relative">
+            <select
+              value={selectedGameId || ''}
+              onChange={(e) => handleGameChange(e.target.value)}
+              disabled={isPending}
+              className={`w-full px-4 py-3 border-2 border-gray-300 rounded-lg
+                         focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900
+                         bg-white text-lg font-medium transition-opacity
+                         ${isPending ? 'opacity-50 cursor-wait' : ''}`}
+            >
+              {upcomingGames.map(game => {
+                const isNext = game.id === nextGameId;
+                let label = '';
 
-              if (game.is_opponent_game) {
-                // Opponent scouting game
-                label = `Scouting: ${game.opponent_team_name || game.opponent}`;
-              } else {
-                // Your team's game
-                label = `vs ${game.opponent}`;
-              }
+                if (game.is_opponent_game) {
+                  // Opponent scouting game
+                  label = `Scouting: ${game.opponent_team_name || game.opponent}`;
+                } else {
+                  // Your team's game
+                  label = `vs ${game.opponent}`;
+                }
 
-              return (
-                <option key={game.id} value={game.id}>
-                  {label} - {formatDate(game.date)}
-                  {isNext ? ' 🔥 NEXT GAME' : ''}
-                </option>
-              );
-            })}
-          </select>
+                return (
+                  <option key={game.id} value={game.id}>
+                    {label} - {formatDate(game.date)}
+                    {isNext ? ' NEXT GAME' : ''}
+                  </option>
+                );
+              })}
+            </select>
+            {isPending && (
+              <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Show All Toggle */}
@@ -113,14 +128,24 @@ export default function GameSelector({
           </label>
           <button
             onClick={toggleShowAll}
-            className="px-4 py-3 border-2 border-gray-300 rounded-lg
+            disabled={isPending}
+            className={`px-4 py-3 border-2 border-gray-300 rounded-lg
                        hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900
-                       text-gray-900 bg-white font-medium transition-colors"
+                       text-gray-900 bg-white font-medium transition-all
+                       ${isPending ? 'opacity-50 cursor-wait' : ''}`}
           >
             {showAll ? 'Next 60 Days' : 'All Games'}
           </button>
         </div>
       </div>
+
+      {/* Loading overlay message */}
+      {isPending && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Loading game data...</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -20,8 +20,17 @@ interface Player {
   motionDirection?: 'toward-center' | 'away-from-center';
 }
 
+interface Route {
+  id: string;
+  playerId: string;
+  points: Array<{ x: number; y: number }>;
+  assignment?: string;
+  isPrimary?: boolean;
+}
+
 interface ReceiversSectionProps {
   players: Player[];
+  routes?: Route[];
   assignmentOptions: (player: Player) => string[];
   onUpdateAssignment: (playerId: string, assignment: string) => void;
   onUpdateBlockType: (playerId: string, blockType: string) => void;
@@ -29,17 +38,20 @@ interface ReceiversSectionProps {
   onUpdateMotionType: (playerId: string, motionType: string) => void;
   onUpdateMotionDirection: (playerId: string, direction: 'toward-center' | 'away-from-center') => void;
   onTogglePrimary: (playerId: string) => void;
+  onEditCustomRoute?: (playerId: string) => void;
 }
 
 export function ReceiversSection({
   players,
+  routes = [],
   assignmentOptions,
   onUpdateAssignment,
   onUpdateBlockType,
   onUpdateBlockResponsibility,
   onUpdateMotionType,
   onUpdateMotionDirection,
-  onTogglePrimary
+  onTogglePrimary,
+  onEditCustomRoute
 }: ReceiversSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -153,6 +165,28 @@ export function ReceiversSection({
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
                     </select>
+
+                    {/* Edit Custom Route Button */}
+                    {player.assignment === 'Draw Route (Custom)' && (
+                      <div className="mt-2">
+                        {routes.some(r => r.playerId === player.id) ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditCustomRoute?.(player.id)}
+                            className="w-full px-3 py-1.5 text-xs font-medium rounded bg-orange-500 text-white hover:bg-orange-600 transition-colors flex items-center justify-center gap-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            Edit Route
+                          </button>
+                        ) : (
+                          <div className="text-xs text-orange-600 italic p-2 bg-orange-50 rounded border border-orange-200">
+                            ✏️ Click and drag on the field to draw route
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Blocking Details - Same as Offensive Line */}

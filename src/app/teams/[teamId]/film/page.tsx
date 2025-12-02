@@ -4,13 +4,16 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, BarChart3, X } from 'lucide-react';
 import TeamNavigation from '@/components/TeamNavigation';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
+import OpponentTendencies from '@/components/game-plan/OpponentTendencies';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
+import { getOpponentTendencies } from '@/lib/services/opponent-analytics.service';
+import type { OpponentProfile } from '@/types/football';
 
 interface Team {
   id: string;
@@ -31,6 +34,8 @@ interface Game {
   team_score?: number | null;
   opponent_score?: number | null;
   game_result?: 'win' | 'loss' | 'tie' | null;
+  is_opponent_game?: boolean;
+  opponent_team_name?: string;
   created_at: string;
 }
 
@@ -63,6 +68,10 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showOpponentGameModal, setShowOpponentGameModal] = useState(false);
   const [showOwnTeamGameModal, setShowOwnTeamGameModal] = useState(false);
+  const [editingGameResult, setEditingGameResult] = useState<Game | null>(null);
+  const [showTendenciesModal, setShowTendenciesModal] = useState(false);
+  const [selectedOpponentProfile, setSelectedOpponentProfile] = useState<OpponentProfile | null>(null);
+  const [loadingTendencies, setLoadingTendencies] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -324,6 +333,44 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
     } catch (error) {
       console.error('Error creating game:', error);
       alert('Error creating game');
+    }
+  };
+
+  const handleUpdateGameResult = async (gameId: string, result: 'win' | 'loss' | 'tie' | null, teamScore: number | null, opponentScore: number | null) => {
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({
+          game_result: result,
+          team_score: teamScore,
+          opponent_score: opponentScore
+        })
+        .eq('id', gameId);
+
+      if (error) throw error;
+
+      // Refresh the games list
+      await fetchData();
+
+      // Close modal
+      setEditingGameResult(null);
+    } catch (error) {
+      console.error('Error updating game result:', error);
+      alert('Error updating game result');
+    }
+  };
+
+  const handleViewTendencies = async (opponentName: string) => {
+    setLoadingTendencies(true);
+    try {
+      const profile = await getOpponentTendencies(teamId, opponentName);
+      setSelectedOpponentProfile(profile);
+      setShowTendenciesModal(true);
+    } catch (error) {
+      console.error('Error fetching opponent tendencies:', error);
+      alert('Error loading opponent tendencies');
+    } finally {
+      setLoadingTendencies(false);
     }
   };
 
@@ -607,12 +654,32 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                      className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
-                    >
-                      View/Add Film →
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {game.is_opponent_game && (
+                        <button
+                          onClick={() => handleViewTendencies(game.opponent)}
+                          disabled={loadingTendencies}
+                          className="flex items-center gap-1.5 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                          title="View opponent tendencies"
+                        >
+                          <BarChart3 className="w-5 h-5" />
+                        </button>
+                      )}
+                      {!game.is_opponent_game && (
+                        <button
+                          onClick={() => setEditingGameResult(game)}
+                          className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Result
+                        </button>
+                      )}
+                      <button
+                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+                      >
+                        {game.videos.length > 0 ? 'View Film' : 'Add Film'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -833,30 +900,33 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right text-sm space-x-2">
-                      {game.videos.length > 0 ? (
-                        <>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex items-center justify-end gap-2">
+                        {game.is_opponent_game && (
                           <button
-                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                            className="px-3 py-1.5 text-gray-700 hover:text-black font-medium border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                            onClick={() => handleViewTendencies(game.opponent)}
+                            disabled={loadingTendencies}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 font-medium hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                            title="View opponent tendencies"
                           >
-                            View
+                            <BarChart3 className="w-4 h-4" />
                           </button>
+                        )}
+                        {!game.is_opponent_game && (
                           <button
-                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                            className="px-3 py-1.5 text-blue-600 hover:text-blue-700 font-medium border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                            onClick={() => setEditingGameResult(game)}
+                            className="px-3 py-1.5 text-gray-600 hover:text-gray-900 font-medium hover:bg-gray-100 rounded-lg transition-colors"
                           >
-                            + Add More
+                            Result
                           </button>
-                        </>
-                      ) : (
+                        )}
                         <button
                           onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                          className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                          className="px-4 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
                         >
-                          Upload Film
+                          {game.videos.length > 0 ? 'View Film' : 'Add Film'}
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -910,6 +980,48 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           onSave={handleCreateOpponentGame}
           onClose={() => setShowOpponentGameModal(false)}
         />
+      )}
+
+      {/* Game Result Modal */}
+      {editingGameResult && (
+        <GameResultModal
+          game={editingGameResult}
+          onSave={(result, teamScore, opponentScore) =>
+            handleUpdateGameResult(editingGameResult.id, result, teamScore, opponentScore)
+          }
+          onClose={() => setEditingGameResult(null)}
+        />
+      )}
+
+      {/* Opponent Tendencies Modal */}
+      {showTendenciesModal && selectedOpponentProfile && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTendenciesModal(false)}
+        >
+          <div
+            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedOpponentProfile.teamName} Tendencies
+              </h2>
+              <button
+                onClick={() => setShowTendenciesModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4">
+              <OpponentTendencies
+                opponentProfile={selectedOpponentProfile}
+                opponentName={selectedOpponentProfile.teamName}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1220,6 +1332,113 @@ function OpponentGameModal({
               className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
             >
               Create Opponent Game
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Game Result Modal Component
+function GameResultModal({
+  game,
+  onSave,
+  onClose
+}: {
+  game: Game;
+  onSave: (result: 'win' | 'loss' | 'tie' | null, teamScore: number | null, opponentScore: number | null) => void;
+  onClose: () => void;
+}) {
+  const [result, setResult] = useState<'win' | 'loss' | 'tie' | null>(game.game_result || null);
+  const [teamScore, setTeamScore] = useState<number | null>(game.team_score ?? null);
+  const [opponentScore, setOpponentScore] = useState<number | null>(game.opponent_score ?? null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(result, teamScore, opponentScore);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-lg p-8 max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+          Edit Game Result
+        </h2>
+        <p className="text-gray-600 mb-6">
+          vs {game.opponent} - {game.date && new Date(game.date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Result
+            </label>
+            <select
+              value={result || ''}
+              onChange={(e) => setResult(e.target.value ? (e.target.value as 'win' | 'loss' | 'tie') : null)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            >
+              <option value="">Not played yet</option>
+              <option value="win">Win</option>
+              <option value="loss">Loss</option>
+              <option value="tie">Tie</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Our Score
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={teamScore ?? ''}
+                onChange={(e) => setTeamScore(e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Opponent Score
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={opponentScore ?? ''}
+                onChange={(e) => setOpponentScore(e.target.value ? parseInt(e.target.value) : null)}
+                placeholder="0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
+            >
+              Save Result
             </button>
           </div>
         </form>

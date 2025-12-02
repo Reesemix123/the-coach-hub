@@ -4,6 +4,7 @@ import { Status } from '@/lib/services/game-week.service';
 interface StatusIndicatorProps {
   status: Status;
   size?: 'sm' | 'md' | 'lg';
+  large?: boolean;
 }
 
 const statusConfig = {
@@ -29,9 +30,12 @@ const statusConfig = {
   }
 };
 
-export default function StatusIndicator({ status, size = 'md' }: StatusIndicatorProps) {
+export default function StatusIndicator({ status, size = 'md', large = false }: StatusIndicatorProps) {
   const config = statusConfig[status];
   const Icon = config.icon;
+
+  // If large prop is true, use 'lg' size
+  const effectiveSize = large ? 'lg' : size;
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
@@ -39,15 +43,21 @@ export default function StatusIndicator({ status, size = 'md' }: StatusIndicator
     lg: 'px-4 py-2 text-base'
   };
 
+  const iconSizes = {
+    sm: 'w-3 h-3',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5'
+  };
+
   return (
     <div
       className={`
         inline-flex items-center gap-1.5 rounded-full border font-medium
         ${config.color}
-        ${sizeClasses[size]}
+        ${sizeClasses[effectiveSize]}
       `}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className={iconSizes[effectiveSize]} />
       {config.label}
     </div>
   );

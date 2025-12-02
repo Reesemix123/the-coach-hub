@@ -87,10 +87,10 @@ export default async function GameWeekPage({ params, searchParams }: GameWeekPag
           {/* Header with game info and countdown */}
           <GameWeekHeader context={context} />
 
-          {/* Station Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Station Grid - Two large tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {stations.map((station) => (
-              <Station key={station.name} station={station} />
+              <Station key={station.name} station={station} large />
             ))}
           </div>
         </div>

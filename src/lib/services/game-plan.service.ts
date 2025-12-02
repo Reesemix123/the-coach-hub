@@ -239,6 +239,7 @@ export async function getGamePlanWithPlays(
 /**
  * Add a play to a game plan situation
  * @param side - The side (offense/defense) for the play. Defaults to 'offense'.
+ * If the play already exists in another situation, it will use the same call_number.
  */
 export async function addPlayToSituation(
   gamePlanId: string,
@@ -246,20 +247,49 @@ export async function addPlayToSituation(
   situation: SituationalCategoryId,
   playTypeCategory?: PlayTypeCategoryId,
   side: GamePlanSide = 'offense'
-): Promise<void> {
+): Promise<{ callNumber: number; isNew: boolean }> {
   const supabase = createClient();
 
-  // Get the current max call number and sort order for this side
-  const { data: existingPlays } = await supabase
+  // First, check if this play already exists in the game plan (any situation)
+  const { data: existingPlay } = await supabase
     .from('game_plan_plays')
-    .select('call_number, sort_order')
+    .select('call_number')
     .eq('game_plan_id', gamePlanId)
+    .eq('play_code', playCode)
     .eq('side', side)
-    .order('call_number', { ascending: false })
+    .limit(1)
+    .single();
+
+  let callNumber: number;
+  let isNew = false;
+
+  if (existingPlay) {
+    // Use the same call number as the existing entry
+    callNumber = existingPlay.call_number;
+  } else {
+    // Get the current max call number for this side and assign a new one
+    const { data: maxPlays } = await supabase
+      .from('game_plan_plays')
+      .select('call_number')
+      .eq('game_plan_id', gamePlanId)
+      .eq('side', side)
+      .order('call_number', { ascending: false })
+      .limit(1);
+
+    callNumber = (maxPlays?.[0]?.call_number || 0) + 1;
+    isNew = true;
+  }
+
+  // Get max sort order for this situation
+  const { data: maxSortPlays } = await supabase
+    .from('game_plan_plays')
+    .select('sort_order')
+    .eq('game_plan_id', gamePlanId)
+    .eq('situation', situation)
+    .order('sort_order', { ascending: false })
     .limit(1);
 
-  const nextCallNumber = (existingPlays?.[0]?.call_number || 0) + 1;
-  const nextSortOrder = (existingPlays?.[0]?.sort_order || 0) + 1;
+  const nextSortOrder = (maxSortPlays?.[0]?.sort_order || 0) + 1;
 
   // If no play type category provided, try to infer from playbook
   let finalPlayTypeCategory = playTypeCategory;
@@ -280,7 +310,7 @@ export async function addPlayToSituation(
     .insert({
       game_plan_id: gamePlanId,
       play_code: playCode,
-      call_number: nextCallNumber,
+      call_number: callNumber,
       sort_order: nextSortOrder,
       situation,
       play_type_category: finalPlayTypeCategory,
@@ -290,22 +320,32 @@ export async function addPlayToSituation(
   if (error) {
     throw new Error(`Failed to add play to game plan: ${error.message}`);
   }
+
+  return { callNumber, isNew };
 }
 
 /**
- * Remove a play from a game plan situation
+ * Remove a play from a specific game plan situation
+ * @param situation - If provided, only removes from that situation. Otherwise removes from all situations.
  */
 export async function removePlayFromGamePlan(
   gamePlanId: string,
-  playCode: string
+  playCode: string,
+  situation?: SituationalCategoryId
 ): Promise<void> {
   const supabase = createClient();
 
-  const { error } = await supabase
+  let query = supabase
     .from('game_plan_plays')
     .delete()
     .eq('game_plan_id', gamePlanId)
     .eq('play_code', playCode);
+
+  if (situation) {
+    query = query.eq('situation', situation);
+  }
+
+  const { error } = await query;
 
   if (error) {
     throw new Error(`Failed to remove play from game plan: ${error.message}`);

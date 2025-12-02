@@ -8,6 +8,14 @@ import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamMembership, TeamAnalyticsConfig, AnalyticsTier } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { SubscriptionTier } from '@/types/admin';
+import {
+  TIER_DISPLAY_NAMES,
+  TIER_LEVELS,
+  isUpgrade,
+  getStatusMessage
+} from '@/lib/feature-access';
 
 interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -34,6 +42,21 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [settingsTab, setSettingsTab] = useState<'tier' | 'members'>('tier');
   const [savingTier, setSavingTier] = useState(false);
   const [tierSaveMessage, setTierSaveMessage] = useState<string | null>(null);
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
+
+  // Subscription hook for tier enforcement
+  const {
+    subscription,
+    tier: subscriptionTier,
+    status: subscriptionStatus,
+    showUpgradePrompt,
+    showPaymentWarning,
+    statusMessage,
+    tierDisplayName,
+    isTrialing,
+    trialDaysRemaining,
+    loading: subscriptionLoading
+  } = useFeatureAccess(teamId);
 
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState('');
@@ -125,6 +148,95 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       setTierSaveMessage('Failed to update analytics tier');
     } finally {
       setSavingTier(false);
+    }
+  };
+
+  // Handle subscription upgrade - redirect to Stripe checkout
+  const handleUpgrade = async (targetTier: SubscriptionTier) => {
+    setCreatingCheckout(true);
+    setTierSaveMessage(null);
+
+    try {
+      const response = await fetch('/api/console/billing/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: teamId,
+          tier: targetTier
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error: any) {
+      console.error('Error creating checkout:', error);
+      setTierSaveMessage(error.message || 'Failed to start upgrade process');
+    } finally {
+      setCreatingCheckout(false);
+    }
+  };
+
+  // Handle tier change (for existing subscribers)
+  const handleChangeTier = async (targetTier: SubscriptionTier) => {
+    if (!subscriptionTier || targetTier === subscriptionTier) return;
+
+    setCreatingCheckout(true);
+    setTierSaveMessage(null);
+
+    try {
+      const response = await fetch(`/api/console/teams/${teamId}/change-tier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_tier: targetTier })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to change tier');
+      }
+
+      setTierSaveMessage(data.message || 'Subscription updated successfully!');
+
+      // Refresh subscription data
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error changing tier:', error);
+      setTierSaveMessage(error.message || 'Failed to change subscription tier');
+    } finally {
+      setCreatingCheckout(false);
+    }
+  };
+
+  // Open Stripe billing portal for payment method management
+  const handleManageBilling = async () => {
+    try {
+      const response = await fetch('/api/console/billing/stripe/portal', {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to open billing portal');
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error: any) {
+      console.error('Error opening billing portal:', error);
+      setTierSaveMessage(error.message || 'Failed to open billing portal');
     }
   };
 
@@ -296,14 +408,87 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       <div className="max-w-7xl mx-auto px-6 py-12">
         {settingsTab === 'tier' && (
           <div>
+            {/* Subscription Status Banner */}
+            {!subscriptionLoading && (
+              <div className={`mb-8 p-4 rounded-lg border ${
+                showPaymentWarning
+                  ? 'bg-yellow-50 border-yellow-200'
+                  : showUpgradePrompt
+                  ? 'bg-blue-50 border-blue-200'
+                  : subscription?.billing_waived
+                  ? 'bg-green-50 border-green-200'
+                  : isTrialing
+                  ? 'bg-purple-50 border-purple-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${
+                        showPaymentWarning
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : showUpgradePrompt
+                          ? 'bg-blue-100 text-blue-800'
+                          : subscription?.billing_waived
+                          ? 'bg-green-100 text-green-800'
+                          : isTrialing
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {statusMessage}
+                      </span>
+                      {isTrialing && trialDaysRemaining !== null && (
+                        <span className="text-sm text-purple-600">
+                          {trialDaysRemaining} days remaining
+                        </span>
+                      )}
+                    </div>
+                    {subscriptionTier && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        Current plan: <strong>{tierDisplayName}</strong>
+                        {subscription?.current_period_end && subscriptionStatus === 'active' && (
+                          <span className="ml-2 text-gray-500">
+                            (renews {new Date(subscription.current_period_end).toLocaleDateString()})
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  {(subscriptionStatus === 'active' || subscriptionStatus === 'trialing' || subscriptionStatus === 'past_due') && (
+                    <button
+                      onClick={handleManageBilling}
+                      className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Manage Billing
+                    </button>
+                  )}
+                </div>
+                {showPaymentWarning && (
+                  <div className="mt-3 text-sm text-yellow-700">
+                    Your payment is past due. Please update your payment method to continue using all features.
+                    <button
+                      onClick={handleManageBilling}
+                      className="ml-2 underline hover:text-yellow-800"
+                    >
+                      Update now
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Choose Your Analytics Tier</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                {showUpgradePrompt ? 'Subscribe to Unlock Analytics' : 'Your Analytics Tier'}
+              </h2>
               <p className="text-gray-600">
-                Select the level of analytics that matches your team's needs. You can change this anytime.
+                {showUpgradePrompt
+                  ? 'Choose a plan to unlock advanced analytics features for your team.'
+                  : 'Your subscription determines which analytics features are available.'}
               </p>
               {tierSaveMessage && (
                 <div className={`mt-4 p-4 rounded-lg text-sm ${
-                  tierSaveMessage.includes('successfully')
+                  tierSaveMessage.includes('successfully') || tierSaveMessage.includes('updated')
                     ? 'bg-green-50 text-green-800 border border-green-200'
                     : 'bg-red-50 text-red-800 border border-red-200'
                 }`}>
@@ -315,28 +500,29 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
             <div className="space-y-4">
               {(Object.keys(tierInfo) as AnalyticsTier[]).map((tier) => {
                 const info = tierInfo[tier];
-                const isSelected = config.tier === tier;
+                const tierAsSubscription = tier as SubscriptionTier;
+                const isCurrentTier = subscriptionTier === tierAsSubscription;
                 const isDisabled = tier === 'ai_powered'; // Not yet available
+                const canUpgrade = subscriptionTier && isUpgrade(subscriptionTier, tierAsSubscription);
+                const canDowngrade = subscriptionTier && !isUpgrade(subscriptionTier, tierAsSubscription) && !isCurrentTier;
+                const needsSubscription = showUpgradePrompt && !isDisabled;
 
                 return (
                   <div
                     key={tier}
                     className={`border-2 rounded-lg p-6 transition-all ${
-                      isSelected
+                      isCurrentTier
                         ? 'border-gray-900 bg-gray-50'
                         : isDisabled
                         ? 'border-gray-200 bg-gray-50 opacity-60'
-                        : savingTier
-                        ? 'border-gray-200 bg-gray-50 opacity-60'
-                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                        : 'border-gray-200'
                     }`}
-                    onClick={() => !isDisabled && !isSelected && !savingTier && handleTierUpdate(tier)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">{info.name}</h3>
-                          {isSelected && (
+                          {isCurrentTier && (
                             <span className="px-2 py-1 text-xs font-medium bg-black text-white rounded">
                               Current Plan
                             </span>
@@ -360,18 +546,60 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                         </ul>
                       </div>
 
-                      {isSelected && (
-                        <div className="ml-4">
+                      <div className="ml-4 flex flex-col items-end gap-2">
+                        {isCurrentTier && (
                           <svg className="w-6 h-6 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                           </svg>
-                        </div>
-                      )}
+                        )}
+
+                        {/* Subscribe button for users without subscription */}
+                        {needsSubscription && (
+                          <button
+                            onClick={() => handleUpgrade(tierAsSubscription)}
+                            disabled={creatingCheckout}
+                            className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 disabled:bg-gray-400 transition-colors"
+                          >
+                            {creatingCheckout ? 'Loading...' : 'Subscribe'}
+                          </button>
+                        )}
+
+                        {/* Upgrade button for existing subscribers */}
+                        {canUpgrade && !isDisabled && (
+                          <button
+                            onClick={() => handleChangeTier(tierAsSubscription)}
+                            disabled={creatingCheckout}
+                            className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 disabled:bg-gray-400 transition-colors"
+                          >
+                            {creatingCheckout ? 'Loading...' : 'Upgrade'}
+                          </button>
+                        )}
+
+                        {/* Downgrade button for existing subscribers */}
+                        {canDowngrade && !isDisabled && (
+                          <button
+                            onClick={() => handleChangeTier(tierAsSubscription)}
+                            disabled={creatingCheckout}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                          >
+                            {creatingCheckout ? 'Loading...' : 'Downgrade'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Billing waived info */}
+            {subscription?.billing_waived && subscription.billing_waived_reason && (
+              <div className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  <strong>Billing waived:</strong> {subscription.billing_waived_reason}
+                </p>
+              </div>
+            )}
           </div>
         )}
 

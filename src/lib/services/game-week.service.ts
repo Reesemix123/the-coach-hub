@@ -44,6 +44,8 @@ export interface StationData {
     href: string;
   };
   secondaryActions: SecondaryAction[];
+  comingSoon?: string; // Optional message for features not yet implemented
+  badge?: number; // Optional badge count (e.g., for critical insights)
 }
 
 // ============================================================================
@@ -175,6 +177,7 @@ export async function getUpcomingGames(
 
 /**
  * Get all station data for the game week
+ * Simplified to show only Game Prep Hub and Game Plan tiles
  */
 export async function getStationData(
   teamId: string,
@@ -186,31 +189,17 @@ export async function getStationData(
   // Get analytics tier (defaults to hs_basic if not set)
   const tier = await getAnalyticsTier(supabase, teamId);
 
-  // Fetch all station data in parallel (order matches workflow)
-  const [filmData, playbookData, practiceData, personnelData, gamePlanData, strategyData] = await Promise.all([
-    getFilmStationData(supabase, teamId, gameId, tier),
-    getPlaybookStationData(supabase, teamId, tier),
-    getPracticeStationData(supabase, teamId, gameId, tier),
-    getPersonnelStationData(supabase, teamId, tier),
-    getGamePlanStationData(supabase, teamId, gameId, tier),
-    getStrategyStationData(supabase, teamId, gameId, tier)
+  // Fetch only the two main stations: Game Prep Hub and Game Plan
+  const [prepHubData, gamePlanData] = await Promise.all([
+    getGamePrepHubData(supabase, teamId, gameId, tier),
+    getGamePlanStationData(supabase, teamId, gameId, tier)
   ]);
 
   // Apply time-based urgency modifiers
-  // Order reflects typical coaching workflow:
-  // 1. Film Review & Scout (Mon-Tue)
-  // 2. Playbook (Tue - update based on film)
-  // 3. Practice (Tue-Thu - practice the plays)
-  // 4. Personnel (Throughout week - check injuries/roster)
-  // 5. Game Plan (Thu-Fri - finalize based on practice)
-  // 6. Strategy Station (Throughout week - strategic planning and prep)
+  // Game Prep Hub first (overall preparation), Game Plan second (specific plays)
   return [
-    applyUrgencyModifier(filmData, daysUntilGame),
-    applyUrgencyModifier(playbookData, daysUntilGame),
-    applyUrgencyModifier(practiceData, daysUntilGame),
-    applyUrgencyModifier(personnelData, daysUntilGame),
-    applyUrgencyModifier(gamePlanData, daysUntilGame),
-    applyUrgencyModifier(strategyData, daysUntilGame)
+    applyUrgencyModifier(prepHubData, daysUntilGame),
+    applyUrgencyModifier(gamePlanData, daysUntilGame)
   ];
 }
 
@@ -380,11 +369,12 @@ async function getGamePlanStationData(
       { label: 'Last Updated', value: exists ? 'Recently' : 'Not started' }
     ],
     primaryAction: {
-      label: exists ? 'Edit Game Plan' : 'Create Game Plan',
-      href: `/teams/${teamId}/game-plan/${gameId}` // This page doesn't exist yet (Phase 2)
+      label: exists && playsCount > 0 ? 'Edit Game Plan' : 'Build Game Plan',
+      href: `/teams/${teamId}/game-week/game-plan/${gameId}`
     },
     secondaryActions: [
-      { label: 'View Playbook', href: `/teams/${teamId}/playbook` }
+      { label: 'View Playbook', href: `/teams/${teamId}/playbook` },
+      { label: 'Print Wristband', href: gamePlan ? `/teams/${teamId}/playbook/print-wristband/${gamePlan.id}` : `/teams/${teamId}/playbook` }
     ]
   };
 }
@@ -563,89 +553,104 @@ async function getPersonnelStationData(
   };
 }
 
-async function getStrategyStationData(
+async function getGamePrepHubData(
   supabase: SupabaseClient,
   teamId: string,
   gameId: string,
   tier: AnalyticsTier
 ): Promise<StationData> {
-  // Query in parallel: strategic questions, preparation checklist, and insights
-  const [questionsResult, checklistResult, insightsResult] = await Promise.all([
-    supabase
-      .from('strategic_questions')
-      .select('id, coach_response')
-      .eq('team_id', teamId)
-      .eq('game_id', gameId),
+  // Query prep plan data
+  const { data: prepPlan } = await supabase
+    .from('prep_plans')
+    .select('*')
+    .eq('team_id', teamId)
+    .eq('game_id', gameId)
+    .single();
 
-    supabase
-      .from('preparation_checklist')
-      .select('id, is_completed')
-      .eq('team_id', teamId)
-      .eq('game_id', gameId),
+  // Get insights count (critical ones for badge)
+  let criticalInsightsCount = 0;
+  let totalInsights = 0;
+  let tasksCompleted = 0;
+  let tasksTotal = 0;
+  let promptsAnswered = 0;
+  let promptsTotal = 0;
 
-    supabase
-      .from('strategic_insights')
-      .select('id', { count: 'exact', head: true })
-      .eq('team_id', teamId)
-      .eq('game_id', gameId)
-      .eq('is_active', true)
-  ]);
+  if (prepPlan) {
+    // Get critical insights count
+    const { count: criticalCount } = await supabase
+      .from('prep_insights')
+      .select('*', { count: 'exact', head: true })
+      .eq('prep_plan_id', prepPlan.id)
+      .eq('priority', 1)
+      .eq('is_reviewed', false);
 
-  const questions = questionsResult.data || [];
-  const checklist = checklistResult.data || [];
-  const insightsCount = insightsResult.count || 0;
+    criticalInsightsCount = criticalCount || 0;
+    totalInsights = prepPlan.insights_total || 0;
+    tasksCompleted = prepPlan.tasks_completed || 0;
+    tasksTotal = prepPlan.tasks_total || 0;
+    promptsAnswered = prepPlan.prompts_answered || 0;
+    promptsTotal = prepPlan.prompts_total || 0;
+  }
 
-  const totalQuestions = questions.length;
-  const answeredQuestions = questions.filter((q: any) => q.coach_response).length;
-  const totalChecklistItems = checklist.length;
-  const completedChecklistItems = checklist.filter((c: any) => c.is_completed).length;
-
-  const questionProgress = totalQuestions > 0 ? answeredQuestions / totalQuestions : 0;
-  const checklistProgress = totalChecklistItems > 0 ? completedChecklistItems / totalChecklistItems : 0;
-
-  // Status logic
+  // Status logic based on overall readiness
   let status: Status = 'gray';
+  const overallReadiness = prepPlan?.overall_readiness || 0;
 
-  if (insightsCount === 0) {
-    // No strategy report generated yet
-    status = 'gray';
-  } else if (totalQuestions === 0 && totalChecklistItems === 0) {
-    // Report exists but no questions/checklist generated (shouldn't happen)
-    status = 'yellow';
+  if (!prepPlan || prepPlan.status === 'not_started') {
+    status = 'gray'; // Not started
+  } else if (overallReadiness >= 75) {
+    status = 'green'; // Ready
+  } else if (overallReadiness >= 40) {
+    status = 'yellow'; // In progress
   } else {
-    // Calculate overall progress
-    const avgProgress = (questionProgress + checklistProgress) / 2;
+    status = 'red'; // Needs attention
+  }
 
-    if (avgProgress >= 0.8) {
-      status = 'green'; // 80%+ complete
-    } else if (avgProgress >= 0.5) {
-      status = 'yellow'; // 50-80% complete
-    } else {
-      status = 'red'; // < 50% complete
-    }
+  // Build metrics
+  const metrics: MetricItem[] = [];
+
+  if (totalInsights > 0) {
+    metrics.push({
+      label: 'Insights',
+      value: `${totalInsights} available`
+    });
+  }
+
+  if (tasksTotal > 0) {
+    metrics.push({
+      label: 'Prep Tasks',
+      value: `${tasksCompleted}/${tasksTotal} done`
+    });
+  } else {
+    metrics.push({
+      label: 'Prep Tasks',
+      value: 'Not started'
+    });
+  }
+
+  if (promptsTotal > 0) {
+    metrics.push({
+      label: 'Questions',
+      value: `${promptsAnswered}/${promptsTotal} answered`
+    });
   }
 
   return {
-    name: 'Strategy Station',
+    name: 'Game Prep Hub',
     status,
-    metrics: [
-      {
-        label: 'Strategic Questions',
-        value: insightsCount > 0 ? `${answeredQuestions}/${totalQuestions} answered` : 'Not started'
-      },
-      {
-        label: 'Preparation Checklist',
-        value: insightsCount > 0 ? `${completedChecklistItems}/${totalChecklistItems} complete` : 'Not started'
-      }
+    metrics: metrics.length > 0 ? metrics.slice(0, 2) : [
+      { label: 'Status', value: 'Get started' },
+      { label: 'Progress', value: '0%' }
     ],
     primaryAction: {
-      label: insightsCount > 0 ? 'Review Strategy' : 'Generate Strategy Report',
-      href: `/teams/${teamId}/strategy-assistant?game=${gameId}`
+      label: prepPlan ? 'Review Prep Hub' : 'Start Prep Plan',
+      href: `/teams/${teamId}/game-prep-hub?game=${gameId}`
     },
     secondaryActions: [
       { label: 'View Analytics', href: `/teams/${teamId}/analytics-reporting` },
       { label: 'View Film', href: `/teams/${teamId}/film` }
-    ]
+    ],
+    badge: criticalInsightsCount > 0 ? criticalInsightsCount : undefined
   };
 }
 

@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { X, Printer, Download, FileText, Watch } from 'lucide-react';
 import PrintableGamePlan from './PrintableGamePlan';
 import PrintableWristband from './PrintableWristband';
-import type { GamePlanPlayWithDetails } from '@/types/football';
+import type { GamePlanPlayWithDetails, PlayRelationshipWithDetails } from '@/types/football';
 import type { GamePlanSide } from '@/lib/services/game-plan.service';
 
 interface PrintPreviewModalProps {
@@ -16,6 +16,7 @@ interface PrintPreviewModalProps {
   offensivePlaysBySituation: Record<string, GamePlanPlayWithDetails[]>;
   defensivePlaysBySituation: Record<string, GamePlanPlayWithDetails[]>;
   specialTeamsPlaysBySituation: Record<string, GamePlanPlayWithDetails[]>;
+  setupCounterRelationships?: PlayRelationshipWithDetails[];
 }
 
 type PrintType = 'gameplan' | 'wristband';
@@ -29,7 +30,8 @@ export default function PrintPreviewModal({
   gameDate,
   offensivePlaysBySituation,
   defensivePlaysBySituation,
-  specialTeamsPlaysBySituation
+  specialTeamsPlaysBySituation,
+  setupCounterRelationships = []
 }: PrintPreviewModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
   const [printType, setPrintType] = useState<PrintType>('gameplan');
@@ -113,6 +115,8 @@ export default function PrintPreviewModal({
             .text-blue-800 { color: #1e40af; }
             .text-amber-800 { color: #92400e; }
             .text-purple-800 { color: #5b21b6; }
+            .text-emerald-700 { color: #047857; }
+            .bg-emerald-100 { background-color: #d1fae5; }
             .font-bold { font-weight: 700; }
             .font-medium { font-weight: 500; }
             .text-xs { font-size: 0.75rem; }
@@ -139,6 +143,7 @@ export default function PrintPreviewModal({
             .items-start { align-items: start; }
             .justify-between { justify-content: space-between; }
             .justify-center { justify-content: center; }
+            .gap-0\\.5 { gap: 0.125rem; }
             .gap-1 { gap: 0.25rem; }
             .gap-2 { gap: 0.5rem; }
             .gap-3 { gap: 0.75rem; }
@@ -149,6 +154,7 @@ export default function PrintPreviewModal({
             .p-2 { padding: 0.5rem; }
             .p-8 { padding: 2rem; }
             .px-1 { padding-left: 0.25rem; padding-right: 0.25rem; }
+            .px-1\\.5 { padding-left: 0.375rem; padding-right: 0.375rem; }
             .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
             .px-4 { padding-left: 1rem; padding-right: 1rem; }
             .py-0\\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
@@ -165,10 +171,12 @@ export default function PrintPreviewModal({
             .mt-2 { margin-top: 0.5rem; }
             .mt-8 { margin-top: 2rem; }
             .mx-auto { margin-left: auto; margin-right: auto; }
+            .w-3 { width: 0.75rem; }
             .w-4 { width: 1rem; }
             .w-5 { width: 1.25rem; }
             .w-6 { width: 1.5rem; }
             .w-10 { width: 2.5rem; }
+            .h-3 { height: 0.75rem; }
             .h-4 { height: 1rem; }
             .h-5 { height: 1.25rem; }
             .h-6 { height: 1.5rem; }
@@ -334,28 +342,44 @@ export default function PrintPreviewModal({
 
         {/* Preview */}
         <div className="flex-1 overflow-auto p-6 bg-gray-100">
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-            <div ref={printRef}>
-              {printType === 'gameplan' ? (
-                <PrintableGamePlan
-                  teamName={teamName}
-                  opponent={opponent}
-                  gameDate={gameDate}
-                  side={selectedSide}
-                  playsBySituation={getPlaysBySituation(selectedSide)}
-                />
-              ) : (
-                <PrintableWristband
-                  teamName={teamName}
-                  opponent={opponent}
-                  gameDate={gameDate}
-                  side={selectedSide}
-                  playsBySituation={getPlaysBySituation(selectedSide)}
-                  format={wristbandFormat}
-                />
-              )}
+          {Object.values(getPlaysBySituation(selectedSide)).flat().length === 0 ? (
+            <div className="bg-white shadow-lg rounded-lg p-12 text-center">
+              <div className="text-gray-400 mb-4">
+                <FileText className="w-16 h-16 mx-auto" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No {selectedSide === 'offense' ? 'Offensive' : selectedSide === 'defense' ? 'Defensive' : 'Special Teams'} Plays
+              </h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Add plays to your {selectedSide === 'special_teams' ? 'special teams' : selectedSide} game plan by selecting a situation
+                and clicking the + button on plays in the Playbook Browser.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+              <div ref={printRef}>
+                {printType === 'gameplan' ? (
+                  <PrintableGamePlan
+                    teamName={teamName}
+                    opponent={opponent}
+                    gameDate={gameDate}
+                    side={selectedSide}
+                    playsBySituation={getPlaysBySituation(selectedSide)}
+                    setupCounterRelationships={setupCounterRelationships}
+                  />
+                ) : (
+                  <PrintableWristband
+                    teamName={teamName}
+                    opponent={opponent}
+                    gameDate={gameDate}
+                    side={selectedSide}
+                    playsBySituation={getPlaysBySituation(selectedSide)}
+                    format={wristbandFormat}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}

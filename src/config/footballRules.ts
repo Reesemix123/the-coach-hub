@@ -117,8 +117,10 @@ export function validateOffensiveFormation(players: Player[], playType?: string)
     errors.push(`${outOfBounds.length} player(s) out of bounds`);
   }
 
-  // Only check eligible receivers for pass plays
-  if (playType === 'Pass') {
+  // Check eligible receivers for pass-based plays (Pass, Screen, Play Action, RPO, Draw)
+  // These plays can result in a forward pass, so eligible receiver rules apply
+  const passBasedPlayTypes = ['Pass', 'Screen', 'Play Action', 'RPO', 'Draw'];
+  if (passBasedPlayTypes.includes(playType)) {
     const eligibleCount = players.filter(p =>
       isEligibleReceiver(p.position) || isBackfield(p.position)
     ).length;
@@ -210,21 +212,35 @@ export function validateMotion(players: Player[]): FormationValidation {
     if (isOffensiveLineman(player.position)) {
       errors.push(`${player.label} (${player.position}) is a lineman and cannot be in motion`);
     }
-    
-    // Rule 2b: Must be off the line of scrimmage
-    const onLineOfScrimmage = Math.abs(player.y - FIELD_RULES.lineOfScrimmage) <= 5;
+
+    // Rule 2b: Must be off the line of scrimmage at snap
+    // For ALL motion types, check the motion endpoint position since that's where
+    // the player will be when they execute their post-snap assignment.
+    // If no endpoint is set, check their starting position.
+    const positionToCheck = player.motionEndpoint
+      ? player.motionEndpoint.y
+      : player.y;
+
+    const onLineOfScrimmage = Math.abs(positionToCheck - FIELD_RULES.lineOfScrimmage) <= 5;
     if (onLineOfScrimmage) {
-      errors.push(`${player.label} is on line of scrimmage. Motion player must be off the line.`);
+      if (player.motionEndpoint) {
+        errors.push(`${player.label}'s motion endpoint is on line of scrimmage. Motion player must end up off the line.`);
+      } else {
+        errors.push(`${player.label} is on line of scrimmage. Motion player must be off the line.`);
+      }
     }
-    
-    // Rule 2c: Check if moving toward line of scrimmage
-    if (player.motionEndpoint) {
+
+    // Rule 2c: Check if moving toward line of scrimmage (only for continuous motion types)
+    // Jet and Across motion should not move toward the LOS
+    const motionType = player.motionType?.toUpperCase();
+    const isContinuousMotion = motionType === 'JET' || motionType === 'ACROSS';
+    if (player.motionEndpoint && isContinuousMotion) {
       const movingTowardLOS = player.motionEndpoint.y < player.y;
       if (movingTowardLOS) {
         errors.push(`${player.label}'s motion moves toward line of scrimmage. Motion must be parallel or backward.`);
       }
     }
-    
+
     // Rule 2d: Shift and Return must come to set
     if (player.motionType === 'Return' || player.motionType === 'Shift') {
       warnings.push(`${player.label} (${player.motionType}) must come to a full set for 1 second before snap`);

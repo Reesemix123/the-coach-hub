@@ -192,15 +192,8 @@ export default function FormationControls({
         )}
       </div>
 
-      {odk === 'offense' && playType && playType !== 'Run' && playType !== 'Pass' && (
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>🚧 Coming Soon:</strong> {playType} play configuration is under development. For now, please use Run or Pass play types.
-          </p>
-        </div>
-      )}
-
-      {odk === 'offense' && playType === 'Run' && (
+      {/* Target Hole & Ball Carrier - shown for run-based play types */}
+      {odk === 'offense' && (playType === 'Run' || playType === 'Draw' || playType === 'RPO') && (
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <Tooltip content="Select which gap or hole the ball carrier will attack. Numbered from inside-out: 0 (A-gap) through 9 (C-gap).">
