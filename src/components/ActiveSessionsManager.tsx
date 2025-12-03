@@ -300,8 +300,8 @@ export default function ActiveSessionsManager() {
           <div className="flex items-start gap-2 text-sm text-amber-800">
             <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
             <span>
-              You&apos;ve reached your device limit ({data.session_limit}).
-              Sign out from another device or upgrade your plan for more.
+              You&apos;ve reached your device limit ({data.session_limit} devices).
+              Sign out from another device to sign in here.
             </span>
           </div>
         </div>

@@ -88,20 +88,11 @@ export default async function AccountPage() {
         <section className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <h3 className="font-medium text-blue-900 mb-2">About Device Limits</h3>
           <p className="text-sm text-blue-800">
-            Your subscription tier determines how many devices can be signed in at once.
+            Each coach can be signed in on up to <strong>3 devices</strong> at once.
             When you sign in on a new device and exceed your limit, the oldest session
             will automatically be signed out. You can also manually sign out from any
             device above.
           </p>
-          <div className="mt-3 text-sm text-blue-700">
-            <strong>Device limits by tier:</strong>
-            <ul className="mt-1 ml-4 list-disc">
-              <li>Free: 2 devices</li>
-              <li>Basic / Plus: 3 devices</li>
-              <li>Premium: 5 devices</li>
-              <li>AI Powered: 10 devices</li>
-            </ul>
-          </div>
         </section>
       </div>
     </div>
