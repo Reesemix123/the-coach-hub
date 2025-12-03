@@ -4,15 +4,25 @@
 // - Checking and creating credit warning alerts
 // - Should be called via cron job (e.g., Vercel cron, external scheduler)
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Use service role for cron jobs (no user auth)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+// Lazy initialization to avoid build-time errors
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase environment variables not configured');
+    }
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } }
+    );
+  }
+  return supabaseAdmin;
+}
 
 /**
  * GET /api/cron/ai-credits
@@ -55,7 +65,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
 
     // Get all active AI-powered subscriptions
-    const { data: activeSubscriptions, error: subError } = await supabaseAdmin
+    const { data: activeSubscriptions, error: subError } = await getSupabaseAdmin()
       .from('subscriptions')
       .select('team_id, tier, current_period_end')
       .eq('tier', 'ai_powered')
@@ -68,7 +78,7 @@ export async function GET(request: NextRequest) {
       // Check each team for expired credit period
       for (const sub of activeSubscriptions) {
         // Get current credit period
-        const { data: currentPeriod } = await supabaseAdmin
+        const { data: currentPeriod } = await getSupabaseAdmin()
           .from('ai_credits')
           .select('*')
           .eq('team_id', sub.team_id)
@@ -89,7 +99,7 @@ export async function GET(request: NextRequest) {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
 
           // Get tier config for credit allocation
-          const { data: tierConfig } = await supabaseAdmin
+          const { data: tierConfig } = await getSupabaseAdmin()
             .from('platform_config')
             .select('value')
             .eq('key', `tier_config_${sub.tier}`)
@@ -97,7 +107,7 @@ export async function GET(request: NextRequest) {
 
           const creditsAllowed = tierConfig?.value?.ai_credits || 1000;
 
-          const { error: insertError } = await supabaseAdmin
+          const { error: insertError } = await getSupabaseAdmin()
             .from('ai_credits')
             .insert({
               team_id: sub.team_id,
@@ -120,7 +130,7 @@ export async function GET(request: NextRequest) {
     // =========================================================================
     // Step 2: Check all teams for credit warnings
     // =========================================================================
-    const { data: warningResults, error: warningError } = await supabaseAdmin
+    const { data: warningResults, error: warningError } = await getSupabaseAdmin()
       .rpc('check_credit_warnings');
 
     if (warningError) {
@@ -208,7 +218,7 @@ export async function POST(request: NextRequest) {
 
   try {
     if (action === 'check_warnings' || action === 'all') {
-      const { data: warningResults, error: warningError } = await supabaseAdmin
+      const { data: warningResults, error: warningError } = await getSupabaseAdmin()
         .rpc('check_credit_warnings');
 
       if (warningError) {
