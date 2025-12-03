@@ -20,8 +20,8 @@ function getResendClient(): Resend {
 // Email configuration
 const EMAIL_CONFIG = {
   // Use Resend's test email for development, swap to custom domain in production
-  from: process.env.EMAIL_FROM || 'The Coach Hub <onboarding@resend.dev>',
-  replyTo: process.env.EMAIL_REPLY_TO || 'support@thecoachhub.com',
+  from: process.env.EMAIL_FROM || 'Youth Coach Hub <onboarding@resend.dev>',
+  replyTo: process.env.EMAIL_REPLY_TO || 'support@youthcoachhub.com',
 };
 
 // ============================================================================
@@ -91,7 +91,7 @@ export function getPasswordResetEmail(options: {
 }): { subject: string; html: string; text: string } {
   const { userName, temporaryPassword, adminName } = options;
 
-  const subject = 'Your The Coach Hub Password Has Been Reset';
+  const subject = 'Your Youth Coach Hub Password Has Been Reset';
 
   const html = `
     <!DOCTYPE html>
@@ -103,7 +103,7 @@ export function getPasswordResetEmail(options: {
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: #fff; margin: 0; font-size: 24px;">The Coach Hub</h1>
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
       </div>
 
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
@@ -122,7 +122,7 @@ export function getPasswordResetEmail(options: {
 
         <p>To log in:</p>
         <ol style="padding-left: 20px;">
-          <li>Go to <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.thecoachhub.com'}/auth/login" style="color: #000;">The Coach Hub</a></li>
+          <li>Go to <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login" style="color: #000;">Youth Coach Hub</a></li>
           <li>Enter your email and the temporary password above</li>
           <li>Go to your account settings and change your password</li>
         </ol>
@@ -132,7 +132,7 @@ export function getPasswordResetEmail(options: {
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
 
         <p style="font-size: 12px; color: #666; margin-bottom: 0;">
-          This email was sent by The Coach Hub. If you have any questions, please contact support.
+          This email was sent by Youth Coach Hub. If you have any questions, please contact support.
         </p>
       </div>
     </body>
@@ -140,7 +140,7 @@ export function getPasswordResetEmail(options: {
   `;
 
   const text = `
-Password Reset - The Coach Hub
+Password Reset - Youth Coach Hub
 
 Hello ${userName || 'Coach'},
 
@@ -151,14 +151,14 @@ Temporary Password: ${temporaryPassword}
 IMPORTANT: Please change your password immediately after logging in.
 
 To log in:
-1. Go to ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.thecoachhub.com'}/auth/login
+1. Go to ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login
 2. Enter your email and the temporary password above
 3. Go to your account settings and change your password
 
 If you did not expect this password reset or have concerns, please contact our support team.
 
 ---
-This email was sent by The Coach Hub.
+This email was sent by Youth Coach Hub.
   `.trim();
 
   return { subject, html, text };
@@ -171,7 +171,7 @@ export function getUserDeactivatedEmail(options: {
 }): { subject: string; html: string; text: string } {
   const { userName, adminName, reason } = options;
 
-  const subject = 'Your The Coach Hub Account Has Been Deactivated';
+  const subject = 'Your Youth Coach Hub Account Has Been Deactivated';
 
   const html = `
     <!DOCTYPE html>
@@ -183,7 +183,7 @@ export function getUserDeactivatedEmail(options: {
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: #fff; margin: 0; font-size: 24px;">The Coach Hub</h1>
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
       </div>
 
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
@@ -191,7 +191,7 @@ export function getUserDeactivatedEmail(options: {
 
         <p>Hello ${userName || 'User'},</p>
 
-        <p>Your The Coach Hub account has been deactivated by a platform administrator (${adminName}).</p>
+        <p>Your Youth Coach Hub account has been deactivated by a platform administrator (${adminName}).</p>
 
         ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
 
@@ -207,7 +207,7 @@ export function getUserDeactivatedEmail(options: {
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
 
         <p style="font-size: 12px; color: #666; margin-bottom: 0;">
-          This email was sent by The Coach Hub. If you have any questions, please contact support.
+          This email was sent by Youth Coach Hub. If you have any questions, please contact support.
         </p>
       </div>
     </body>
@@ -215,11 +215,11 @@ export function getUserDeactivatedEmail(options: {
   `;
 
   const text = `
-Account Deactivated - The Coach Hub
+Account Deactivated - Youth Coach Hub
 
 Hello ${userName || 'User'},
 
-Your The Coach Hub account has been deactivated by a platform administrator (${adminName}).
+Your Youth Coach Hub account has been deactivated by a platform administrator (${adminName}).
 
 ${reason ? `Reason: ${reason}` : ''}
 
@@ -231,7 +231,7 @@ While your account is deactivated:
 If you believe this was done in error or have questions, please contact our support team.
 
 ---
-This email was sent by The Coach Hub.
+This email was sent by Youth Coach Hub.
   `.trim();
 
   return { subject, html, text };
@@ -243,7 +243,7 @@ export function getUserReactivatedEmail(options: {
 }): { subject: string; html: string; text: string } {
   const { userName, adminName } = options;
 
-  const subject = 'Your The Coach Hub Account Has Been Reactivated';
+  const subject = 'Your Youth Coach Hub Account Has Been Reactivated';
 
   const html = `
     <!DOCTYPE html>
@@ -255,7 +255,7 @@ export function getUserReactivatedEmail(options: {
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-        <h1 style="color: #fff; margin: 0; font-size: 24px;">The Coach Hub</h1>
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
       </div>
 
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
@@ -263,12 +263,12 @@ export function getUserReactivatedEmail(options: {
 
         <p>Hello ${userName || 'User'},</p>
 
-        <p>Great news! Your The Coach Hub account has been reactivated by a platform administrator (${adminName}).</p>
+        <p>Great news! Your Youth Coach Hub account has been reactivated by a platform administrator (${adminName}).</p>
 
         <p>You can now log in and access all your data and team memberships as before.</p>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.thecoachhub.com'}/auth/login" style="display: inline-block; background: #000; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500;">Log In Now</a>
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login" style="display: inline-block; background: #000; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500;">Log In Now</a>
         </div>
 
         <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
@@ -276,7 +276,7 @@ export function getUserReactivatedEmail(options: {
         <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
 
         <p style="font-size: 12px; color: #666; margin-bottom: 0;">
-          This email was sent by The Coach Hub. If you have any questions, please contact support.
+          This email was sent by Youth Coach Hub. If you have any questions, please contact support.
         </p>
       </div>
     </body>
@@ -284,20 +284,20 @@ export function getUserReactivatedEmail(options: {
   `;
 
   const text = `
-Welcome Back! - The Coach Hub
+Welcome Back! - Youth Coach Hub
 
 Hello ${userName || 'User'},
 
-Great news! Your The Coach Hub account has been reactivated by a platform administrator (${adminName}).
+Great news! Your Youth Coach Hub account has been reactivated by a platform administrator (${adminName}).
 
 You can now log in and access all your data and team memberships as before.
 
-Log in at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.thecoachhub.com'}/auth/login
+Log in at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login
 
 If you have any questions or need assistance, please don't hesitate to contact our support team.
 
 ---
-This email was sent by The Coach Hub.
+This email was sent by Youth Coach Hub.
   `.trim();
 
   return { subject, html, text };

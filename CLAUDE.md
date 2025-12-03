@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-# The Coach Hub - Codebase Architecture
+# Youth Coach Hub - Codebase Architecture
 
 ## Overview
 
-**The Coach Hub** is a comprehensive football coaching platform built with Next.js 15, React 19, TypeScript, and Supabase. It enables coaches to manage teams, build digital playbooks, analyze game film, and track performance analytics.
+**Youth Coach Hub** is a comprehensive football coaching platform built with Next.js 15, React 19, TypeScript, and Supabase. It enables coaches to manage teams, build digital playbooks, analyze game film, and track performance analytics.
 
 ### Application Type
 - **Framework**: Next.js 15 (App Router)
@@ -99,7 +99,7 @@ State Management:
 ## Directory Structure
 
 ```
-the-coach-hub/
+youth-coach-hub/
 ├── src/
 │   ├── app/                      # Next.js App Router pages
 │   │   ├── about/               # Static about page

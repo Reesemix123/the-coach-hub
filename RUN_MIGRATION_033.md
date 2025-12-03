@@ -23,7 +23,7 @@ Without this migration:
 1. Click **+ New query**
 2. Open this file on your computer:
    ```
-   /Users/markreese/the-coach-hub/supabase/migrations/033_add_multi_player_defensive_tracking.sql
+   /Users/markreese/youth-coach-hub/supabase/migrations/033_add_multi_player_defensive_tracking.sql
    ```
 3. Copy the ENTIRE contents (336 lines)
 4. Paste into the SQL Editor
@@ -144,7 +144,7 @@ If you see 0 rows, the data wasn't saved. Re-tag the play after running migratio
 
 Run this file to check everything:
 ```
-/Users/markreese/the-coach-hub/CHECK_PARTICIPATION_DATA.sql
+/Users/markreese/youth-coach-hub/CHECK_PARTICIPATION_DATA.sql
 ```
 
 Paste it into Supabase SQL Editor and run it. It will show you:

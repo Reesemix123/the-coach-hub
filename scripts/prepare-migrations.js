@@ -57,7 +57,7 @@ function prepareMigrations() {
 -- ✅ MIGRATIONS COMPLETE!
 -- ============================================================================
 -- If you see no errors above, the migrations were applied successfully.
--- Refresh your The Coach Hub app to see player stats working.
+-- Refresh your Youth Coach Hub app to see player stats working.
 -- ============================================================================\n`;
 
   fs.writeFileSync(outputPath, combinedSQL, 'utf-8');

@@ -167,7 +167,7 @@ async function applyMigration(migration) {
 }
 
 async function runMigrations() {
-  console.log('\n🚀 The Coach Hub - Database Migration Runner\n');
+  console.log('\n🚀 Youth Coach Hub - Database Migration Runner\n');
   console.log(`Connecting to: ${supabaseUrl}`);
   console.log(`Using key: ${supabaseKey.substring(0, 20)}...\n`);
 

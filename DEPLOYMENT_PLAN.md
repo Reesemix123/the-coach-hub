@@ -1,4 +1,4 @@
-# The Coach Hub - Production Deployment Plan
+# Youth Coach Hub - Production Deployment Plan
 
 **Status:** Ready to deploy when needed
 **Target Platform:** Vercel (free tier)
@@ -37,8 +37,8 @@ Before starting deployment, ensure:
 
 3. **Add Production URL to Allowed Origins:**
    - Settings → Authentication → URL Configuration
-   - Add Site URL: `https://thecoachhub.com` (or your custom domain)
-   - Add Redirect URL: `https://thecoachhub.com/auth/callback`
+   - Add Site URL: `https://youthcoachhub.com` (or your custom domain)
+   - Add Redirect URL: `https://youthcoachhub.com/auth/callback`
 
 4. **Review RLS Policies:**
    - Database → Tables → Check all tables have RLS enabled
@@ -55,7 +55,7 @@ Before starting deployment, ensure:
 
 1. **Create New Project:**
    - Supabase Dashboard → New Project
-   - Name: "the-coach-hub-production"
+   - Name: "youth-coach-hub-production"
    - Choose same region as your current project
    - Same organization → No additional cost ✅
 
@@ -87,7 +87,7 @@ Before starting deployment, ensure:
 2. **Sign Up/Login** with GitHub
 3. **Import Project:**
    - "Add New..." → Project
-   - Select your GitHub repository: `the-coach-hub`
+   - Select your GitHub repository: `youth-coach-hub`
    - Click "Import"
 
 ### 2.2 - Configure Project Settings
@@ -125,7 +125,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 1. Click **"Deploy"**
 2. Wait 2-3 minutes for build to complete
-3. You'll get a URL: `https://the-coach-hub.vercel.app`
+3. You'll get a URL: `https://youth-coach-hub.vercel.app`
 
 ---
 
@@ -176,7 +176,7 @@ Go to Supabase Dashboard:
 
 ## STEP 4: Custom Domain (Optional - 15 minutes)
 
-If you own a domain (e.g., thecoachhub.com):
+If you own a domain (e.g., youthcoachhub.com):
 
 1. **Add Domain in Vercel:**
    - Project Settings → Domains
@@ -265,7 +265,7 @@ Add deployment section to your README:
 ```markdown
 ## Production Deployment
 
-Live site: https://thecoachhub.com
+Live site: https://youthcoachhub.com
 
 ### Tech Stack
 - **Frontend:** Next.js 15 + React 19

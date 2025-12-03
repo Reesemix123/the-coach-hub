@@ -2,7 +2,7 @@
 ## Hudl + Team Workspace Best Practices
 
 **Date:** 2025-11-01
-**Purpose:** Compare The Coach Hub against multiple industry leaders to identify optimal structure
+**Purpose:** Compare Youth Coach Hub against multiple industry leaders to identify optimal structure
 
 ---
 
@@ -287,7 +287,7 @@ app.asana.com/0/{workspaceId}/home
 
 ---
 
-## Recommended Structure for The Coach Hub
+## Recommended Structure for Youth Coach Hub
 
 ### Final Proposed Architecture
 
@@ -357,7 +357,7 @@ Combining patterns from **Hudl** (quick stats) + **Asana** (home dashboard):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [Logo] The Coach Hub     [Bears Football ▼]        [@]     │
+│ [Logo] Youth Coach Hub     [Bears Football ▼]        [@]     │
 ├─────────────────────────────────────────────────────────────┤
 │ Schedule  Playbook  Film  Players  Analytics  Settings     │
 └─────────────────────────────────────────────────────────────┘
@@ -475,7 +475,7 @@ Has teams?
 
 **Global Header:**
 ```
-[Logo] The Coach Hub    [Bears Football ▼]    [@User]
+[Logo] Youth Coach Hub    [Bears Football ▼]    [@User]
 ```
 
 **Team Navigation:**

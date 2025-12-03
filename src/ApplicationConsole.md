@@ -2,7 +2,7 @@
 
 ## Project Context
 
-This is an existing football game film analysis application called The Coach Hub. The core application is functional — coaches can create teams, upload game film, tag plays, view analytics, and invite team members.
+This is an existing football game film analysis application called Youth Coach Hub. The core application is functional — coaches can create teams, upload game film, tag plays, view analytics, and invite team members.
 
 We are now adding two administrative layers:
 1. **Athletic Director Console** — For customers (school athletic directors or head coaches) to manage their teams, users, billing, and usage
@@ -35,7 +35,7 @@ Before modifying any entity, read the existing schema and understand current str
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Platform Admin                            │
-│              (admin.thecoachhub.com)                     │
+│              (admin.youthcoachhub.com)                     │
 │   - All organizations, users, revenue, costs, logs          │
 └─────────────────────────────────────────────────────────────┘
                               │

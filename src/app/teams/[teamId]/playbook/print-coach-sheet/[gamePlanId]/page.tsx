@@ -285,7 +285,7 @@ export default function PrintCoachSheetPage({
           {/* Footer */}
           <div className="mt-8 pt-4 border-t border-gray-300">
             <div className="flex items-center justify-between text-sm text-gray-600">
-              <p>Generated with The Coach Hub</p>
+              <p>Generated with Youth Coach Hub</p>
               <p>Coach Reference Sheet - For Sideline Use</p>
             </div>
           </div>

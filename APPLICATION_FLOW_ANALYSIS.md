@@ -1,5 +1,5 @@
 # Application Flow Analysis & Redesign Proposal
-## The Coach Hub - Team-First Architecture
+## Youth Coach Hub - Team-First Architecture
 
 **Date:** 2025-11-01
 **Objective:** Restructure application to follow team-workspace best practices
@@ -136,7 +136,7 @@ TEAM-SCOPED FEATURES (✅ Correct pattern)
 #### **Journey 1: New Head Coach (Owner)**
 
 ```
-1. Visit thecoachhub.com
+1. Visit youthcoachhub.com
    → Marketing home page
    → See: Features, pricing, testimonials, CTA "Get Started"
 
@@ -162,7 +162,7 @@ TEAM-SCOPED FEATURES (✅ Correct pattern)
 #### **Journey 2: Invited Coach**
 
 ```
-1. Receives email: "You've been invited to join [Team Name] on The Coach Hub"
+1. Receives email: "You've been invited to join [Team Name] on Youth Coach Hub"
    → Click link → /teams/[teamId]/join?token=abc123
 
 2. If not logged in → Sign up/login flow
@@ -181,7 +181,7 @@ TEAM-SCOPED FEATURES (✅ Correct pattern)
 #### **Journey 3: Returning User (Multi-Team)**
 
 ```
-1. Visit thecoachhub.com (already logged in)
+1. Visit youthcoachhub.com (already logged in)
    → Redirect → /teams/[primaryTeamId]
    → Primary team = most recently accessed OR first team created
 
@@ -257,7 +257,7 @@ ACCOUNT SETTINGS (User-Level)
   - "Build your digital playbook with drag-and-drop play builder"
   - "Analyze game film with advanced tagging and analytics"
   - "Collaborate with your coaching staff in real-time"
-- Social proof: Testimonials, team logos, stats ("500+ teams use The Coach Hub")
+- Social proof: Testimonials, team logos, stats ("500+ teams use Youth Coach Hub")
 - Pricing preview
 - CTA: "Start Free Trial" / "Get Started"
 
@@ -294,7 +294,7 @@ ACCOUNT SETTINGS (User-Level)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [Logo] The Coach Hub    [Team: Bears Football ▼]    [@] │
+│ [Logo] Youth Coach Hub    [Team: Bears Football ▼]    [@] │
 └─────────────────────────────────────────────────────────────┘
 ```
 
