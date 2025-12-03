@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
+import Link from 'next/link';
+import { Settings, LogOut, User as UserIcon, Shield } from 'lucide-react';
 
 export default function UserMenu() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -43,18 +46,50 @@ export default function UserMenu() {
   }
 
   return (
-    <div className="relative group">
-      <button className="text-gray-700 hover:text-gray-900 px-2 py-1">
-        {user.email}
+    <div
+      className="relative"
+      onMouseEnter={() => setMenuOpen(true)}
+      onMouseLeave={() => setMenuOpen(false)}
+    >
+      <button className="text-gray-700 hover:text-gray-900 px-2 py-1 flex items-center gap-2">
+        <div className="h-7 w-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
+          {user.email?.charAt(0).toUpperCase()}
+        </div>
+        <span className="hidden sm:inline">{user.email}</span>
       </button>
-      <div className="absolute right-0 top-full w-48 bg-white rounded-md shadow-lg border border-gray-200 hidden group-hover:block z-50">
-        <button
-          onClick={handleSignOut}
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-        >
-          Sign Out
-        </button>
-      </div>
+      {menuOpen && (
+        <div className="absolute right-0 top-full w-56 bg-white rounded-md shadow-lg border border-gray-200 z-50 py-1">
+          <div className="px-4 py-2 border-b border-gray-100">
+            <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
+          </div>
+
+          <Link
+            href="/account"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <UserIcon className="h-4 w-4" />
+            Account Settings
+          </Link>
+
+          <Link
+            href="/account"
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            <Shield className="h-4 w-4" />
+            Active Sessions
+          </Link>
+
+          <div className="border-t border-gray-100 mt-1">
+            <button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
