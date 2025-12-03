@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
+  <rect width="640" height="400" fill="#F9FAFB"/>
+  <rect x="40" y="40" width="560" height="320" rx="12" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Success icon -->
+  <circle cx="320" cy="140" r="50" fill="#10B981"/>
+  <path d="M 295 140 L 310 155 L 345 120" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Text -->
+  <text x="320" y="220" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="600" fill="#111827">You're All Set!</text>
+  <text x="320" y="250" text-anchor="middle" font-family="system-ui" font-size="14" fill="#6B7280">Start building your team's success</text>
+
+  <!-- Quick start cards -->
+  <rect x="100" y="280" width="130" height="60" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="165" y="305" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="500" fill="#111827">Add Players</text>
+  <text x="165" y="322" text-anchor="middle" font-family="system-ui" font-size="10" fill="#6B7280">Build your roster</text>
+
+  <rect x="255" y="280" width="130" height="60" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="320" y="305" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="500" fill="#111827">Create Plays</text>
+  <text x="320" y="322" text-anchor="middle" font-family="system-ui" font-size="10" fill="#6B7280">Design your playbook</text>
+
+  <rect x="410" y="280" width="130" height="60" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="475" y="305" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="500" fill="#111827">Upload Film</text>
+  <text x="475" y="322" text-anchor="middle" font-family="system-ui" font-size="10" fill="#6B7280">Start analyzing</text>
+</svg>

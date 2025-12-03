@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
+  <rect width="640" height="400" fill="#F9FAFB"/>
+  <rect x="40" y="40" width="560" height="320" rx="12" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Video player mock -->
+  <rect x="60" y="60" width="360" height="200" rx="8" fill="#1F2937"/>
+
+  <!-- Play button -->
+  <circle cx="240" cy="160" r="30" fill="rgba(255,255,255,0.3)"/>
+  <path d="M 230 145 L 255 160 L 230 175 Z" fill="white"/>
+
+  <!-- Timeline -->
+  <rect x="60" y="270" width="360" height="8" rx="4" fill="#374151"/>
+  <rect x="60" y="270" width="180" height="8" rx="4" fill="#3B82F6"/>
+  <circle cx="240" cy="274" r="8" fill="white" stroke="#3B82F6" stroke-width="2"/>
+
+  <!-- Tag panel -->
+  <rect x="440" y="60" width="140" height="280" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="460" y="90" font-family="system-ui" font-size="12" font-weight="600" fill="#6B7280">TAG THIS PLAY</text>
+
+  <!-- Form fields -->
+  <text x="460" y="120" font-family="system-ui" font-size="11" fill="#6B7280">Down</text>
+  <rect x="460" y="128" width="100" height="28" rx="4" fill="white" stroke="#E5E7EB"/>
+  <text x="470" y="147" font-family="system-ui" font-size="12" fill="#111827">3rd</text>
+
+  <text x="460" y="175" font-family="system-ui" font-size="11" fill="#6B7280">Distance</text>
+  <rect x="460" y="183" width="100" height="28" rx="4" fill="white" stroke="#E5E7EB"/>
+  <text x="470" y="202" font-family="system-ui" font-size="12" fill="#111827">7</text>
+
+  <text x="460" y="230" font-family="system-ui" font-size="11" fill="#6B7280">Result</text>
+  <rect x="460" y="238" width="100" height="28" rx="4" fill="white" stroke="#E5E7EB"/>
+  <text x="470" y="257" font-family="system-ui" font-size="12" fill="#111827">First Down</text>
+
+  <rect x="460" y="290" width="100" height="30" rx="6" fill="#111827"/>
+  <text x="510" y="310" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="500" fill="white">Save Tag</text>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
+  <rect width="640" height="400" fill="#F9FAFB"/>
+  <rect x="40" y="40" width="560" height="320" rx="12" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Header -->
+  <rect x="40" y="40" width="560" height="60" rx="12" fill="#FAFAFA"/>
+  <text x="80" y="78" font-family="system-ui" font-size="18" font-weight="600" fill="#111827">Game Film</text>
+
+  <!-- Upload area -->
+  <rect x="80" y="130" width="480" height="180" rx="12" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="2" stroke-dasharray="8"/>
+
+  <!-- Upload icon -->
+  <circle cx="320" cy="200" r="35" fill="#E5E7EB"/>
+  <path d="M 320 180 L 320 220 M 305 195 L 320 180 L 335 195" stroke="#6B7280" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <text x="320" y="260" text-anchor="middle" font-family="system-ui" font-size="16" font-weight="500" fill="#111827">Drag &amp; drop video files here</text>
+  <text x="320" y="285" text-anchor="middle" font-family="system-ui" font-size="14" fill="#6B7280">or click to browse</text>
+
+  <!-- Supported formats -->
+  <text x="320" y="330" text-anchor="middle" font-family="system-ui" font-size="12" fill="#9CA3AF">Supports MP4, MOV, AVI up to 2GB</text>
+</svg>

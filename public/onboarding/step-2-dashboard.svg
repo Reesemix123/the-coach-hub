@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
+  <rect width="640" height="400" fill="#F9FAFB"/>
+
+  <!-- Dashboard mock -->
+  <rect x="40" y="40" width="560" height="320" rx="12" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Header -->
+  <rect x="40" y="40" width="560" height="60" rx="12" fill="#FAFAFA"/>
+  <text x="80" y="78" font-family="system-ui" font-size="18" font-weight="600" fill="#111827">Team Dashboard</text>
+
+  <!-- Stats cards -->
+  <rect x="60" y="120" width="120" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="120" y="155" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="700" fill="#111827">5-2</text>
+  <text x="120" y="175" text-anchor="middle" font-family="system-ui" font-size="12" fill="#6B7280">Record</text>
+
+  <rect x="200" y="120" width="120" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="260" y="155" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="700" fill="#111827">28</text>
+  <text x="260" y="175" text-anchor="middle" font-family="system-ui" font-size="12" fill="#6B7280">Players</text>
+
+  <rect x="340" y="120" width="120" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="400" y="155" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="700" fill="#111827">45</text>
+  <text x="400" y="175" text-anchor="middle" font-family="system-ui" font-size="12" fill="#6B7280">Plays</text>
+
+  <rect x="480" y="120" width="100" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="530" y="155" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="700" fill="#111827">62%</text>
+  <text x="530" y="175" text-anchor="middle" font-family="system-ui" font-size="12" fill="#6B7280">Success</text>
+
+  <!-- Next game -->
+  <rect x="60" y="220" width="260" height="120" rx="8" fill="#111827"/>
+  <text x="80" y="255" font-family="system-ui" font-size="12" fill="#9CA3AF">NEXT GAME</text>
+  <text x="80" y="285" font-family="system-ui" font-size="16" font-weight="600" fill="white">vs. Lincoln Tigers</text>
+  <text x="80" y="310" font-family="system-ui" font-size="14" fill="#9CA3AF">Saturday, 2:00 PM</text>
+
+  <!-- Quick actions -->
+  <rect x="340" y="220" width="240" height="120" rx="8" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="360" y="255" font-family="system-ui" font-size="12" fill="#6B7280">QUICK ACTIONS</text>
+  <rect x="360" y="270" width="200" height="28" rx="4" fill="white" stroke="#E5E7EB"/>
+  <rect x="360" y="305" width="200" height="28" rx="4" fill="white" stroke="#E5E7EB"/>
+</svg>

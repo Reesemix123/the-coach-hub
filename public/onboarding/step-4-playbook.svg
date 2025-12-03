@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" fill="none">
+  <rect width="640" height="400" fill="#F9FAFB"/>
+  <rect x="40" y="40" width="560" height="320" rx="12" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+
+  <!-- Header -->
+  <rect x="40" y="40" width="560" height="60" rx="12" fill="#FAFAFA"/>
+  <text x="80" y="78" font-family="system-ui" font-size="18" font-weight="600" fill="#111827">Playbook</text>
+
+  <!-- Play field mock -->
+  <rect x="60" y="120" width="300" height="200" rx="8" fill="#10B981" opacity="0.1"/>
+  <rect x="60" y="120" width="300" height="200" rx="8" stroke="#10B981" stroke-width="2" fill="none"/>
+
+  <!-- Hash marks -->
+  <line x1="60" y1="170" x2="360" y2="170" stroke="#10B981" stroke-width="1"/>
+  <line x1="60" y1="220" x2="360" y2="220" stroke="#10B981" stroke-width="2"/>
+  <line x1="60" y1="270" x2="360" y2="270" stroke="#10B981" stroke-width="1"/>
+
+  <!-- Players -->
+  <circle cx="210" cy="250" r="12" fill="#111827"/>
+  <text x="210" y="254" text-anchor="middle" font-family="system-ui" font-size="10" fill="white">QB</text>
+
+  <circle cx="140" cy="190" r="10" fill="#374151"/>
+  <circle cx="180" cy="190" r="10" fill="#374151"/>
+  <circle cx="210" cy="190" r="10" fill="#374151"/>
+  <circle cx="240" cy="190" r="10" fill="#374151"/>
+  <circle cx="280" cy="190" r="10" fill="#374151"/>
+
+  <circle cx="100" cy="190" r="10" fill="#3B82F6"/>
+  <circle cx="320" cy="190" r="10" fill="#3B82F6"/>
+
+  <!-- Route lines -->
+  <path d="M 100 190 L 100 120" stroke="#3B82F6" stroke-width="2" stroke-dasharray="4"/>
+  <path d="M 320 190 L 320 140 L 280 120" stroke="#3B82F6" stroke-width="2" stroke-dasharray="4"/>
+
+  <!-- Play list -->
+  <rect x="380" y="120" width="200" height="44" rx="6" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="400" y="147" font-family="system-ui" font-size="14" font-weight="500" fill="#111827">HB Dive</text>
+
+  <rect x="380" y="174" width="200" height="44" rx="6" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="400" y="201" font-family="system-ui" font-size="14" font-weight="500" fill="#111827">Slant Route</text>
+
+  <rect x="380" y="228" width="200" height="44" rx="6" fill="#F9FAFB" stroke="#E5E7EB"/>
+  <text x="400" y="255" font-family="system-ui" font-size="14" font-weight="500" fill="#111827">PA Boot</text>
+
+  <rect x="380" y="290" width="120" height="30" rx="6" fill="#111827"/>
+  <text x="440" y="310" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="500" fill="white">+ New Play</text>
+</svg>
