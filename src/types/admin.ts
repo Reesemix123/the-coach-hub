@@ -34,7 +34,7 @@ export interface OrganizationWithTeams extends Organization {
 // Subscription
 // ============================================================================
 
-export type SubscriptionTier = 'little_league' | 'hs_basic' | 'hs_advanced' | 'ai_powered';
+export type SubscriptionTier = 'basic' | 'plus' | 'premium' | 'ai_powered';
 export type SubscriptionStatus = 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'waived';
 
 export interface Subscription {
@@ -106,13 +106,15 @@ export interface TierConfigValue {
   description: string;
   ai_credits: number;
   price_monthly: number;
+  max_coaches: number;
+  storage_gb: number;
   features: string[];
 }
 
 export interface TierConfigs {
-  little_league: TierConfigValue;
-  hs_basic: TierConfigValue;
-  hs_advanced: TierConfigValue;
+  basic: TierConfigValue;
+  plus: TierConfigValue;
+  premium: TierConfigValue;
   ai_powered: TierConfigValue;
 }
 

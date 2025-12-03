@@ -52,7 +52,7 @@ export async function POST(
   const { new_tier } = body;
 
   // Validate tier
-  const validTiers: SubscriptionTier[] = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
   if (!new_tier || !validTiers.includes(new_tier as SubscriptionTier)) {
     return NextResponse.json(
       { error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` },

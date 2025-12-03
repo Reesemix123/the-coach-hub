@@ -13,7 +13,8 @@ import {
   TrendingUp,
   FileText,
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  Shield
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { href: '/admin/billing', label: 'Revenue', icon: CreditCard },
   { href: '/admin/costs', label: 'Costs', icon: TrendingUp },
   { href: '/admin/logs', label: 'Logs', icon: FileText },
+  { href: '/admin/moderation', label: 'Moderation', icon: Shield },
   { href: '/admin/system', label: 'System', icon: Settings },
 ];
 

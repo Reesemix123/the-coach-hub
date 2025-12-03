@@ -131,7 +131,7 @@ export async function GET(
   // If no credits record exists, return zero state
   if (!credits) {
     // Get tier config to know default allowed credits
-    const tier = (subscription?.tier || 'hs_basic') as SubscriptionTier;
+    const tier = (subscription?.tier || 'plus') as SubscriptionTier;
     const tierConfig = await getTierConfig(tier);
     const defaultAllowed = tierConfig?.ai_credits || 0;
 
@@ -277,7 +277,7 @@ export async function POST(
     .single();
 
   // Check if subscription allows AI features
-  const tier = (subscription?.tier || 'hs_basic') as SubscriptionTier;
+  const tier = (subscription?.tier || 'plus') as SubscriptionTier;
   if (tier !== 'ai_powered' && !subscription?.status?.match(/active|trialing/)) {
     return NextResponse.json(
       {

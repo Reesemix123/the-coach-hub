@@ -208,9 +208,9 @@ export default function OrganizationsPage() {
             className="px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
           >
             <option value="">All Tiers</option>
-            <option value="little_league">Little League</option>
-            <option value="hs_basic">HS Basic</option>
-            <option value="hs_advanced">HS Advanced</option>
+            <option value="basic">Basic</option>
+            <option value="plus">Plus</option>
+            <option value="premium">Premium</option>
             <option value="ai_powered">AI Powered</option>
           </select>
         </div>

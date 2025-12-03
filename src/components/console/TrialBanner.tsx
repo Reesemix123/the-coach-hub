@@ -20,9 +20,9 @@ interface TrialBannerProps {
 }
 
 const TIER_LABELS: Record<string, string> = {
-  little_league: 'Little League',
-  hs_basic: 'HS Basic',
-  hs_advanced: 'HS Advanced',
+  basic: 'Basic',
+  plus: 'Plus',
+  premium: 'Premium',
   ai_powered: 'AI Powered'
 };
 

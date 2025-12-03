@@ -51,9 +51,9 @@ const STATUS_LABELS: Record<OrganizationDerivedStatus, string> = {
 };
 
 const TIER_LABELS: Record<SubscriptionTier, string> = {
-  little_league: 'Little League',
-  hs_basic: 'HS Basic',
-  hs_advanced: 'HS Advanced',
+  basic: 'Basic',
+  plus: 'Plus',
+  premium: 'Premium',
   ai_powered: 'AI Powered'
 };
 
@@ -468,7 +468,7 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
     team: null
   });
   const [trialForm, setTrialForm] = useState({
-    tier: 'hs_basic',
+    tier: 'plus',
     duration_days: 14,
     ai_credits_limit: 25,
     additional_days: 7,
@@ -676,9 +676,9 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
                     onChange={(e) => setTrialForm({ ...trialForm, tier: e.target.value })}
                     className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                   >
-                    <option value="little_league">Little League</option>
-                    <option value="hs_basic">HS Basic</option>
-                    <option value="hs_advanced">HS Advanced</option>
+                    <option value="basic">Basic</option>
+                    <option value="plus">Plus</option>
+                    <option value="premium">Premium</option>
                     <option value="ai_powered">AI Powered</option>
                   </select>
                 </div>

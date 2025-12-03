@@ -129,9 +129,9 @@ export default function ConsoleBillingPage() {
 
   function getTierDisplayName(tier: string): string {
     const names: Record<string, string> = {
-      'little_league': 'Little League',
-      'hs_basic': 'HS Basic',
-      'hs_advanced': 'HS Advanced',
+      'basic': 'Basic',
+      'plus': 'Plus',
+      'premium': 'Premium',
       'ai_powered': 'AI Powered'
     };
     return names[tier] || tier;

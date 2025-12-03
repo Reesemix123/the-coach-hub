@@ -139,7 +139,7 @@ export class AdvancedAnalyticsService {
       // Return default if not configured
       return {
         team_id: teamId,
-        tier: 'hs_basic',
+        tier: 'plus',
         enable_drive_analytics: true,
         enable_player_attribution: true,
         enable_ol_tracking: false,
@@ -187,7 +187,7 @@ export class AdvancedAnalyticsService {
 
   /**
    * Get drive-level analytics for a team
-   * Requires Tier 2+ (hs_basic)
+   * Requires Tier 2+ (plus)
    */
   async getDriveAnalytics(teamId: string, gameId?: string): Promise<DriveAnalytics> {
     // Verify tier supports drive analytics
@@ -248,7 +248,7 @@ export class AdvancedAnalyticsService {
 
   /**
    * Get player attribution statistics
-   * Requires Tier 2+ (hs_basic)
+   * Requires Tier 2+ (plus)
    */
   async getPlayerAttributionStats(teamId: string, gameId?: string): Promise<PlayerAttributionStats[]> {
     // Verify tier supports player attribution
@@ -382,11 +382,11 @@ export class AdvancedAnalyticsService {
 
   /**
    * Get offensive line stats using database function
-   * Requires Tier 3 (hs_advanced)
+   * Requires Tier 3 (premium)
    */
   /**
    * Get offensive line stats using JUNCTION TABLE queries
-   * Requires Tier 3 (hs_advanced)
+   * Requires Tier 3 (premium)
    *
    * ARCHITECTURE NOTE (Migration 032):
    * Now uses normalized player_participation table instead of arrays.
@@ -505,7 +505,7 @@ export class AdvancedAnalyticsService {
 
   /**
    * Get defensive player stats using JUNCTION TABLE queries
-   * Requires Tier 3 (hs_advanced)
+   * Requires Tier 3 (premium)
    *
    * ARCHITECTURE NOTE (Migration 032):
    * Now uses normalized player_participation table instead of arrays.
@@ -881,7 +881,7 @@ export class AdvancedAnalyticsService {
 
   /**
    * Get situational splits (motion, play action, blitz, etc.)
-   * Requires Tier 3 (hs_advanced)
+   * Requires Tier 3 (premium)
    */
   async getSituationalSplits(teamId: string): Promise<SituationalSplit[]> {
     // Verify tier supports situational splits

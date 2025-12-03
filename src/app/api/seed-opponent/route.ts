@@ -1,10 +1,9 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
-const TEAM_ID = '99ef9d88-454e-42bf-8f52-04d37b34a9d6';
-
 /**
  * Seed opponent film data for testing the Game Plan Builder's opponent analytics
+ * SECURITY: Only works on user's own teams
  *
  * This creates:
  * 1. A video linked to an existing game with the opponent
@@ -19,6 +18,19 @@ export async function POST() {
   if (authError || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
+
+  // SECURITY: Get user's first team (not a hardcoded ID)
+  const { data: userTeams } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('user_id', user.id)
+    .limit(1);
+
+  if (!userTeams?.length) {
+    return NextResponse.json({ error: 'No team found for user' }, { status: 400 });
+  }
+
+  const TEAM_ID = userTeams[0].id;
 
   const results: { video: boolean; defensivePlays: number; offensivePlays: number; errors: string[] } = {
     video: false,

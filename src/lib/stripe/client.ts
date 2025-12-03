@@ -21,9 +21,9 @@ export function getStripeClient(): Stripe {
 // Map subscription tiers to Stripe price IDs
 export function getPriceIdForTier(tier: SubscriptionTier): string | null {
   const priceMap: Record<SubscriptionTier, string | undefined> = {
-    'little_league': process.env.STRIPE_PRICE_LITTLE_LEAGUE,
-    'hs_basic': process.env.STRIPE_PRICE_HS_BASIC,
-    'hs_advanced': process.env.STRIPE_PRICE_HS_ADVANCED,
+    'basic': process.env.STRIPE_PRICE_BASIC,
+    'plus': process.env.STRIPE_PRICE_PLUS,
+    'premium': process.env.STRIPE_PRICE_PREMIUM,
     'ai_powered': process.env.STRIPE_PRICE_AI_POWERED
   };
 
@@ -34,14 +34,14 @@ export function getPriceIdForTier(tier: SubscriptionTier): string | null {
 export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
   const tierMap: Record<string, SubscriptionTier> = {};
 
-  if (process.env.STRIPE_PRICE_LITTLE_LEAGUE) {
-    tierMap[process.env.STRIPE_PRICE_LITTLE_LEAGUE] = 'little_league';
+  if (process.env.STRIPE_PRICE_BASIC) {
+    tierMap[process.env.STRIPE_PRICE_BASIC] = 'basic';
   }
-  if (process.env.STRIPE_PRICE_HS_BASIC) {
-    tierMap[process.env.STRIPE_PRICE_HS_BASIC] = 'hs_basic';
+  if (process.env.STRIPE_PRICE_PLUS) {
+    tierMap[process.env.STRIPE_PRICE_PLUS] = 'plus';
   }
-  if (process.env.STRIPE_PRICE_HS_ADVANCED) {
-    tierMap[process.env.STRIPE_PRICE_HS_ADVANCED] = 'hs_advanced';
+  if (process.env.STRIPE_PRICE_PREMIUM) {
+    tierMap[process.env.STRIPE_PRICE_PREMIUM] = 'premium';
   }
   if (process.env.STRIPE_PRICE_AI_POWERED) {
     tierMap[process.env.STRIPE_PRICE_AI_POWERED] = 'ai_powered';

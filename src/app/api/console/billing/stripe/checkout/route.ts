@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Validate tier
-  const validTiers: SubscriptionTier[] = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
   if (!validTiers.includes(tier as SubscriptionTier)) {
     return NextResponse.json(
       { error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` },
@@ -224,8 +224,8 @@ export async function POST(request: NextRequest) {
           tier: tier
         }
       },
-      success_url: `${appUrl}/console/billing?subscription=success&team=${team_id}`,
-      cancel_url: `${appUrl}/console/billing?subscription=canceled&team=${team_id}`,
+      success_url: `${appUrl}/teams/${team_id}?subscription=success`,
+      cancel_url: `${appUrl}/setup?tier=${tier}&canceled=true`,
       metadata: {
         team_id: team_id,
         organization_id: profile?.organization_id || '',

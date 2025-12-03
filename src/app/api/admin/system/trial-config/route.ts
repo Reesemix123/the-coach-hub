@@ -43,7 +43,7 @@ export async function GET() {
       trial_duration_days: parseInt(String(trialDuration)) || 14,
       trial_allowed_tiers: typeof trialAllowedTiers === 'string'
         ? JSON.parse(trialAllowedTiers)
-        : (trialAllowedTiers as unknown as SubscriptionTier[]) || ['little_league', 'hs_basic'],
+        : (trialAllowedTiers as unknown as SubscriptionTier[]) || ['basic', 'plus'],
       trial_ai_credits_limit: parseInt(String(trialAiCredits)) || 25
     };
 
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const validTiers: SubscriptionTier[] = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
     for (const tier of trial_allowed_tiers) {
       if (!validTiers.includes(tier)) {
         return NextResponse.json(

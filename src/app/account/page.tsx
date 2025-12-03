@@ -97,8 +97,8 @@ export default async function AccountPage() {
             <strong>Device limits by tier:</strong>
             <ul className="mt-1 ml-4 list-disc">
               <li>Free: 2 devices</li>
-              <li>Little League / HS Basic: 3 devices</li>
-              <li>HS Advanced: 5 devices</li>
+              <li>Basic / Plus: 3 devices</li>
+              <li>Premium: 5 devices</li>
               <li>AI Powered: 10 devices</li>
             </ul>
           </div>

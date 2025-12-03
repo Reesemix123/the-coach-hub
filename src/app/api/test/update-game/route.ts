@@ -1,16 +1,52 @@
 /**
  * Test API route to update game result
- * Hit this endpoint in browser: http://localhost:3001/api/test/update-game
+ * SECURITY: Requires authentication and platform admin access
+ * Only works in development or for platform admins
  */
 
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
-const TEAM_ID = '99ef9d88-454e-42bf-8f52-04d37b34a9d6';
-
 export async function GET() {
   try {
     const supabase = await createClient();
+
+    // SECURITY: Require authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    // SECURITY: Only allow in development OR for platform admins
+    const isDevelopment = process.env.NODE_ENV === 'development';
+
+    if (!isDevelopment) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_platform_admin')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.is_platform_admin) {
+        return NextResponse.json(
+          { error: 'This endpoint is only available in development or for platform admins' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Get user's first team (not a hardcoded ID)
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (!teams?.length) {
+      return NextResponse.json({ error: 'No team found for user' }, { status: 400 });
+    }
+
+    const TEAM_ID = teams[0].id;
 
     // First, check what games exist
     const { data: games, error: fetchError } = await supabase

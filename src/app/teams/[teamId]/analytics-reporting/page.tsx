@@ -325,7 +325,7 @@ export default function AnalyticsReportingPage({
                   )}
                 </div>
 
-                {/* Player Report - Requires hs_basic or higher */}
+                {/* Player Report - Requires plus or higher */}
                 <div style={{ display: selectedReport === 'player' ? 'block' : 'none' }}>
                   {(selectedReport === 'player' || visitedReports.has('player')) && (
                     <FeatureGate teamId={teamId} feature="player_stats">
@@ -337,7 +337,7 @@ export default function AnalyticsReportingPage({
                   )}
                 </div>
 
-                {/* Situational Report - Requires hs_basic or higher */}
+                {/* Situational Report - Requires plus or higher */}
                 <div style={{ display: selectedReport === 'situational' ? 'block' : 'none' }}>
                   {(selectedReport === 'situational' || visitedReports.has('situational')) && (
                     <FeatureGate teamId={teamId} feature="situational_analysis">
@@ -349,7 +349,7 @@ export default function AnalyticsReportingPage({
                   )}
                 </div>
 
-                {/* Drive Analysis Report - Requires hs_basic or higher */}
+                {/* Drive Analysis Report - Requires plus or higher */}
                 <div style={{ display: selectedReport === 'drives' ? 'block' : 'none' }}>
                   {(selectedReport === 'drives' || visitedReports.has('drives')) && (
                     <FeatureGate teamId={teamId} feature="drive_analytics">

@@ -334,7 +334,7 @@ export default function GameFilmPage() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [isSettingEndTime, setIsSettingEndTime] = useState(false);
   const [taggingMode, setTaggingMode] = useState<TaggingMode>('offense');
-  const [analyticsTier, setAnalyticsTier] = useState<string>('hs_advanced');
+  const [analyticsTier, setAnalyticsTier] = useState<string>('premium');
   const [selectedTab, setSelectedTab] = useState<'context' | 'players' | 'ol' | 'defense' | 'specialTeams'>('context');
   const [selectedSpecialTeamsUnit, setSelectedSpecialTeamsUnit] = useState<SpecialTeamsUnit | ''>('');
 
@@ -519,13 +519,13 @@ export default function GameFilmPage() {
       if (data?.tier) {
         setAnalyticsTier(data.tier);
       } else {
-        // Default to hs_advanced for testing (migration 025 not run yet)
-        setAnalyticsTier('hs_advanced');
+        // Default to premium for testing (migration 025 not run yet)
+        setAnalyticsTier('premium');
       }
     } catch (err) {
-      console.log('Analytics tier table not found, defaulting to hs_advanced');
+      console.log('Analytics tier table not found, defaulting to premium');
       // Fallback if table doesn't exist (migration 025 not run)
-      setAnalyticsTier('hs_advanced');
+      setAnalyticsTier('premium');
     }
   }
 
@@ -675,9 +675,10 @@ export default function GameFilmPage() {
     const file = e.target.files?.[0];
     if (!file || !game) return;
 
-    // Check file size and show warning for very large files
     const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > 2000) {
+
+    // Show warning for very large files
+    if (fileSizeMB > 1000) {
       if (!confirm(`This file is ${fileSizeMB.toFixed(0)}MB. Large files may take a while to upload. Continue?`)) {
         return;
       }
@@ -686,10 +687,42 @@ export default function GameFilmPage() {
     setUploadingVideo(true);
 
     try {
-      const fileName = `${game.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      // Step 1: Pre-flight check with our API (quota, rate limits, file type validation)
+      const preflightResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          gameId: game.id,
+        }),
+      });
 
-      // Use resumable upload for files larger than 50MB
-      // This uses TUS protocol which supports chunked uploads
+      const preflightData = await preflightResponse.json();
+
+      if (!preflightResponse.ok || !preflightData.allowed) {
+        const errorMessage = preflightData.message || preflightData.error || 'Upload not allowed';
+
+        // Show user-friendly error based on reason
+        if (preflightData.details?.reason === 'quota_exceeded') {
+          alert(`Storage quota exceeded.\n\nYou've used ${preflightData.details.used_formatted} of ${preflightData.details.quota_formatted}.\n\nPlease delete some videos to free up space.`);
+        } else if (preflightData.details?.reason === 'rate_limited') {
+          alert(`Upload rate limit exceeded.\n\nYou've made ${preflightData.details.uploads_this_hour} uploads in the last hour.\nMaximum allowed: ${preflightData.details.max_uploads_per_hour}\n\nPlease wait before uploading more videos.`);
+        } else if (preflightData.details?.reason === 'file_too_large') {
+          alert(`File is too large.\n\nMaximum file size: ${preflightData.details.max_file_size_formatted}\nYour file: ${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB`);
+        } else if (preflightData.details?.reason === 'invalid_file_type') {
+          alert(`Invalid file type.\n\nOnly video files are allowed: ${preflightData.details.allowed_extensions?.join(', ')}`);
+        } else {
+          alert(`Upload not allowed: ${errorMessage}`);
+        }
+        setUploadingVideo(false);
+        return;
+      }
+
+      const { uploadId, storagePath } = preflightData;
+
+      // Step 2: Upload to Supabase Storage
       const uploadOptions = fileSizeMB > 50 ? {
         cacheControl: '3600',
         upsert: false,
@@ -698,29 +731,53 @@ export default function GameFilmPage() {
 
       const { error: uploadError } = await supabase.storage
         .from('game_videos')
-        .upload(fileName, file, uploadOptions);
+        .upload(storagePath, file, uploadOptions);
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
+
+        // Report upload failure to our API
+        await fetch(`/api/teams/${teamId}/videos/upload?uploadId=${uploadId}&reason=storage_error`, {
+          method: 'DELETE',
+        });
+
         alert(`Error uploading video: ${uploadError.message}\n\nFor files larger than 50MB, you may need to:\n1. Check your Supabase project settings\n2. Or compress the video before uploading`);
         setUploadingVideo(false);
         return;
       }
 
-      const { data: videoData } = await supabase
-        .from('videos')
-        .insert([{
-          name: file.name,
-          file_path: fileName,
-          game_id: game.id
-        }])
-        .select()
-        .single();
+      // Step 3: Complete the upload (creates video record and updates storage tracking)
+      const completeResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uploadId,
+          storagePath,
+          gameId: game.id,
+          fileName: file.name,
+        }),
+      });
 
-      if (videoData) {
-        setVideos([videoData, ...videos]);
-        setSelectedVideo(videoData);
-        alert('Video uploaded successfully!');
+      const completeData = await completeResponse.json();
+
+      if (!completeResponse.ok) {
+        console.error('Complete upload error:', completeData);
+        alert('Video uploaded but record creation failed. Please refresh the page.');
+        setUploadingVideo(false);
+        return;
+      }
+
+      if (completeData.video) {
+        setVideos([completeData.video, ...videos]);
+        setSelectedVideo(completeData.video);
+
+        // Show success with storage info
+        const storage = completeData.storage;
+        if (storage && storage.quota_used_percent >= 80) {
+          alert(`Video uploaded successfully!\n\nWarning: You've used ${storage.quota_used_percent}% of your storage quota.`);
+        } else {
+          alert('Video uploaded successfully!');
+        }
       }
 
       setUploadingVideo(false);
@@ -2978,7 +3035,7 @@ export default function GameFilmPage() {
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Player Performance</h4>
 
                   {/* Play Type & Direction (Tier 2+) */}
-                  {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                  {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Play Type</label>
@@ -3010,7 +3067,7 @@ export default function GameFilmPage() {
                   {/* Player Attribution */}
                   <div className="space-y-2">
                     {/* QB (Tier 2+) */}
-                    {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                    {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">QB</label>
                         <select
@@ -3047,7 +3104,7 @@ export default function GameFilmPage() {
                     </div>
 
                     {/* Target (Tier 2+) */}
-                    {(analyticsTier === 'hs_basic' || analyticsTier === 'hs_advanced') && (
+                    {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Target (Pass Plays)</label>
                         <select
@@ -3069,7 +3126,7 @@ export default function GameFilmPage() {
               )}
 
               {/* Advanced Offensive Position Performance (Tier 3) - Only for Offense, not Special Teams */}
-              {taggingMode === 'offense' && analyticsTier === 'hs_advanced' && (
+              {taggingMode === 'offense' && analyticsTier === 'premium' && (
                 <div className="space-y-3">
                   <QBPerformanceSection register={register} />
                   <RBPerformanceSection register={register} />
@@ -3079,7 +3136,7 @@ export default function GameFilmPage() {
               )}
 
               {/* Basic Defensive Tracking (All Tiers) - Only for Defense, not Special Teams */}
-              {taggingMode === 'defense' && (analyticsTier === 'little_league' || analyticsTier === 'hs_basic') && (
+              {taggingMode === 'defense' && (analyticsTier === 'basic' || analyticsTier === 'plus') && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Defensive Players</h4>
                   <p className="text-xs text-gray-600 mb-3">Track which of your players made tackles on this opponent play</p>
@@ -3142,7 +3199,7 @@ export default function GameFilmPage() {
               )}
 
               {/* Advanced Defensive Performance (Tier 3) - Only for Defense, not Special Teams */}
-              {taggingMode === 'defense' && analyticsTier === 'hs_advanced' && (
+              {taggingMode === 'defense' && analyticsTier === 'premium' && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Defensive Stats (Tier 3)</h4>
 

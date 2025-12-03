@@ -65,15 +65,15 @@ export default function Home() {
             <span className="block mt-2">Made More Efficient</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-            So you can do what matters most: coaching.
+            So you can do what matters most: COACH
           </p>
 
-          <div className="flex gap-4 justify-center">
+          <div className="flex flex-col items-center gap-4">
             <Link
-              href="/setup"
-              className="px-8 py-4 bg-black text-white font-medium text-lg rounded-lg hover:bg-gray-800 transition-colors"
+              href="/pricing"
+              className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
             >
-              Get Started
+              View solutions and pricing →
             </Link>
           </div>
         </div>

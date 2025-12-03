@@ -12,7 +12,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 
 export type Status = 'green' | 'yellow' | 'red' | 'gray';
 export type SeasonPhase = 'pre_game' | 'bye_week' | 'post_game' | 'off_season';
-export type AnalyticsTier = 'little_league' | 'hs_basic' | 'hs_advanced' | 'ai_powered';
+export type AnalyticsTier = 'basic' | 'plus' | 'premium' | 'ai_powered';
 
 export interface GameWeekContext {
   gameId: string | null;
@@ -186,7 +186,7 @@ export async function getStationData(
 ): Promise<StationData[]> {
   const supabase = await createClient();
 
-  // Get analytics tier (defaults to hs_basic if not set)
+  // Get analytics tier (defaults to plus if not set)
   const tier = await getAnalyticsTier(supabase, teamId);
 
   // Fetch only the two main stations: Game Prep Hub and Game Plan
@@ -668,7 +668,7 @@ async function getAnalyticsTier(
     .eq('team_id', teamId)
     .single();
 
-  return (data?.tier as AnalyticsTier) || 'hs_basic';
+  return (data?.tier as AnalyticsTier) || 'plus';
 }
 
 function applyUrgencyModifier(station: StationData, daysUntilGame: number): StationData {

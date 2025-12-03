@@ -13,12 +13,12 @@ interface FeatureAccess {
   film_upload: boolean;
   basic_tagging: boolean;
 
-  // Tier 2+ (hs_basic and above)
+  // Tier 2+ (plus and above)
   drive_analytics: boolean;
   player_stats: boolean;
   situational_analysis: boolean;
 
-  // Tier 3+ (hs_advanced and above)
+  // Tier 3+ (premium and above)
   ol_tracking: boolean;
   defensive_player_tracking: boolean;
   advanced_situational: boolean;
@@ -48,17 +48,17 @@ interface SubscriptionResponse {
 
 // Display names for tiers
 const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
-  little_league: 'Little League',
-  hs_basic: 'High School Basic',
-  hs_advanced: 'High School Advanced',
+  basic: 'Basic',
+  plus: 'Plus',
+  premium: 'Premium',
   ai_powered: 'AI-Powered'
 };
 
 // Tier hierarchy for comparison
 const TIER_LEVELS: Record<SubscriptionTier, number> = {
-  little_league: 1,
-  hs_basic: 2,
-  hs_advanced: 3,
+  basic: 1,
+  plus: 2,
+  premium: 3,
   ai_powered: 4
 };
 
@@ -74,12 +74,12 @@ function computeFeatureAccess(tier: SubscriptionTier, canAccess: boolean): Featu
     film_upload: tierLevel >= 1,
     basic_tagging: tierLevel >= 1,
 
-    // Tier 2+ (hs_basic and above)
+    // Tier 2+ (plus and above)
     drive_analytics: tierLevel >= 2,
     player_stats: tierLevel >= 2,
     situational_analysis: tierLevel >= 2,
 
-    // Tier 3+ (hs_advanced and above)
+    // Tier 3+ (premium and above)
     ol_tracking: tierLevel >= 3,
     defensive_player_tracking: tierLevel >= 3,
     advanced_situational: tierLevel >= 3,
@@ -186,7 +186,7 @@ export async function GET(
   const tierConfigs = await getTierConfigs();
 
   // Determine current tier and status
-  const tier: SubscriptionTier = (subscription?.tier as SubscriptionTier) || 'hs_basic';
+  const tier: SubscriptionTier = (subscription?.tier as SubscriptionTier) || 'plus';
   const status: SubscriptionStatus = (subscription?.status as SubscriptionStatus) || 'none';
   const billingWaived = subscription?.billing_waived || false;
 

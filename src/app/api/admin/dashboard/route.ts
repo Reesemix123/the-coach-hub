@@ -109,9 +109,9 @@ export async function GET() {
 
     // Count teams by tier
     const byTier: Record<SubscriptionTier, number> = {
-      little_league: 0,
-      hs_basic: 0,
-      hs_advanced: 0,
+      basic: 0,
+      plus: 0,
+      premium: 0,
       ai_powered: 0
     };
 

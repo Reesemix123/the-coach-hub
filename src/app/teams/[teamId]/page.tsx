@@ -6,6 +6,8 @@ import { createClient } from '@/utils/supabase/server';
 import TeamNavigation from '@/components/TeamNavigation';
 import AuthGuard from '@/components/AuthGuard';
 import { TeamMetricsService, ComprehensiveTeamMetrics } from '@/lib/services/team-metrics.service';
+import SubscriptionSuccessBanner from '@/components/console/SubscriptionSuccessBanner';
+import TrialBanner from '@/components/console/TrialBanner';
 
 interface Team {
   id: string;
@@ -28,10 +30,13 @@ interface Game {
 
 interface TeamDashboardPageProps {
   params: Promise<{ teamId: string }>;
+  searchParams: Promise<{ subscription?: string }>;
 }
 
-export default async function TeamDashboardPage({ params }: TeamDashboardPageProps) {
+export default async function TeamDashboardPage({ params, searchParams }: TeamDashboardPageProps) {
   const { teamId } = await params;
+  const { subscription } = await searchParams;
+  const showSubscriptionSuccess = subscription === 'success';
   const supabase = await createClient();
 
   // Fetch team
@@ -129,6 +134,14 @@ export default async function TeamDashboardPage({ params }: TeamDashboardPagePro
         />
 
         <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Subscription Success Banner */}
+          {showSubscriptionSuccess && (
+            <SubscriptionSuccessBanner teamName={team.name} />
+          )}
+
+          {/* Trial Banner */}
+          <TrialBanner teamId={teamId} teamName={team.name} />
+
           {/* Compact Season Metrics Banner */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">
             <div className="flex items-center justify-between">

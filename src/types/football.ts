@@ -435,7 +435,7 @@ export interface TeamMembership {
  * Database table: team_analytics_config
  * Per-team analytics tier selection
  */
-export type AnalyticsTier = 'little_league' | 'hs_basic' | 'hs_advanced' | 'ai_powered';
+export type AnalyticsTier = 'basic' | 'plus' | 'premium' | 'ai_powered';
 
 export interface TeamAnalyticsConfig {
   team_id: string;

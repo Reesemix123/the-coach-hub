@@ -134,7 +134,7 @@ async function handleSubscriptionUpdated(
   let tier = subscription.metadata?.tier;
   if (!tier && subscription.items.data.length > 0) {
     const priceId = subscription.items.data[0].price.id;
-    tier = getTierFromPriceId(priceId) || 'hs_basic';
+    tier = getTierFromPriceId(priceId) || 'plus';
   }
 
   const status = mapStripeStatus(subscription.status);
@@ -308,7 +308,7 @@ async function allocateAICredits(
   subscription: Stripe.Subscription
 ) {
   // Get AI credits for this tier
-  const tierConfig = await getTierConfig(tier as 'little_league' | 'hs_basic' | 'hs_advanced' | 'ai_powered');
+  const tierConfig = await getTierConfig(tier as 'basic' | 'plus' | 'premium' | 'ai_powered');
   const creditsAllowed = tierConfig?.ai_credits || 0;
 
   const periodStart = new Date(subscription.current_period_start * 1000).toISOString();

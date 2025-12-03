@@ -128,13 +128,13 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       // Update tier and auto-enable appropriate features
       const updates: Partial<TeamAnalyticsConfig> = {
         tier: newTier,
-        enable_drive_analytics: ['hs_basic', 'hs_advanced', 'ai_powered'].includes(newTier),
-        enable_player_attribution: ['hs_basic', 'hs_advanced', 'ai_powered'].includes(newTier),
-        enable_ol_tracking: ['hs_advanced', 'ai_powered'].includes(newTier),
-        enable_defensive_tracking: ['hs_advanced', 'ai_powered'].includes(newTier),
-        enable_situational_splits: ['hs_advanced', 'ai_powered'].includes(newTier),
-        default_tagging_mode: newTier === 'little_league' ? 'quick' :
-                             newTier === 'hs_basic' ? 'standard' : 'advanced'
+        enable_drive_analytics: ['plus', 'premium', 'ai_powered'].includes(newTier),
+        enable_player_attribution: ['plus', 'premium', 'ai_powered'].includes(newTier),
+        enable_ol_tracking: ['premium', 'ai_powered'].includes(newTier),
+        enable_defensive_tracking: ['premium', 'ai_powered'].includes(newTier),
+        enable_situational_splits: ['premium', 'ai_powered'].includes(newTier),
+        default_tagging_mode: newTier === 'basic' ? 'quick' :
+                             newTier === 'plus' ? 'standard' : 'advanced'
       };
 
       await analyticsService.updateTeamTier(teamId, updates);
@@ -311,25 +311,25 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   }
 
   const tierInfo = {
-    little_league: {
-      name: 'Little League',
+    basic: {
+      name: 'Basic',
       description: 'Basic play tracking for youth teams',
       features: ['Basic play tagging', 'Win/loss tracking', 'Simple play counts']
     },
-    hs_basic: {
-      name: 'High School - Basic',
+    plus: {
+      name: 'Plus',
       description: 'Essential analytics for high school teams',
       features: ['Drive analytics (PPD, 3-and-outs)', 'Player attribution (QB/RB/WR)', 'Down/distance splits', 'Success rate metrics']
     },
-    hs_advanced: {
-      name: 'High School - Advanced',
+    premium: {
+      name: 'Premium',
       description: 'Comprehensive analytics for competitive programs',
-      features: ['All Basic features', 'Offensive line tracking', 'Defensive player stats', 'Situational splits (motion, PA, blitz)', 'Havoc rate']
+      features: ['All Plus features', 'Offensive line tracking', 'Defensive player stats', 'Situational splits (motion, PA, blitz)', 'Havoc rate']
     },
     ai_powered: {
       name: 'AI-Powered (Coming Soon)',
       description: 'Automated film tagging and advanced insights',
-      features: ['All Advanced features', 'AI auto-tagging', 'Predictive analytics', 'Opponent scouting reports']
+      features: ['All Premium features', 'AI auto-tagging', 'Predictive analytics', 'Opponent scouting reports']
     }
   };
 

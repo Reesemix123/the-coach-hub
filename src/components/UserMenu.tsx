@@ -39,7 +39,10 @@ export default function UserMenu() {
 
   if (!user) {
     return (
-      <a href="/auth/login" className="text-gray-700 hover:text-gray-900">
+      <a
+        href="/auth/login"
+        className="px-4 py-2 bg-black text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+      >
         Sign In
       </a>
     );

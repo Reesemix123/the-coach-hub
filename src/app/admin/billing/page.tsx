@@ -28,9 +28,9 @@ interface BillingOverview {
   };
   arr: number;
   mrr_by_tier: {
-    little_league: number;
-    hs_basic: number;
-    hs_advanced: number;
+    basic: number;
+    plus: number;
+    premium: number;
     ai_powered: number;
   };
   mrr_trend: MRRTrendItem[];
@@ -179,10 +179,10 @@ function MRRChart({ data }: { data: MRRTrendItem[] }) {
 // Revenue by Tier Component
 function RevenueByTier({ data }: { data: BillingOverview['mrr_by_tier'] }) {
   const tiers = [
-    { key: 'hs_advanced', label: 'HS Advanced', color: 'bg-gray-900' },
-    { key: 'hs_basic', label: 'HS Basic', color: 'bg-gray-600' },
+    { key: 'premium', label: 'Premium', color: 'bg-gray-900' },
+    { key: 'plus', label: 'Plus', color: 'bg-gray-600' },
     { key: 'ai_powered', label: 'AI Powered', color: 'bg-gray-800' },
-    { key: 'little_league', label: 'Little League', color: 'bg-gray-400' }
+    { key: 'basic', label: 'Basic', color: 'bg-gray-400' }
   ] as const;
 
   const total = Object.values(data).reduce((sum, val) => sum + val, 0) || 1;

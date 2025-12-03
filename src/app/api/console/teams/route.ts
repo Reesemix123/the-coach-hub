@@ -150,7 +150,7 @@ export async function GET() {
     const credits = creditsMap.get(team.id);
 
     // Get tier from subscription first, then analytics config, then default
-    const tier = subscription?.tier || analyticsConfig?.tier || 'hs_basic';
+    const tier = subscription?.tier || analyticsConfig?.tier || 'plus';
     const tierDisplayName = tierConfig?.[tier]?.name || tier;
 
     // Calculate trial days remaining

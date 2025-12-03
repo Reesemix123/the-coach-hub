@@ -13,11 +13,11 @@ export type Feature =
   | 'playbook_builder'
   | 'film_upload'
   | 'basic_tagging'
-  // Tier 2+ (hs_basic and above)
+  // Tier 2+ (plus and above)
   | 'drive_analytics'
   | 'player_stats'
   | 'situational_analysis'
-  // Tier 3+ (hs_advanced and above)
+  // Tier 3+ (premium and above)
   | 'ol_tracking'
   | 'defensive_player_tracking'
   | 'advanced_situational'
@@ -55,37 +55,37 @@ export interface SubscriptionInfo {
 
 // Tier hierarchy for comparison
 export const TIER_LEVELS: Record<SubscriptionTier, number> = {
-  little_league: 1,
-  hs_basic: 2,
-  hs_advanced: 3,
+  basic: 1,
+  plus: 2,
+  premium: 3,
   ai_powered: 4
 };
 
 // Display names for tiers
 export const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
-  little_league: 'Little League',
-  hs_basic: 'High School Basic',
-  hs_advanced: 'High School Advanced',
-  ai_powered: 'AI-Powered'
+  basic: 'Basic',
+  plus: 'Plus',
+  premium: 'Premium',
+  ai_powered: 'AI Powered'
 };
 
 // Minimum tier required for each feature
 export const FEATURE_MIN_TIERS: Record<Feature, SubscriptionTier> = {
   // Core features (all tiers)
-  playbook_builder: 'little_league',
-  film_upload: 'little_league',
-  basic_tagging: 'little_league',
+  playbook_builder: 'basic',
+  film_upload: 'basic',
+  basic_tagging: 'basic',
 
-  // Tier 2+ (hs_basic and above)
-  drive_analytics: 'hs_basic',
-  player_stats: 'hs_basic',
-  situational_analysis: 'hs_basic',
+  // Tier 2+ (plus and above)
+  drive_analytics: 'plus',
+  player_stats: 'plus',
+  situational_analysis: 'plus',
 
-  // Tier 3+ (hs_advanced and above)
-  ol_tracking: 'hs_advanced',
-  defensive_player_tracking: 'hs_advanced',
-  advanced_situational: 'hs_advanced',
-  opponent_scouting: 'hs_advanced',
+  // Tier 3+ (premium and above)
+  ol_tracking: 'premium',
+  defensive_player_tracking: 'premium',
+  advanced_situational: 'premium',
+  opponent_scouting: 'premium',
 
   // Tier 4 (ai_powered only)
   ai_play_recognition: 'ai_powered',
@@ -203,12 +203,12 @@ export function computeFeatureAccess(subscription: SubscriptionInfo): FeatureAcc
     film_upload: tierLevel >= 1,
     basic_tagging: tierLevel >= 1,
 
-    // Tier 2+ (hs_basic and above)
+    // Tier 2+ (plus and above)
     drive_analytics: tierLevel >= 2,
     player_stats: tierLevel >= 2,
     situational_analysis: tierLevel >= 2,
 
-    // Tier 3+ (hs_advanced and above)
+    // Tier 3+ (premium and above)
     ol_tracking: tierLevel >= 3,
     defensive_player_tracking: tierLevel >= 3,
     advanced_situational: tierLevel >= 3,
@@ -251,7 +251,7 @@ export function isUpgrade(fromTier: SubscriptionTier, toTier: SubscriptionTier):
  */
 export function getUpgradeTiers(currentTier: SubscriptionTier): SubscriptionTier[] {
   const currentLevel = TIER_LEVELS[currentTier];
-  const allTiers: SubscriptionTier[] = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+  const allTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
 
   return allTiers.filter(tier => TIER_LEVELS[tier] > currentLevel);
 }

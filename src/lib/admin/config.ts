@@ -215,7 +215,7 @@ function validateTierConfigs(value: unknown): string | null {
     return 'tier_configs must be an object';
   }
 
-  const tiers: SubscriptionTier[] = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+  const tiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
   const obj = value as Record<string, unknown>;
 
   for (const tier of tiers) {
@@ -231,6 +231,12 @@ function validateTierConfigs(value: unknown): string | null {
     }
     if (typeof tierConfig.price_monthly !== 'number') {
       return `Tier ${tier} missing 'price_monthly' (number)`;
+    }
+    if (typeof tierConfig.max_coaches !== 'number') {
+      return `Tier ${tier} missing 'max_coaches' (number)`;
+    }
+    if (typeof tierConfig.storage_gb !== 'number') {
+      return `Tier ${tier} missing 'storage_gb' (number)`;
     }
     if (!Array.isArray(tierConfig.features)) {
       return `Tier ${tier} missing 'features' (array)`;

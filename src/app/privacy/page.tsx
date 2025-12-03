@@ -1,0 +1,546 @@
+// src/app/privacy/page.tsx
+// LEGAL NOTICE: This Privacy Policy is a template and should be reviewed
+// by a qualified attorney before commercial launch. This document is provided
+// as a starting point and may not cover all legal requirements for your
+// specific jurisdiction or business needs, including GDPR, CCPA, or other
+// applicable privacy regulations.
+
+import { Metadata } from 'next';
+import Link from 'next/link';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy | Youth Coach Hub',
+  description: 'Privacy Policy for Youth Coach Hub - How we collect, use, and protect your data.',
+};
+
+export default function PrivacyPage() {
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-12">
+          <Link
+            href="/"
+            className="text-sm text-gray-500 hover:text-gray-700 mb-4 inline-block"
+          >
+            &larr; Back to Home
+          </Link>
+          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+            Privacy Policy
+          </h1>
+          <p className="mt-4 text-sm text-gray-500">
+            Last updated: December 3, 2024
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="prose prose-gray max-w-none">
+          {/* Introduction */}
+          <section className="mb-16">
+            <p className="text-gray-700 leading-relaxed">
+              Youth Coach Hub LLC ("we," "us," or "our") is committed to protecting your
+              privacy. This Privacy Policy explains how we collect, use, disclose, and
+              safeguard your information when you use the Youth Coach Hub website,
+              applications, and services (collectively, the "Service").
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              By using the Service, you consent to the data practices described in this
+              Privacy Policy. If you do not agree with our policies and practices, please
+              do not use the Service.
+            </p>
+          </section>
+
+          {/* Section 1 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              1. Information We Collect
+            </h2>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              1.1 Information You Provide
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              We collect information you voluntarily provide when using the Service:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Account Information:</strong> Name, email address, password, and
+                profile information when you create an account
+              </li>
+              <li>
+                <strong>Team Information:</strong> Team name, roster data, player names,
+                jersey numbers, and positions
+              </li>
+              <li>
+                <strong>Video Content:</strong> Game film, practice footage, and other
+                video files you upload
+              </li>
+              <li>
+                <strong>Playbook Data:</strong> Play diagrams, formations, and play
+                attributes you create
+              </li>
+              <li>
+                <strong>Analytics Data:</strong> Play tags, game statistics, and
+                performance metrics you input
+              </li>
+              <li>
+                <strong>Payment Information:</strong> Billing address and payment method
+                details (processed securely by Stripe)
+              </li>
+              <li>
+                <strong>Communications:</strong> Messages you send to us for support or
+                feedback
+              </li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              1.2 Information Collected Automatically
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              When you use the Service, we automatically collect certain information:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Usage Data:</strong> Pages visited, features used, actions taken,
+                and time spent on the Service
+              </li>
+              <li>
+                <strong>Device Information:</strong> Device type, operating system, browser
+                type, and unique device identifiers
+              </li>
+              <li>
+                <strong>Log Data:</strong> IP address, access times, referring URLs, and
+                error logs
+              </li>
+              <li>
+                <strong>Location Data:</strong> General geographic location based on IP
+                address (not precise location)
+              </li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              1.3 Cookies and Similar Technologies
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              We use cookies and similar tracking technologies to collect and store
+              information about your preferences and activity. You can control cookies
+              through your browser settings, but disabling cookies may affect the
+              functionality of the Service.
+            </p>
+          </section>
+
+          {/* Section 2 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              2. How We Use Your Information
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              We use the information we collect to:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>Provide, maintain, and improve the Service</li>
+              <li>Process your subscription and payments</li>
+              <li>Store and display your team data, videos, and playbooks</li>
+              <li>Generate analytics and insights based on your data</li>
+              <li>Send you service-related communications (account updates, security alerts)</li>
+              <li>Respond to your support requests and inquiries</li>
+              <li>Detect, prevent, and address technical issues and abuse</li>
+              <li>Enforce our Terms of Service and other policies</li>
+              <li>Comply with legal obligations</li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              We may also use aggregated, anonymized data for research and analytics
+              purposes to improve our Service. This data cannot be used to identify you.
+            </p>
+          </section>
+
+          {/* Section 3 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              3. Third-Party Services and Data Sharing
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              We share your information with third-party service providers who help us
+              operate the Service. These providers are contractually obligated to protect
+              your information and use it only for the purposes we specify:
+            </p>
+
+            <div className="bg-gray-50 rounded-lg p-6 mb-4">
+              <h4 className="font-semibold text-gray-900 mb-4">Our Service Providers:</h4>
+              <ul className="space-y-4 text-gray-700">
+                <li>
+                  <strong>Supabase</strong> (supabase.com)<br />
+                  <span className="text-sm text-gray-600">
+                    Database hosting, user authentication, and file storage. Your account
+                    data, team information, and uploaded videos are stored on Supabase's
+                    secure infrastructure.
+                  </span>
+                </li>
+                <li>
+                  <strong>Stripe</strong> (stripe.com)<br />
+                  <span className="text-sm text-gray-600">
+                    Payment processing. We do not store your complete credit card number.
+                    Stripe handles all payment data in compliance with PCI-DSS standards.
+                  </span>
+                </li>
+                <li>
+                  <strong>Resend</strong> (resend.com)<br />
+                  <span className="text-sm text-gray-600">
+                    Email delivery for transactional emails (account verification,
+                    password resets, billing notifications).
+                  </span>
+                </li>
+                <li>
+                  <strong>Vercel</strong> (vercel.com)<br />
+                  <span className="text-sm text-gray-600">
+                    Web hosting and content delivery. Serves our application and static
+                    content globally.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              3.1 Other Disclosures
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              We may also disclose your information:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Legal Requirements:</strong> When required by law, court order,
+                or government request
+              </li>
+              <li>
+                <strong>Safety and Security:</strong> To protect the rights, property, or
+                safety of Youth Coach Hub, our users, or others
+              </li>
+              <li>
+                <strong>Business Transfers:</strong> In connection with a merger,
+                acquisition, or sale of assets (you will be notified)
+              </li>
+              <li>
+                <strong>With Your Consent:</strong> When you explicitly authorize us to
+                share information
+              </li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              3.2 What We Don't Do
+            </h3>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>We do not sell your personal information to third parties</li>
+              <li>We do not share your videos or playbooks with other teams or coaches</li>
+              <li>We do not use your data for targeted advertising</li>
+              <li>We do not provide your email to marketing partners</li>
+            </ul>
+          </section>
+
+          {/* Section 4 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              4. Data Storage and Security
+            </h2>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              4.1 Where Your Data Is Stored
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Your data is stored on secure servers operated by Supabase, primarily
+              located in the United States. By using the Service, you consent to the
+              transfer and storage of your data in the United States.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              4.2 Security Measures
+            </h3>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              We implement industry-standard security measures to protect your data:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>Encryption of data in transit (HTTPS/TLS)</li>
+              <li>Encryption of data at rest</li>
+              <li>Secure password hashing (bcrypt)</li>
+              <li>Row-level security policies to isolate team data</li>
+              <li>Regular security audits and updates</li>
+              <li>Two-factor authentication (optional)</li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              While we strive to protect your information, no method of transmission or
+              storage is 100% secure. We cannot guarantee absolute security.
+            </p>
+          </section>
+
+          {/* Section 5 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              5. Data Retention
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-2">
+              We retain your data as follows:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Active Accounts:</strong> Your data is retained for as long as
+                your account is active
+              </li>
+              <li>
+                <strong>After Cancellation:</strong> Your data is retained for 30 days
+                after account closure, during which you may request an export
+              </li>
+              <li>
+                <strong>Permanent Deletion:</strong> After the 30-day period, your data
+                is permanently deleted from our systems
+              </li>
+              <li>
+                <strong>Backup Retention:</strong> Backups may be retained for up to 90
+                days for disaster recovery purposes
+              </li>
+              <li>
+                <strong>Legal Requirements:</strong> We may retain certain data longer if
+                required by law
+              </li>
+            </ul>
+          </section>
+
+          {/* Section 6 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              6. Your Rights and Choices
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              You have the following rights regarding your personal information:
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              6.1 Access and Portability
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You can access most of your data directly through your account settings.
+              You may request a complete export of your data by contacting us at
+              privacy@youthcoachhub.com. We will provide your data in a commonly used
+              format within 30 days.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              6.2 Correction
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You can update your account information at any time through your account
+              settings. For corrections to other data, contact us and we will make the
+              necessary updates.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              6.3 Deletion
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You can delete your account through your account settings or by contacting
+              us. Upon deletion, we will remove your personal information within 30 days,
+              except as required by law.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              6.4 Communication Preferences
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You can opt out of promotional emails by clicking "unsubscribe" in any
+              marketing email. Note that you cannot opt out of service-related
+              communications (billing, security alerts, account notifications).
+            </p>
+          </section>
+
+          {/* Section 7 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              7. Children's Privacy
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              Youth Coach Hub is designed for coaches, not for use by children. Our
+              policies regarding minors are as follows:
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              7.1 Age Requirements
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You must be at least 18 years old to create an account. Users between 13
+              and 18 may use the Service only with parental or guardian consent and
+              supervision.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              7.2 Player Information
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Coaches may enter basic player information (names, jersey numbers, positions)
+              for team management purposes. This information is used solely for coaching
+              purposes and is not shared outside the team. Coaches are responsible for
+              ensuring they have appropriate consent to enter player information.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              7.3 Video Content
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Videos uploaded to the Service may contain images of minors participating
+              in football. This content is stored securely, accessible only to authorized
+              team members, and used solely for coaching purposes.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              7.4 COPPA Compliance
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              We do not knowingly collect personal information directly from children
+              under 13. If you believe a child under 13 has provided us with personal
+              information, please contact us immediately at privacy@youthcoachhub.com
+              and we will delete such information.
+            </p>
+          </section>
+
+          {/* Section 8 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              8. Cookies and Tracking Technologies
+            </h2>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              8.1 Types of Cookies We Use
+            </h3>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Essential Cookies:</strong> Required for the Service to function
+                (authentication, security, preferences)
+              </li>
+              <li>
+                <strong>Analytics Cookies:</strong> Help us understand how users interact
+                with the Service to improve functionality
+              </li>
+              <li>
+                <strong>Performance Cookies:</strong> Used to optimize page load times
+                and Service performance
+              </li>
+            </ul>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              8.2 Managing Cookies
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Most browsers allow you to control cookies through settings. You can block
+              or delete cookies, but this may affect your ability to use certain features
+              of the Service. For more information, consult your browser's help documentation.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              8.3 Do Not Track
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              We do not currently respond to "Do Not Track" signals because there is no
+              industry standard for handling such signals. We do not track users across
+              third-party websites.
+            </p>
+          </section>
+
+          {/* Section 9 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              9. California Privacy Rights (CCPA)
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              If you are a California resident, you have additional rights under the
+              California Consumer Privacy Act (CCPA):
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2">
+              <li>
+                <strong>Right to Know:</strong> You can request details about the categories
+                and specific pieces of personal information we collect
+              </li>
+              <li>
+                <strong>Right to Delete:</strong> You can request deletion of your personal
+                information
+              </li>
+              <li>
+                <strong>Right to Opt-Out:</strong> You can opt out of the "sale" of personal
+                information (we do not sell personal information)
+              </li>
+              <li>
+                <strong>Right to Non-Discrimination:</strong> We will not discriminate against
+                you for exercising your privacy rights
+              </li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              To exercise these rights, contact us at privacy@youthcoachhub.com or use
+              the "Privacy" section in your account settings.
+            </p>
+          </section>
+
+          {/* Section 10 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              10. International Users
+            </h2>
+            <p className="text-gray-700 leading-relaxed">
+              Youth Coach Hub is operated in the United States. If you are accessing the
+              Service from outside the United States, please be aware that your information
+              will be transferred to, stored, and processed in the United States. By using
+              the Service, you consent to this transfer. The data protection laws in the
+              United States may differ from those in your country.
+            </p>
+          </section>
+
+          {/* Section 11 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              11. Changes to This Privacy Policy
+            </h2>
+            <p className="text-gray-700 leading-relaxed">
+              We may update this Privacy Policy from time to time. We will notify you of
+              material changes by email or by posting a prominent notice on the Service at
+              least 30 days before the changes take effect. We encourage you to review this
+              Privacy Policy periodically. Your continued use of the Service after the
+              changes take effect constitutes acceptance of the updated policy.
+            </p>
+          </section>
+
+          {/* Section 12 */}
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              12. Contact Us
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              If you have questions, concerns, or requests regarding this Privacy Policy
+              or our data practices, please contact us:
+            </p>
+            <div className="bg-gray-50 rounded-lg p-6">
+              <p className="text-gray-700">
+                <strong>Youth Coach Hub LLC</strong><br />
+                Privacy Inquiries: privacy@youthcoachhub.com<br />
+                General Support: support@youthcoachhub.com<br />
+                Website: youthcoachhub.com
+              </p>
+            </div>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              We will respond to your inquiry within 30 days.
+            </p>
+          </section>
+        </div>
+
+        {/* Footer Links */}
+        <div className="mt-16 pt-8 border-t border-gray-200">
+          <div className="flex flex-wrap gap-6 text-sm">
+            <Link href="/terms" className="text-gray-600 hover:text-gray-900">
+              Terms of Service
+            </Link>
+            <Link href="/contact" className="text-gray-600 hover:text-gray-900">
+              Contact Us
+            </Link>
+            <Link href="/pricing" className="text-gray-600 hover:text-gray-900">
+              Pricing
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

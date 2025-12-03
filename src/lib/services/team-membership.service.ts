@@ -4,6 +4,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import type { TeamMembership } from '@/types/football';
+import { getEffectiveLimitsClient, getLimitReachedResponseClient } from './addon-pricing.client';
 
 export interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -27,6 +28,16 @@ export interface InviteCoachParams {
   teamId: string;
   email: string;
   role: 'coach' | 'analyst' | 'viewer';
+}
+
+export interface InviteCoachResult {
+  success: boolean;
+  message: string;
+  action?: 'purchase_addon' | 'contact_owner';
+  addon_type?: 'coaches' | 'ai_credits' | 'storage';
+  owner_name?: string;
+  buttonText?: string | null;
+  buttonUrl?: string | null;
 }
 
 export class TeamMembershipService {
@@ -142,8 +153,9 @@ export class TeamMembershipService {
    * Invite a coach to join a team
    * Only owners and coaches can invite
    * Cannot invite existing members
+   * Enforces coach limits based on tier + add-ons
    */
-  async inviteCoach(params: InviteCoachParams): Promise<{ success: boolean; message: string }> {
+  async inviteCoach(params: InviteCoachParams): Promise<InviteCoachResult> {
     const { teamId, email, role } = params;
 
     // Verify current user
@@ -162,7 +174,7 @@ export class TeamMembershipService {
     // Also check if user is team owner (backward compatibility)
     const { data: team } = await this.supabase
       .from('teams')
-      .select('user_id')
+      .select('user_id, name')
       .eq('id', teamId)
       .single();
 
@@ -171,6 +183,43 @@ export class TeamMembershipService {
 
     if (!canInvite) {
       throw new Error('Only owners and coaches can invite members');
+    }
+
+    // Check coach limit before inviting
+    const limits = await getEffectiveLimitsClient(this.supabase, teamId);
+
+    // Count current active members (including owner)
+    const { count: memberCount } = await this.supabase
+      .from('team_memberships')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_id', teamId)
+      .eq('is_active', true);
+
+    // Add 1 for the team owner (who may not be in team_memberships)
+    const currentCoachCount = (memberCount || 0) + 1;
+
+    if (currentCoachCount >= limits.max_coaches) {
+      // Get owner's name for the message
+      const { data: ownerProfile } = await this.supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', team?.user_id)
+        .single();
+
+      const ownerName = ownerProfile?.full_name || ownerProfile?.email || 'the head coach';
+      const userRole = isTeamOwner ? 'owner' : (currentMembership?.role || 'coach');
+
+      const limitResponse = getLimitReachedResponseClient('coaches', userRole, ownerName, teamId);
+
+      return {
+        success: false,
+        message: `Team has reached maximum coaches (${limits.max_coaches}) for this subscription.`,
+        action: limitResponse.action,
+        addon_type: 'coaches',
+        owner_name: ownerName,
+        buttonText: limitResponse.buttonText,
+        buttonUrl: limitResponse.buttonUrl
+      };
     }
 
     // Look up user by email

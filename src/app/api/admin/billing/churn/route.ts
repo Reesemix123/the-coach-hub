@@ -8,9 +8,9 @@ import { SubscriptionTier } from '@/types/admin';
 
 // Tier pricing in cents
 const TIER_PRICES: Record<SubscriptionTier, number> = {
-  little_league: 0,
-  hs_basic: 2900, // $29
-  hs_advanced: 7900, // $79
+  basic: 0,
+  plus: 2900, // $29
+  premium: 7900, // $79
   ai_powered: 14900 // $149 (future tier)
 };
 

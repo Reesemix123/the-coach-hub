@@ -16,11 +16,12 @@ import {
   Save,
   Check,
   X,
-  AlertTriangle
+  AlertTriangle,
+  HardDrive
 } from 'lucide-react';
 
 // Types
-type SystemTab = 'flags' | 'tiers' | 'trial' | 'health';
+type SystemTab = 'flags' | 'tiers' | 'trial' | 'health' | 'storage';
 
 interface FeatureFlags {
   [key: string]: boolean;
@@ -70,6 +71,20 @@ interface HealthData {
     credit_reset: BackgroundJobStatus;
     invoice_generation: BackgroundJobStatus;
   };
+}
+
+interface StorageConfig {
+  max_file_size_bytes: number;
+  max_uploads_per_hour: number;
+  allowed_mime_types: string[];
+  allowed_extensions: string[];
+  tier_quotas: Record<string, number>;
+  default_quota_bytes: number;
+  enforce_quotas: boolean;
+  enforce_rate_limits: boolean;
+  max_file_size_formatted?: string;
+  default_quota_formatted?: string;
+  tier_quotas_formatted?: Record<string, string>;
 }
 
 // Tab Button Component
@@ -482,7 +497,7 @@ function TrialSettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const allTiers = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+  const allTiers = ['basic', 'plus', 'premium', 'ai_powered'];
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -755,6 +770,265 @@ function SystemHealthView() {
   );
 }
 
+// Storage Settings View
+function StorageSettingsView() {
+  const [config, setConfig] = useState<StorageConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+
+  const tierLabels: Record<string, string> = {
+    free: 'Free Tier',
+    basic: 'Basic',
+    plus: 'Plus',
+    premium: 'Premium',
+    ai_powered: 'AI Powered',
+  };
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/system/storage');
+      if (!res.ok) throw new Error('Failed to fetch storage config');
+      const data = await res.json();
+      setConfig(data.config);
+      setUpdatedAt(data.updated_at);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  const handleChange = <K extends keyof StorageConfig>(field: K, value: StorageConfig[K]) => {
+    if (!config) return;
+    setConfig({ ...config, [field]: value });
+    setHasChanges(true);
+  };
+
+  const handleTierQuotaChange = (tier: string, bytes: number) => {
+    if (!config) return;
+    setConfig({
+      ...config,
+      tier_quotas: { ...config.tier_quotas, [tier]: bytes }
+    });
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    if (!config) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/system/storage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          max_file_size_bytes: config.max_file_size_bytes,
+          max_uploads_per_hour: config.max_uploads_per_hour,
+          tier_quotas: config.tier_quotas,
+          default_quota_bytes: config.default_quota_bytes,
+          enforce_quotas: config.enforce_quotas,
+          enforce_rate_limits: config.enforce_rate_limits,
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save');
+      }
+      setHasChanges(false);
+      await fetchConfig();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const parseGBtoBytes = (gb: string): number => {
+    const num = parseFloat(gb);
+    if (isNaN(num)) return 0;
+    return Math.round(num * 1024 * 1024 * 1024);
+  };
+
+  const bytesToGB = (bytes: number): string => {
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1);
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  }
+
+  if (!config) {
+    return <div className="text-center text-gray-500 py-8">Failed to load storage configuration</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
+        </div>
+      )}
+
+      {updatedAt && (
+        <div className="text-sm text-gray-500">
+          Last updated: {new Date(updatedAt).toLocaleString()}
+        </div>
+      )}
+
+      {/* File Upload Limits */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+        <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <HardDrive className="w-5 h-5" />
+          File Upload Limits
+        </h3>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max File Size (GB)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0.1"
+              max="10"
+              value={bytesToGB(config.max_file_size_bytes)}
+              onChange={(e) => handleChange('max_file_size_bytes', parseGBtoBytes(e.target.value))}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+            />
+            <p className="text-xs text-gray-500 mt-1">Current: {formatBytes(config.max_file_size_bytes)}</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Max Uploads Per Hour</label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={config.max_uploads_per_hour}
+              onChange={(e) => handleChange('max_uploads_per_hour', parseInt(e.target.value) || 1)}
+              className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+            />
+            <p className="text-xs text-gray-500 mt-1">Per team rate limit</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">Enforce Storage Quotas</p>
+              <p className="text-sm text-gray-500">Block uploads when quota exceeded</p>
+            </div>
+            <Toggle
+              checked={config.enforce_quotas}
+              onChange={(checked) => handleChange('enforce_quotas', checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">Enforce Rate Limits</p>
+              <p className="text-sm text-gray-500">Limit uploads per hour</p>
+            </div>
+            <Toggle
+              checked={config.enforce_rate_limits}
+              onChange={(checked) => handleChange('enforce_rate_limits', checked)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tier Quotas */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+        <h3 className="font-semibold text-gray-900">Storage Quotas by Tier</h3>
+        <p className="text-sm text-gray-500 -mt-4">Set video storage limits for each subscription tier</p>
+
+        <div className="space-y-4">
+          {Object.entries(config.tier_quotas).map(([tier, bytes]) => (
+            <div key={tier} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+              <div>
+                <p className="font-medium text-gray-900">{tierLabels[tier] || tier}</p>
+                <p className="text-sm text-gray-500">{formatBytes(bytes)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  step="10"
+                  min="1"
+                  value={Math.round(bytes / (1024 * 1024 * 1024))}
+                  onChange={(e) => handleTierQuotaChange(tier, parseGBtoBytes(e.target.value))}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+                />
+                <span className="text-sm text-gray-500">GB</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-4 border-t border-gray-100">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Default Quota (GB)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              step="10"
+              min="1"
+              value={Math.round(config.default_quota_bytes / (1024 * 1024 * 1024))}
+              onChange={(e) => handleChange('default_quota_bytes', parseGBtoBytes(e.target.value))}
+              className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
+            />
+            <span className="text-sm text-gray-500">GB</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Used when tier not found in quotas</p>
+        </div>
+      </div>
+
+      {/* Allowed File Types */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Allowed File Types</h3>
+        <div className="flex flex-wrap gap-2">
+          {config.allowed_extensions?.map((ext) => (
+            <span key={ext} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+              {ext}
+            </span>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          MIME types: {config.allowed_mime_types?.join(', ')}
+        </p>
+      </div>
+
+      {/* Save Button */}
+      {hasChanges && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Main Page Component
 export default function AdminSystemPage() {
   const [activeTab, setActiveTab] = useState<SystemTab>('flags');
@@ -798,6 +1072,12 @@ export default function AdminSystemPage() {
           active={activeTab === 'health'}
           onClick={() => setActiveTab('health')}
         />
+        <TabButton
+          label="Storage"
+          icon={HardDrive}
+          active={activeTab === 'storage'}
+          onClick={() => setActiveTab('storage')}
+        />
       </div>
 
       {/* Tab Content */}
@@ -805,6 +1085,7 @@ export default function AdminSystemPage() {
       {activeTab === 'tiers' && <TierConfigView />}
       {activeTab === 'trial' && <TrialSettingsView />}
       {activeTab === 'health' && <SystemHealthView />}
+      {activeTab === 'storage' && <StorageSettingsView />}
     </div>
   );
 }

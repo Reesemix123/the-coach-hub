@@ -132,7 +132,7 @@ export async function GET() {
   const teamBillings: TeamBilling[] = teamIds.map(teamId => {
     const subscription = subscriptionMap.get(teamId);
     const credits = creditsMap.get(teamId);
-    const tier = (subscription?.tier || 'hs_basic') as SubscriptionTier;
+    const tier = (subscription?.tier || 'plus') as SubscriptionTier;
     const tierConfig = tierConfigs?.[tier];
 
     // Calculate monthly cost (0 if waived or no subscription)

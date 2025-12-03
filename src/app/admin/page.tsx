@@ -29,9 +29,9 @@ interface DashboardData {
     teams: {
       total: number;
       by_tier: {
-        little_league: number;
-        hs_basic: number;
-        hs_advanced: number;
+        basic: number;
+        plus: number;
+        premium: number;
         ai_powered: number;
       };
     };
@@ -160,13 +160,13 @@ function AlertBanner({ alert }: { alert: DashboardData['alerts'][0] }) {
 
 // Tier Distribution Bar
 function TierDistribution({ data }: { data: DashboardData['metrics']['teams']['by_tier'] }) {
-  const total = data.little_league + data.hs_basic + data.hs_advanced + data.ai_powered;
+  const total = data.basic + data.plus + data.premium + data.ai_powered;
   if (total === 0) return <div className="text-gray-500 text-sm">No teams yet</div>;
 
   const tiers = [
-    { name: 'Little League', count: data.little_league, color: 'bg-gray-400' },
-    { name: 'HS Basic', count: data.hs_basic, color: 'bg-blue-500' },
-    { name: 'HS Advanced', count: data.hs_advanced, color: 'bg-purple-500' },
+    { name: 'Basic', count: data.basic, color: 'bg-gray-400' },
+    { name: 'Plus', count: data.plus, color: 'bg-blue-500' },
+    { name: 'Premium', count: data.premium, color: 'bg-purple-500' },
     { name: 'AI Powered', count: data.ai_powered, color: 'bg-green-500' },
   ];
 

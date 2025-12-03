@@ -8,9 +8,9 @@ import { SubscriptionTier, SubscriptionStatus } from '@/types/admin';
 
 // Tier pricing in cents
 const TIER_PRICES: Record<SubscriptionTier, number> = {
-  little_league: 0,
-  hs_basic: 2900, // $29
-  hs_advanced: 7900, // $79
+  basic: 0,
+  plus: 2900, // $29
+  premium: 7900, // $79
   ai_powered: 14900 // $149 (future tier)
 };
 
@@ -83,9 +83,9 @@ export async function GET(request: NextRequest) {
     // Calculate current MRR (from active and trialing subscriptions, excluding waived)
     let currentMRR = 0;
     const mrrByTier: Record<SubscriptionTier, number> = {
-      little_league: 0,
-      hs_basic: 0,
-      hs_advanced: 0,
+      basic: 0,
+      plus: 0,
+      premium: 0,
       ai_powered: 0
     };
 
@@ -172,9 +172,9 @@ export async function GET(request: NextRequest) {
       },
       arr: Math.round((currentMRR * 12) / 100),
       mrr_by_tier: {
-        little_league: Math.round(mrrByTier.little_league / 100),
-        hs_basic: Math.round(mrrByTier.hs_basic / 100),
-        hs_advanced: Math.round(mrrByTier.hs_advanced / 100),
+        basic: Math.round(mrrByTier.basic / 100),
+        plus: Math.round(mrrByTier.plus / 100),
+        premium: Math.round(mrrByTier.premium / 100),
         ai_powered: Math.round(mrrByTier.ai_powered / 100)
       },
       mrr_trend: mrrTrend,

@@ -1,11 +1,10 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
-const TEAM_ID = '99ef9d88-454e-42bf-8f52-04d37b34a9d6';
-
 /**
  * Seed defensive playbook plays for testing the Game Plan Builder
  * Creates a variety of defensive schemes: base defenses, nickel, dime, blitzes, goal line
+ * SECURITY: Only works on user's own teams
  */
 export async function POST() {
   const supabase = await createClient();
@@ -15,6 +14,19 @@ export async function POST() {
   if (authError || !user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
+
+  // SECURITY: Get user's first team (not a hardcoded ID)
+  const { data: teams } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('user_id', user.id)
+    .limit(1);
+
+  if (!teams?.length) {
+    return NextResponse.json({ error: 'No team found for user' }, { status: 400 });
+  }
+
+  const TEAM_ID = teams[0].id;
 
   const results: { created: number; errors: string[] } = {
     created: 0,
