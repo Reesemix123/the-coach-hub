@@ -27,8 +27,14 @@ BEGIN
       AND table_name = 'team_members'
       AND column_name = 'team_id'
     ) THEN
+      -- Drop existing policies first (if any)
+      DROP POLICY IF EXISTS "Users can view team members for their teams" ON team_members;
+      DROP POLICY IF EXISTS "Owners and coaches can add team members" ON team_members;
+      DROP POLICY IF EXISTS "Owners and coaches can update team members" ON team_members;
+      DROP POLICY IF EXISTS "Only owners can delete team members" ON team_members;
+
       -- Create SELECT policy - users can view team members for their teams
-      EXECUTE 'CREATE POLICY IF NOT EXISTS "Users can view team members for their teams"
+      EXECUTE 'CREATE POLICY "Users can view team members for their teams"
         ON team_members FOR SELECT
         USING (
           EXISTS (SELECT 1 FROM teams WHERE teams.id = team_members.team_id AND teams.user_id = auth.uid())
@@ -42,7 +48,7 @@ BEGIN
         )';
 
       -- Create INSERT policy - owners and coaches can add team members
-      EXECUTE 'CREATE POLICY IF NOT EXISTS "Owners and coaches can add team members"
+      EXECUTE 'CREATE POLICY "Owners and coaches can add team members"
         ON team_members FOR INSERT
         WITH CHECK (
           EXISTS (SELECT 1 FROM teams WHERE teams.id = team_id AND teams.user_id = auth.uid())
@@ -57,7 +63,7 @@ BEGIN
         )';
 
       -- Create UPDATE policy - owners and coaches can update team members
-      EXECUTE 'CREATE POLICY IF NOT EXISTS "Owners and coaches can update team members"
+      EXECUTE 'CREATE POLICY "Owners and coaches can update team members"
         ON team_members FOR UPDATE
         USING (
           EXISTS (SELECT 1 FROM teams WHERE teams.id = team_id AND teams.user_id = auth.uid())
@@ -72,7 +78,7 @@ BEGIN
         )';
 
       -- Create DELETE policy - only owners can delete team members
-      EXECUTE 'CREATE POLICY IF NOT EXISTS "Only owners can delete team members"
+      EXECUTE 'CREATE POLICY "Only owners can delete team members"
         ON team_members FOR DELETE
         USING (
           EXISTS (SELECT 1 FROM teams WHERE teams.id = team_id AND teams.user_id = auth.uid())
