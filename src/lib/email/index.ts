@@ -4,11 +4,8 @@
 
 import { Resend } from 'resend';
 
-// Initialize Resend client only if API key is available
-// This allows builds to pass without the key, but emails won't send
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+// Initialize Resend client
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
 // Email configuration
 const EMAIL_CONFIG = {
@@ -41,15 +38,6 @@ export interface EmailResult {
 // ============================================================================
 
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResult> {
-  // If Resend is not configured, log and return success (for development/build)
-  if (!resend) {
-    console.warn('[Email] Resend not configured - email not sent:', options.subject);
-    return {
-      success: true,
-      messageId: 'not-configured',
-    };
-  }
-
   try {
     const { data, error } = await resend.emails.send({
       from: EMAIL_CONFIG.from,
