@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { Settings, LogOut, User as UserIcon, Shield } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 
 export default function UserMenu() {
   const [user, setUser] = useState<User | null>(null);
@@ -71,15 +71,7 @@ export default function UserMenu() {
             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
             <UserIcon className="h-4 w-4" />
-            Account Settings
-          </Link>
-
-          <Link
-            href="/account"
-            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            <Shield className="h-4 w-4" />
-            Active Sessions
+            Account
           </Link>
 
           <div className="border-t border-gray-100 mt-1">
