@@ -4,8 +4,18 @@
 
 import { Resend } from 'resend';
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY!);
+// Initialize Resend client lazily to avoid build-time errors
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resendClient;
+}
 
 // Email configuration
 const EMAIL_CONFIG = {
@@ -39,7 +49,7 @@ export interface EmailResult {
 
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResult> {
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResendClient().emails.send({
       from: EMAIL_CONFIG.from,
       to: options.to,
       subject: options.subject,
