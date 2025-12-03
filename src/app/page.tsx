@@ -38,9 +38,21 @@ export default function Home() {
         return;
       }
 
-      // TODO: Later check for invited teams via team_memberships table
-      // For now, show homepage if no owned teams
-      setLoading(false);
+      // Check for teams user is a member of (invited coaches)
+      const { data: memberTeams } = await supabase
+        .from('team_memberships')
+        .select('team_id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (memberTeams && memberTeams.length > 0) {
+        // User is a member of a team - redirect to that team
+        router.push(`/teams/${memberTeams[0].team_id}`);
+        return;
+      }
+
+      // User is logged in but has no teams - redirect to setup
+      router.push('/setup');
     } catch (error) {
       console.error('Error checking teams:', error);
       setLoading(false);
