@@ -6,6 +6,8 @@ import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
 import ConsoleLink from "@/components/ConsoleLink";
 import AdminLink from "@/components/AdminLink";
+import TourButton from "@/components/TourButton";
+import { GlobalOnboardingProvider, OnboardingTourModal, OnboardingChecklist } from "@/components/onboarding";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -21,6 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50">
+        <GlobalOnboardingProvider>
         <ScrollingNavbar>
           <div className="max-w-7xl mx-auto px-8">
             <div className="flex justify-between items-center h-20">
@@ -33,6 +36,7 @@ export default function RootLayout({
                 {/* Team Context */}
                 <div className="hidden md:flex items-center gap-6">
                   <TeamSwitcher />
+                  <TourButton />
                   <ConsoleLink />
                   <AdminLink />
                 </div>
@@ -70,6 +74,11 @@ export default function RootLayout({
             },
           }}
         />
+
+        {/* Onboarding components */}
+        <OnboardingTourModal />
+        <OnboardingChecklist />
+        </GlobalOnboardingProvider>
       </body>
     </html>
   );

@@ -332,6 +332,8 @@ export default function GameFilmPage() {
   const [tagStartTime, setTagStartTime] = useState<number>(0);
   const [tagEndTime, setTagEndTime] = useState<number | null>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isSettingEndTime, setIsSettingEndTime] = useState(false);
   const [taggingMode, setTaggingMode] = useState<TaggingMode>('offense');
   const [analyticsTier, setAnalyticsTier] = useState<string>('premium');
@@ -673,7 +675,13 @@ export default function GameFilmPage() {
 
   async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !game) return;
+    if (!file) {
+      return;
+    }
+    if (!game) {
+      alert('Game data not loaded. Please refresh the page and try again.');
+      return;
+    }
 
     const fileSizeMB = file.size / (1024 * 1024);
 
@@ -685,9 +693,12 @@ export default function GameFilmPage() {
     }
 
     setUploadingVideo(true);
+    setUploadProgress(0);
+    setUploadStatus('Checking upload permissions...');
 
     try {
       // Step 1: Pre-flight check with our API (quota, rate limits, file type validation)
+      setUploadProgress(5);
       const preflightResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -717,12 +728,29 @@ export default function GameFilmPage() {
           alert(`Upload not allowed: ${errorMessage}`);
         }
         setUploadingVideo(false);
+        setUploadProgress(0);
+        setUploadStatus('');
         return;
       }
 
       const { uploadId, storagePath } = preflightData;
 
       // Step 2: Upload to Supabase Storage
+      setUploadProgress(10);
+      setUploadStatus(`Uploading ${file.name} (${fileSizeMB.toFixed(1)} MB)...`);
+
+      // Simulate progress during upload (since Supabase doesn't provide real-time progress)
+      const estimatedUploadTime = Math.max(5000, fileSizeMB * 100); // Rough estimate: 100ms per MB, min 5s
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 80) {
+            clearInterval(progressInterval);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, estimatedUploadTime / 70); // Increment to ~80% over estimated time
+
       const uploadOptions = fileSizeMB > 50 ? {
         cacheControl: '3600',
         upsert: false,
@@ -732,6 +760,8 @@ export default function GameFilmPage() {
       const { error: uploadError } = await supabase.storage
         .from('game_videos')
         .upload(storagePath, file, uploadOptions);
+
+      clearInterval(progressInterval); // Stop simulation when upload completes
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
@@ -743,10 +773,14 @@ export default function GameFilmPage() {
 
         alert(`Error uploading video: ${uploadError.message}\n\nFor files larger than 50MB, you may need to:\n1. Check your Supabase project settings\n2. Or compress the video before uploading`);
         setUploadingVideo(false);
+        setUploadProgress(0);
+        setUploadStatus('');
         return;
       }
 
       // Step 3: Complete the upload (creates video record and updates storage tracking)
+      setUploadProgress(85);
+      setUploadStatus('Finalizing upload...');
       const completeResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -764,27 +798,39 @@ export default function GameFilmPage() {
         console.error('Complete upload error:', completeData);
         alert('Video uploaded but record creation failed. Please refresh the page.');
         setUploadingVideo(false);
+        setUploadProgress(0);
+        setUploadStatus('');
         return;
       }
+
+      setUploadProgress(100);
+      setUploadStatus('Upload complete!');
 
       if (completeData.video) {
         setVideos([completeData.video, ...videos]);
         setSelectedVideo(completeData.video);
 
-        // Show success with storage info
-        const storage = completeData.storage;
-        if (storage && storage.quota_used_percent >= 80) {
-          alert(`Video uploaded successfully!\n\nWarning: You've used ${storage.quota_used_percent}% of your storage quota.`);
-        } else {
-          alert('Video uploaded successfully!');
-        }
+        // Show success with storage info (brief delay to show 100%)
+        setTimeout(() => {
+          const storage = completeData.storage;
+          if (storage && storage.quota_used_percent >= 80) {
+            alert(`Video uploaded successfully!\n\nWarning: You've used ${storage.quota_used_percent}% of your storage quota.`);
+          }
+          setUploadingVideo(false);
+          setUploadProgress(0);
+          setUploadStatus('');
+        }, 500);
+      } else {
+        setUploadingVideo(false);
+        setUploadProgress(0);
+        setUploadStatus('');
       }
-
-      setUploadingVideo(false);
     } catch (error) {
       console.error('Upload error:', error);
       alert('Error uploading video. Please try again or use a smaller file.');
       setUploadingVideo(false);
+      setUploadProgress(0);
+      setUploadStatus('');
     }
   }
 
@@ -1521,16 +1567,34 @@ export default function GameFilmPage() {
               </div>
 
               <div>
-                <label className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
-                  {uploadingVideo ? 'Uploading...' : '+ Add Video'}
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoUpload}
-                    className="hidden"
-                    disabled={uploadingVideo}
-                  />
-                </label>
+                {uploadingVideo ? (
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-48">
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-black transition-all duration-300 ease-out"
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-gray-700 min-w-[3rem] text-right">
+                        {uploadProgress}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{uploadStatus}</p>
+                  </div>
+                ) : (
+                  <label className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
+                    + Add Video
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </div>

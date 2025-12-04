@@ -9,29 +9,36 @@ import { PricingGrid } from '@/components/pricing';
 import { ChevronDown } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Pricing | Youth Coach Hub',
+  title: 'Pricing | The Coach Hub',
   description: 'Choose the perfect plan for your coaching program. From youth leagues to elite high school programs, we have a plan that fits your needs.',
 };
 
-interface PricingTier {
+export interface PricingTier {
   id: SubscriptionTier;
   name: string;
   description: string;
   price_monthly: number;
-  ai_credits: number;
+  price_annual: number;
+  annual_savings: number;
+  ai_video_minutes: number;
+  ai_text_actions: number | 'unlimited';
   max_coaches: number;
   storage_gb: number;
   features: string[];
   popular?: boolean;
+  priority_processing?: boolean;
 }
 
-// Default tier configs
+// Default tier configs with new pricing structure
 const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = {
   basic: {
     name: 'Basic',
     description: 'Perfect for youth leagues and small programs',
     price_monthly: 0,
-    ai_credits: 0,
+    price_annual: 0,
+    annual_savings: 0,
+    ai_video_minutes: 0,
+    ai_text_actions: 0,
     max_coaches: 3,
     storage_gb: 10,
     features: [
@@ -46,7 +53,10 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     name: 'Plus',
     description: 'Full analytics for competitive programs',
     price_monthly: 29,
-    ai_credits: 100,
+    price_annual: 290,
+    annual_savings: 58,
+    ai_video_minutes: 30,
+    ai_text_actions: 100,
     max_coaches: 5,
     storage_gb: 50,
     features: [
@@ -62,7 +72,10 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     name: 'Premium',
     description: 'Advanced analytics for serious programs',
     price_monthly: 79,
-    ai_credits: 500,
+    price_annual: 790,
+    annual_savings: 158,
+    ai_video_minutes: 120,
+    ai_text_actions: 'unlimited',
     max_coaches: 10,
     storage_gb: 200,
     features: [
@@ -76,8 +89,11 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
   ai_powered: {
     name: 'AI Powered',
     description: 'AI-assisted coaching for elite programs',
-    price_monthly: 149,
-    ai_credits: 2000,
+    price_monthly: 199,
+    price_annual: 1990,
+    annual_savings: 398,
+    ai_video_minutes: 300,
+    ai_text_actions: 'unlimited',
     max_coaches: 10,
     storage_gb: 500,
     features: [
@@ -85,8 +101,9 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
       'Priority AI processing',
       'Unlimited highlight exports',
       'Custom AI training on your plays',
-      'Dedicated support'
-    ]
+      'Advanced tendency analysis'
+    ],
+    priority_processing: true
   }
 };
 
@@ -105,8 +122,16 @@ const faqs = [
     answer: 'Yes! Most paid plans include a 14-day free trial. You can explore all features before committing. Your card won\'t be charged until the trial ends.'
   },
   {
-    question: 'What are AI credits and how are they used?',
-    answer: 'AI credits power our AI features: auto-tagging plays from film (saves hours of manual tagging), generating game insights and tendencies, creating highlight reels automatically, and analyzing opponent patterns. Each AI action uses credits based on complexity. Credits reset monthly with your billing cycle.'
+    question: 'What are AI film minutes?',
+    answer: 'AI film minutes are used for automatic play tagging from your game film. Our AI watches your film and tags plays, formations, and results - saving hours of manual work. Each minute of film analyzed uses 1 AI minute.'
+  },
+  {
+    question: 'What are AI actions?',
+    answer: 'AI actions power our text-based AI features: generating scouting reports, practice plans, tendency analysis, and the AI coaching assistant. Plus tier gets 100 actions/month, Premium and AI Powered tiers get unlimited actions.'
+  },
+  {
+    question: 'Can I buy more AI minutes?',
+    answer: 'Yes! You can purchase additional AI film minutes at any time. Packs are available from 15 minutes ($15) to 120 minutes ($79). Purchased minutes are valid for 90 days.'
   },
   {
     question: 'Can I add more coaches to my plan?',
@@ -154,19 +179,11 @@ async function getPricingData() {
 
     // Build tiers array
     const tiers: PricingTier[] = (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).map(tierId => {
-      const dbConfig = tierConfigs?.[tierId];
       const defaultConfig = DEFAULT_TIER_CONFIGS[tierId];
 
       return {
         id: tierId,
-        name: dbConfig?.name || defaultConfig.name,
-        description: dbConfig?.description || defaultConfig.description,
-        price_monthly: dbConfig?.price_monthly ?? defaultConfig.price_monthly,
-        ai_credits: dbConfig?.ai_credits ?? defaultConfig.ai_credits,
-        max_coaches: dbConfig?.max_coaches ?? defaultConfig.max_coaches,
-        storage_gb: dbConfig?.storage_gb ?? defaultConfig.storage_gb,
-        features: dbConfig?.features || defaultConfig.features,
-        popular: tierId === 'plus'
+        ...defaultConfig
       };
     });
 
@@ -229,6 +246,42 @@ export default async function PricingPage() {
         </div>
       </section>
 
+      {/* AI Minutes Purchase Info */}
+      <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900">Need more AI film minutes?</h2>
+          <p className="mt-4 text-gray-600">
+            Purchase additional AI minutes at any time. No subscription required.
+          </p>
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <p className="text-2xl font-bold text-gray-900">15 min</p>
+              <p className="text-gray-600">$15</p>
+              <p className="text-xs text-gray-500">$1.00/min</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <p className="text-2xl font-bold text-gray-900">30 min</p>
+              <p className="text-gray-600">$25</p>
+              <p className="text-xs text-gray-500">$0.83/min</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 ring-2 ring-purple-500">
+              <p className="text-xs text-purple-600 font-medium mb-1">Best Value</p>
+              <p className="text-2xl font-bold text-gray-900">60 min</p>
+              <p className="text-gray-600">$45</p>
+              <p className="text-xs text-gray-500">$0.75/min</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200">
+              <p className="text-2xl font-bold text-gray-900">120 min</p>
+              <p className="text-gray-600">$79</p>
+              <p className="text-xs text-gray-500">$0.66/min</p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm text-gray-500">
+            Purchased minutes are valid for 90 days
+          </p>
+        </div>
+      </section>
+
       {/* Feature Comparison Note */}
       <section className="py-12 bg-gray-50">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
@@ -278,7 +331,7 @@ export default async function PricingPage() {
             Ready to elevate your coaching?
           </h2>
           <p className="mt-4 text-lg text-gray-300">
-            Join thousands of coaches using Youth Coach Hub to build better programs.
+            Join thousands of coaches using The Coach Hub to build better programs.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -302,7 +355,7 @@ export default async function PricingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-500">
-              &copy; {new Date().getFullYear()} Youth Coach Hub. All rights reserved.
+              &copy; {new Date().getFullYear()} The Coach Hub. All rights reserved.
             </p>
             <div className="flex gap-6">
               <Link href="/about" className="text-sm text-gray-500 hover:text-gray-700">

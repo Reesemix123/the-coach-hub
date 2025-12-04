@@ -1,13 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useOnboarding } from './OnboardingProvider';
+import { useGlobalOnboardingSafe } from './GlobalOnboardingProvider';
 import { TOUR_STEPS } from '@/types/onboarding';
 
 export default function OnboardingTourModal() {
-  const { showTour, completeTour, skipTour } = useOnboarding();
+  const onboarding = useGlobalOnboardingSafe();
   const [currentStep, setCurrentStep] = useState(0);
+
+  const showTour = onboarding?.showTour ?? false;
+
+  // Reset to first step whenever tour opens
+  useEffect(() => {
+    if (showTour) {
+      setCurrentStep(0);
+    }
+  }, [showTour]);
+
+  // Don't render if not in provider context
+  if (!onboarding) {
+    return null;
+  }
+
+  const { completeTour, skipTour } = onboarding;
 
   if (!showTour) {
     return null;
@@ -70,13 +86,7 @@ export default function OnboardingTourModal() {
             {/* Decorative emoji badge in top-right corner */}
             <div className="absolute top-3 right-3 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center">
               <span className="text-2xl">
-                {currentStep === 0 && '👋'}
-                {currentStep === 1 && '📊'}
-                {currentStep === 2 && '🏈'}
-                {currentStep === 3 && '📋'}
-                {currentStep === 4 && '🎬'}
-                {currentStep === 5 && '🏷️'}
-                {currentStep === 6 && '🚀'}
+                {['👋', '📊', '🏈', '📋', '🏃', '📝', '🎬', '🏷️', '📈', '🚀'][currentStep]}
               </span>
             </div>
           </div>

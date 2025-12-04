@@ -95,14 +95,22 @@ async function handleCheckoutCompleted(
   supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session
 ) {
+  const checkoutType = session.metadata?.type;
   const teamId = session.metadata?.team_id;
-  const tier = session.metadata?.tier;
 
   if (!teamId) {
     console.error('Checkout completed without team_id in metadata');
     return;
   }
 
+  // Handle AI minutes purchase
+  if (checkoutType === 'ai_minutes_purchase') {
+    await handleAIMinutesPurchase(supabase, session);
+    return;
+  }
+
+  // Handle regular subscription checkout
+  const tier = session.metadata?.tier;
   console.log(`Checkout completed for team ${teamId}, tier: ${tier}`);
 
   // The subscription will be created/updated via subscription.created webhook
@@ -117,6 +125,60 @@ async function handleCheckoutCompleted(
       customer: session.customer
     }
   });
+}
+
+async function handleAIMinutesPurchase(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session
+) {
+  const teamId = session.metadata?.team_id;
+  const userId = session.metadata?.user_id;
+  const minutes = parseInt(session.metadata?.minutes || '0');
+  const priceCents = parseInt(session.metadata?.price_cents || '0');
+
+  if (!teamId || !minutes) {
+    console.error('AI minutes purchase missing required metadata:', session.id);
+    return;
+  }
+
+  // Calculate expiration date (90 days from now)
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 90);
+
+  // Create purchase record
+  const { error } = await supabase
+    .from('ai_credit_purchases')
+    .insert({
+      team_id: teamId,
+      minutes_purchased: minutes,
+      minutes_remaining: minutes,
+      price_cents: priceCents,
+      purchased_at: new Date().toISOString(),
+      expires_at: expiresAt.toISOString(),
+      stripe_payment_intent_id: session.payment_intent as string || null,
+      purchased_by_user_id: userId || null
+    });
+
+  if (error) {
+    console.error('Failed to create AI minutes purchase record:', error);
+    return;
+  }
+
+  // Log audit event
+  await supabase.from('audit_logs').insert({
+    action: 'ai_credits.purchase',
+    target_type: 'team',
+    target_id: teamId,
+    user_id: userId || null,
+    metadata: {
+      session_id: session.id,
+      minutes_purchased: minutes,
+      price_cents: priceCents,
+      expires_at: expiresAt.toISOString()
+    }
+  });
+
+  console.log(`Added ${minutes} AI minutes purchase for team ${teamId}`);
 }
 
 async function handleSubscriptionUpdated(
@@ -307,31 +369,56 @@ async function allocateAICredits(
   tier: string,
   subscription: Stripe.Subscription
 ) {
-  // Get AI credits for this tier
-  const tierConfig = await getTierConfig(tier as 'basic' | 'plus' | 'premium' | 'ai_powered');
-  const creditsAllowed = tierConfig?.ai_credits || 0;
-
   const periodStart = new Date(subscription.current_period_start * 1000).toISOString();
   const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
 
-  // Upsert AI credits record for this period
-  const { error } = await supabase
-    .from('ai_credits')
-    .upsert({
-      team_id: teamId,
-      credits_allowed: creditsAllowed,
-      credits_used: 0, // Reset for new period
-      period_start: periodStart,
-      period_end: periodEnd,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'team_id,period_start'
-    });
+  // Use database function to allocate credits based on tier
+  // This handles all the tier-specific logic (video minutes, text actions, priority)
+  const { error } = await supabase.rpc('allocate_subscription_credits', {
+    p_team_id: teamId,
+    p_tier: tier,
+    p_period_start: periodStart,
+    p_period_end: periodEnd
+  });
 
   if (error) {
-    console.error('Failed to allocate AI credits:', error);
+    console.error('Failed to allocate AI credits via RPC:', error);
+
+    // Fallback: direct insert if RPC fails (e.g., function not yet deployed)
+    // Tier-based allocations
+    const tierAllocations: Record<string, { videoMinutes: number; textActions: number; priority: boolean }> = {
+      basic: { videoMinutes: 0, textActions: 0, priority: false },
+      plus: { videoMinutes: 30, textActions: 100, priority: false },
+      premium: { videoMinutes: 120, textActions: -1, priority: false }, // -1 = unlimited
+      ai_powered: { videoMinutes: 300, textActions: -1, priority: true }
+    };
+
+    const allocation = tierAllocations[tier] || tierAllocations.basic;
+
+    const { error: fallbackError } = await supabase
+      .from('ai_credits')
+      .upsert({
+        team_id: teamId,
+        video_minutes_monthly: allocation.videoMinutes,
+        text_actions_monthly: allocation.textActions,
+        video_minutes_remaining: allocation.videoMinutes,
+        text_actions_remaining: allocation.textActions,
+        priority_processing: allocation.priority,
+        current_period_start: periodStart,
+        current_period_end: periodEnd,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'team_id'
+      });
+
+    if (fallbackError) {
+      console.error('Failed to allocate AI credits via fallback:', fallbackError);
+      return;
+    }
+
+    console.log(`Allocated AI credits for team ${teamId} via fallback: ${allocation.videoMinutes} video minutes, ${allocation.textActions === -1 ? 'unlimited' : allocation.textActions} text actions`);
     return;
   }
 
-  console.log(`Allocated ${creditsAllowed} AI credits for team ${teamId}`);
+  console.log(`Allocated AI credits for team ${teamId} via RPC`);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Sparkles, Video, MessageSquare, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { SubscriptionTier } from '@/types/admin';
 
@@ -10,12 +10,17 @@ interface PricingCardProps {
     name: string;
     description: string;
     price_monthly: number;
-    ai_credits: number;
+    price_annual: number;
+    annual_savings: number;
+    ai_video_minutes: number;
+    ai_text_actions: number | 'unlimited';
     max_coaches: number;
     storage_gb: number;
     features: string[];
     popular?: boolean;
+    priority_processing?: boolean;
   };
+  billingCycle: 'monthly' | 'annual';
   trialEnabled: boolean;
   trialAllowedTiers: SubscriptionTier[];
   trialDurationDays: number;
@@ -23,6 +28,7 @@ interface PricingCardProps {
 
 export default function PricingCard({
   tier,
+  billingCycle,
   trialEnabled,
   trialAllowedTiers,
   trialDurationDays
@@ -30,7 +36,10 @@ export default function PricingCard({
   const canTrial = trialEnabled && trialAllowedTiers.includes(tier.id);
   const isFree = tier.price_monthly === 0;
   const isAIPowered = tier.id === 'ai_powered';
-  const hasAI = tier.ai_credits > 0;
+  const hasAI = tier.ai_video_minutes > 0 || tier.ai_text_actions !== 0;
+
+  const displayPrice = billingCycle === 'monthly' ? tier.price_monthly : tier.price_annual;
+  const priceLabel = billingCycle === 'monthly' ? '/month' : '/year';
 
   // Determine CTA text
   let ctaText = 'Get Started';
@@ -42,10 +51,23 @@ export default function PricingCard({
 
   return (
     <div
-      className="group relative flex flex-col rounded-2xl border-2 p-8 transition-all duration-200 hover:border-gray-900 hover:shadow-xl border-gray-200 bg-white"
+      className={`group relative flex flex-col rounded-2xl border-2 p-8 transition-all duration-200 hover:shadow-xl ${
+        tier.popular
+          ? 'border-gray-900 bg-white'
+          : 'border-gray-200 bg-white hover:border-gray-900'
+      }`}
     >
-      {/* AI badge for AI Powered tier */}
-      {isAIPowered && (
+      {/* Popular badge */}
+      {tier.popular && (
+        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-4 py-1 text-sm font-medium text-white">
+            Most Popular
+          </span>
+        </div>
+      )}
+
+      {/* AI Powered badge */}
+      {isAIPowered && !tier.popular && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
           <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-1 text-sm font-medium text-white">
             <Sparkles className="h-3.5 w-3.5" />
@@ -64,13 +86,18 @@ export default function PricingCard({
       <div className="mb-6">
         <div className="flex items-baseline gap-1">
           <span className="text-4xl font-bold text-gray-900">
-            ${tier.price_monthly}
+            ${displayPrice}
           </span>
-          <span className="text-gray-600">/month</span>
+          <span className="text-gray-600">{priceLabel}</span>
         </div>
+        {billingCycle === 'annual' && tier.annual_savings > 0 && (
+          <p className="mt-1 text-sm text-green-600 font-medium">
+            Save ${tier.annual_savings}/year
+          </p>
+        )}
         {canTrial && (
           <p className="mt-1 text-sm text-green-600 font-medium">
-            {trialDurationDays} days free, then ${tier.price_monthly}/mo
+            {trialDurationDays} days free, then ${billingCycle === 'monthly' ? tier.price_monthly : tier.price_annual}{priceLabel}
           </p>
         )}
         {isFree && (
@@ -92,15 +119,48 @@ export default function PricingCard({
         </div>
       </div>
 
-      {/* AI Credits Badge - only for paid tiers with AI */}
+      {/* AI Credits Section - only for tiers with AI */}
       {hasAI && (
         <div className="mb-6 rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 p-4">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-purple-600" />
-            <span className="text-sm font-semibold text-gray-900">{tier.ai_credits.toLocaleString()} AI Credits/mo</span>
+            <span className="text-sm font-semibold text-gray-900">AI Features</span>
+            {tier.priority_processing && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                <Zap className="h-3 w-3" />
+                Priority
+              </span>
+            )}
           </div>
-          <p className="text-xs text-gray-600">
-            Auto-tag film • Coaching insights • Game planning • AI assistant
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Video className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-700">
+                <span className="font-medium">{tier.ai_video_minutes}</span> AI film minutes/mo
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-gray-500" />
+              <span className="text-sm text-gray-700">
+                {tier.ai_text_actions === 'unlimited' ? (
+                  <span className="font-medium text-purple-600">Unlimited</span>
+                ) : (
+                  <span className="font-medium">{tier.ai_text_actions}</span>
+                )} AI actions/mo
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No AI badge for Basic tier */}
+      {!hasAI && (
+        <div className="mb-6 rounded-lg bg-gray-50 border border-gray-200 p-4 text-center">
+          <p className="text-sm text-gray-500">
+            No AI features included
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Upgrade to Plus for AI capabilities
           </p>
         </div>
       )}
@@ -115,10 +175,14 @@ export default function PricingCard({
         ))}
       </ul>
 
-      {/* CTA Button - white by default, filled on card hover */}
+      {/* CTA Button */}
       <Link
-        href={`/auth/signup?tier=${tier.id}`}
-        className="block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white"
+        href={`/auth/signup?tier=${tier.id}&billing=${billingCycle}`}
+        className={`block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors ${
+          tier.popular
+            ? 'bg-gray-900 text-white hover:bg-gray-800'
+            : 'border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white'
+        }`}
       >
         {ctaText}
       </Link>

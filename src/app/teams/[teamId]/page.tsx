@@ -139,7 +139,7 @@ export default async function TeamDashboardPage({ params, searchParams }: TeamDa
             <SubscriptionSuccessBanner teamName={team.name} />
           )}
 
-          {/* Trial Banner */}
+          {/* Trial Banner - shows trial status/days remaining */}
           <TrialBanner teamId={teamId} teamName={team.name} />
 
           {/* Compact Season Metrics Banner */}

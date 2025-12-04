@@ -101,7 +101,7 @@ function SetupForm() {
     // Team created successfully
     const newTeamId = data.id;
 
-    // If a tier was selected, redirect to checkout
+    // If a tier was selected that requires payment, redirect to checkout
     if (selectedTier && selectedTier !== 'basic') {
       // Redirect to Stripe checkout
       setMessage('Redirecting to checkout...');
@@ -151,9 +151,8 @@ function SetupForm() {
         setTeamLevel('');
       }
     } else if (selectedTier === 'basic') {
-      // Basic tier - free, no checkout needed
-      // Just redirect to the team dashboard
-      router.push(`/teams/${newTeamId}?subscription=success`);
+      // Basic tier - redirect to team dashboard (will need to subscribe or request trial)
+      router.push(`/teams/${newTeamId}`);
     } else {
       // No tier selected - just refresh and show team list
       setMessage('');

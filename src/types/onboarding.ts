@@ -79,22 +79,40 @@ export const TOUR_STEPS: TourStep[] = [
     image: '/onboarding/step-4-playbook.svg',
   },
   {
+    id: 'practice',
+    title: 'Plan Your Practices',
+    description: 'Design effective practices with our practice builder. Create drill sequences, allocate time, and ensure your team is prepared for game day.',
+    image: '/onboarding/step-5-practice.svg',
+  },
+  {
+    id: 'game-plan',
+    title: 'Create Game Plans',
+    description: 'Build game-specific play sheets and wristbands. Select plays for each situation, organize by down and distance, and print for game day.',
+    image: '/onboarding/step-6-game-plan.svg',
+  },
+  {
     id: 'film-upload',
     title: 'Upload Game Film',
     description: 'Upload game film directly from your device. We support common video formats and organize everything by game for easy access.',
-    image: '/onboarding/step-5-film-upload.svg',
+    image: '/onboarding/step-7-film-upload.svg',
   },
   {
     id: 'film-tagging',
     title: 'Tag Your Plays',
     description: 'Tag plays in your film to track downs, distance, and results. Link plays to your playbook for powerful analytics on what works best.',
-    image: '/onboarding/step-6-film-tagging.svg',
+    image: '/onboarding/step-8-film-tagging.svg',
+  },
+  {
+    id: 'analytics',
+    title: 'Track Your Analytics',
+    description: 'See what\'s working with detailed analytics. Track success rates by play, formation, and situation. Make data-driven decisions for your team.',
+    image: '/onboarding/step-9-analytics.svg',
   },
   {
     id: 'get-started',
     title: 'You\'re Ready!',
     description: 'That\'s the basics! Start by adding your players to the roster, scheduling your games, or uploading film. The checklist on the right will guide you through the essentials.',
-    image: '/onboarding/step-7-get-started.svg',
+    image: '/onboarding/step-10-get-started.svg',
   },
 ];
 

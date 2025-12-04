@@ -130,9 +130,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!action || !['complete_tour', 'skip_tour', 'dismiss_checklist', 'reset_tour'].includes(action)) {
+    if (!action || !['complete_tour', 'skip_tour', 'dismiss_checklist', 'reset_tour', 'reset_checklist'].includes(action)) {
       return NextResponse.json(
-        { error: 'Valid action is required (complete_tour, skip_tour, dismiss_checklist, reset_tour)' },
+        { error: 'Valid action is required (complete_tour, skip_tour, dismiss_checklist, reset_tour, reset_checklist)' },
         { status: 400 }
       );
     }
@@ -161,6 +161,11 @@ export async function POST(request: NextRequest) {
         updateData = {
           tour_completed_at: null,
           tour_skipped_at: null,
+        };
+        break;
+      case 'reset_checklist':
+        updateData = {
+          checklist_dismissed_at: null,
         };
         break;
     }

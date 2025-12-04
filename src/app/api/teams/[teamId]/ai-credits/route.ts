@@ -1,41 +1,27 @@
 // /api/teams/:teamId/ai-credits - AI credits status and consumption
-// Returns current credits balance and allows consuming credits
+// Returns current video minutes and text action balances
 
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { getTrialConfig, getTierConfig } from '@/lib/admin/config';
-import { SubscriptionTier } from '@/types/admin';
-
-// Feature costs - how many credits each AI feature uses
-export const AI_FEATURE_COSTS: Record<string, number> = {
-  'play_analysis': 1,        // Analyze a single play
-  'auto_tagging': 1,         // AI-assisted play tagging
-  'game_summary': 5,         // Generate game summary
-  'opponent_tendencies': 10, // Analyze opponent patterns
-  'practice_plan': 8,        // Generate practice plan
-  'player_evaluation': 3,    // Individual player analysis
-  'strategy_assistant': 2,   // Strategy chat/suggestions
-  'play_recognition': 1,     // Auto-recognition of plays from video
-  'scouting_analysis': 10,   // Opponent scouting AI
-  'default': 1               // Default cost for unknown features
-};
-
-export function getCreditCost(feature: string): number {
-  return AI_FEATURE_COSTS[feature] || AI_FEATURE_COSTS['default'];
-}
 
 interface AICreditsResponse {
   team_id: string;
-  credits_allowed: number;
-  credits_used: number;
-  credits_remaining: number;
-  period_start: string;
-  period_end: string;
-  is_trial: boolean;
-  trial_limit: number | null;
-  percentage_used: number;
-  near_limit: boolean; // true if >= 80% used
-  at_limit: boolean;   // true if 100% used
+  // Video minutes
+  video_minutes_monthly: number;
+  video_minutes_remaining: number;
+  video_minutes_purchased: number;
+  video_minutes_total: number;
+  // Text actions
+  text_actions_monthly: number;
+  text_actions_remaining: number;
+  is_text_unlimited: boolean;
+  // Meta
+  priority_processing: boolean;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  // Usage stats
+  video_minutes_used_this_period: number;
+  text_actions_used_this_period: number;
 }
 
 /**
@@ -100,82 +86,83 @@ export async function GET(
     }
   }
 
-  // Get subscription to check trial status
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('tier, status, trial_ends_at')
-    .eq('team_id', teamId)
-    .single();
-
-  const isTrial = subscription?.status === 'trialing';
-
-  // Get trial config for trial limits
-  let trialLimit: number | null = null;
-  if (isTrial) {
-    const trialConfig = await getTrialConfig();
-    trialLimit = trialConfig?.trial_ai_credits_limit || null;
-  }
-
-  // Get current period credits
-  const now = new Date();
+  // Get credits record
   const { data: credits } = await supabase
     .from('ai_credits')
     .select('*')
     .eq('team_id', teamId)
-    .lte('period_start', now.toISOString())
-    .gte('period_end', now.toISOString())
-    .order('period_start', { ascending: false })
-    .limit(1)
     .single();
+
+  // Get active purchased minutes
+  const now = new Date();
+  const { data: purchases } = await supabase
+    .from('ai_credit_purchases')
+    .select('minutes_remaining')
+    .eq('team_id', teamId)
+    .gt('expires_at', now.toISOString())
+    .gt('minutes_remaining', 0);
+
+  const purchasedMinutes = (purchases || []).reduce(
+    (sum, p) => sum + p.minutes_remaining, 0
+  );
+
+  // Get usage stats for current period
+  let videoMinutesUsed = 0;
+  let textActionsUsed = 0;
+
+  if (credits?.current_period_start) {
+    const { data: usage } = await supabase
+      .from('ai_usage')
+      .select('usage_type, units_consumed')
+      .eq('team_id', teamId)
+      .gte('created_at', credits.current_period_start);
+
+    if (usage) {
+      for (const u of usage) {
+        if (u.usage_type === 'video_analysis') {
+          videoMinutesUsed += Number(u.units_consumed) || 0;
+        } else if (u.usage_type === 'text_action') {
+          textActionsUsed += 1;
+        }
+      }
+    }
+  }
 
   // If no credits record exists, return zero state
   if (!credits) {
-    // Get tier config to know default allowed credits
-    const tier = (subscription?.tier || 'plus') as SubscriptionTier;
-    const tierConfig = await getTierConfig(tier);
-    const defaultAllowed = tierConfig?.ai_credits || 0;
-
     const response: AICreditsResponse = {
       team_id: teamId,
-      credits_allowed: defaultAllowed,
-      credits_used: 0,
-      credits_remaining: isTrial && trialLimit !== null
-        ? Math.min(defaultAllowed, trialLimit)
-        : defaultAllowed,
-      period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-      period_end: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-      is_trial: isTrial,
-      trial_limit: trialLimit,
-      percentage_used: 0,
-      near_limit: false,
-      at_limit: false
+      video_minutes_monthly: 0,
+      video_minutes_remaining: 0,
+      video_minutes_purchased: purchasedMinutes,
+      video_minutes_total: purchasedMinutes,
+      text_actions_monthly: 0,
+      text_actions_remaining: 0,
+      is_text_unlimited: false,
+      priority_processing: false,
+      current_period_start: null,
+      current_period_end: null,
+      video_minutes_used_this_period: 0,
+      text_actions_used_this_period: 0
     };
 
     return NextResponse.json(response);
   }
 
-  // Calculate effective limit (trial limit may be lower)
-  const effectiveAllowed = isTrial && trialLimit !== null
-    ? Math.min(credits.credits_allowed, trialLimit)
-    : credits.credits_allowed;
-
-  const creditsRemaining = Math.max(0, effectiveAllowed - credits.credits_used);
-  const percentageUsed = effectiveAllowed > 0
-    ? Math.round((credits.credits_used / effectiveAllowed) * 100)
-    : 0;
-
   const response: AICreditsResponse = {
     team_id: teamId,
-    credits_allowed: credits.credits_allowed,
-    credits_used: credits.credits_used,
-    credits_remaining: creditsRemaining,
-    period_start: credits.period_start,
-    period_end: credits.period_end,
-    is_trial: isTrial,
-    trial_limit: trialLimit,
-    percentage_used: percentageUsed,
-    near_limit: percentageUsed >= 80 && percentageUsed < 100,
-    at_limit: percentageUsed >= 100
+    video_minutes_monthly: credits.video_minutes_monthly,
+    video_minutes_remaining: credits.video_minutes_remaining,
+    video_minutes_purchased: purchasedMinutes,
+    video_minutes_total: credits.video_minutes_remaining + purchasedMinutes,
+    text_actions_monthly: credits.text_actions_monthly,
+    text_actions_remaining: credits.text_actions_remaining,
+    is_text_unlimited: credits.text_actions_remaining === -1,
+    priority_processing: credits.priority_processing || false,
+    current_period_start: credits.current_period_start,
+    current_period_end: credits.current_period_end,
+    video_minutes_used_this_period: videoMinutesUsed,
+    text_actions_used_this_period: textActionsUsed
   };
 
   return NextResponse.json(response);
@@ -187,7 +174,10 @@ export async function GET(
  *
  * Request body:
  * {
- *   feature: string,
+ *   type: 'video' | 'text',
+ *   minutes?: number,       // Required for type='video'
+ *   operation_type?: string,
+ *   video_id?: string,
  *   metadata?: object
  * }
  */
@@ -209,7 +199,14 @@ export async function POST(
   }
 
   // Parse request body
-  let body: { feature: string; metadata?: Record<string, unknown> };
+  let body: {
+    type: 'video' | 'text';
+    minutes?: number;
+    operation_type?: string;
+    video_id?: string;
+    metadata?: Record<string, unknown>;
+  };
+
   try {
     body = await request.json();
   } catch {
@@ -219,11 +216,18 @@ export async function POST(
     );
   }
 
-  const { feature, metadata } = body;
+  const { type, minutes, operation_type, video_id, metadata } = body;
 
-  if (!feature) {
+  if (!type || !['video', 'text'].includes(type)) {
     return NextResponse.json(
-      { error: 'Feature is required' },
+      { error: 'type is required and must be "video" or "text"' },
+      { status: 400 }
+    );
+  }
+
+  if (type === 'video' && (!minutes || minutes <= 0)) {
+    return NextResponse.json(
+      { error: 'minutes is required for video type and must be positive' },
       { status: 400 }
     );
   }
@@ -269,115 +273,85 @@ export async function POST(
     }
   }
 
-  // Get subscription status
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('tier, status, trial_ends_at')
-    .eq('team_id', teamId)
-    .single();
-
-  // Check if subscription allows AI features
-  const tier = (subscription?.tier || 'plus') as SubscriptionTier;
-  if (tier !== 'ai_powered' && !subscription?.status?.match(/active|trialing/)) {
-    return NextResponse.json(
-      {
-        error: 'AI features require an active subscription to AI-Powered tier',
-        code: 'TIER_REQUIRED'
-      },
-      { status: 403 }
-    );
-  }
-
-  const isTrial = subscription?.status === 'trialing';
-  const creditsToUse = getCreditCost(feature);
-
-  // Get current credits
-  const now = new Date();
-  const { data: credits } = await supabase
-    .from('ai_credits')
-    .select('*')
-    .eq('team_id', teamId)
-    .lte('period_start', now.toISOString())
-    .gte('period_end', now.toISOString())
-    .order('period_start', { ascending: false })
-    .limit(1)
-    .single();
-
-  // Check trial limit
-  if (isTrial) {
-    const trialConfig = await getTrialConfig();
-    const trialLimit = trialConfig?.trial_ai_credits_limit || 0;
-    const currentUsed = credits?.credits_used || 0;
-
-    if (currentUsed + creditsToUse > trialLimit) {
-      return NextResponse.json(
-        {
-          error: `Trial limited to ${trialLimit} AI credits. Subscribe for full access.`,
-          code: 'TRIAL_LIMIT_EXCEEDED',
-          credits_used: currentUsed,
-          trial_limit: trialLimit,
-          credits_remaining: Math.max(0, trialLimit - currentUsed)
-        },
-        { status: 403 }
-      );
-    }
-  }
-
-  // Check regular credit limit
-  if (credits) {
-    const effectiveLimit = credits.credits_allowed;
-    if (credits.credits_used + creditsToUse > effectiveLimit) {
-      return NextResponse.json(
-        {
-          error: 'AI credits exhausted for this billing period. Upgrade your plan or wait for next period.',
-          code: 'CREDITS_EXHAUSTED',
-          credits_used: credits.credits_used,
-          credits_allowed: effectiveLimit,
-          credits_remaining: 0
-        },
-        { status: 403 }
-      );
-    }
-  }
-
   // Consume credits using the database function
-  const { data: logId, error: logError } = await supabase.rpc('log_ai_usage', {
-    p_team_id: teamId,
-    p_user_id: user.id,
-    p_feature: feature,
-    p_credits: creditsToUse,
-    p_metadata: metadata || null
-  });
+  if (type === 'video') {
+    const { data: result, error: consumeError } = await supabase.rpc('consume_video_minutes', {
+      p_team_id: teamId,
+      p_user_id: user.id,
+      p_minutes: minutes,
+      p_video_id: video_id || null,
+      p_operation_type: operation_type || 'video_analysis',
+      p_metadata: metadata || {}
+    });
 
-  if (logError) {
-    console.error('Failed to log AI usage:', logError);
-    return NextResponse.json(
-      { error: 'Failed to consume AI credits' },
-      { status: 500 }
-    );
+    if (consumeError) {
+      console.error('Failed to consume video minutes:', consumeError);
+      return NextResponse.json(
+        { error: 'Failed to consume video minutes' },
+        { status: 500 }
+      );
+    }
+
+    const consumeResult = result?.[0];
+
+    if (!consumeResult?.success) {
+      return NextResponse.json(
+        {
+          error: consumeResult?.message || 'Insufficient video minutes',
+          code: 'INSUFFICIENT_CREDITS',
+          remaining_subscription: consumeResult?.remaining_subscription || 0,
+          remaining_purchased: consumeResult?.remaining_purchased || 0
+        },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      type: 'video',
+      minutes_consumed: minutes,
+      remaining_subscription: consumeResult.remaining_subscription,
+      remaining_purchased: consumeResult.remaining_purchased,
+      message: consumeResult.message
+    });
+
+  } else {
+    // Text action
+    const { data: result, error: consumeError } = await supabase.rpc('consume_text_action', {
+      p_team_id: teamId,
+      p_user_id: user.id,
+      p_operation_type: operation_type || 'text_action',
+      p_metadata: metadata || {}
+    });
+
+    if (consumeError) {
+      console.error('Failed to consume text action:', consumeError);
+      return NextResponse.json(
+        { error: 'Failed to consume text action' },
+        { status: 500 }
+      );
+    }
+
+    const consumeResult = result?.[0];
+
+    if (!consumeResult?.success) {
+      return NextResponse.json(
+        {
+          error: consumeResult?.message || 'No text actions remaining',
+          code: 'INSUFFICIENT_CREDITS',
+          remaining: consumeResult?.remaining || 0,
+          is_unlimited: consumeResult?.is_unlimited || false
+        },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      type: 'text',
+      remaining: consumeResult.remaining,
+      is_unlimited: consumeResult.is_unlimited,
+      message: consumeResult.message
+    });
   }
-
-  // Get updated credits
-  const { data: updatedCredits } = await supabase
-    .from('ai_credits')
-    .select('credits_used, credits_allowed')
-    .eq('team_id', teamId)
-    .lte('period_start', now.toISOString())
-    .gte('period_end', now.toISOString())
-    .order('period_start', { ascending: false })
-    .limit(1)
-    .single();
-
-  const newRemaining = updatedCredits
-    ? Math.max(0, updatedCredits.credits_allowed - updatedCredits.credits_used)
-    : 0;
-
-  return NextResponse.json({
-    success: true,
-    log_id: logId,
-    credits_consumed: creditsToUse,
-    credits_remaining: newRemaining,
-    credits_used: updatedCredits?.credits_used || creditsToUse,
-    credits_allowed: updatedCredits?.credits_allowed || 0
-  });
 }

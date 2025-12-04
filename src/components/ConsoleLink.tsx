@@ -17,8 +17,9 @@ export default function ConsoleLink() {
 
   async function checkIfOwner() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
         setIsOwner(false);
         setLoading(false);
         return;
@@ -31,11 +32,21 @@ export default function ConsoleLink() {
         .eq('user_id', user.id)
         .limit(1);
 
-      console.log('ConsoleLink - Checking ownership:', { userId: user.id, teamsCount: teams?.length, error });
+      if (error) {
+        // Even if query fails, still check team_memberships as fallback
+        const { data: memberships } = await supabase
+          .from('team_memberships')
+          .select('team_id, role')
+          .eq('user_id', user.id)
+          .eq('role', 'owner')
+          .limit(1);
 
-      setIsOwner(!error && teams !== null && teams.length > 0);
+        setIsOwner(memberships !== null && memberships.length > 0);
+      } else {
+        setIsOwner(teams !== null && teams.length > 0);
+      }
     } catch (error) {
-      console.error('ConsoleLink - Error checking ownership:', error);
+      console.error('Error checking team ownership:', error);
       setIsOwner(false);
     } finally {
       setLoading(false);
@@ -54,7 +65,7 @@ export default function ConsoleLink() {
   return (
     <Link
       href="/console"
-      className={`text-gray-800 hover:text-black font-medium text-lg transition-colors ${
+      className={`text-gray-600 hover:text-black font-medium text-sm transition-colors ${
         pathname === '/console' ? 'text-black' : ''
       }`}
     >

@@ -46,27 +46,35 @@ interface SubscriptionResponse {
   tier_config: TierConfigValue | null;
 }
 
-// Display names for tiers
-const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
+// Display names for tiers (matching database constraint values)
+const TIER_DISPLAY_NAMES: Record<string, string> = {
+  little_league: 'Little League',
+  hs_basic: 'High School Basic',
+  hs_advanced: 'High School Advanced',
+  ai_powered: 'AI-Powered',
+  // Legacy mappings for backwards compatibility
   basic: 'Basic',
   plus: 'Plus',
-  premium: 'Premium',
-  ai_powered: 'AI-Powered'
+  premium: 'Premium'
 };
 
-// Tier hierarchy for comparison
-const TIER_LEVELS: Record<SubscriptionTier, number> = {
+// Tier hierarchy for comparison (database values)
+const TIER_LEVELS: Record<string, number> = {
+  little_league: 1,
+  hs_basic: 2,
+  hs_advanced: 3,
+  ai_powered: 4,
+  // Legacy mappings
   basic: 1,
   plus: 2,
-  premium: 3,
-  ai_powered: 4
+  premium: 3
 };
 
 /**
  * Compute feature access based on tier and subscription status
  */
-function computeFeatureAccess(tier: SubscriptionTier, canAccess: boolean): FeatureAccess {
-  const tierLevel = canAccess ? TIER_LEVELS[tier] : 0;
+function computeFeatureAccess(tier: string, canAccess: boolean): FeatureAccess {
+  const tierLevel = canAccess ? (TIER_LEVELS[tier] || 0) : 0;
 
   return {
     // Core features (all tiers if active subscription)
@@ -186,7 +194,8 @@ export async function GET(
   const tierConfigs = await getTierConfigs();
 
   // Determine current tier and status
-  const tier: SubscriptionTier = (subscription?.tier as SubscriptionTier) || 'plus';
+  // Database uses: little_league, hs_basic, hs_advanced, ai_powered
+  const tier = subscription?.tier || 'hs_basic';
   const status: SubscriptionStatus = (subscription?.status as SubscriptionStatus) || 'none';
   const billingWaived = subscription?.billing_waived || false;
 
@@ -197,10 +206,10 @@ export async function GET(
   // Determine if upgrade is needed (no active subscription)
   const upgradeRequired = !canAccessFeatures && status !== 'waived';
 
-  const response: SubscriptionResponse = {
+  const response = {
     team_id: teamId,
     tier,
-    tier_display_name: TIER_DISPLAY_NAMES[tier],
+    tier_display_name: TIER_DISPLAY_NAMES[tier] || tier,
     status,
     billing_waived: billingWaived,
     billing_waived_reason: subscription?.billing_waived_reason || null,
@@ -210,7 +219,7 @@ export async function GET(
     features,
     can_access_features: canAccessFeatures,
     upgrade_required: upgradeRequired,
-    tier_config: tierConfigs?.[tier] || null
+    tier_config: tierConfigs?.[tier as keyof typeof tierConfigs] || null
   };
 
   return NextResponse.json(response);

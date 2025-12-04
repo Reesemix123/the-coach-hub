@@ -3,16 +3,72 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from "next/link";
+import { Play, Gift } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
 
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const [trialSubmitting, setTrialSubmitting] = useState(false);
+  const [trialMessage, setTrialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [trialReason, setTrialReason] = useState('');
   const supabase = createClient();
+  const onboarding = useGlobalOnboardingSafe();
 
   useEffect(() => {
     checkUserTeams();
   }, []);
+
+  async function handleRequestTrial() {
+    setTrialSubmitting(true);
+    setTrialMessage(null);
+
+    try {
+      // Check if user is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        // Redirect to login with return URL
+        router.push('/auth/login?returnTo=/&requestTrial=true');
+        return;
+      }
+
+      // Submit trial request
+      const response = await fetch('/api/trial-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requested_tier: 'hs_basic',
+          reason: trialReason || null
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setTrialMessage({
+          type: 'success',
+          text: 'Trial request submitted! An admin will review your request shortly.'
+        });
+        setTrialReason('');
+      } else {
+        setTrialMessage({
+          type: 'error',
+          text: result.error || 'Failed to submit request'
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting trial:', error);
+      setTrialMessage({
+        type: 'error',
+        text: 'Something went wrong. Please try again.'
+      });
+    } finally {
+      setTrialSubmitting(false);
+    }
+  }
 
   async function checkUserTeams() {
     try {
@@ -81,9 +137,25 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onboarding?.startDemoTour()}
+                className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              >
+                <Play className="h-4 w-4" />
+                Take a Tour
+              </button>
+              <button
+                onClick={() => setShowTrialModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <Gift className="h-4 w-4" />
+                Request Free Trial
+              </button>
+            </div>
             <Link
               href="/pricing"
-              className="text-gray-600 hover:text-gray-900 transition-colors font-medium"
+              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 hover:bg-gray-50 transition-colors font-medium"
             >
               View solutions and pricing →
             </Link>
@@ -149,6 +221,81 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Trial Request Modal */}
+      {showTrialModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <Gift className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Request Free Trial</h2>
+                <p className="text-sm text-gray-500">14-day full access to all features</p>
+              </div>
+            </div>
+
+            {trialMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${
+                trialMessage.type === 'success'
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                {trialMessage.text}
+              </div>
+            )}
+
+            {!trialMessage?.type || trialMessage.type !== 'success' ? (
+              <>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Why are you interested in trying The Coach Hub? (optional)
+                  </label>
+                  <textarea
+                    value={trialReason}
+                    onChange={(e) => setTrialReason(e.target.value)}
+                    placeholder="e.g., I coach a youth football team and want to organize our playbook..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowTrialModal(false);
+                      setTrialMessage(null);
+                      setTrialReason('');
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    disabled={trialSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRequestTrial}
+                    disabled={trialSubmitting}
+                    className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
+                  >
+                    {trialSubmitting ? 'Submitting...' : 'Submit Request'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowTrialModal(false);
+                  setTrialMessage(null);
+                }}
+                className="w-full px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              >
+                Close
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

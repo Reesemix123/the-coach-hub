@@ -16,6 +16,9 @@ import {
   isUpgrade,
   getStatusMessage
 } from '@/lib/feature-access';
+import { Play, RefreshCw, Sparkles } from 'lucide-react';
+import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
+import AICreditsUsage from '@/components/AICreditsUsage';
 
 interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -39,7 +42,8 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'coach' | 'analyst' | 'viewer' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [settingsTab, setSettingsTab] = useState<'tier' | 'members'>('tier');
+  const [settingsTab, setSettingsTab] = useState<'tier' | 'members' | 'ai_credits' | 'onboarding'>('tier');
+  const onboarding = useGlobalOnboardingSafe();
   const [savingTier, setSavingTier] = useState(false);
   const [tierSaveMessage, setTierSaveMessage] = useState<string | null>(null);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
@@ -399,6 +403,33 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
               </button>
+              <button
+                onClick={() => setSettingsTab('ai_credits')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                  settingsTab === 'ai_credits'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Sparkles className="h-4 w-4" />
+                AI Credits
+                {settingsTab === 'ai_credits' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
+              <button
+                onClick={() => setSettingsTab('onboarding')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'onboarding'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Onboarding
+                {settingsTab === 'onboarding' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -739,6 +770,99 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                 <p className="text-sm text-gray-500">Invite coaches to collaborate on this team</p>
               </div>
             )}
+          </div>
+        )}
+
+        {settingsTab === 'ai_credits' && (
+          <AICreditsUsage teamId={teamId} isOwner={userRole === 'owner'} />
+        )}
+
+        {settingsTab === 'onboarding' && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Onboarding Settings</h2>
+              <p className="text-gray-600">
+                Manage the onboarding tour and getting started checklist.
+              </p>
+            </div>
+
+            {/* Onboarding State */}
+            <div className="space-y-6">
+              {/* Tour Status */}
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Onboarding Tour</h3>
+                    <p className="text-sm text-gray-600">
+                      {onboarding?.state.tourCompleted
+                        ? 'Tour completed'
+                        : onboarding?.state.tourSkipped
+                        ? 'Tour skipped'
+                        : 'Tour not started'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onboarding?.startTour()}
+                      className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+                    >
+                      <Play className="h-4 w-4" />
+                      Watch Tour
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Checklist Status */}
+              <div className="border border-gray-200 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Getting Started Checklist</h3>
+                    <p className="text-sm text-gray-600">
+                      {onboarding?.state.checklistDismissed
+                        ? 'Checklist dismissed'
+                        : onboarding?.state.completionCount === onboarding?.state.totalItems
+                        ? 'All tasks complete!'
+                        : `${onboarding?.state.completionCount || 0} of ${onboarding?.state.totalItems || 4} tasks complete`}
+                    </p>
+                    <ul className="mt-3 space-y-1 text-sm">
+                      <li className={onboarding?.state.completedItems.hasPlayers ? 'text-green-600' : 'text-gray-500'}>
+                        {onboarding?.state.completedItems.hasPlayers ? '✓' : '○'} Add your first player
+                      </li>
+                      <li className={onboarding?.state.completedItems.hasGames ? 'text-green-600' : 'text-gray-500'}>
+                        {onboarding?.state.completedItems.hasGames ? '✓' : '○'} Schedule a game
+                      </li>
+                      <li className={onboarding?.state.completedItems.hasPlays ? 'text-green-600' : 'text-gray-500'}>
+                        {onboarding?.state.completedItems.hasPlays ? '✓' : '○'} Create your first play
+                      </li>
+                      <li className={onboarding?.state.completedItems.hasVideos ? 'text-green-600' : 'text-gray-500'}>
+                        {onboarding?.state.completedItems.hasVideos ? '✓' : '○'} Upload game film
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    {onboarding?.state.checklistDismissed && (
+                      <button
+                        onClick={() => onboarding?.resetChecklist()}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Show Checklist
+                      </button>
+                    )}
+                    {!onboarding?.state.checklistDismissed && onboarding?.state.completionCount !== onboarding?.state.totalItems && (
+                      <button
+                        onClick={() => onboarding?.toggleChecklist()}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        {onboarding?.showChecklist ? 'Hide Checklist' : 'Show Checklist'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
       </div>
