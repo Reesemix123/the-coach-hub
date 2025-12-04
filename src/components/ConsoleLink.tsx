@@ -20,33 +20,42 @@ export default function ConsoleLink() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
+        console.log('ConsoleLink: No authenticated user', { authError });
         setIsOwner(false);
         setLoading(false);
         return;
       }
 
+      console.log('ConsoleLink: Checking ownership for user', user.id);
+
       // Check if user owns any teams
       const { data: teams, error } = await supabase
         .from('teams')
-        .select('id')
+        .select('id, user_id')
         .eq('user_id', user.id)
         .limit(1);
 
+      console.log('ConsoleLink: Teams query result', { teams, error, userId: user.id });
+
       if (error) {
+        console.log('ConsoleLink: Teams query error, trying memberships', error);
         // Even if query fails, still check team_memberships as fallback
-        const { data: memberships } = await supabase
+        const { data: memberships, error: membershipError } = await supabase
           .from('team_memberships')
           .select('team_id, role')
           .eq('user_id', user.id)
           .eq('role', 'owner')
           .limit(1);
 
+        console.log('ConsoleLink: Memberships result', { memberships, membershipError });
         setIsOwner(memberships !== null && memberships.length > 0);
       } else {
-        setIsOwner(teams !== null && teams.length > 0);
+        const hasTeams = teams !== null && teams.length > 0;
+        console.log('ConsoleLink: Setting isOwner to', hasTeams);
+        setIsOwner(hasTeams);
       }
     } catch (error) {
-      console.error('Error checking team ownership:', error);
+      console.error('ConsoleLink: Error checking team ownership:', error);
       setIsOwner(false);
     } finally {
       setLoading(false);

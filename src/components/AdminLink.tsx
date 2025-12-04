@@ -18,23 +18,30 @@ export default function AdminLink() {
 
   async function checkIfAdmin() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.log('AdminLink: No authenticated user', { authError });
         setIsPlatformAdmin(false);
         setLoading(false);
         return;
       }
 
+      console.log('AdminLink: Checking admin status for user', user.id, user.email);
+
       // Check if user is platform admin
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('is_platform_admin')
+        .select('is_platform_admin, email')
         .eq('id', user.id)
         .single();
 
-      setIsPlatformAdmin(!error && profile?.is_platform_admin === true);
+      console.log('AdminLink: Profile query result', { profile, error, userId: user.id });
+
+      const isAdmin = !error && profile?.is_platform_admin === true;
+      console.log('AdminLink: Setting isPlatformAdmin to', isAdmin);
+      setIsPlatformAdmin(isAdmin);
     } catch (error) {
-      console.error('AdminLink - Error checking admin status:', error);
+      console.error('AdminLink: Error checking admin status:', error);
       setIsPlatformAdmin(false);
     } finally {
       setLoading(false);
