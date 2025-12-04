@@ -15,10 +15,21 @@ export const AI_MINUTES_PACKAGES = {
 
 export type PackageSize = keyof typeof AI_MINUTES_PACKAGES;
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-});
+// Lazy initialization to avoid build-time errors
+let stripeInstance: Stripe | null = null;
+
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    if (!secretKey) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    stripeInstance = new Stripe(secretKey, {
+      apiVersion: '2024-12-18.acacia',
+    });
+  }
+  return stripeInstance;
+}
 
 /**
  * POST /api/teams/:teamId/ai-credits/purchase
@@ -101,7 +112,7 @@ export async function POST(
 
   if (!stripeCustomerId) {
     // Create new Stripe customer
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: profile?.email || user.email,
       metadata: {
         supabase_user_id: user.id,
@@ -123,7 +134,7 @@ export async function POST(
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: stripeCustomerId,
       mode: 'payment',
       payment_method_types: ['card'],
