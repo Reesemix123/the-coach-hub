@@ -51,12 +51,11 @@ export default function AdminLink() {
   return (
     <Link
       href="/admin"
-      className={`flex items-center gap-1.5 text-gray-800 hover:text-black font-medium text-lg transition-colors ${
-        isActive ? 'text-black' : ''
+      className={`flex items-center gap-1.5 text-red-600 hover:text-red-800 font-medium text-lg transition-colors ${
+        isActive ? 'text-red-800' : ''
       }`}
     >
-      <Shield className="w-4 h-4" />
-      Admin
+      🔴 Admin
     </Link>
   );
 }
