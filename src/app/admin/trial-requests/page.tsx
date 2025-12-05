@@ -5,11 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Gift, Check, X, Clock, User, Calendar, Building2 } from 'lucide-react';
+import { Gift, Check, X, Clock, User, Calendar, Building2, Mail } from 'lucide-react';
 
 interface TrialRequest {
   id: string;
-  user_id: string;
+  user_id: string | null;
   team_id: string | null;
   requested_tier: string;
   reason: string | null;
@@ -19,6 +19,10 @@ interface TrialRequest {
   admin_notes: string | null;
   granted_trial_days: number | null;
   created_at: string;
+  // Guest request fields
+  guest_email: string | null;
+  guest_name: string | null;
+  // Joined data
   teams: { id: string; name: string } | null;
   profiles: { id: string; email: string; full_name: string | null } | null;
 }
@@ -167,13 +171,29 @@ export default function TrialRequestsPage() {
                       )}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">
-                        {request.profiles?.email || 'Unknown User'}
-                      </div>
-                      {request.profiles?.full_name && (
-                        <div className="text-sm text-gray-500">{request.profiles.full_name}</div>
+                      {/* Show name first if available */}
+                      {(request.guest_name || request.profiles?.full_name) && (
+                        <div className="font-medium text-gray-900">
+                          {request.guest_name || request.profiles?.full_name}
+                        </div>
+                      )}
+                      {/* Show email as clickable link */}
+                      {(request.guest_email || request.profiles?.email) && (
+                        <a
+                          href={`mailto:${request.guest_email || request.profiles?.email}?subject=Your Coach Hub Trial Request`}
+                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <Mail className="w-3 h-3" />
+                          {request.guest_email || request.profiles?.email}
+                        </a>
                       )}
                     </div>
+                    {/* Guest badge */}
+                    {request.guest_email && !request.user_id && (
+                      <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800">
+                        Guest
+                      </span>
+                    )}
                     <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                       request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       request.status === 'approved' ? 'bg-green-100 text-green-800' :

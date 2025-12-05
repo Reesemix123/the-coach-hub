@@ -13,6 +13,8 @@ export default function Home() {
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialSubmitting, setTrialSubmitting] = useState(false);
   const [trialMessage, setTrialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [trialEmail, setTrialEmail] = useState('');
+  const [trialName, setTrialName] = useState('');
   const [trialReason, setTrialReason] = useState('');
   const supabase = createClient();
   const onboarding = useGlobalOnboardingSafe();
@@ -22,26 +24,28 @@ export default function Home() {
   }, []);
 
   async function handleRequestTrial() {
+    // Validate email
+    if (!trialEmail.trim()) {
+      setTrialMessage({
+        type: 'error',
+        text: 'Please enter your email address.'
+      });
+      return;
+    }
+
     setTrialSubmitting(true);
     setTrialMessage(null);
 
     try {
-      // Check if user is logged in
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        // Redirect to login with return URL
-        router.push('/auth/login?returnTo=/&requestTrial=true');
-        return;
-      }
-
-      // Submit trial request
+      // Submit trial request (no auth required)
       const response = await fetch('/api/trial-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requested_tier: 'hs_basic',
-          reason: trialReason || null
+          email: trialEmail.trim(),
+          name: trialName.trim() || null,
+          reason: trialReason.trim() || null,
+          requested_tier: 'hs_basic'
         })
       });
 
@@ -50,8 +54,10 @@ export default function Home() {
       if (response.ok) {
         setTrialMessage({
           type: 'success',
-          text: 'Trial request submitted! An admin will review your request shortly.'
+          text: 'Trial request submitted! We\'ll review your request and get back to you shortly.'
         });
+        setTrialEmail('');
+        setTrialName('');
         setTrialReason('');
       } else {
         setTrialMessage({
@@ -249,15 +255,42 @@ export default function Home() {
             {!trialMessage?.type || trialMessage.type !== 'success' ? (
               <>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Why are you interested in trying The Coach Hub? (optional)
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={trialEmail}
+                    onChange={(e) => setTrialEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Your name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={trialName}
+                    onChange={(e) => setTrialName(e.target.value)}
+                    placeholder="Coach Smith"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Why are you interested? (optional)
                   </label>
                   <textarea
                     value={trialReason}
                     onChange={(e) => setTrialReason(e.target.value)}
                     placeholder="e.g., I coach a youth football team and want to organize our playbook..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-                    rows={3}
+                    rows={2}
                   />
                 </div>
 
@@ -266,6 +299,8 @@ export default function Home() {
                     onClick={() => {
                       setShowTrialModal(false);
                       setTrialMessage(null);
+                      setTrialEmail('');
+                      setTrialName('');
                       setTrialReason('');
                     }}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -275,7 +310,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={handleRequestTrial}
-                    disabled={trialSubmitting}
+                    disabled={trialSubmitting || !trialEmail.trim()}
                     className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
                   >
                     {trialSubmitting ? 'Submitting...' : 'Submit Request'}

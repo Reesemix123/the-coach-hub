@@ -1,12 +1,28 @@
 // /api/trial-requests - Trial request management
-// Users can request trials, admins can view all requests
+// Guests can request trials with email, admins can view and approve
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+
+// Email validation regex
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+// Get service role client for anonymous inserts
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceKey) {
+    throw new Error('Supabase service role configuration missing');
+  }
+
+  return createServiceClient(url, serviceKey);
+}
 
 /**
  * GET /api/trial-requests
- * Get trial requests - users see their own, admins see all pending
+ * Get trial requests - admins see all requests
  */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -25,7 +41,11 @@ export async function GET(request: NextRequest) {
 
   const isAdmin = profile?.is_platform_admin === true;
 
-  // Build query
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+  }
+
+  // Build query - include guest fields
   let query = supabase
     .from('trial_requests')
     .select(`
@@ -35,15 +55,10 @@ export async function GET(request: NextRequest) {
     `)
     .order('created_at', { ascending: false });
 
-  // If not admin, only show user's own requests
-  if (!isAdmin) {
-    query = query.eq('user_id', user.id);
-  } else {
-    // Admins see pending requests by default
-    const status = request.nextUrl.searchParams.get('status');
-    if (status) {
-      query = query.eq('status', status);
-    }
+  // Filter by status if provided
+  const status = request.nextUrl.searchParams.get('status');
+  if (status) {
+    query = query.eq('status', status);
   }
 
   const { data: requests, error } = await query;
@@ -61,78 +76,101 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/trial-requests
- * Create a new trial request
+ * Create a new trial request (no authentication required)
+ *
+ * Request body:
+ * {
+ *   email: string (required)
+ *   name?: string (optional)
+ *   reason?: string (optional)
+ *   requested_tier?: string (optional, defaults to 'hs_basic')
+ * }
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const body = await request.json();
-    const { team_id, requested_tier, reason } = body;
+    const { email, name, reason, requested_tier } = body;
+
+    // Validate email is provided
+    if (!email || typeof email !== 'string') {
+      return NextResponse.json(
+        { error: 'Email address is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      return NextResponse.json(
+        { error: 'Please enter a valid email address' },
+        { status: 400 }
+      );
+    }
 
     // Validate tier
     const validTiers = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
     const tier = validTiers.includes(requested_tier) ? requested_tier : 'hs_basic';
 
-    // Check if user already has a pending request for this team
-    const { data: existingRequest } = await supabase
+    // Use service client to bypass RLS for guest inserts
+    const serviceClient = getServiceClient();
+
+    // Check if this email already has a pending request
+    const { data: existingRequest } = await serviceClient
       .from('trial_requests')
       .select('id')
-      .eq('user_id', user.id)
-      .eq('team_id', team_id)
+      .eq('guest_email', trimmedEmail)
       .eq('status', 'pending')
       .single();
 
     if (existingRequest) {
       return NextResponse.json(
-        { error: 'You already have a pending trial request for this team' },
+        { error: 'A trial request for this email is already pending. We\'ll be in touch soon!' },
         { status: 400 }
       );
     }
 
-    // If team_id provided, verify user owns the team
-    if (team_id) {
-      const { data: team } = await supabase
+    // Also check if this email is already a registered user with an active subscription
+    const { data: existingProfile } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('email', trimmedEmail)
+      .single();
+
+    if (existingProfile) {
+      // Check if they have any active subscriptions
+      const { data: teams } = await serviceClient
         .from('teams')
-        .select('user_id')
-        .eq('id', team_id)
-        .single();
+        .select('id')
+        .eq('user_id', existingProfile.id);
 
-      if (!team || team.user_id !== user.id) {
-        return NextResponse.json(
-          { error: 'You can only request trials for teams you own' },
-          { status: 403 }
-        );
-      }
+      if (teams && teams.length > 0) {
+        // Check for active subscriptions
+        const teamIds = teams.map(t => t.id);
+        const { data: activeSubs } = await serviceClient
+          .from('subscriptions')
+          .select('id')
+          .in('team_id', teamIds)
+          .in('status', ['active', 'trialing']);
 
-      // Check if team already has an active subscription
-      const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('status')
-        .eq('team_id', team_id)
-        .single();
-
-      if (subscription && ['active', 'trialing'].includes(subscription.status)) {
-        return NextResponse.json(
-          { error: 'This team already has an active subscription' },
-          { status: 400 }
-        );
+        if (activeSubs && activeSubs.length > 0) {
+          return NextResponse.json(
+            { error: 'This email is already associated with an active account. Please sign in instead.' },
+            { status: 400 }
+          );
+        }
       }
     }
 
-    // Create the request
-    const { data: newRequest, error: insertError } = await supabase
+    // Create the guest trial request
+    const { data: newRequest, error: insertError } = await serviceClient
       .from('trial_requests')
       .insert({
-        user_id: user.id,
-        team_id: team_id || null,
+        user_id: null, // Guest request - no user_id
+        guest_email: trimmedEmail,
+        guest_name: name?.trim() || null,
         requested_tier: tier,
-        reason: reason || null,
+        reason: reason?.trim() || null,
         status: 'pending'
       })
       .select()
@@ -140,13 +178,13 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Error creating trial request:', insertError);
-      return NextResponse.json({ error: 'Failed to create request' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to submit request. Please try again.' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       request: newRequest,
-      message: 'Trial request submitted successfully. An admin will review it shortly.'
+      message: 'Trial request submitted! We\'ll review your request and get back to you shortly.'
     });
 
   } catch (error) {

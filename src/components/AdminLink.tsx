@@ -10,16 +10,34 @@ export default function AdminLink() {
   const pathname = usePathname();
 
   useEffect(() => {
-    checkIfAdmin();
+    const supabase = createClient();
+
+    // Check initial auth state
+    checkIfAdmin(supabase);
+
+    // Listen for auth state changes (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[AdminLink] Auth state changed:', event, session?.user?.email);
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        checkIfAdmin(supabase);
+      } else if (event === 'SIGNED_OUT') {
+        setIsPlatformAdmin(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  async function checkIfAdmin() {
+  async function checkIfAdmin(supabase: ReturnType<typeof createClient>) {
     try {
-      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
+      console.log('[AdminLink] User:', user?.email);
 
       // Not signed in - just hide, no error
       if (!user) {
+        console.log('[AdminLink] No user, hiding');
         setIsPlatformAdmin(false);
         return;
       }
@@ -30,9 +48,13 @@ export default function AdminLink() {
         .eq('id', user.id)
         .single();
 
-      setIsPlatformAdmin(!profileError && profile?.is_platform_admin === true);
-    } catch {
+      console.log('[AdminLink] Profile:', profile, 'Error:', profileError);
+      const isAdmin = !profileError && profile?.is_platform_admin === true;
+      console.log('[AdminLink] Setting isPlatformAdmin to:', isAdmin);
+      setIsPlatformAdmin(isAdmin);
+    } catch (err) {
       // Silently fail - don't show error for unauthenticated users
+      console.log('[AdminLink] Catch error:', err);
       setIsPlatformAdmin(false);
     }
   }
