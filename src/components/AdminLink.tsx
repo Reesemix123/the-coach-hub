@@ -4,12 +4,9 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield } from 'lucide-react';
 
 export default function AdminLink() {
-  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState<boolean | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -18,40 +15,40 @@ export default function AdminLink() {
 
   async function checkIfAdmin() {
     try {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Not signed in - just hide, no error
       if (!user) {
         setIsPlatformAdmin(false);
-        setLoading(false);
         return;
       }
 
-      // Check if user is platform admin
-      const { data: profile, error } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('is_platform_admin')
         .eq('id', user.id)
         .single();
 
-      setIsPlatformAdmin(!error && profile?.is_platform_admin === true);
-    } catch (error) {
-      console.error('AdminLink - Error checking admin status:', error);
+      setIsPlatformAdmin(!profileError && profile?.is_platform_admin === true);
+    } catch {
+      // Silently fail - don't show error for unauthenticated users
       setIsPlatformAdmin(false);
-    } finally {
-      setLoading(false);
     }
   }
 
-  // Don't show while loading or if not admin
-  if (loading || !isPlatformAdmin) {
+  // Hide while loading or if not admin
+  if (isPlatformAdmin !== true) {
     return null;
   }
 
   const isActive = pathname?.startsWith('/admin');
 
+  // Is admin - show the link
   return (
     <Link
       href="/admin"
-      className={`flex items-center gap-1.5 text-red-600 hover:text-red-800 font-medium text-lg transition-colors ${
+      className={`flex items-center gap-1.5 text-red-600 hover:text-red-800 font-bold text-lg ${
         isActive ? 'text-red-800' : ''
       }`}
     >

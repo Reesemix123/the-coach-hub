@@ -6,9 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function ConsoleLink() {
-  const [isOwner, setIsOwner] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const [isOwner, setIsOwner] = useState<boolean | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -17,23 +15,23 @@ export default function ConsoleLink() {
 
   async function checkIfOwner() {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (authError || !user) {
+      // Not signed in - just hide, no error
+      if (!user) {
         setIsOwner(false);
-        setLoading(false);
         return;
       }
 
-      // Check if user owns any teams
-      const { data: teams, error } = await supabase
+      const { data: teams, error: teamsError } = await supabase
         .from('teams')
         .select('id')
         .eq('user_id', user.id)
         .limit(1);
 
-      if (error) {
-        // Even if query fails, still check team_memberships as fallback
+      if (teamsError) {
+        // Fallback to team_memberships
         const { data: memberships } = await supabase
           .from('team_memberships')
           .select('team_id, role')
@@ -45,27 +43,20 @@ export default function ConsoleLink() {
       } else {
         setIsOwner(teams !== null && teams.length > 0);
       }
-    } catch (error) {
-      console.error('Error checking team ownership:', error);
+    } catch {
+      // Silently fail - don't show error for unauthenticated users
       setIsOwner(false);
-    } finally {
-      setLoading(false);
     }
   }
 
-  // Show loading state or hide while checking
-  if (loading) {
+  // Hide while loading or if not owner
+  if (isOwner !== true) {
     return null;
   }
-
-  if (!isOwner) {
-    return null;
-  }
-
   return (
     <Link
       href="/console"
-      className={`text-gray-600 hover:text-black font-medium text-sm transition-colors ${
+      className={`text-gray-700 hover:text-black font-semibold text-sm ${
         pathname === '/console' ? 'text-black' : ''
       }`}
     >
