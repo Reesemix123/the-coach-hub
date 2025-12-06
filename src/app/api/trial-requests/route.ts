@@ -124,9 +124,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate tier
-    const validTiers = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
-    const tier = validTiers.includes(requested_tier) ? requested_tier : 'hs_basic';
+    // Validate tier - use standardized tier names
+    const validTiers = ['basic', 'plus', 'premium', 'ai_powered'];
+    const tier = validTiers.includes(requested_tier) ? requested_tier : 'plus';
 
     // Use service client to bypass RLS for guest inserts
     const serviceClient = getServiceClient();

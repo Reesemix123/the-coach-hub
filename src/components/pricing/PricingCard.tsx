@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Sparkles, Video, MessageSquare, Zap, Loader2 } from 'lucide-react';
+import { Check, Sparkles, Video, MessageSquare, Zap, Loader2, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -219,14 +219,12 @@ export default function PricingCard({
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="h-4 w-4 text-purple-600" />
             <span className="text-sm font-semibold text-gray-900">AI Features</span>
-            {tier.priority_processing && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                <Zap className="h-3 w-3" />
-                Priority
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <Clock className="h-3 w-3" />
+              Coming Soon
+            </span>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 opacity-75">
             <div className="flex items-center gap-2">
               <Video className="h-4 w-4 text-gray-500" />
               <span className="text-sm text-gray-700">
@@ -244,6 +242,9 @@ export default function PricingCard({
               </span>
             </div>
           </div>
+          <p className="text-xs text-purple-600 mt-2 font-medium">
+            AI features launching early 2025
+          </p>
         </div>
       )}
 

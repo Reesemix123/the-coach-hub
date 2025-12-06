@@ -18,6 +18,7 @@ interface TrialRequest {
   reviewed_at: string | null;
   admin_notes: string | null;
   granted_trial_days: number | null;
+  granted_tier: string | null;
   created_at: string;
   // Guest request fields
   guest_email: string | null;
@@ -28,10 +29,14 @@ interface TrialRequest {
 }
 
 const TIER_NAMES: Record<string, string> = {
-  little_league: 'Little League',
-  hs_basic: 'High School Basic',
-  hs_advanced: 'High School Advanced',
-  ai_powered: 'AI-Powered'
+  basic: 'Basic',
+  plus: 'Plus',
+  premium: 'Premium',
+  ai_powered: 'AI Powered',
+  // Legacy tier names for backward compatibility
+  little_league: 'Little League (Legacy)',
+  hs_basic: 'HS Basic (Legacy)',
+  hs_advanced: 'HS Advanced (Legacy)'
 };
 
 export default function TrialRequestsPage() {
@@ -41,6 +46,7 @@ export default function TrialRequestsPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [trialDays, setTrialDays] = useState<Record<string, number>>({});
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [grantedTiers, setGrantedTiers] = useState<Record<string, string>>({});
 
   const supabase = createClient();
 
@@ -73,6 +79,10 @@ export default function TrialRequestsPage() {
   async function handleAction(requestId: string, action: 'approve' | 'deny') {
     setProcessing(requestId);
 
+    // Get the request to find the default tier
+    const request = requests.find(r => r.id === requestId);
+    const defaultTier = request?.requested_tier || 'plus';
+
     try {
       const response = await fetch(`/api/trial-requests/${requestId}`, {
         method: 'PATCH',
@@ -80,7 +90,8 @@ export default function TrialRequestsPage() {
         body: JSON.stringify({
           action,
           trial_days: trialDays[requestId] || 14,
-          admin_notes: adminNotes[requestId] || null
+          admin_notes: adminNotes[requestId] || null,
+          granted_tier: grantedTiers[requestId] || defaultTier
         })
       });
 
@@ -234,16 +245,38 @@ export default function TrialRequestsPage() {
                     </div>
                   )}
 
-                  {request.status === 'approved' && request.granted_trial_days && (
+                  {request.status === 'approved' && (
                     <div className="mt-2 text-sm text-green-600">
-                      Granted {request.granted_trial_days} day trial
+                      Granted {request.granted_trial_days || 14} day trial
+                      {request.granted_tier && (
+                        <span> on {TIER_NAMES[request.granted_tier] || request.granted_tier} tier</span>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* Actions for pending requests */}
                 {request.status === 'pending' && (
-                  <div className="flex flex-col gap-3 min-w-[200px]">
+                  <div className="flex flex-col gap-3 min-w-[240px]">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Grant Tier
+                      </label>
+                      <select
+                        value={grantedTiers[request.id] || request.requested_tier || 'plus'}
+                        onChange={(e) => setGrantedTiers({
+                          ...grantedTiers,
+                          [request.id]: e.target.value
+                        })}
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      >
+                        <option value="basic">Basic (Free)</option>
+                        <option value="plus">Plus ($29/mo)</option>
+                        <option value="premium">Premium ($79/mo)</option>
+                        <option value="ai_powered">AI Powered ($199/mo)</option>
+                      </select>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-1">
                         Trial Days

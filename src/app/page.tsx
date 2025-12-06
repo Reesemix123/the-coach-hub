@@ -18,6 +18,7 @@ function HomeContent() {
   const [trialEmail, setTrialEmail] = useState('');
   const [trialName, setTrialName] = useState('');
   const [trialReason, setTrialReason] = useState('');
+  const [trialTier, setTrialTier] = useState('plus'); // Default to Plus tier
   const supabase = createClient();
   const onboarding = useGlobalOnboardingSafe();
 
@@ -68,7 +69,7 @@ function HomeContent() {
           email: trialEmail.trim(),
           name: trialName.trim(),
           reason: trialReason.trim(),
-          requested_tier: 'hs_basic'
+          requested_tier: trialTier
         })
       });
 
@@ -82,6 +83,7 @@ function HomeContent() {
         setTrialEmail('');
         setTrialName('');
         setTrialReason('');
+        setTrialTier('plus');
       } else {
         setTrialMessage({
           type: 'error',
@@ -317,6 +319,25 @@ function HomeContent() {
                   />
                 </div>
 
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Which plan are you interested in?
+                  </label>
+                  <select
+                    value={trialTier}
+                    onChange={(e) => setTrialTier(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="basic">Basic (Free) - Digital playbook, film upload</option>
+                    <option value="plus">Plus ($29/mo) - Full analytics, drive-by-drive</option>
+                    <option value="premium">Premium ($79/mo) - Advanced analytics, O-Line grading</option>
+                    <option value="ai_powered">AI Powered ($199/mo) - Coming soon with AI features</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    You can discuss plan options with us during the trial review.
+                  </p>
+                </div>
+
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
@@ -325,6 +346,7 @@ function HomeContent() {
                       setTrialEmail('');
                       setTrialName('');
                       setTrialReason('');
+                      setTrialTier('plus');
                     }}
                     className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                     disabled={trialSubmitting}

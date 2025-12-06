@@ -246,14 +246,20 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* AI Minutes Purchase Info */}
+      {/* AI Minutes Purchase Info - Coming Soon */}
       <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Need more AI film minutes?</h2>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <h2 className="text-2xl font-bold text-gray-900">AI Film Analysis</h2>
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+              Coming Early 2025
+            </span>
+          </div>
           <p className="mt-4 text-gray-600">
-            Purchase additional AI minutes at any time. No subscription required.
+            Let AI automatically tag your game film - formations, plays, and results.
+            Save hours of manual work each week.
           </p>
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 opacity-75">
             <div className="bg-white rounded-lg p-4 border border-gray-200">
               <p className="text-2xl font-bold text-gray-900">15 min</p>
               <p className="text-gray-600">$15</p>
@@ -277,7 +283,7 @@ export default async function PricingPage() {
             </div>
           </div>
           <p className="mt-4 text-sm text-gray-500">
-            Purchased minutes are valid for 90 days
+            Purchased minutes valid for 90 days. Subscribe now and get AI credits when they launch!
           </p>
         </div>
       </section>

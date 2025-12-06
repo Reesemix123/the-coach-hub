@@ -34,11 +34,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   try {
     const body = await request.json();
-    const { action, admin_notes, trial_days } = body;
+    const { action, admin_notes, trial_days, granted_tier } = body;
 
     if (!['approve', 'deny'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
+
+    // Validate granted tier if provided
+    const validTiers = ['basic', 'plus', 'premium', 'ai_powered'];
+    const tierToGrant = granted_tier && validTiers.includes(granted_tier)
+      ? granted_tier
+      : null; // Will use request's tier if not overridden
 
     // Get the request
     const { data: trialRequest, error: fetchError } = await supabase
@@ -58,6 +64,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Determine the final tier to grant (admin override or requested tier)
+    const finalGrantedTier = tierToGrant || trialRequest.requested_tier || 'plus';
+
     // Update the request status
     const { error: updateError } = await supabase
       .from('trial_requests')
@@ -66,7 +75,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         reviewed_by: user.id,
         reviewed_at: new Date().toISOString(),
         admin_notes: admin_notes || null,
-        granted_trial_days: action === 'approve' ? (trial_days || 14) : null
+        granted_trial_days: action === 'approve' ? (trial_days || 14) : null,
+        granted_tier: action === 'approve' ? finalGrantedTier : null
       })
       .eq('id', requestId);
 
@@ -81,12 +91,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
-      // Upsert subscription
+      // Upsert subscription with the granted tier
       const { error: subError } = await supabase
         .from('subscriptions')
         .upsert({
           team_id: trialRequest.team_id,
-          tier: trialRequest.requested_tier,
+          tier: finalGrantedTier,
           status: 'trialing',
           trial_ends_at: trialEndsAt.toISOString(),
           billing_waived: false,
