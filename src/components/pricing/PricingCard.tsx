@@ -145,23 +145,10 @@ export default function PricingCard({
 
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border-2 p-8 transition-all duration-200 hover:shadow-xl ${
-        tier.popular
-          ? 'border-gray-900 bg-white'
-          : 'border-gray-200 bg-white hover:border-gray-900'
-      }`}
+      className="group relative flex flex-col rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-200 hover:shadow-xl hover:border-gray-900"
     >
-      {/* Popular badge */}
-      {tier.popular && (
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-900 px-4 py-1 text-sm font-medium text-white">
-            Most Popular
-          </span>
-        </div>
-      )}
-
       {/* AI Powered badge */}
-      {isAIPowered && !tier.popular && (
+      {isAIPowered && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2">
           <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-1 text-sm font-medium text-white">
             <Sparkles className="h-3.5 w-3.5" />
@@ -274,11 +261,7 @@ export default function PricingCard({
       <button
         onClick={handleCheckout}
         disabled={isLoading}
-        className={`block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-          tier.popular
-            ? 'bg-gray-900 text-white hover:bg-gray-800'
-            : 'border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white'
-        }`}
+        className="block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white"
       >
         {isLoading ? (
           <span className="flex items-center justify-center gap-2">

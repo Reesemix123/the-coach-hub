@@ -46,12 +46,13 @@ export async function GET(request: NextRequest) {
   }
 
   // Build query - include guest fields
+  // Note: We can't join profiles on user_id because guest requests have null user_id
+  // and the foreign key relationship might not exist. Fetch separately if needed.
   let query = supabase
     .from('trial_requests')
     .select(`
       *,
-      teams:team_id (id, name),
-      profiles:user_id (id, email, full_name)
+      teams:team_id (id, name)
     `)
     .order('created_at', { ascending: false });
 

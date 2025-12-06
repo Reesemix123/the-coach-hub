@@ -46,28 +46,20 @@ interface SubscriptionResponse {
   tier_config: TierConfigValue | null;
 }
 
-// Display names for tiers (matching database constraint values)
+// Display names for tiers (using normalized tier names)
 const TIER_DISPLAY_NAMES: Record<string, string> = {
-  little_league: 'Little League',
-  hs_basic: 'High School Basic',
-  hs_advanced: 'High School Advanced',
-  ai_powered: 'AI-Powered',
-  // Legacy mappings for backwards compatibility
   basic: 'Basic',
   plus: 'Plus',
-  premium: 'Premium'
+  premium: 'Premium',
+  ai_powered: 'AI-Powered'
 };
 
-// Tier hierarchy for comparison (database values)
+// Tier hierarchy for comparison (using normalized tier names)
 const TIER_LEVELS: Record<string, number> = {
-  little_league: 1,
-  hs_basic: 2,
-  hs_advanced: 3,
-  ai_powered: 4,
-  // Legacy mappings
   basic: 1,
   plus: 2,
-  premium: 3
+  premium: 3,
+  ai_powered: 4
 };
 
 /**
@@ -122,6 +114,26 @@ function calculateTrialDaysRemaining(trialEndsAt: string | null): number | null 
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
   return diffDays > 0 ? diffDays : 0;
+}
+
+/**
+ * Normalize legacy tier names to new naming convention
+ * Database may store: little_league, hs_basic, hs_advanced, ai_powered
+ * UI expects: basic, plus, premium, ai_powered
+ */
+function normalizeTierName(tier: string): SubscriptionTier {
+  const legacyMapping: Record<string, SubscriptionTier> = {
+    little_league: 'basic',
+    hs_basic: 'plus',
+    hs_advanced: 'premium',
+    ai_powered: 'ai_powered',
+    // New names map to themselves
+    basic: 'basic',
+    plus: 'plus',
+    premium: 'premium'
+  };
+
+  return legacyMapping[tier] || 'basic';
 }
 
 export async function GET(
@@ -194,8 +206,10 @@ export async function GET(
   const tierConfigs = await getTierConfigs();
 
   // Determine current tier and status
-  // Database uses: little_league, hs_basic, hs_advanced, ai_powered
-  const tier = subscription?.tier || 'hs_basic';
+  // Database may use legacy names: little_league, hs_basic, hs_advanced, ai_powered
+  // Normalize to new naming: basic, plus, premium, ai_powered
+  const rawTier = subscription?.tier || 'plus';
+  const tier = normalizeTierName(rawTier);
   const status: SubscriptionStatus = (subscription?.status as SubscriptionStatus) || 'none';
   const billingWaived = subscription?.billing_waived || false;
 

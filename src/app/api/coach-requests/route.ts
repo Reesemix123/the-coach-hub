@@ -27,12 +27,13 @@ export async function GET(request: NextRequest) {
   const isAdmin = profile?.is_platform_admin === true;
 
   // Build query
+  // Note: Can't join profiles:user_id because PostgREST doesn't find the relationship
+  // We have user_id stored and can fetch profile data separately if needed
   let query = supabase
     .from('coach_requests')
     .select(`
       *,
-      teams:team_id (id, name),
-      profiles:user_id (id, email, full_name)
+      teams:team_id (id, name)
     `)
     .order('created_at', { ascending: false });
 
