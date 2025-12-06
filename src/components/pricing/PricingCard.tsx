@@ -243,7 +243,7 @@ export default function PricingCard({
             </div>
           </div>
           <p className="text-xs text-purple-600 mt-2 font-medium">
-            AI features launching early 2025
+            AI features coming before your 2026 season!
           </p>
         </div>
       )}

@@ -252,7 +252,7 @@ export default async function PricingPage() {
           <div className="flex items-center justify-center gap-2 mb-2">
             <h2 className="text-2xl font-bold text-gray-900">AI Film Analysis</h2>
             <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
-              Coming Early 2025
+              Coming Before Your 2026 Season!
             </span>
           </div>
           <p className="mt-4 text-gray-600">
