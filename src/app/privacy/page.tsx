@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             Privacy Policy
           </h1>
           <p className="mt-4 text-sm text-gray-500">
-            Last updated: December 3, 2024
+            Last updated: December 5, 2024
           </p>
         </div>
 
@@ -147,10 +147,13 @@ export default function PrivacyPage() {
               <li>Detect, prevent, and address technical issues and abuse</li>
               <li>Enforce our Terms of Service and other policies</li>
               <li>Comply with legal obligations</li>
+              <li>Train and improve our AI features and machine learning models using anonymized,
+                  aggregated data that cannot be linked back to you or your team</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-4">
-              We may also use aggregated, anonymized data for research and analytics
-              purposes to improve our Service. This data cannot be used to identify you.
+              We use aggregated, anonymized data for research, analytics, and AI model improvement
+              purposes. This data is de-identified and cannot be used to identify you or your team.
+              See Section 5 for more details on data retention for AI training purposes.
             </p>
           </section>
 
@@ -233,6 +236,8 @@ export default function PrivacyPage() {
               <li>We do not share your videos or playbooks with other teams or coaches</li>
               <li>We do not use your data for targeted advertising</li>
               <li>We do not provide your email to marketing partners</li>
+              <li>We do not share identifiable data with third parties for their AI training
+                  (we only use anonymized data internally to improve our own AI features)</li>
             </ul>
           </section>
 
@@ -276,31 +281,61 @@ export default function PrivacyPage() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
               5. Data Retention
             </h2>
-            <p className="text-gray-700 leading-relaxed mb-2">
-              We retain your data as follows:
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.1 Active Accounts
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Your data is retained for as long as your account has an active subscription.
             </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.2 After Subscription Ends
+            </h3>
             <ul className="list-disc pl-6 text-gray-700 space-y-2">
               <li>
-                <strong>Active Accounts:</strong> Your data is retained for as long as
-                your account is active
+                <strong>Grace Period (30 days):</strong> After your subscription ends, your data
+                remains accessible if you resubscribe within 30 days
               </li>
               <li>
-                <strong>After Cancellation:</strong> Your data is retained for 30 days
-                after account closure, during which you may request an export
-              </li>
-              <li>
-                <strong>Permanent Deletion:</strong> After the 30-day period, your data
-                is permanently deleted from our systems
-              </li>
-              <li>
-                <strong>Backup Retention:</strong> Backups may be retained for up to 90
-                days for disaster recovery purposes
-              </li>
-              <li>
-                <strong>Legal Requirements:</strong> We may retain certain data longer if
-                required by law
+                <strong>After Grace Period:</strong> Your data is no longer accessible through
+                the Service, but is retained on our servers
               </li>
             </ul>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.3 Data Retention for AI Improvement
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Your Content (playbooks, play tags, analytics data) is retained indefinitely in
+              anonymized, aggregated form for the purpose of improving our AI and analytics features.
+              This data is de-identified and cannot be used to identify you or your team. See our
+              Terms of Service (Section 5.2) for details on the AI training license.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.4 Right to Deletion
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              You may request permanent deletion of your data by contacting privacy@youthcoachhub.com.
+              Upon request, we will delete your personal information within 30 days. Note that
+              anonymized data that has already been incorporated into our AI training datasets cannot
+              be removed, as it is no longer identifiable.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.5 Backup Retention
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              Backups may be retained for up to 90 days for disaster recovery purposes.
+            </p>
+
+            <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
+              5.6 Legal Requirements
+            </h3>
+            <p className="text-gray-700 leading-relaxed">
+              We may retain certain data longer if required by law or to protect our legal interests.
+            </p>
           </section>
 
           {/* Section 6 */}

@@ -38,7 +38,7 @@ export default function PricingGrid({
   return (
     <div>
       {/* Billing Toggle */}
-      <div className="flex justify-center mb-10">
+      <div className="flex justify-center items-center gap-3 mb-10">
         <div className="relative bg-gray-100 rounded-full p-1 flex">
           <button
             onClick={() => setBillingCycle('monthly')}
@@ -59,9 +59,6 @@ export default function PricingGrid({
             }`}
           >
             Annual
-            <span className="ml-1.5 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-              Save 17%
-            </span>
           </button>
           {/* Sliding background */}
           <div
@@ -71,6 +68,9 @@ export default function PricingGrid({
             style={{ left: '4px' }}
           />
         </div>
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+          Save 17%
+        </span>
       </div>
 
       {/* Pricing Cards */}

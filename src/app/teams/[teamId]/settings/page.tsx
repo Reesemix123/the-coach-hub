@@ -16,9 +16,10 @@ import {
   isUpgrade,
   getStatusMessage
 } from '@/lib/feature-access';
-import { Play, RefreshCw, Sparkles } from 'lucide-react';
+import { Play, RefreshCw, Sparkles, AlertCircle } from 'lucide-react';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
 import AICreditsUsage from '@/components/AICreditsUsage';
+import CancelSubscriptionModal from '@/components/CancelSubscriptionModal';
 
 interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -67,6 +68,16 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [inviteRole, setInviteRole] = useState<'coach' | 'analyst' | 'viewer'>('coach');
   const [inviting, setInviting] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Coach request state (for trial users)
+  const [requestingCoaches, setRequestingCoaches] = useState(false);
+  const [coachRequestMessage, setCoachRequestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Cancellation state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [contentSummary, setContentSummary] = useState<any>(null);
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [reactivatingSubscription, setReactivatingSubscription] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -281,12 +292,122 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     }
   };
 
+  // Handle coach request for trial users
+  const handleRequestCoaches = async () => {
+    setRequestingCoaches(true);
+    setCoachRequestMessage(null);
+
+    try {
+      const response = await fetch('/api/coach-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: teamId,
+          reason: 'Requesting ability to add coaches during trial period'
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setCoachRequestMessage({
+          type: 'success',
+          text: 'Request submitted! An admin will review your request and get back to you.'
+        });
+      } else {
+        setCoachRequestMessage({
+          type: 'error',
+          text: result.error || 'Failed to submit request'
+        });
+      }
+    } catch (error) {
+      setCoachRequestMessage({
+        type: 'error',
+        text: 'Something went wrong. Please try again.'
+      });
+    } finally {
+      setRequestingCoaches(false);
+    }
+  };
+
   const handleUpdateRole = async (userId: string, newRole: 'owner' | 'coach' | 'analyst' | 'viewer') => {
     try {
       await membershipService.updateRole(teamId, userId, newRole);
       await fetchData(); // Refresh members list
     } catch (error: any) {
       alert(error.message || 'Failed to update role');
+    }
+  };
+
+  // Fetch content summary for cancel modal
+  const fetchContentSummary = async () => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/summary`);
+      if (response.ok) {
+        const data = await response.json();
+        setContentSummary(data.content_summary);
+      }
+    } catch (error) {
+      console.error('Error fetching content summary:', error);
+    }
+  };
+
+  // Open cancel modal
+  const handleOpenCancelModal = async () => {
+    await fetchContentSummary();
+    setShowCancelModal(true);
+  };
+
+  // Handle subscription cancellation
+  const handleCancelSubscription = async (reason: string, details: string) => {
+    setCancellingSubscription(true);
+
+    try {
+      const response = await fetch(`/api/teams/${teamId}/subscription/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, reason_details: details })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel subscription');
+      }
+
+      // Close modal and refresh page to show updated status
+      setShowCancelModal(false);
+      window.location.reload();
+    } catch (error: any) {
+      throw error;
+    } finally {
+      setCancellingSubscription(false);
+    }
+  };
+
+  // Handle subscription reactivation
+  const handleReactivateSubscription = async () => {
+    setReactivatingSubscription(true);
+    setTierSaveMessage(null);
+
+    try {
+      const response = await fetch(`/api/teams/${teamId}/subscription/reactivate`, {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reactivate subscription');
+      }
+
+      setTierSaveMessage(data.message || 'Subscription reactivated successfully!');
+      // Refresh page to show updated status
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error: any) {
+      setTierSaveMessage(error.message || 'Failed to reactivate subscription');
+    } finally {
+      setReactivatingSubscription(false);
     }
   };
 
@@ -631,6 +752,72 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                 </p>
               </div>
             )}
+
+            {/* Pending Cancellation Banner */}
+            {subscription?.cancel_at_period_end && (
+              <div className="mt-8 border border-amber-200 bg-amber-50 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-amber-900 mb-2">
+                      Subscription Ending Soon
+                    </h3>
+                    <p className="text-sm text-amber-700 mb-4">
+                      Your subscription will end on{' '}
+                      <strong>
+                        {subscription.current_period_end
+                          ? new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })
+                          : 'the end of your billing period'}
+                      </strong>.
+                      After this date, you'll have 30 days to resubscribe and keep access to your data.
+                    </p>
+                    <button
+                      onClick={handleReactivateSubscription}
+                      disabled={reactivatingSubscription}
+                      className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:bg-amber-400 transition-colors font-medium"
+                    >
+                      {reactivatingSubscription ? 'Reactivating...' : 'Keep My Subscription'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Cancel Subscription Section - Only for active subscribers who haven't already canceled */}
+            {userRole === 'owner' &&
+             (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') &&
+             !subscription?.cancel_at_period_end &&
+             !subscription?.billing_waived && (
+              <div className="mt-8 border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Cancel Subscription
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  If you need to cancel, you'll have access until the end of your current billing period
+                  {subscription?.current_period_end && (
+                    <span>
+                      {' '}({new Date(subscription.current_period_end).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })})
+                    </span>
+                  )}. After that, you'll have 30 days to resubscribe and regain full access to your data.
+                </p>
+                <button
+                  onClick={handleOpenCancelModal}
+                  className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  Cancel Subscription
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -643,8 +830,45 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               </p>
             </div>
 
-            {/* Invite Form */}
-            {userRole === 'owner' || userRole === 'coach' ? (
+            {/* Trial Restriction Banner */}
+            {isTrialing && (userRole === 'owner' || userRole === 'coach') && (
+              <div className="border border-purple-200 bg-purple-50 rounded-lg p-6 mb-8">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <svg className="h-6 w-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-purple-900 mb-2">Trial Account Restriction</h3>
+                    <p className="text-sm text-purple-700 mb-4">
+                      Adding additional coaches is not available during the trial period. If you need to add coaches to evaluate the platform with your team, you can request access from our admin team.
+                    </p>
+                    {coachRequestMessage && (
+                      <div className={`p-3 rounded-lg text-sm mb-4 ${
+                        coachRequestMessage.type === 'success'
+                          ? 'bg-green-50 text-green-800 border border-green-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}>
+                        {coachRequestMessage.text}
+                      </div>
+                    )}
+                    {!coachRequestMessage?.type || coachRequestMessage.type !== 'success' ? (
+                      <button
+                        onClick={handleRequestCoaches}
+                        disabled={requestingCoaches}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-400 transition-colors text-sm font-medium"
+                      >
+                        {requestingCoaches ? 'Requesting...' : 'Request Coach Access'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Invite Form - Only show for non-trial users */}
+            {(userRole === 'owner' || userRole === 'coach') && !isTrialing ? (
               <div className="border border-gray-200 rounded-lg p-6 mb-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Invite Team Member</h3>
                 <form onSubmit={handleInviteCoach} className="space-y-4">
@@ -866,6 +1090,16 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
           </div>
         )}
       </div>
+
+      {/* Cancel Subscription Modal */}
+      <CancelSubscriptionModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelSubscription}
+        subscriptionEndsAt={subscription?.current_period_end || null}
+        contentSummary={contentSummary}
+        teamName={team?.name || 'Your Team'}
+      />
     </div>
   );
 }

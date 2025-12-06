@@ -331,20 +331,14 @@ export default async function PricingPage() {
             Ready to elevate your coaching?
           </h2>
           <p className="mt-4 text-lg text-gray-300">
-            Join thousands of coaches using The Coach Hub to build better programs.
+            Join Youth Coach Hub to start improving how you coach.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="mt-8 flex justify-center">
             <Link
-              href="/auth/signup?tier=plus"
+              href="/?trial=true"
               className="rounded-lg bg-white px-6 py-3 text-base font-medium text-gray-900 hover:bg-gray-100"
             >
               Start Free Trial
-            </Link>
-            <Link
-              href="/contact"
-              className="rounded-lg border-2 border-white px-6 py-3 text-base font-medium text-white hover:bg-white/10"
-            >
-              Talk to Sales
             </Link>
           </div>
         </div>

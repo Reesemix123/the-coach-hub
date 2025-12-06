@@ -28,7 +28,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="mt-4 text-sm text-gray-500">
-            Last updated: December 3, 2024
+            Last updated: December 5, 2024
           </p>
         </div>
 
@@ -174,11 +174,27 @@ export default function TermsPage() {
             <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
               5.2 License to Us
             </h3>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              By uploading Your Content to the Service, you grant us:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-3 mb-4">
+              <li>
+                <strong>(a) Service License:</strong> A limited, non-exclusive, royalty-free license
+                to host, store, display, and transmit Your Content solely for the purpose of
+                providing the Service to you and your authorized team members. This license
+                terminates when you delete Your Content or close your account.
+              </li>
+              <li>
+                <strong>(b) AI Training License:</strong> A perpetual, irrevocable, royalty-free
+                license to use Your Content in anonymized, aggregated form for the purpose of
+                improving our AI features, analytics algorithms, and machine learning models.
+                This license survives termination of your account. Your Content used for AI
+                training will be de-identified and will not be associated with you or your team.
+              </li>
+            </ul>
             <p className="text-gray-700 leading-relaxed">
-              By uploading Your Content to the Service, you grant us a limited, non-exclusive,
-              royalty-free license to host, store, display, and transmit Your Content solely
-              for the purpose of providing the Service to you and your authorized team members.
-              This license terminates when you delete Your Content or close your account.
+              The license in (a) terminates when you delete Your Content or close your account.
+              The license in (b) continues indefinitely to allow ongoing improvement of our Service.
             </p>
 
             <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
@@ -262,10 +278,25 @@ export default function TermsPage() {
             <h3 className="text-lg font-medium text-gray-900 mt-6 mb-3">
               7.3 Effect of Termination
             </h3>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              Upon cancellation of your subscription:
+            </p>
+            <ul className="list-disc pl-6 text-gray-700 space-y-2 mb-4">
+              <li>You retain full access until the end of your current billing period</li>
+              <li>After your subscription ends, you have 30 days to resubscribe and regain full access to your data</li>
+              <li>After 30 days without resubscription, you will no longer be able to access your data through the Service</li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              <strong>Data Retention:</strong> Your data (including playbooks, tagged plays, and analytics) is
+              retained indefinitely on our servers. This data may be used in anonymized, aggregated form for
+              improving our AI and analytics features (see Section 5.2 and our Privacy Policy). If you resubscribe
+              within 30 days, you regain full access to all your historical data.
+            </p>
             <p className="text-gray-700 leading-relaxed">
-              Upon termination, your right to use the Service immediately ceases. We will
-              retain Your Content for 30 days after termination, during which time you may
-              request an export. After 30 days, Your Content will be permanently deleted.
+              <strong>Immediate Termination:</strong> We may terminate your access immediately without notice for
+              serious violations of these Terms, including uploading prohibited content, fraudulent activity, or
+              abuse of the Service. In such cases, your subscription will be canceled immediately and you will
+              not have access to your data. You may contact support@youthcoachhub.com if you believe this was done in error.
             </p>
           </section>
 

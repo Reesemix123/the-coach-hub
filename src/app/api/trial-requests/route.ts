@@ -108,6 +108,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate name is provided
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate reason is provided
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
+      return NextResponse.json(
+        { error: 'Please tell us why you are interested in a trial' },
+        { status: 400 }
+      );
+    }
+
     // Validate tier
     const validTiers = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
     const tier = validTiers.includes(requested_tier) ? requested_tier : 'hs_basic';

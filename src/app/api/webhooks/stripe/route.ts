@@ -95,7 +95,7 @@ async function handleCheckoutCompleted(
   supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session
 ) {
-  const checkoutType = session.metadata?.type;
+  const purchaseType = session.metadata?.purchase_type;
   const teamId = session.metadata?.team_id;
 
   if (!teamId) {
@@ -103,15 +103,16 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  // Handle AI minutes purchase
-  if (checkoutType === 'ai_minutes_purchase') {
+  // Handle AI/video minutes purchase (one-time payment)
+  if (purchaseType === 'minutes' || session.mode === 'payment') {
     await handleAIMinutesPurchase(supabase, session);
     return;
   }
 
   // Handle regular subscription checkout
   const tier = session.metadata?.tier;
-  console.log(`Checkout completed for team ${teamId}, tier: ${tier}`);
+  const billingCycle = session.metadata?.billing_cycle;
+  console.log(`Checkout completed for team ${teamId}, tier: ${tier}, billing: ${billingCycle}`);
 
   // The subscription will be created/updated via subscription.created webhook
   // Just log the checkout completion
@@ -122,6 +123,7 @@ async function handleCheckoutCompleted(
     metadata: {
       session_id: session.id,
       tier,
+      billing_cycle: billingCycle,
       customer: session.customer
     }
   });
@@ -132,9 +134,11 @@ async function handleAIMinutesPurchase(
   session: Stripe.Checkout.Session
 ) {
   const teamId = session.metadata?.team_id;
-  const userId = session.metadata?.user_id;
+  const organizationId = session.metadata?.organization_id;
   const minutes = parseInt(session.metadata?.minutes || '0');
-  const priceCents = parseInt(session.metadata?.price_cents || '0');
+
+  // Get price from session amount if not in metadata
+  const priceCents = session.amount_total || 0;
 
   if (!teamId || !minutes) {
     console.error('AI minutes purchase missing required metadata:', session.id);
@@ -156,7 +160,7 @@ async function handleAIMinutesPurchase(
       purchased_at: new Date().toISOString(),
       expires_at: expiresAt.toISOString(),
       stripe_payment_intent_id: session.payment_intent as string || null,
-      purchased_by_user_id: userId || null
+      stripe_checkout_session_id: session.id
     });
 
   if (error) {
@@ -169,16 +173,16 @@ async function handleAIMinutesPurchase(
     action: 'ai_credits.purchase',
     target_type: 'team',
     target_id: teamId,
-    user_id: userId || null,
     metadata: {
       session_id: session.id,
       minutes_purchased: minutes,
       price_cents: priceCents,
-      expires_at: expiresAt.toISOString()
+      expires_at: expiresAt.toISOString(),
+      organization_id: organizationId
     }
   });
 
-  console.log(`Added ${minutes} AI minutes purchase for team ${teamId}`);
+  console.log(`Added ${minutes} AI video minutes purchase for team ${teamId}`);
 }
 
 async function handleSubscriptionUpdated(

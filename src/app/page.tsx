@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { Play, Gift } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
@@ -9,6 +9,7 @@ import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardin
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialSubmitting, setTrialSubmitting] = useState(false);
@@ -23,12 +24,33 @@ export default function Home() {
     checkUserTeams();
   }, []);
 
+  // Auto-open trial modal if ?trial=true is in URL
+  useEffect(() => {
+    if (searchParams.get('trial') === 'true') {
+      setShowTrialModal(true);
+    }
+  }, [searchParams]);
+
   async function handleRequestTrial() {
-    // Validate email
+    // Validate all required fields
     if (!trialEmail.trim()) {
       setTrialMessage({
         type: 'error',
         text: 'Please enter your email address.'
+      });
+      return;
+    }
+    if (!trialName.trim()) {
+      setTrialMessage({
+        type: 'error',
+        text: 'Please enter your name.'
+      });
+      return;
+    }
+    if (!trialReason.trim()) {
+      setTrialMessage({
+        type: 'error',
+        text: 'Please tell us why you\'re interested in a trial.'
       });
       return;
     }
@@ -43,8 +65,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: trialEmail.trim(),
-          name: trialName.trim() || null,
-          reason: trialReason.trim() || null,
+          name: trialName.trim(),
+          reason: trialReason.trim(),
           requested_tier: 'hs_basic'
         })
       });
@@ -270,7 +292,7 @@ export default function Home() {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Your name (optional)
+                    Your name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -283,7 +305,7 @@ export default function Home() {
 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Why are you interested? (optional)
+                    Why are you interested? <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={trialReason}
@@ -310,7 +332,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={handleRequestTrial}
-                    disabled={trialSubmitting || !trialEmail.trim()}
+                    disabled={trialSubmitting || !trialEmail.trim() || !trialName.trim() || !trialReason.trim()}
                     className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50"
                   >
                     {trialSubmitting ? 'Submitting...' : 'Submit Request'}

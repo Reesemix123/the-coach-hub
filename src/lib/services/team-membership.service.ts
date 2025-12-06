@@ -154,6 +154,7 @@ export class TeamMembershipService {
    * Only owners and coaches can invite
    * Cannot invite existing members
    * Enforces coach limits based on tier + add-ons
+   * Trial subscriptions cannot add coaches - must request admin approval
    */
   async inviteCoach(params: InviteCoachParams): Promise<InviteCoachResult> {
     const { teamId, email, role } = params;
@@ -183,6 +184,22 @@ export class TeamMembershipService {
 
     if (!canInvite) {
       throw new Error('Only owners and coaches can invite members');
+    }
+
+    // Check subscription status - trial users cannot add coaches
+    const { data: subscription } = await this.supabase
+      .from('subscriptions')
+      .select('status, tier')
+      .eq('team_id', teamId)
+      .single();
+
+    if (subscription?.status === 'trialing') {
+      return {
+        success: false,
+        message: 'Trial accounts cannot add additional coaches. Please contact support to request adding coaches to your trial.',
+        action: 'contact_owner',
+        addon_type: 'coaches'
+      };
     }
 
     // Check coach limit before inviting

@@ -1,7 +1,10 @@
 'use client';
 
-import { Check, Sparkles, Video, MessageSquare, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, Sparkles, Video, MessageSquare, Zap, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 import { SubscriptionTier } from '@/types/admin';
 
 interface PricingCardProps {
@@ -33,6 +36,11 @@ export default function PricingCard({
   trialAllowedTiers,
   trialDurationDays
 }: PricingCardProps) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userTeamId, setUserTeamId] = useState<string | null>(null);
+
   const canTrial = trialEnabled && trialAllowedTiers.includes(tier.id);
   const isFree = tier.price_monthly === 0;
   const isAIPowered = tier.id === 'ai_powered';
@@ -40,6 +48,92 @@ export default function PricingCard({
 
   const displayPrice = billingCycle === 'monthly' ? tier.price_monthly : tier.price_annual;
   const priceLabel = billingCycle === 'monthly' ? '/month' : '/year';
+
+  // Check if user is logged in and has a team
+  useEffect(() => {
+    const checkUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        setUserId(user.id);
+
+        // Get user's first team
+        const { data: teams } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        if (teams && teams.length > 0) {
+          setUserTeamId(teams[0].id);
+        }
+      }
+    };
+
+    checkUser();
+  }, []);
+
+  // Handle checkout
+  const handleCheckout = async () => {
+    // Basic tier is free - just redirect to signup/team creation
+    if (isFree) {
+      if (userId) {
+        router.push('/setup');
+      } else {
+        router.push(`/auth/signup?tier=${tier.id}&billing=${billingCycle === 'annual' ? 'yearly' : 'monthly'}`);
+      }
+      return;
+    }
+
+    // For paid tiers:
+    // If not logged in, redirect to signup
+    if (!userId) {
+      router.push(`/auth/signup?tier=${tier.id}&billing=${billingCycle === 'annual' ? 'yearly' : 'monthly'}`);
+      return;
+    }
+
+    // If logged in but no team, redirect to setup
+    if (!userTeamId) {
+      router.push(`/setup?tier=${tier.id}&billing=${billingCycle === 'annual' ? 'yearly' : 'monthly'}`);
+      return;
+    }
+
+    // User is logged in with a team - initiate checkout
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/console/billing/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          type: 'subscription',
+          team_id: userTeamId,
+          tier: tier.id,
+          billing_cycle: billingCycle === 'annual' ? 'yearly' : 'monthly'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      // On error, fall back to signup flow
+      router.push(`/auth/signup?tier=${tier.id}&billing=${billingCycle === 'annual' ? 'yearly' : 'monthly'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Determine CTA text
   let ctaText = 'Get Started';
@@ -176,16 +270,24 @@ export default function PricingCard({
       </ul>
 
       {/* CTA Button */}
-      <Link
-        href={`/auth/signup?tier=${tier.id}&billing=${billingCycle}`}
-        className={`block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors ${
+      <button
+        onClick={handleCheckout}
+        disabled={isLoading}
+        className={`block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
           tier.popular
             ? 'bg-gray-900 text-white hover:bg-gray-800'
             : 'border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white'
         }`}
       >
-        {ctaText}
-      </Link>
+        {isLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Processing...
+          </span>
+        ) : (
+          ctaText
+        )}
+      </button>
     </div>
   );
 }

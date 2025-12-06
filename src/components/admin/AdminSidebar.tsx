@@ -15,7 +15,8 @@ import {
   Settings,
   ArrowLeft,
   Shield,
-  Gift
+  Gift,
+  UserPlus
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { href: '/admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/trial-requests', label: 'Trial Requests', icon: Gift },
+  { href: '/admin/coach-requests', label: 'Coach Requests', icon: UserPlus },
   { href: '/admin/billing', label: 'Revenue', icon: CreditCard },
   { href: '/admin/costs', label: 'Costs', icon: TrendingUp },
   { href: '/admin/logs', label: 'Logs', icon: FileText },

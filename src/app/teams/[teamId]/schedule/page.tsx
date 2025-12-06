@@ -747,19 +747,26 @@ function MonthlyCalendar({
                   <button
                     key={dayIndex}
                     onClick={() => onDateClick(day)}
+                    onTouchEnd={(e) => {
+                      // Prevent double-firing on iOS
+                      e.preventDefault();
+                      onDateClick(day);
+                    }}
                     className={`
-                      relative h-28 p-2 transition-colors text-left
+                      relative h-28 p-2 transition-colors text-left cursor-pointer select-none
                       ${!isCurrentMonthDay ? 'bg-gray-50' : 'bg-white'}
                       ${isSelectedDay ? 'bg-blue-100 ring-2 ring-inset ring-blue-600' : ''}
                       ${!isSelectedDay && isTodayDay ? 'bg-blue-50' : ''}
-                      ${!isSelectedDay ? 'hover:bg-gray-100' : ''}
+                      ${!isSelectedDay ? 'hover:bg-gray-100 active:bg-gray-200' : ''}
                     `}
                     style={{
                       borderRight: dayIndex < 6 ? '1px solid #d1d5db' : 'none',
-                      borderBottom: weekIndex < weeks.length - 1 ? '1px solid #d1d5db' : 'none'
+                      borderBottom: weekIndex < weeks.length - 1 ? '1px solid #d1d5db' : 'none',
+                      touchAction: 'manipulation',
+                      WebkitTapHighlightColor: 'transparent'
                     }}
                   >
-                    <div className={`text-sm font-medium mb-1 ${
+                    <div className={`text-sm font-medium mb-1 pointer-events-none ${
                       !isCurrentMonthDay ? 'text-gray-400' :
                       isSelectedDay ? 'text-blue-700 font-bold' :
                       isTodayDay ? 'text-blue-600 font-bold' :
@@ -769,13 +776,13 @@ function MonthlyCalendar({
                     </div>
 
                     {holiday && (
-                      <div className="text-xs text-gray-900 font-medium mt-1 leading-tight">
+                      <div className="text-xs text-gray-900 font-medium mt-1 leading-tight pointer-events-none">
                         {holiday}
                       </div>
                     )}
 
                     {indicators.length > 0 && (
-                      <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1">
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1 pointer-events-none">
                         {indicators.slice(0, 3).map((indicator, idx) => (
                           <div
                             key={idx}
