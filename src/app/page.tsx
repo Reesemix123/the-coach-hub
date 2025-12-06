@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
 import { Play, Gift } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
 
-export default function Home() {
+// Component that uses searchParams - must be wrapped in Suspense
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -354,5 +355,18 @@ export default function Home() {
         </div>
       )}
     </main>
+  );
+}
+
+// Main export with Suspense boundary for useSearchParams
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <main className="bg-white min-h-screen flex items-center justify-center">
+        <div className="text-gray-400">Loading...</div>
+      </main>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
