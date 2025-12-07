@@ -3,6 +3,19 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+
+// Get service role client for admin operations
+function getServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceKey) {
+    throw new Error('Supabase service role configuration missing');
+  }
+
+  return createServiceClient(url, serviceKey);
+}
 
 interface RouteParams {
   params: Promise<{ requestId: string }>;
@@ -85,37 +98,126 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
     }
 
-    // If approved and team exists, start the trial
-    if (action === 'approve' && trialRequest.team_id) {
+    // If approved, start the trial
+    if (action === 'approve') {
       const trialDays = trial_days || 14;
       const trialEndsAt = new Date();
       trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
 
-      // Upsert subscription with the granted tier
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          team_id: trialRequest.team_id,
-          tier: finalGrantedTier,
-          status: 'trialing',
-          trial_ends_at: trialEndsAt.toISOString(),
-          billing_waived: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'team_id'
-        });
+      // Get service client for admin operations
+      const serviceClient = getServiceClient();
 
-      if (subError) {
-        console.error('Error creating subscription:', subError);
-        // Don't fail the request, just log the error
+      // Check if this is a guest request (no user_id, has guest_email)
+      if (!trialRequest.user_id && trialRequest.guest_email) {
+        // Guest trial request - need to create user, team, and subscription
+        const guestEmail = trialRequest.guest_email;
+        const guestName = trialRequest.guest_name || 'Coach';
+
+        // Create the user account via invite (sends email with magic link)
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
+        const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+          guestEmail,
+          {
+            data: {
+              full_name: guestName,
+              selected_tier: finalGrantedTier,
+              from_trial_request: true
+            },
+            redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/setup?tier=' + finalGrantedTier)}`
+          }
+        );
+
+        if (inviteError) {
+          console.error('Error inviting user:', inviteError);
+          return NextResponse.json({
+            success: false,
+            error: 'Failed to send invite email: ' + inviteError.message
+          }, { status: 500 });
+        }
+
+        const newUserId = inviteData.user?.id;
+
+        if (newUserId) {
+          // Create a team for the new user
+          const { data: newTeam, error: teamError } = await serviceClient
+            .from('teams')
+            .insert({
+              name: `${guestName}'s Team`,
+              level: 'High School',
+              colors: { primary: 'Blue', secondary: 'White' },
+              user_id: newUserId,
+              has_had_trial: true
+            })
+            .select()
+            .single();
+
+          if (teamError) {
+            console.error('Error creating team for guest:', teamError);
+          } else if (newTeam) {
+            // Create subscription for the team
+            const { error: subError } = await serviceClient
+              .from('subscriptions')
+              .insert({
+                team_id: newTeam.id,
+                user_id: newUserId,
+                tier: finalGrantedTier,
+                status: 'trialing',
+                trial_ends_at: trialEndsAt.toISOString(),
+                billing_waived: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+
+            if (subError) {
+              console.error('Error creating subscription:', subError);
+            }
+
+            // Update the trial request with the new team and user IDs
+            await serviceClient
+              .from('trial_requests')
+              .update({
+                user_id: newUserId,
+                team_id: newTeam.id
+              })
+              .eq('id', requestId);
+          }
+        }
+
+        return NextResponse.json({
+          success: true,
+          action,
+          message: `Trial approved! Invite email sent to ${guestEmail} for ${trialDays} days on ${finalGrantedTier} tier.`
+        });
       }
 
-      // Mark team as having had a trial
-      await supabase
-        .from('teams')
-        .update({ has_had_trial: true })
-        .eq('id', trialRequest.team_id);
+      // Existing user with team - just create/update subscription
+      if (trialRequest.team_id) {
+        // Upsert subscription with the granted tier
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .upsert({
+            team_id: trialRequest.team_id,
+            tier: finalGrantedTier,
+            status: 'trialing',
+            trial_ends_at: trialEndsAt.toISOString(),
+            billing_waived: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'team_id'
+          });
+
+        if (subError) {
+          console.error('Error creating subscription:', subError);
+          // Don't fail the request, just log the error
+        }
+
+        // Mark team as having had a trial
+        await supabase
+          .from('teams')
+          .update({ has_had_trial: true })
+          .eq('id', trialRequest.team_id);
+      }
     }
 
     return NextResponse.json({
