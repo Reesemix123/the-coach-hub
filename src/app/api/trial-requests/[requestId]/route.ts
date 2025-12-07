@@ -11,7 +11,7 @@ function getServiceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceKey) {
-    throw new Error('Supabase service role configuration missing');
+    return null; // Return null instead of throwing so we can handle gracefully
   }
 
   return createServiceClient(url, serviceKey);
@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const validTiers = ['basic', 'plus', 'premium', 'ai_powered'];
     const tierToGrant = granted_tier && validTiers.includes(granted_tier)
       ? granted_tier
-      : null; // Will use request's tier if not overridden
+      : null;
 
     // Get the request
     const { data: trialRequest, error: fetchError } = await supabase
@@ -77,19 +77,162 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Determine the final tier to grant (admin override or requested tier)
+    // Determine the final tier to grant
     const finalGrantedTier = tierToGrant || trialRequest.requested_tier || 'plus';
+    const trialDays = trial_days || 14;
 
-    // Update the request status
+    // ===========================================
+    // DENY - Simple case, just update status
+    // ===========================================
+    if (action === 'deny') {
+      const { error: updateError } = await supabase
+        .from('trial_requests')
+        .update({
+          status: 'denied',
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+          admin_notes: admin_notes || null
+        })
+        .eq('id', requestId);
+
+      if (updateError) {
+        console.error('Error updating trial request:', updateError);
+        return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        action: 'deny',
+        message: 'Trial request denied'
+      });
+    }
+
+    // ===========================================
+    // APPROVE - Handle guest vs existing user
+    // ===========================================
+
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    // Check if this is a GUEST request (no user_id, has guest_email)
+    const isGuestRequest = !trialRequest.user_id && trialRequest.guest_email;
+
+    if (isGuestRequest) {
+      // -----------------------------------------
+      // GUEST APPROVAL: Create user FIRST, then update status
+      // -----------------------------------------
+      const guestEmail = trialRequest.guest_email;
+      const guestName = trialRequest.guest_name || 'Coach';
+
+      // Get service client - required for admin.inviteUserByEmail
+      const serviceClient = getServiceClient();
+      if (!serviceClient) {
+        console.error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+        return NextResponse.json({
+          error: 'Server configuration error: Service role key not configured. Please contact support.'
+        }, { status: 500 });
+      }
+
+      // Create the user account via invite (sends email with magic link)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
+      console.log(`Inviting user ${guestEmail} with redirect to ${appUrl}`);
+
+      const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+        guestEmail,
+        {
+          data: {
+            full_name: guestName,
+            selected_tier: finalGrantedTier,
+            from_trial_request: true
+          },
+          redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/setup?tier=' + finalGrantedTier)}`
+        }
+      );
+
+      if (inviteError) {
+        console.error('Error inviting user:', inviteError);
+        return NextResponse.json({
+          error: `Failed to send invite email: ${inviteError.message}`
+        }, { status: 500 });
+      }
+
+      const newUserId = inviteData?.user?.id;
+
+      if (!newUserId) {
+        console.error('Invite succeeded but no user ID returned:', inviteData);
+        return NextResponse.json({
+          error: 'Failed to create user account. No user ID returned from invite.'
+        }, { status: 500 });
+      }
+
+      console.log(`User created with ID: ${newUserId}`);
+
+      // Create subscription linked to user (team_id = null)
+      const { error: subError } = await serviceClient
+        .from('subscriptions')
+        .insert({
+          team_id: null,
+          user_id: newUserId,
+          tier: finalGrantedTier,
+          status: 'trialing',
+          trial_ends_at: trialEndsAt.toISOString(),
+          billing_waived: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (subError) {
+        console.error('Error creating subscription:', subError);
+        // Continue anyway - user was created, subscription can be fixed manually
+      }
+
+      // NOW update the trial request with status AND user_id
+      const { error: updateError } = await serviceClient
+        .from('trial_requests')
+        .update({
+          status: 'approved',
+          user_id: newUserId,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+          admin_notes: admin_notes || null,
+          granted_trial_days: trialDays,
+          granted_tier: finalGrantedTier
+        })
+        .eq('id', requestId);
+
+      if (updateError) {
+        console.error('Error updating trial request:', updateError);
+        // User was created, so return partial success
+        return NextResponse.json({
+          success: true,
+          warning: 'User created but failed to update trial request status',
+          action: 'approve',
+          message: `Invite sent to ${guestEmail}. Trial request status may need manual update.`
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        action: 'approve',
+        message: `Trial approved! Invite email sent to ${guestEmail} for ${trialDays} days on ${finalGrantedTier} tier.`,
+        user_id: newUserId
+      });
+    }
+
+    // -----------------------------------------
+    // EXISTING USER APPROVAL: Update status, create subscription
+    // -----------------------------------------
+
+    // Update the request status first
     const { error: updateError } = await supabase
       .from('trial_requests')
       .update({
-        status: action === 'approve' ? 'approved' : 'denied',
+        status: 'approved',
         reviewed_by: user.id,
         reviewed_at: new Date().toISOString(),
         admin_notes: admin_notes || null,
-        granted_trial_days: action === 'approve' ? (trial_days || 14) : null,
-        granted_tier: action === 'approve' ? finalGrantedTier : null
+        granted_trial_days: trialDays,
+        granted_tier: finalGrantedTier
       })
       .eq('id', requestId);
 
@@ -98,121 +241,43 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
     }
 
-    // If approved, start the trial
-    if (action === 'approve') {
-      const trialDays = trial_days || 14;
-      const trialEndsAt = new Date();
-      trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
-
-      // Get service client for admin operations
-      const serviceClient = getServiceClient();
-
-      // Check if this is a guest request (no user_id, has guest_email)
-      if (!trialRequest.user_id && trialRequest.guest_email) {
-        // Guest trial request - need to create user, team, and subscription
-        const guestEmail = trialRequest.guest_email;
-        const guestName = trialRequest.guest_name || 'Coach';
-
-        // Create the user account via invite (sends email with magic link)
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
-        const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-          guestEmail,
-          {
-            data: {
-              full_name: guestName,
-              selected_tier: finalGrantedTier,
-              from_trial_request: true
-            },
-            redirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent('/setup?tier=' + finalGrantedTier)}`
-          }
-        );
-
-        if (inviteError) {
-          console.error('Error inviting user:', inviteError);
-          return NextResponse.json({
-            success: false,
-            error: 'Failed to send invite email: ' + inviteError.message
-          }, { status: 500 });
-        }
-
-        const newUserId = inviteData.user?.id;
-
-        if (newUserId) {
-          // Create subscription linked to user (team_id = null)
-          // The setup page will link this to a team when user creates one
-          const { error: subError } = await serviceClient
-            .from('subscriptions')
-            .insert({
-              team_id: null,
-              user_id: newUserId,
-              tier: finalGrantedTier,
-              status: 'trialing',
-              trial_ends_at: trialEndsAt.toISOString(),
-              billing_waived: false,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
-
-          if (subError) {
-            console.error('Error creating subscription:', subError);
-          }
-
-          // Update the trial request with the new user ID
-          await serviceClient
-            .from('trial_requests')
-            .update({
-              user_id: newUserId
-            })
-            .eq('id', requestId);
-        }
-
-        return NextResponse.json({
-          success: true,
-          action,
-          message: `Trial approved! Invite email sent to ${guestEmail} for ${trialDays} days on ${finalGrantedTier} tier.`
+    // If team exists, create/update subscription
+    if (trialRequest.team_id) {
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .upsert({
+          team_id: trialRequest.team_id,
+          tier: finalGrantedTier,
+          status: 'trialing',
+          trial_ends_at: trialEndsAt.toISOString(),
+          billing_waived: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'team_id'
         });
+
+      if (subError) {
+        console.error('Error creating subscription:', subError);
       }
 
-      // Existing user with team - just create/update subscription
-      if (trialRequest.team_id) {
-        // Upsert subscription with the granted tier
-        const { error: subError } = await supabase
-          .from('subscriptions')
-          .upsert({
-            team_id: trialRequest.team_id,
-            tier: finalGrantedTier,
-            status: 'trialing',
-            trial_ends_at: trialEndsAt.toISOString(),
-            billing_waived: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'team_id'
-          });
-
-        if (subError) {
-          console.error('Error creating subscription:', subError);
-          // Don't fail the request, just log the error
-        }
-
-        // Mark team as having had a trial
-        await supabase
-          .from('teams')
-          .update({ has_had_trial: true })
-          .eq('id', trialRequest.team_id);
-      }
+      // Mark team as having had a trial
+      await supabase
+        .from('teams')
+        .update({ has_had_trial: true })
+        .eq('id', trialRequest.team_id);
     }
 
     return NextResponse.json({
       success: true,
-      action,
-      message: action === 'approve'
-        ? `Trial approved for ${trial_days || 14} days`
-        : 'Trial request denied'
+      action: 'approve',
+      message: `Trial approved for ${trialDays} days on ${finalGrantedTier} tier`
     });
 
   } catch (error) {
     console.error('Error processing trial request action:', error);
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+    return NextResponse.json({
+      error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`
+    }, { status: 500 });
   }
 }
