@@ -67,6 +67,14 @@ function SignUpForm() {
     }
 
     try {
+      // Build the redirect URL with tier parameter if selected
+      let redirectUrl = `${window.location.origin}/auth/callback`;
+      if (selectedTier) {
+        redirectUrl += `?next=${encodeURIComponent(`/setup?tier=${selectedTier}`)}`;
+      } else if (inviteParam) {
+        redirectUrl += `?next=${encodeURIComponent(`/setup?invite=${inviteParam}`)}`;
+      }
+
       // Sign up the user
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -77,7 +85,7 @@ function SignUpForm() {
             selected_tier: selectedTier,
             invite_code: inviteParam
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: redirectUrl
         }
       });
 

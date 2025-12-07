@@ -60,7 +60,8 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     tierDisplayName,
     isTrialing,
     trialDaysRemaining,
-    loading: subscriptionLoading
+    loading: subscriptionLoading,
+    error: subscriptionError
   } = useFeatureAccess(teamId);
 
   // Invite form state
@@ -560,8 +561,17 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       <div className="max-w-7xl mx-auto px-6 py-12">
         {settingsTab === 'tier' && (
           <div>
+            {/* Subscription Error */}
+            {subscriptionError && (
+              <div className="mb-8 p-4 rounded-lg border bg-red-50 border-red-200">
+                <p className="text-red-800">
+                  Error loading subscription: {subscriptionError}
+                </p>
+              </div>
+            )}
+
             {/* Subscription Status Banner */}
-            {!subscriptionLoading && (
+            {!subscriptionLoading && !subscriptionError && (
               <div className={`mb-8 p-4 rounded-lg border ${
                 showPaymentWarning
                   ? 'bg-yellow-50 border-yellow-200'
