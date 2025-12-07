@@ -1,17 +1,29 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState<'error' | 'success'>('error')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const supabase = createClient()
+
+  // Check for URL params (e.g., from email confirmation redirect)
+  useEffect(() => {
+    const urlMessage = searchParams.get('message')
+    const urlType = searchParams.get('type')
+    if (urlMessage) {
+      setMessage(urlMessage)
+      setMessageType(urlType === 'success' ? 'success' : 'error')
+    }
+  }, [searchParams])
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,10 +37,16 @@ export default function LoginPage() {
 
     if (error) {
       setMessage(error.message)
+      setMessageType('error')
       setLoading(false)
     } else {
-      // Successfully logged in - redirect to home
-      router.push('/')
+      // Successfully logged in - check for redirect destination
+      const next = searchParams.get('next')
+      if (next) {
+        router.push(next)
+      } else {
+        router.push('/')
+      }
       router.refresh()
     }
   }
@@ -41,6 +59,14 @@ export default function LoginPage() {
             Sign in to your account
           </h2>
         </div>
+
+        {/* Success banner from email confirmation */}
+        {message && messageType === 'success' && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+            {message}
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSignIn}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -87,7 +113,8 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </div>
-          {message && (
+          {/* Error message */}
+          {message && messageType === 'error' && (
             <div className="text-sm text-red-600">
               {message}
             </div>
@@ -108,5 +135,23 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+// Loading fallback
+function LoginLoading() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-gray-500">Loading...</div>
+    </div>
+  )
+}
+
+// Export the page with Suspense boundary for useSearchParams
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   )
 }
