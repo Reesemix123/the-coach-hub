@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SubscriptionTier } from '@/types/admin';
 import { TIER_DISPLAY_NAMES } from '@/lib/feature-access';
+import { Check, Sparkles } from 'lucide-react';
 
 interface Team {
   id: string;
@@ -15,6 +16,49 @@ interface Team {
   colors: Record<string, string>;
   created_at: string;
 }
+
+interface TierOption {
+  id: SubscriptionTier;
+  name: string;
+  price: number;
+  description: string;
+  features: string[];
+  popular?: boolean;
+  aiPowered?: boolean;
+}
+
+const TIER_OPTIONS: TierOption[] = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    price: 0,
+    description: 'Perfect for youth leagues',
+    features: ['Digital playbook', 'Film upload', 'Roster management']
+  },
+  {
+    id: 'plus',
+    name: 'Plus',
+    price: 29,
+    description: 'Full analytics',
+    features: ['Everything in Basic', 'Drive analytics', 'Player stats'],
+    popular: true
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    price: 79,
+    description: 'Advanced analytics',
+    features: ['Everything in Plus', 'O-Line grading', 'Scouting reports']
+  },
+  {
+    id: 'ai_powered',
+    name: 'AI Powered',
+    price: 199,
+    description: 'AI-assisted coaching',
+    features: ['Everything in Premium', 'AI film analysis', 'Tendency analysis'],
+    aiPowered: true
+  }
+];
 
 function SetupForm() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,6 +70,7 @@ function SetupForm() {
   const [messageType, setMessageType] = useState<'error' | 'info' | 'success'>('error');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -35,9 +80,16 @@ function SetupForm() {
   const tierParam = searchParams.get('tier') as SubscriptionTier | null;
   const canceled = searchParams.get('canceled') === 'true';
 
-  // Validate tier param
+  // Validate tier param and set initial selected tier
   const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
-  const selectedTier = tierParam && validTiers.includes(tierParam) ? tierParam : null;
+
+  // Initialize selectedTier from URL param on mount
+  useEffect(() => {
+    if (tierParam && validTiers.includes(tierParam)) {
+      setSelectedTier(tierParam);
+    }
+  }, [tierParam]);
+
   const tierDisplayName = selectedTier ? TIER_DISPLAY_NAMES[selectedTier] : null;
 
   useEffect(() => {
@@ -63,10 +115,10 @@ function SetupForm() {
 
   // Auto-show form if tier is selected and no teams exist
   useEffect(() => {
-    if (selectedTier && !loading && teams.length === 0) {
+    if (tierParam && !loading && teams.length === 0) {
       setShowForm(true);
     }
-  }, [selectedTier, loading, teams.length]);
+  }, [tierParam, loading, teams.length]);
 
   async function createTeam(e: React.FormEvent) {
     e.preventDefault();
@@ -315,18 +367,64 @@ function SetupForm() {
                 </select>
               </div>
 
-              {selectedTier && (
-                <div className="bg-white border border-gray-200 rounded-lg p-4">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium text-gray-900">Selected Plan:</span> {tierDisplayName}
-                  </p>
-                  {selectedTier !== 'basic' && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      You&apos;ll be redirected to complete payment after creating your team.
-                    </p>
-                  )}
+              {/* Tier Selection */}
+              <div className="pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Your Plan
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {TIER_OPTIONS.map((tier) => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => setSelectedTier(tier.id)}
+                      disabled={creating}
+                      className={`relative flex flex-col items-start p-4 rounded-xl border-2 transition-all text-left ${
+                        selectedTier === tier.id
+                          ? 'border-black bg-gray-50 ring-1 ring-black'
+                          : 'border-gray-200 hover:border-gray-400 bg-white'
+                      } ${creating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      {/* Popular/AI Badge */}
+                      {tier.popular && (
+                        <span className="absolute -top-2 right-2 inline-flex items-center rounded-full bg-green-600 px-2 py-0.5 text-xs font-medium text-white">
+                          Popular
+                        </span>
+                      )}
+                      {tier.aiPowered && (
+                        <span className="absolute -top-2 right-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-2 py-0.5 text-xs font-medium text-white">
+                          <Sparkles className="h-3 w-3" />
+                          AI
+                        </span>
+                      )}
+
+                      {/* Selected check */}
+                      {selectedTier === tier.id && (
+                        <div className="absolute top-2 left-2">
+                          <div className="w-5 h-5 bg-black rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tier name and price */}
+                      <div className={`${selectedTier === tier.id ? 'pl-6' : ''}`}>
+                        <h4 className="font-semibold text-gray-900">{tier.name}</h4>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-xl font-bold text-gray-900">${tier.price}</span>
+                          {tier.price > 0 && <span className="text-sm text-gray-500">/mo</span>}
+                          {tier.price === 0 && <span className="text-sm text-gray-500">Free</span>}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-              )}
+                {selectedTier && selectedTier !== 'basic' && (
+                  <p className="text-xs text-gray-500 mt-3">
+                    You&apos;ll be redirected to complete payment after creating your team.
+                  </p>
+                )}
+              </div>
 
               <div className="flex space-x-3 pt-4">
                 <button
