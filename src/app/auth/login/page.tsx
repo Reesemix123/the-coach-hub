@@ -40,7 +40,28 @@ function LoginForm() {
       setMessageType('error')
       setLoading(false)
     } else {
-      // Successfully logged in - check for redirect destination
+      // Successfully logged in - determine where to route the user
+      const user = data.user
+      const selectedTier = user?.user_metadata?.selected_tier
+
+      // Check if user needs to complete checkout (paid tier, no team yet)
+      if (selectedTier && selectedTier !== 'basic') {
+        // Check if user already has a team (completed setup)
+        const { data: teams } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('user_id', user?.id)
+          .limit(1)
+
+        if (!teams || teams.length === 0) {
+          // No team yet - send to checkout for paid tier
+          router.push(`/checkout?tier=${selectedTier}`)
+          router.refresh()
+          return
+        }
+      }
+
+      // Check for explicit redirect destination
       const next = searchParams.get('next')
       if (next) {
         router.push(next)
