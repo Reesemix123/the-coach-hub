@@ -138,49 +138,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         const newUserId = inviteData.user?.id;
 
         if (newUserId) {
-          // Create a team for the new user
-          const { data: newTeam, error: teamError } = await serviceClient
-            .from('teams')
+          // Create subscription linked to user (team_id = null)
+          // The setup page will link this to a team when user creates one
+          const { error: subError } = await serviceClient
+            .from('subscriptions')
             .insert({
-              name: `${guestName}'s Team`,
-              level: 'High School',
-              colors: { primary: 'Blue', secondary: 'White' },
+              team_id: null,
               user_id: newUserId,
-              has_had_trial: true
-            })
-            .select()
-            .single();
+              tier: finalGrantedTier,
+              status: 'trialing',
+              trial_ends_at: trialEndsAt.toISOString(),
+              billing_waived: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
 
-          if (teamError) {
-            console.error('Error creating team for guest:', teamError);
-          } else if (newTeam) {
-            // Create subscription for the team
-            const { error: subError } = await serviceClient
-              .from('subscriptions')
-              .insert({
-                team_id: newTeam.id,
-                user_id: newUserId,
-                tier: finalGrantedTier,
-                status: 'trialing',
-                trial_ends_at: trialEndsAt.toISOString(),
-                billing_waived: false,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
-
-            if (subError) {
-              console.error('Error creating subscription:', subError);
-            }
-
-            // Update the trial request with the new team and user IDs
-            await serviceClient
-              .from('trial_requests')
-              .update({
-                user_id: newUserId,
-                team_id: newTeam.id
-              })
-              .eq('id', requestId);
+          if (subError) {
+            console.error('Error creating subscription:', subError);
           }
+
+          // Update the trial request with the new user ID
+          await serviceClient
+            .from('trial_requests')
+            .update({
+              user_id: newUserId
+            })
+            .eq('id', requestId);
         }
 
         return NextResponse.json({
