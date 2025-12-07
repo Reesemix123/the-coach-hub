@@ -43,26 +43,33 @@ function LoginForm() {
     } else {
       // Successfully logged in - determine where to route the user
       const user = data.user
-      const selectedTier = user?.user_metadata?.selected_tier
 
-      // Check if user needs to complete checkout (paid tier, no team yet)
-      if (selectedTier && selectedTier !== 'basic') {
-        // Check if user already has a team (completed setup)
-        const { data: teams } = await supabase
-          .from('teams')
-          .select('id')
-          .eq('user_id', user?.id)
-          .limit(1)
+      // Check if user has a team
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('user_id', user?.id)
+        .limit(1)
 
-        if (!teams || teams.length === 0) {
-          // No team yet - send to checkout for paid tier
+      if (!teams || teams.length === 0) {
+        // New user without a team - send to plan selection
+        // Check if they already have a tier selected in metadata
+        const selectedTier = user?.user_metadata?.selected_tier
+        if (selectedTier && selectedTier !== 'basic') {
+          // Has paid tier selected - go to checkout
           router.push(`/checkout?tier=${selectedTier}`)
-          router.refresh()
-          return
+        } else if (selectedTier === 'basic') {
+          // Basic tier - go to setup
+          router.push('/setup?tier=basic')
+        } else {
+          // No tier selected - go to plan selection
+          router.push('/select-plan')
         }
+        router.refresh()
+        return
       }
 
-      // Check for explicit redirect destination
+      // Existing user with team - check for explicit redirect destination
       const next = searchParams.get('next')
       if (next) {
         router.push(next)
