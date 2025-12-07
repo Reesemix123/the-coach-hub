@@ -101,7 +101,35 @@ function SetupForm() {
     // Team created successfully
     const newTeamId = data.id;
 
-    // If a tier was selected that requires payment, redirect to checkout
+    // Check if user has a pending subscription (from signup flow - paid before team creation)
+    const { data: pendingSubscription } = await supabase
+      .from('subscriptions')
+      .select('id, tier, status')
+      .eq('user_id', user?.id)
+      .is('team_id', null)
+      .single();
+
+    if (pendingSubscription) {
+      // Link the pending subscription to this new team
+      const { error: linkError } = await supabase
+        .from('subscriptions')
+        .update({ team_id: newTeamId })
+        .eq('id', pendingSubscription.id);
+
+      if (linkError) {
+        console.error('Error linking subscription to team:', linkError);
+        setMessage('Team created, but there was an issue linking your subscription. Please contact support.');
+        setMessageType('error');
+      } else {
+        console.log(`Linked subscription ${pendingSubscription.id} to team ${newTeamId}`);
+      }
+
+      // Redirect to team dashboard
+      router.push(`/teams/${newTeamId}`);
+      return;
+    }
+
+    // If a tier was selected that requires payment (and no pending subscription), redirect to checkout
     if (selectedTier && selectedTier !== 'basic') {
       // Redirect to Stripe checkout
       setMessage('Redirecting to checkout...');
@@ -151,7 +179,7 @@ function SetupForm() {
         setTeamLevel('');
       }
     } else if (selectedTier === 'basic') {
-      // Basic tier - redirect to team dashboard (will need to subscribe or request trial)
+      // Basic tier - redirect to team dashboard
       router.push(`/teams/${newTeamId}`);
     } else {
       // No tier selected - just refresh and show team list

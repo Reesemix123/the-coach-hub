@@ -97,6 +97,31 @@ async function handleCheckoutCompleted(
 ) {
   const purchaseType = session.metadata?.purchase_type;
   const teamId = session.metadata?.team_id;
+  const userId = session.metadata?.user_id;
+  const isSignupFlow = session.metadata?.signup_flow === 'true';
+
+  // Handle signup flow (user pays before creating team)
+  if (isSignupFlow && userId) {
+    const tier = session.metadata?.tier;
+    const billingCycle = session.metadata?.billing_cycle;
+    console.log(`Signup checkout completed for user ${userId}, tier: ${tier}`);
+
+    // Log audit event
+    await supabase.from('audit_logs').insert({
+      action: 'stripe.signup_checkout_completed',
+      target_type: 'user',
+      target_id: userId,
+      metadata: {
+        session_id: session.id,
+        tier,
+        billing_cycle: billingCycle,
+        customer: session.customer
+      }
+    });
+
+    // The subscription will be created via subscription.created webhook
+    return;
+  }
 
   if (!teamId) {
     console.error('Checkout completed without team_id in metadata');
@@ -190,11 +215,8 @@ async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription
 ) {
   const teamId = subscription.metadata?.team_id;
-
-  if (!teamId) {
-    console.error('Subscription updated without team_id in metadata:', subscription.id);
-    return;
-  }
+  const userId = subscription.metadata?.user_id;
+  const isSignupFlow = subscription.metadata?.signup_flow === 'true';
 
   // Get tier from metadata or from price ID
   let tier = subscription.metadata?.tier;
@@ -205,6 +227,78 @@ async function handleSubscriptionUpdated(
 
   const status = mapStripeStatus(subscription.status);
   const stripePrice = subscription.items.data[0]?.price.id || null;
+
+  // Handle signup flow (subscription linked to user, not team yet)
+  if (isSignupFlow && userId && !teamId) {
+    // Check if subscription already exists for this user
+    const { data: existingSub } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .is('team_id', null)
+      .single();
+
+    if (existingSub) {
+      // Update existing subscription
+      const { error: updateError } = await supabase
+        .from('subscriptions')
+        .update({
+          tier,
+          status,
+          stripe_subscription_id: subscription.id,
+          stripe_price_id: stripePrice,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingSub.id);
+
+      if (updateError) {
+        console.error('Failed to update signup subscription:', updateError);
+      }
+    } else {
+      // Create new subscription for user
+      const { error: insertError } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          team_id: null,
+          tier,
+          status,
+          stripe_subscription_id: subscription.id,
+          stripe_price_id: stripePrice,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Failed to create signup subscription:', insertError);
+      }
+    }
+
+    // Log audit event
+    await supabase.from('audit_logs').insert({
+      action: 'subscription.signup_created',
+      target_type: 'user',
+      target_id: userId,
+      metadata: {
+        status,
+        tier,
+        stripe_subscription_id: subscription.id
+      }
+    });
+
+    console.log(`Created signup subscription for user ${userId}: status=${status}, tier=${tier}`);
+    return;
+  }
+
+  // Regular flow - subscription linked to team
+  if (!teamId) {
+    console.error('Subscription updated without team_id in metadata:', subscription.id);
+    return;
+  }
 
   // Update or create local subscription record
   const { error: upsertError } = await supabase
