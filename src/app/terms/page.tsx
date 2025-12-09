@@ -28,7 +28,7 @@ export default function TermsPage() {
             Terms of Service
           </h1>
           <p className="mt-4 text-sm text-gray-500">
-            Last updated: December 5, 2024
+            Last updated: December 9, 2024
           </p>
         </div>
 
@@ -137,22 +137,29 @@ export default function TermsPage() {
           {/* Section 4 */}
           <section className="mb-16">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
-              4. Storage Limits and Quotas
+              4. Subscription Tiers and Upload Tokens
             </h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              Each subscription tier includes specific storage limits:
+              Each subscription tier includes monthly upload tokens and feature limits:
             </p>
             <ul className="list-disc pl-6 text-gray-700 space-y-2">
-              <li><strong>Basic (Free):</strong> 10 GB storage, 3 coach seats</li>
-              <li><strong>Plus ($29/month):</strong> 50 GB storage, 5 coach seats, 100 AI credits/month</li>
-              <li><strong>Premium ($79/month):</strong> 200 GB storage, 10 coach seats, 500 AI credits/month</li>
-              <li><strong>AI Powered ($149/month):</strong> 500 GB storage, 10 coach seats, 2,000 AI credits/month</li>
+              <li><strong>Basic (Free):</strong> 2 upload tokens/month, 1 camera angle per game, 30-day film retention</li>
+              <li><strong>Plus ($29/month):</strong> 4 upload tokens/month, 3 camera angles per game, 180-day film retention</li>
+              <li><strong>Premium ($79/month):</strong> 8 upload tokens/month, 5 camera angles per game, 365-day film retention</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-4">
-              When you reach your storage limit, you will not be able to upload additional
-              content until you delete existing content or upgrade your plan. We will notify
-              you as you approach your storage limit. Additional storage and coach seats may
-              be purchased as add-ons.
+              <strong>Upload Tokens:</strong> Each token allows you to create one game (either your team's game or
+              an opponent scouting game). Tokens reset monthly at the start of your billing cycle. Unused tokens
+              do not roll over to the next month. Additional tokens may be purchased as add-ons.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              <strong>Film Retention:</strong> Game film is retained for the period specified by your subscription tier.
+              After the retention period, film files may be automatically removed, though your play tags, analytics,
+              and playbook data are retained indefinitely.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              <strong>Camera Angles:</strong> Each tier limits the number of camera angles you can upload per game.
+              This allows you to upload multiple views (e.g., sideline, end zone, all-22) for comprehensive film review.
             </p>
           </section>
 
