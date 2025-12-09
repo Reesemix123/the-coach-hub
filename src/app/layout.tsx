@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import ScrollingNavbar from "@/components/ScrollingNavbar";
 import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
@@ -13,6 +14,15 @@ import { Toaster } from "react-hot-toast";
 export const metadata: Metadata = {
   title: "Youth Coach Hub",
   description: "Football coaching made simple",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -29,8 +39,18 @@ export default function RootLayout({
             <div className="flex justify-between items-center h-20">
               {/* Logo/Brand */}
               <div className="flex items-center gap-8">
-                <Link href="/" className="text-2xl font-semibold text-gray-900 hover:text-gray-700 transition-colors tracking-tight">
-                  Youth Coach Hub
+                <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                  <Image
+                    src="/icon-512.png"
+                    alt="Youth Coach Hub"
+                    width={44}
+                    height={44}
+                    className="rounded-lg"
+                    priority
+                  />
+                  <span className="text-2xl font-semibold text-gray-900 tracking-tight hidden sm:inline">
+                    Youth Coach Hub
+                  </span>
                 </Link>
 
                 {/* Team Context */}

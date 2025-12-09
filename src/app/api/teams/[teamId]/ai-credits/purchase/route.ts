@@ -80,7 +80,7 @@ export async function POST(
     );
   }
 
-  // Verify user is the team owner (only owners can make purchases)
+  // Verify user has access to this team (owner or coach can purchase)
   const { data: team } = await supabase
     .from('teams')
     .select('id, name, user_id, organization_id')
@@ -94,9 +94,24 @@ export async function POST(
     );
   }
 
-  if (team.user_id !== user.id) {
+  // Check if user is owner or coach
+  let canPurchase = team.user_id === user.id;
+
+  if (!canPurchase) {
+    // Check if user is a coach on this team
+    const { data: membership } = await supabase
+      .from('team_memberships')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single();
+
+    canPurchase = membership?.role === 'owner' || membership?.role === 'coach';
+  }
+
+  if (!canPurchase) {
     return NextResponse.json(
-      { error: 'Only team owners can purchase AI minutes' },
+      { error: 'Only team owners and coaches can purchase AI credits' },
       { status: 403 }
     );
   }
@@ -247,6 +262,21 @@ export async function GET(
     }
   }
 
+  // Check if user can purchase (owner or coach)
+  let canPurchase = team.user_id === user.id;
+
+  if (!canPurchase) {
+    // Check if user is a coach on this team
+    const { data: membership } = await supabase
+      .from('team_memberships')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single();
+
+    canPurchase = membership?.role === 'owner' || membership?.role === 'coach';
+  }
+
   // Get purchase history
   const { data: purchases } = await supabase
     .from('ai_credit_purchases')
@@ -276,6 +306,6 @@ export async function GET(
     purchase_history: purchases || [],
     active_purchases: activePurchases,
     total_active_minutes: totalActiveMinutes,
-    can_purchase: team.user_id === user.id
+    can_purchase: canPurchase
   });
 }

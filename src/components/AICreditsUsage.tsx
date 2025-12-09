@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Video, MessageSquare, Zap, ShoppingCart, Clock, AlertTriangle } from 'lucide-react';
+import { Video, Zap, ShoppingCart, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
 
 interface AICreditsData {
   team_id: string;
@@ -124,16 +124,7 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
     );
   }
 
-  const videoUsedPercent = credits?.video_minutes_monthly
-    ? Math.round((credits.video_minutes_used_this_period / credits.video_minutes_monthly) * 100)
-    : 0;
-
-  const textUsedPercent = credits?.text_actions_monthly && credits.text_actions_monthly > 0
-    ? Math.round((credits.text_actions_used_this_period / credits.text_actions_monthly) * 100)
-    : 0;
-
   const lowVideoMinutes = credits?.video_minutes_total !== undefined && credits.video_minutes_total < 10;
-  const lowTextActions = !credits?.is_text_unlimited && credits?.text_actions_remaining !== undefined && credits.text_actions_remaining < 10;
 
   return (
     <div className="space-y-8">
@@ -141,7 +132,7 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
       <div>
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">AI Credits</h2>
         <p className="text-gray-600">
-          Manage your AI video minutes and text actions.
+          Track your AI film tagging credits. These are used for automatic play tagging.
         </p>
       </div>
 
@@ -151,125 +142,92 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
         </div>
       )}
 
-      {/* Current Balance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Video Minutes */}
-        <div className="border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Video className="h-5 w-5 text-purple-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">AI Video Minutes</h3>
-            {credits?.priority_processing && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                <Zap className="h-3 w-3" />
-                Priority
-              </span>
-            )}
+      {/* AI Chat Info */}
+      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <MessageSquare className="h-5 w-5 text-green-600" />
           </div>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Available</span>
-                <span className="font-medium text-gray-900">
-                  {credits?.video_minutes_total || 0} minutes
-                </span>
-              </div>
-              {lowVideoMinutes && (
-                <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Running low on video minutes
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Monthly allocation</span>
-                <span className="text-gray-700">{credits?.video_minutes_monthly || 0} min</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Remaining from subscription</span>
-                <span className="text-gray-700">{credits?.video_minutes_remaining || 0} min</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Purchased (active)</span>
-                <span className="text-gray-700">{credits?.video_minutes_purchased || 0} min</span>
-              </div>
-            </div>
-
-            {credits?.current_period_end && (
-              <div className="text-xs text-gray-500">
-                Resets {new Date(credits.current_period_end).toLocaleDateString()}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Text Actions */}
-        <div className="border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <MessageSquare className="h-5 w-5 text-blue-600" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900">AI Text Actions</h3>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600">Available</span>
-                <span className="font-medium text-gray-900">
-                  {credits?.is_text_unlimited ? (
-                    <span className="text-purple-600">Unlimited</span>
-                  ) : (
-                    `${credits?.text_actions_remaining || 0} actions`
-                  )}
-                </span>
-              </div>
-              {lowTextActions && (
-                <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Running low on text actions
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Monthly allocation</span>
-                <span className="text-gray-700">
-                  {credits?.text_actions_monthly === -1 ? 'Unlimited' : `${credits?.text_actions_monthly || 0} actions`}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Used this period</span>
-                <span className="text-gray-700">{credits?.text_actions_used_this_period || 0} actions</span>
-              </div>
-            </div>
-
-            {credits?.current_period_end && (
-              <div className="text-xs text-gray-500">
-                Resets {new Date(credits.current_period_end).toLocaleDateString()}
-              </div>
-            )}
+          <div>
+            <h4 className="font-medium text-green-900">AI Chat is Free</h4>
+            <p className="text-sm text-green-700 mt-1">
+              AI chat features (Coach AI assistant, play suggestions, etc.) are included free with all subscription tiers.
+              No credits required!
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Purchase More Minutes */}
+      {/* Film Tagging Credits */}
+      <div className="border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Video className="h-5 w-5 text-purple-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900">AI Film Tagging Credits</h3>
+          {credits?.priority_processing && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+              <Zap className="h-3 w-3" />
+              Priority
+            </span>
+          )}
+        </div>
+
+        <p className="text-sm text-gray-600 mb-4">
+          Credits are used when you enable AI auto-tagging for game film. Each minute of video analyzed uses credits.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">Available</span>
+              <span className="font-medium text-gray-900">
+                {credits?.video_minutes_total || 0} credits
+              </span>
+            </div>
+            {lowVideoMinutes && (
+              <div className="flex items-center gap-1 text-xs text-amber-600 mt-1">
+                <AlertTriangle className="h-3 w-3" />
+                Running low on credits
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Monthly allocation</span>
+              <span className="text-gray-700">{credits?.video_minutes_monthly || 0} credits</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Remaining from subscription</span>
+              <span className="text-gray-700">{credits?.video_minutes_remaining || 0} credits</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Purchased (active)</span>
+              <span className="text-gray-700">{credits?.video_minutes_purchased || 0} credits</span>
+            </div>
+          </div>
+
+          {credits?.current_period_end && (
+            <div className="text-xs text-gray-500">
+              Resets {new Date(credits.current_period_end).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Purchase More Credits */}
       {purchaseData?.can_purchase && (
         <div className="border border-gray-200 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-green-100 rounded-lg">
               <ShoppingCart className="h-5 w-5 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Purchase More Video Minutes</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Purchase More Credits</h3>
           </div>
 
           <p className="text-sm text-gray-600 mb-6">
-            Need more AI video analysis? Purchase additional minutes anytime. Valid for 90 days.
+            Need more AI film tagging? Purchase additional credits anytime. Valid for 90 days.
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -289,9 +247,9 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
                 )}
 
                 <div className="text-2xl font-bold text-gray-900">{pkg.minutes}</div>
-                <div className="text-sm text-gray-500 mb-2">minutes</div>
+                <div className="text-sm text-gray-500 mb-2">credits</div>
                 <div className="text-lg font-semibold text-gray-900">{pkg.price_display}</div>
-                <div className="text-xs text-gray-500 mb-3">${pkg.price_per_minute.toFixed(2)}/min</div>
+                <div className="text-xs text-gray-500 mb-3">${pkg.price_per_minute.toFixed(2)}/credit</div>
 
                 <button
                   onClick={() => handlePurchase(pkg.id)}
@@ -313,7 +271,7 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
             <div className="p-2 bg-gray-100 rounded-lg">
               <Clock className="h-5 w-5 text-gray-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Active Purchased Minutes</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Active Purchased Credits</h3>
           </div>
 
           <div className="space-y-3">
@@ -327,7 +285,7 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
                   className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
                 >
                   <div>
-                    <span className="font-medium text-gray-900">{purchase.minutes_remaining} minutes</span>
+                    <span className="font-medium text-gray-900">{purchase.minutes_remaining} credits</span>
                     <span className="text-gray-400 mx-2">·</span>
                     <span className={`text-sm ${daysRemaining < 14 ? 'text-amber-600' : 'text-gray-500'}`}>
                       Expires in {daysRemaining} days
@@ -353,7 +311,7 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-2 text-gray-500 font-medium">Date</th>
-                  <th className="text-left py-2 text-gray-500 font-medium">Minutes</th>
+                  <th className="text-left py-2 text-gray-500 font-medium">Credits</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Price</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Remaining</th>
                   <th className="text-left py-2 text-gray-500 font-medium">Expires</th>
@@ -380,12 +338,12 @@ export default function AICreditsUsage({ teamId, isOwner }: AICreditsUsageProps)
       )}
 
       {/* No Credits Info */}
-      {!credits?.video_minutes_monthly && !credits?.text_actions_monthly && !purchaseData?.active_purchases?.length && (
+      {!credits?.video_minutes_monthly && !purchaseData?.active_purchases?.length && (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <Video className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 mb-2">No AI credits on your current plan</p>
+          <p className="text-gray-500 mb-2">No AI tagging credits on your current plan</p>
           <p className="text-sm text-gray-400">
-            Upgrade to Plus or higher to get monthly AI video minutes and text actions.
+            AI chat features are still available! Upgrade to Plus or higher to get monthly AI film tagging credits.
           </p>
         </div>
       )}

@@ -16,9 +16,13 @@ import {
   Plus,
   Settings,
   Trash2,
-  Shield
+  Shield,
+  Upload,
+  ArrowRight,
+  ChevronDown
 } from 'lucide-react';
 import TrialBanner from '@/components/console/TrialBanner';
+import ConsoleNav from '@/components/console/ConsoleNav';
 
 interface OverviewData {
   organization: {
@@ -34,6 +38,12 @@ interface OverviewData {
   ai_credits: {
     used: number;
     allowed: number;
+    percentage: number;
+  };
+  upload_tokens: {
+    used: number;
+    available: number;
+    total_allocation: number;
     percentage: number;
   };
   billing: {
@@ -79,6 +89,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [showTeamDropdown, setShowTeamDropdown] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -270,21 +281,82 @@ export default function ConsolePage() {
                   {overview?.organization?.name || 'Console'}
                 </h1>
                 <p className="mt-2 text-gray-600">
-                  {overview?.legacy_mode ? 'Manage your teams' : 'Organization Overview'}
+                  {overview?.legacy_mode ? 'Manage your teams' : 'Manage your program'}
                 </p>
               </div>
-              {isPlatformAdmin && (
-                <Link
-                  href="/admin"
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  <Shield className="w-4 h-4" />
-                  Platform Admin
-                </Link>
-              )}
+              <div className="flex items-center gap-3">
+                {/* Go to Team Dashboard Button */}
+                {teams.length > 0 && (
+                  <div className="relative">
+                    {teams.length === 1 ? (
+                      // Single team - direct navigation
+                      <Link
+                        href={`/teams/${teams[0].id}`}
+                        className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        Go to Team Dashboard
+                      </Link>
+                    ) : (
+                      // Multiple teams - dropdown
+                      <>
+                        <button
+                          onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                          Go to Team Dashboard
+                          <ChevronDown className={`w-4 h-4 transition-transform ${showTeamDropdown ? 'rotate-180' : ''}`} />
+                        </button>
+                        {showTeamDropdown && (
+                          <>
+                            {/* Backdrop to close dropdown */}
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setShowTeamDropdown(false)}
+                            />
+                            {/* Dropdown menu */}
+                            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                              <div className="py-2">
+                                <div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Select a team
+                                </div>
+                                {teams.map((team) => (
+                                  <Link
+                                    key={team.id}
+                                    href={`/teams/${team.id}`}
+                                    onClick={() => setShowTeamDropdown(false)}
+                                    className="block px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                                  >
+                                    <div className="font-medium">{team.name}</div>
+                                    <div className="text-xs text-gray-500">{team.level}</div>
+                                  </Link>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {isPlatformAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Platform Admin
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Console Navigation */}
+        <ConsoleNav />
 
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Alerts Section */}
@@ -370,9 +442,43 @@ export default function ConsolePage() {
             </div>
           )}
 
-          {/* AI Credits & Billing Row */}
+          {/* Film Uploads, AI Credits & Billing Row */}
           {overview && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              {/* Film Uploads Card */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Film Uploads</h3>
+                  <Upload className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="mb-4">
+                  <div className="flex items-end gap-2 mb-2">
+                    <span className="text-3xl font-semibold text-gray-900">
+                      {overview.upload_tokens?.available || 0}
+                    </span>
+                    <span className="text-gray-500 mb-1">
+                      available
+                    </span>
+                  </div>
+                  {/* Progress bar - shows usage (inverted) */}
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        overview.upload_tokens?.percentage >= 80
+                          ? 'bg-amber-500'
+                          : overview.upload_tokens?.percentage >= 50
+                          ? 'bg-blue-500'
+                          : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(overview.upload_tokens?.percentage || 0, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  {overview.upload_tokens?.used || 0} of {overview.upload_tokens?.total_allocation || 0} used this period
+                </p>
+              </div>
+
               {/* AI Credits Card */}
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -581,10 +687,10 @@ export default function ConsolePage() {
 
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => router.push(`/teams/${team.id}`)}
+                            onClick={() => router.push(`/console/teams/${team.id}`)}
                             className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
                           >
-                            View
+                            Manage
                           </button>
                           <button
                             onClick={() => router.push(`/teams/${team.id}/settings`)}
