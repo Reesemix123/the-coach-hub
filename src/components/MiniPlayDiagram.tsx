@@ -47,10 +47,10 @@ export default function MiniPlayDiagram({
   if (!diagram || !diagram.players || diagram.players.length === 0) {
     return (
       <div
-        className={`bg-green-800 rounded flex items-center justify-center ${className}`}
-        style={{ width, height }}
+        className={`rounded flex items-center justify-center border-2 border-emerald-500 ${className}`}
+        style={{ width, height, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
       >
-        <span className="text-xs text-green-300">No diagram</span>
+        <span className="text-xs text-emerald-600">No diagram</span>
       </div>
     );
   }
@@ -188,8 +188,8 @@ export default function MiniPlayDiagram({
 
   return (
     <div
-      className={`bg-green-800 rounded overflow-hidden ${className}`}
-      style={{ width, height }}
+      className={`rounded overflow-hidden border-2 border-emerald-500 ${className}`}
+      style={{ width, height, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
     >
       <svg
         width={width}
@@ -259,9 +259,8 @@ export default function MiniPlayDiagram({
           y1={200 * scaleY}
           x2={width}
           y2={200 * scaleY}
-          stroke="#FFFFFF"
-          strokeWidth={1}
-          strokeOpacity={0.5}
+          stroke="#10B981"
+          strokeWidth={1.5}
         />
 
         {/* Yard lines (simplified) */}
@@ -272,9 +271,8 @@ export default function MiniPlayDiagram({
             y1={y * scaleY}
             x2={width}
             y2={y * scaleY}
-            stroke="#FFFFFF"
+            stroke="#10B981"
             strokeWidth={0.5}
-            strokeOpacity={0.2}
           />
         ))}
 

@@ -830,7 +830,7 @@ export default function FieldDiagram({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${FIELD_CONFIG.WIDTH} ${FIELD_CONFIG.HEIGHT}`}
-          className="w-full h-auto bg-green-100"
+          className="w-full h-auto"
           style={{
             touchAction: 'none',
             cursor: isDrawingRoute ? 'crosshair' : 'default'
@@ -858,8 +858,11 @@ export default function FieldDiagram({
           role="application"
           aria-label="Football play diagram - drag players to reposition"
         >
-          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="#2a6e3f" />
+          {/* Field background - light teal/mint with border */}
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="#10B981" fillOpacity="0.1" />
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke="#10B981" strokeWidth="2" />
           
+          {/* Yard lines */}
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
             <line
               key={i}
@@ -867,18 +870,18 @@ export default function FieldDiagram({
               y1={i * 40}
               x2="700"
               y2={i * 40}
-              stroke="white"
+              stroke="#10B981"
               strokeWidth="1"
-              opacity="0.3"
             />
           ))}
 
-          <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
-          <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
+          {/* Hash marks */}
+          <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
+          <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
 
-          {/* Hide line of scrimmage for kickoff and kick return plays */}
+          {/* Line of scrimmage - hide for kickoff and kick return plays */}
           {formation !== 'Kickoff' && formation !== 'Kick Return' && (
-            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="white" strokeWidth="3" />
+            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="#10B981" strokeWidth="2" />
           )}
 
           {/* Dummy Offense (for defensive plays) */}

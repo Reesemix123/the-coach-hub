@@ -1723,8 +1723,11 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                 onClick={handleFieldClick}
                 onDoubleClick={handleFieldDoubleClick}
               >
-                <rect width="700" height="400" fill="#2a6e3f" />
-                
+                {/* Field background - light teal/mint with border */}
+                <rect width="700" height="400" fill="#10B981" fillOpacity="0.1" />
+                <rect width="700" height="400" fill="none" stroke="#10B981" strokeWidth="2" />
+
+                {/* Yard lines */}
                 {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
                   <line
                     key={i}
@@ -1732,16 +1735,17 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
                     y1={i * 40}
                     x2="700"
                     y2={i * 40}
-                    stroke="white"
+                    stroke="#10B981"
                     strokeWidth="1"
-                    opacity="0.3"
                   />
                 ))}
 
-                <line x1="250" y1="0" x2="250" y2="400" stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
-                <line x1="450" y1="0" x2="450" y2="400" stroke="white" strokeWidth="1" strokeDasharray="5,5" opacity="0.5" />
-                
-                <line x1="0" y1="200" x2="700" y2="200" stroke="white" strokeWidth="3" />
+                {/* Hash marks */}
+                <line x1="250" y1="0" x2="250" y2="400" stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
+                <line x1="450" y1="0" x2="450" y2="400" stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
+
+                {/* Line of scrimmage */}
+                <line x1="0" y1="200" x2="700" y2="200" stroke="#10B981" strokeWidth="2" />
 
                 {players.map(player => renderBallCarrierArrow(player))}
                 {players.map(player => renderBlockingArrow(player))}
