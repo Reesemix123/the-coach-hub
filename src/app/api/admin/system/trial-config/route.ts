@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
     for (const tier of trial_allowed_tiers) {
       if (!validTiers.includes(tier)) {
         return NextResponse.json(

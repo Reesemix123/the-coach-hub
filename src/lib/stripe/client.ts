@@ -8,10 +8,9 @@ import { SubscriptionTier } from '@/types/admin';
 // STRIPE PRODUCT IDS (for reference - actual checkout uses Price IDs)
 // =============================================================================
 export const STRIPE_PRODUCT_IDS = {
-  // Subscription products
+  // Subscription products (ai_powered removed in tier update)
   plus: 'prod_TY6uP1VMleLZBG',
   premium: 'prod_TY6w1hsD5lYjLa',
-  ai_powered: 'prod_TY6yhcO3ZM4060',
   // One-time purchase products (extra video minutes)
   minutes_15: 'prod_TY71D0kW83GrZ4',
   minutes_30: 'prod_TY74MlwZPonHsm',
@@ -71,6 +70,7 @@ export function getPriceIdForTier(
     return null;
   }
 
+  // ai_powered tier removed in tier update
   const priceMap: Record<Exclude<SubscriptionTier, 'basic'>, { monthly?: string; yearly?: string }> = {
     'plus': {
       monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY,
@@ -79,10 +79,6 @@ export function getPriceIdForTier(
     'premium': {
       monthly: process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
       yearly: process.env.STRIPE_PRICE_PREMIUM_YEARLY
-    },
-    'ai_powered': {
-      monthly: process.env.STRIPE_PRICE_AI_POWERED_MONTHLY,
-      yearly: process.env.STRIPE_PRICE_AI_POWERED_YEARLY
     }
   };
 
@@ -90,6 +86,7 @@ export function getPriceIdForTier(
 }
 
 // Map Stripe price IDs back to tiers (checks all billing cycles)
+// ai_powered tier removed in tier update
 export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
   const tierMap: Record<string, SubscriptionTier> = {};
 
@@ -100,9 +97,6 @@ export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
   if (process.env.STRIPE_PRICE_PREMIUM_MONTHLY) {
     tierMap[process.env.STRIPE_PRICE_PREMIUM_MONTHLY] = 'premium';
   }
-  if (process.env.STRIPE_PRICE_AI_POWERED_MONTHLY) {
-    tierMap[process.env.STRIPE_PRICE_AI_POWERED_MONTHLY] = 'ai_powered';
-  }
 
   // Yearly prices
   if (process.env.STRIPE_PRICE_PLUS_YEARLY) {
@@ -111,25 +105,21 @@ export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
   if (process.env.STRIPE_PRICE_PREMIUM_YEARLY) {
     tierMap[process.env.STRIPE_PRICE_PREMIUM_YEARLY] = 'premium';
   }
-  if (process.env.STRIPE_PRICE_AI_POWERED_YEARLY) {
-    tierMap[process.env.STRIPE_PRICE_AI_POWERED_YEARLY] = 'ai_powered';
-  }
 
   return tierMap[priceId] || null;
 }
 
 // Get billing cycle from price ID
+// ai_powered tier removed in tier update
 export function getBillingCycleFromPriceId(priceId: string): BillingCycle | null {
   const monthlyPrices = [
     process.env.STRIPE_PRICE_PLUS_MONTHLY,
-    process.env.STRIPE_PRICE_PREMIUM_MONTHLY,
-    process.env.STRIPE_PRICE_AI_POWERED_MONTHLY
+    process.env.STRIPE_PRICE_PREMIUM_MONTHLY
   ].filter(Boolean);
 
   const yearlyPrices = [
     process.env.STRIPE_PRICE_PLUS_YEARLY,
-    process.env.STRIPE_PRICE_PREMIUM_YEARLY,
-    process.env.STRIPE_PRICE_AI_POWERED_YEARLY
+    process.env.STRIPE_PRICE_PREMIUM_YEARLY
   ].filter(Boolean);
 
   if (monthlyPrices.includes(priceId)) return 'monthly';

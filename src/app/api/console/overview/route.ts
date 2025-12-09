@@ -29,6 +29,12 @@ interface OverviewResponse {
     allowed: number;
     percentage: number;
   };
+  upload_tokens: {
+    used: number;
+    available: number;
+    total_allocation: number;
+    percentage: number;
+  };
   billing: {
     status: 'current' | 'past_due' | 'no_payment_method' | 'trial' | 'waived' | 'none';
     next_billing_date: string | null;
@@ -156,6 +162,40 @@ export async function GET() {
     });
   }
 
+  // Get upload tokens across all teams
+  let tokensUsed = 0;
+  let tokensAvailable = 0;
+  let tokensTotalAllocation = 0;
+  if (teamIds.length > 0) {
+    const { data: tokenBalances } = await supabase
+      .from('token_balance')
+      .select('subscription_tokens_available, subscription_tokens_used_this_period, purchased_tokens_available')
+      .in('team_id', teamIds);
+
+    tokenBalances?.forEach(tb => {
+      tokensUsed += tb.subscription_tokens_used_this_period || 0;
+      tokensAvailable += (tb.subscription_tokens_available || 0) + (tb.purchased_tokens_available || 0);
+    });
+
+    // Get tier allocations for total allocation calculation
+    const { data: subscriptions } = await supabase
+      .from('subscriptions')
+      .select('tier')
+      .in('team_id', teamIds);
+
+    // Tier allocation mapping (matching tier_config)
+    const tierTokens: Record<string, number> = {
+      'basic': 2,
+      'plus': 4,
+      'premium': 8,
+      'ai_powered': 8
+    };
+
+    subscriptions?.forEach(s => {
+      tokensTotalAllocation += tierTokens[s.tier] || 4;
+    });
+  }
+
   // Get billing status from subscriptions
   let billingStatus: OverviewResponse['billing']['status'] = 'none';
   let monthlyTotal = 0;
@@ -271,6 +311,27 @@ export async function GET() {
     });
   }
 
+  // Check for low upload tokens (teams with <=1 token remaining)
+  if (teamIds.length > 0) {
+    const { data: lowTokenTeams } = await supabase
+      .from('token_balance')
+      .select('team_id, subscription_tokens_available, purchased_tokens_available')
+      .in('team_id', teamIds);
+
+    lowTokenTeams?.forEach(tb => {
+      const total = (tb.subscription_tokens_available || 0) + (tb.purchased_tokens_available || 0);
+      if (total <= 1) {
+        const team = teams.find(t => t.id === tb.team_id);
+        alerts.push({
+          type: 'low_tokens',
+          message: `${team?.name || 'A team'} has ${total} film upload${total === 1 ? '' : 's'} remaining`,
+          team_id: tb.team_id,
+          action_url: `/teams/${tb.team_id}/settings/addons`
+        });
+      }
+    });
+  }
+
   const response: OverviewResponse = {
     organization,
     summary: {
@@ -283,6 +344,12 @@ export async function GET() {
       used: aiCreditsUsed,
       allowed: aiCreditsAllowed,
       percentage: aiCreditsAllowed > 0 ? Math.round((aiCreditsUsed / aiCreditsAllowed) * 100) : 0
+    },
+    upload_tokens: {
+      used: tokensUsed,
+      available: tokensAvailable,
+      total_allocation: tokensTotalAllocation,
+      percentage: tokensTotalAllocation > 0 ? Math.round((tokensUsed / tokensTotalAllocation) * 100) : 0
     },
     billing: {
       status: billingStatus,

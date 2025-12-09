@@ -7,12 +7,13 @@ import AuthGuard from '@/components/AuthGuard';
 import Link from 'next/link';
 import {
   AlertCircle,
-  ChevronLeft,
   Trophy,
   Film,
   Users,
-  Zap
+  Zap,
+  Upload
 } from 'lucide-react';
+import ConsoleNav from '@/components/console/ConsoleNav';
 import {
   LineChart,
   Line,
@@ -33,6 +34,7 @@ interface TeamUsage {
   team_name: string;
   games: number;
   plays: number;
+  tokens_used: number;
   ai_credits_used: number;
   active_users: number;
 }
@@ -42,6 +44,7 @@ interface UsageData {
   time_series: {
     games: TimeSeriesPoint[];
     plays: TimeSeriesPoint[];
+    tokens: TimeSeriesPoint[];
     active_users: TimeSeriesPoint[];
     ai_credits: TimeSeriesPoint[];
   };
@@ -49,6 +52,7 @@ interface UsageData {
   totals: {
     games: number;
     plays: number;
+    tokens_used: number;
     ai_credits_used: number;
     active_users: number;
   };
@@ -167,21 +171,13 @@ export default function ConsoleUsagePage() {
         <div className="border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-8">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link
-                  href="/console"
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                </Link>
-                <div>
-                  <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
-                    Usage
-                  </h1>
-                  <p className="text-gray-600 mt-1">
-                    Platform activity and trends
-                  </p>
-                </div>
+              <div>
+                <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+                  Usage
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Platform activity and trends
+                </p>
               </div>
 
               {/* Period Selector */}
@@ -206,9 +202,12 @@ export default function ConsoleUsagePage() {
           </div>
         </div>
 
+        {/* Console Navigation */}
+        <ConsoleNav />
+
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-white border border-gray-200 rounded-xl p-5">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-gray-100 rounded-lg">
@@ -230,6 +229,18 @@ export default function ConsoleUsagePage() {
               </div>
               <div className="text-2xl font-semibold text-gray-900">
                 {usageData?.totals.plays.toLocaleString() || 0}
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-gray-100 rounded-lg">
+                  <Upload className="w-4 h-4 text-gray-600" />
+                </div>
+                <span className="text-sm text-gray-600">Film Uploads</span>
+              </div>
+              <div className="text-2xl font-semibold text-gray-900">
+                {usageData?.totals.tokens_used || 0}
               </div>
             </div>
 
@@ -356,6 +367,54 @@ export default function ConsoleUsagePage() {
               </div>
             </div>
 
+            {/* Film Uploads Chart */}
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Film Uploads Used</h3>
+              <div className="h-48">
+                {usageData?.time_series.tokens && usageData.time_series.tokens.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={usageData.time_series.tokens}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={formatDate}
+                        stroke="#86868B"
+                        fontSize={12}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        stroke="#86868B"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        labelFormatter={(value) => formatDate(value as string)}
+                        contentStyle={{
+                          backgroundColor: '#fff',
+                          border: '1px solid #E5E5E5',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="count"
+                        stroke="#5856D6"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, fill: '#5856D6' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-400">
+                    No data for this period
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Active Users Chart */}
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Active Users</h3>
@@ -464,6 +523,7 @@ export default function ConsoleUsagePage() {
                       <th className="pb-3 font-medium">Team</th>
                       <th className="pb-3 font-medium text-right">Games</th>
                       <th className="pb-3 font-medium text-right">Plays</th>
+                      <th className="pb-3 font-medium text-right">Film Uploads</th>
                       <th className="pb-3 font-medium text-right">AI Credits</th>
                       <th className="pb-3 font-medium text-right">Active Users</th>
                     </tr>
@@ -481,6 +541,7 @@ export default function ConsoleUsagePage() {
                         </td>
                         <td className="py-4 text-right text-gray-900">{team.games}</td>
                         <td className="py-4 text-right text-gray-900">{team.plays.toLocaleString()}</td>
+                        <td className="py-4 text-right text-gray-900">{team.tokens_used}</td>
                         <td className="py-4 text-right text-gray-900">{team.ai_credits_used}</td>
                         <td className="py-4 text-right text-gray-900">{team.active_users}</td>
                       </tr>
@@ -491,6 +552,7 @@ export default function ConsoleUsagePage() {
                       <td className="pt-4 text-gray-900">Total</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.games}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.plays.toLocaleString()}</td>
+                      <td className="pt-4 text-right text-gray-900">{usageData.totals.tokens_used}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.ai_credits_used}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.active_users}</td>
                     </tr>

@@ -34,12 +34,14 @@ export interface OrganizationWithTeams extends Organization {
 // Subscription
 // ============================================================================
 
-export type SubscriptionTier = 'basic' | 'plus' | 'premium' | 'ai_powered';
+// Subscription tiers - ai_powered removed in tier update
+export type SubscriptionTier = 'basic' | 'plus' | 'premium';
 export type SubscriptionStatus = 'none' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'waived';
 
 export interface Subscription {
   id: string;
-  team_id: string;
+  team_id: string | null; // Nullable for user-level subscriptions
+  user_id: string | null; // User-level subscriptions (before team creation)
   tier: SubscriptionTier;
   status: SubscriptionStatus;
   billing_waived: boolean;
@@ -100,7 +102,7 @@ export interface PlatformConfig {
   updated_by: string | null;
 }
 
-// Typed config values
+// Legacy typed config values (for backward compatibility with platform_config)
 export interface TierConfigValue {
   name: string;
   description: string;
@@ -115,7 +117,53 @@ export interface TierConfigs {
   basic: TierConfigValue;
   plus: TierConfigValue;
   premium: TierConfigValue;
-  ai_powered: TierConfigValue;
+}
+
+// ============================================================================
+// New Tier Config (from tier_config table)
+// ============================================================================
+
+export interface TierConfig {
+  tier_key: SubscriptionTier;
+  display_name: string;
+  description: string | null;
+  tagline: string | null;
+
+  // Game & Storage Limits
+  max_active_games: number | null; // null = unlimited
+  max_team_games: number | null;
+  max_opponent_games: number | null;
+  retention_days: number;
+  max_cameras_per_game: number;
+
+  // Upload Token System
+  monthly_upload_tokens: number;
+  token_rollover_cap: number;
+
+  // Video Requirements
+  max_video_duration_seconds: number;
+  max_resolution: string;
+  max_fps: number;
+
+  // AI Features
+  ai_chat_enabled: boolean;
+  ai_film_tagging_enabled: boolean;
+  ai_film_credits_monthly: number;
+
+  // Stripe Integration
+  stripe_price_id_monthly: string | null;
+  stripe_price_id_yearly: string | null;
+  price_monthly_cents: number;
+  price_yearly_cents: number;
+
+  // Display
+  sort_order: number;
+  is_active: boolean;
+  features: string[];
+
+  // Metadata
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TrialConfig {

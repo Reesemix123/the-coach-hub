@@ -8,13 +8,13 @@ import Link from 'next/link';
 import {
   Users,
   AlertCircle,
-  ChevronLeft,
   MoreHorizontal,
   Mail,
   UserMinus,
   UserPlus,
   Clock
 } from 'lucide-react';
+import ConsoleNav from '@/components/console/ConsoleNav';
 
 interface TeamInfo {
   id: string;
@@ -245,22 +245,17 @@ export default function ConsolePeoplePage() {
         {/* Header */}
         <div className="border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Link
-                href="/console"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </Link>
-              <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
-                People
-              </h1>
-            </div>
-            <p className="text-gray-600 ml-11">
+            <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+              People
+            </h1>
+            <p className="text-gray-600 mt-2">
               Manage access across all teams
             </p>
           </div>
         </div>
+
+        {/* Console Navigation */}
+        <ConsoleNav />
 
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Filter Pills */}

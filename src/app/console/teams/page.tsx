@@ -12,14 +12,15 @@ import {
   Film,
   Zap,
   AlertCircle,
-  ChevronLeft,
   Plus,
   Settings,
   Trash2,
   Clock,
   CreditCard,
-  ChevronRight
+  ChevronRight,
+  Upload
 } from 'lucide-react';
+import ConsoleNav from '@/components/console/ConsoleNav';
 
 interface TeamData {
   id: string;
@@ -40,6 +41,11 @@ interface TeamData {
     used: number;
     allowed: number;
     percentage: number;
+  };
+  upload_tokens: {
+    available: number;
+    used_this_period: number;
+    allocation: number;
   };
 }
 
@@ -220,6 +226,30 @@ export default function ConsoleTeamsPage() {
     );
   }
 
+  function getTokensIndicator(upload_tokens: TeamData['upload_tokens']) {
+    const { available, allocation } = upload_tokens;
+    const usagePercent = allocation > 0 ? Math.round(((allocation - available) / allocation) * 100) : 0;
+
+    let colorClass = 'bg-green-500';
+    if (available <= 1) {
+      colorClass = 'bg-red-500';
+    } else if (available <= Math.ceil(allocation / 2)) {
+      colorClass = 'bg-amber-500';
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        <div className="w-16 bg-gray-200 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full ${colorClass}`}
+            style={{ width: `${Math.min(usagePercent, 100)}%` }}
+          />
+        </div>
+        <span className="text-xs text-gray-600">{available}/{allocation}</span>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <AuthGuard>
@@ -274,23 +304,18 @@ export default function ConsoleTeamsPage() {
         {/* Header */}
         <div className="border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Link
-                href="/console"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </Link>
-              <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
-                Teams
-              </h1>
-            </div>
-            <p className="text-gray-600 ml-11">
+            <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+              Teams
+            </h1>
+            <p className="text-gray-600 mt-2">
               {teams.length} team{teams.length !== 1 ? 's' : ''}
               {teamsData?.totals.monthly_cost ? ` · $${teamsData.totals.monthly_cost}/mo` : ''}
             </p>
           </div>
         </div>
+
+        {/* Console Navigation */}
+        <ConsoleNav />
 
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Actions Bar */}
@@ -438,21 +463,28 @@ export default function ConsoleTeamsPage() {
                         </span>
                       </div>
 
-                      {/* Row 3: AI Credits */}
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">AI Credits:</span>
-                        {getAICreditsIndicator(team.ai_credits)}
+                      {/* Row 3: Film Uploads & AI Credits */}
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <Upload className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">Film Uploads:</span>
+                          {getTokensIndicator(team.upload_tokens)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">AI Credits:</span>
+                          {getAICreditsIndicator(team.ai_credits)}
+                        </div>
                       </div>
                     </div>
 
                     {/* Right side - Actions */}
                     <div className="flex items-center gap-2 ml-4">
                       <Link
-                        href={`/teams/${team.id}`}
+                        href={`/console/teams/${team.id}`}
                         className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
                       >
-                        View
+                        Manage
                       </Link>
                       <button
                         onClick={() => router.push(`/teams/${team.id}/settings`)}

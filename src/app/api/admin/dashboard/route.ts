@@ -107,12 +107,11 @@ export async function GET() {
       .from('subscriptions')
       .select('team_id, tier, status');
 
-    // Count teams by tier
+    // Count teams by tier (ai_powered removed)
     const byTier: Record<SubscriptionTier, number> = {
       basic: 0,
       plus: 0,
-      premium: 0,
-      ai_powered: 0
+      premium: 0
     };
 
     let trialCount = 0;

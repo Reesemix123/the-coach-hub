@@ -14,6 +14,7 @@ interface TeamUsage {
   team_name: string;
   games: number;
   plays: number;
+  tokens_used: number;
   ai_credits_used: number;
   active_users: number;
 }
@@ -23,6 +24,7 @@ interface UsageResponse {
   time_series: {
     games: TimeSeriesPoint[];
     plays: TimeSeriesPoint[];
+    tokens: TimeSeriesPoint[];
     active_users: TimeSeriesPoint[];
     ai_credits: TimeSeriesPoint[];
   };
@@ -30,6 +32,7 @@ interface UsageResponse {
   totals: {
     games: number;
     plays: number;
+    tokens_used: number;
     ai_credits_used: number;
     active_users: number;
   };
@@ -150,11 +153,12 @@ export async function GET(request: NextRequest) {
       time_series: {
         games: [],
         plays: [],
+        tokens: [],
         active_users: [],
         ai_credits: []
       },
       by_team: [],
-      totals: { games: 0, plays: 0, ai_credits_used: 0, active_users: 0 }
+      totals: { games: 0, plays: 0, tokens_used: 0, ai_credits_used: 0, active_users: 0 }
     });
   }
 
@@ -197,6 +201,14 @@ export async function GET(request: NextRequest) {
     .from('ai_usage_logs')
     .select('team_id, user_id, feature, credits_used, created_at')
     .in('team_id', teamIds)
+    .gte('created_at', startDateStr);
+
+  // Fetch token transactions for time series (consumption only)
+  const { data: tokenTransactions } = await supabase
+    .from('token_transactions')
+    .select('team_id, amount, transaction_type, created_at')
+    .in('team_id', teamIds)
+    .eq('transaction_type', 'consumption')
     .gte('created_at', startDateStr);
 
   // Fetch active users (unique users with last_active_at in period)
@@ -266,6 +278,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Token consumption time series
+  const tokensBuckets = initializeBuckets();
+  let totalTokensUsed = 0;
+
+  tokenTransactions?.forEach(tx => {
+    const bucket = bucketDate(tx.created_at, bucketSize, startDate);
+    const amount = Math.abs(tx.amount); // Consumption amounts are negative, so use absolute
+    tokensBuckets.set(bucket, (tokensBuckets.get(bucket) || 0) + amount);
+    totalTokensUsed += amount;
+  });
+
   // Convert buckets to time series arrays
   const convertToTimeSeries = (buckets: Map<string, number>): TimeSeriesPoint[] => {
     return Array.from(buckets.entries())
@@ -276,6 +299,7 @@ export async function GET(request: NextRequest) {
   // Calculate by-team breakdown
   const teamGames: Record<string, number> = {};
   const teamPlays: Record<string, number> = {};
+  const teamTokens: Record<string, number> = {};
   const teamCredits: Record<string, number> = {};
   const teamUsers: Record<string, Set<string>> = {};
 
@@ -283,6 +307,7 @@ export async function GET(request: NextRequest) {
   teamIds.forEach(id => {
     teamGames[id] = 0;
     teamPlays[id] = 0;
+    teamTokens[id] = 0;
     teamCredits[id] = 0;
     teamUsers[id] = new Set();
   });
@@ -310,6 +335,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Tokens consumed per team
+  tokenTransactions?.forEach(tx => {
+    if (tx.team_id) {
+      teamTokens[tx.team_id] = (teamTokens[tx.team_id] || 0) + Math.abs(tx.amount);
+    }
+  });
+
   // Active users per team
   teams.forEach(t => {
     if (teamUsers[t.id]) {
@@ -333,6 +365,7 @@ export async function GET(request: NextRequest) {
     team_name: teamMap.get(id) || 'Unknown',
     games: teamGames[id] || 0,
     plays: teamPlays[id] || 0,
+    tokens_used: teamTokens[id] || 0,
     ai_credits_used: teamCredits[id] || 0,
     active_users: teamUsers[id]?.size || 0
   })).sort((a, b) => b.plays - a.plays); // Sort by most active
@@ -341,6 +374,7 @@ export async function GET(request: NextRequest) {
   const totals = {
     games: games?.length || 0,
     plays: plays?.length || 0,
+    tokens_used: totalTokensUsed,
     ai_credits_used: totalAiCreditsUsed,
     active_users: activeUsersInPeriod.size
   };
@@ -350,6 +384,7 @@ export async function GET(request: NextRequest) {
     time_series: {
       games: convertToTimeSeries(gamesBuckets),
       plays: convertToTimeSeries(playsBuckets),
+      tokens: convertToTimeSeries(tokensBuckets),
       active_users: convertToTimeSeries(activeUsersBuckets),
       ai_credits: convertToTimeSeries(aiCreditsBuckets)
     },

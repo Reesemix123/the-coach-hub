@@ -6,12 +6,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/admin/auth';
 import { SubscriptionTier, SubscriptionStatus } from '@/types/admin';
 
-// Tier pricing in cents
+// Tier pricing in cents (ai_powered removed)
 const TIER_PRICES: Record<SubscriptionTier, number> = {
   basic: 0,
   plus: 2900, // $29
-  premium: 7900, // $79
-  ai_powered: 14900 // $149 (future tier)
+  premium: 7900 // $79
 };
 
 interface MRRTrendItem {
@@ -85,8 +84,7 @@ export async function GET(request: NextRequest) {
     const mrrByTier: Record<SubscriptionTier, number> = {
       basic: 0,
       plus: 0,
-      premium: 0,
-      ai_powered: 0
+      premium: 0
     };
 
     const statusCounts: Record<string, number> = {
@@ -174,8 +172,7 @@ export async function GET(request: NextRequest) {
       mrr_by_tier: {
         basic: Math.round(mrrByTier.basic / 100),
         plus: Math.round(mrrByTier.plus / 100),
-        premium: Math.round(mrrByTier.premium / 100),
-        ai_powered: Math.round(mrrByTier.ai_powered / 100)
+        premium: Math.round(mrrByTier.premium / 100)
       },
       mrr_trend: mrrTrend,
       subscriptions: {

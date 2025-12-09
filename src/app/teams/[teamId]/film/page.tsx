@@ -14,6 +14,9 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
 import { getOpponentTendencies } from '@/lib/services/opponent-analytics.service';
 import type { OpponentProfile } from '@/types/football';
+import { useTokenBalance } from '@/components/TokenBalanceCard';
+import { Upload, AlertTriangle, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 interface Team {
   id: string;
@@ -72,8 +75,12 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [showTendenciesModal, setShowTendenciesModal] = useState(false);
   const [selectedOpponentProfile, setSelectedOpponentProfile] = useState<OpponentProfile | null>(null);
   const [loadingTendencies, setLoadingTendencies] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   const router = useRouter();
+
+  // Token balance for game creation gating
+  const { balance: tokenBalance, loading: tokenLoading, refetch: refetchTokens } = useTokenBalance(teamId);
   const supabase = createClient();
 
   // Multi-select for videos
@@ -269,6 +276,12 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   };
 
   const handleCreateOpponentGame = async (formData: any) => {
+    // Check token availability first
+    if (!tokenBalance || tokenBalance.totalAvailable < 1) {
+      setTokenError('No upload tokens available. Purchase additional tokens or wait for your next billing cycle.');
+      return;
+    }
+
     try {
       const { data: userData } = await supabase.auth.getUser();
 
@@ -278,18 +291,36 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         is_opponent_game: true, // Force this to be an opponent game
       };
 
-      const { error } = await supabase
+      const { data: gameData, error } = await supabase
         .from('games')
         .insert({
           team_id: teamId,
           user_id: userData.user?.id,
           ...cleanData
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      // Refresh the games list
+      // Consume a token for this game
+      const consumeResponse = await fetch('/api/tokens/consume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: teamId,
+          game_id: gameData.id
+        })
+      });
+
+      if (!consumeResponse.ok) {
+        console.error('Warning: Failed to consume token for game');
+        // Don't fail the game creation - token consumption is secondary
+      }
+
+      // Refresh the games list and token balance
       await fetchData();
+      refetchTokens();
 
       // Close modal
       setShowOpponentGameModal(false);
@@ -303,6 +334,12 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   };
 
   const handleCreateOwnTeamGame = async (formData: any) => {
+    // Check token availability first
+    if (!tokenBalance || tokenBalance.totalAvailable < 1) {
+      setTokenError('No upload tokens available. Purchase additional tokens or wait for your next billing cycle.');
+      return;
+    }
+
     try {
       const { data: userData } = await supabase.auth.getUser();
 
@@ -312,18 +349,36 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
         is_opponent_game: false, // This is an own team game
       };
 
-      const { error } = await supabase
+      const { data: gameData, error } = await supabase
         .from('games')
         .insert({
           team_id: teamId,
           user_id: userData.user?.id,
           ...cleanData
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      // Refresh the games list
+      // Consume a token for this game
+      const consumeResponse = await fetch('/api/tokens/consume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: teamId,
+          game_id: gameData.id
+        })
+      });
+
+      if (!consumeResponse.ok) {
+        console.error('Warning: Failed to consume token for game');
+        // Don't fail the game creation - token consumption is secondary
+      }
+
+      // Refresh the games list and token balance
       await fetchData();
+      refetchTokens();
 
       // Close modal
       setShowOwnTeamGameModal(false);
@@ -434,6 +489,55 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           </div>
         </div>
       </div>
+
+      {/* Token Balance Banner */}
+      {!tokenLoading && tokenBalance && (
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-6 py-3">
+            <div
+              className={`rounded-lg px-4 py-3 ${
+                tokenBalance.totalAvailable <= 1
+                  ? 'bg-amber-50 border border-amber-200'
+                  : 'bg-gray-50 border border-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  {tokenBalance.totalAvailable <= 1 ? (
+                    <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                  ) : (
+                    <Upload className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                  )}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className={tokenBalance.totalAvailable <= 1 ? 'text-amber-800 font-medium' : 'text-gray-700'}>
+                      Film Uploads: <span className="font-semibold">{tokenBalance.totalAvailable}</span> remaining
+                    </span>
+                    {tokenBalance.totalAvailable > 0 && (
+                      <span className="text-gray-500">
+                        ({Math.floor(tokenBalance.totalAvailable / 2)} team + {Math.floor(tokenBalance.totalAvailable / 2) + (tokenBalance.totalAvailable % 2)} opponent)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  {tokenBalance.periodEnd && (
+                    <span className="text-gray-500">
+                      Resets {new Date(tokenBalance.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                  <Link
+                    href={`/teams/${teamId}/settings/addons`}
+                    className="text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium"
+                  >
+                    Purchase more
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -808,12 +912,23 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {gameTypeFilter === 'own-team' && (
                   <tr className="bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
-                      Add a new game to upload {team.name} film
+                      {tokenBalance && tokenBalance.totalAvailable < 1 ? (
+                        <span className="text-amber-700">
+                          No tokens available.{' '}
+                          <Link href={`/teams/${teamId}/settings/addons`} className="underline hover:no-underline">
+                            Purchase more
+                          </Link>{' '}
+                          to add games.
+                        </span>
+                      ) : (
+                        `Add a new game to upload ${team.name} film`
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right text-sm">
                       <button
                         onClick={() => setShowOwnTeamGameModal(true)}
-                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                        disabled={!tokenBalance || tokenBalance.totalAvailable < 1}
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         Add Game
                       </button>
@@ -825,12 +940,23 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {gameTypeFilter === 'opponent' && (
                   <tr className="bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
-                      Add a new opponent game to upload scouting film
+                      {tokenBalance && tokenBalance.totalAvailable < 1 ? (
+                        <span className="text-amber-700">
+                          No tokens available.{' '}
+                          <Link href={`/teams/${teamId}/settings/addons`} className="underline hover:no-underline">
+                            Purchase more
+                          </Link>{' '}
+                          to add games.
+                        </span>
+                      ) : (
+                        'Add a new opponent game to upload scouting film'
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right text-sm">
                       <button
                         onClick={() => setShowOpponentGameModal(true)}
-                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                        disabled={!tokenBalance || tokenBalance.totalAvailable < 1}
+                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         Add Game
                       </button>

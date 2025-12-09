@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate tier
-    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
     if (!validTiers.includes(tier as SubscriptionTier)) {
       return NextResponse.json(
         { error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` },

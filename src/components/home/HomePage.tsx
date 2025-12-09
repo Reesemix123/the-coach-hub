@@ -12,6 +12,7 @@ function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [trialsEnabled, setTrialsEnabled] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialSubmitting, setTrialSubmitting] = useState(false);
   const [trialMessage, setTrialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -24,14 +25,33 @@ function HomeContent() {
 
   useEffect(() => {
     checkUserTeams();
+    checkTrialsEnabled();
   }, []);
 
-  // Auto-open trial modal if ?trial=true is in URL
+  // Auto-open trial modal if ?trial=true is in URL (only if trials enabled)
   useEffect(() => {
-    if (searchParams.get('trial') === 'true') {
+    if (searchParams.get('trial') === 'true' && trialsEnabled) {
       setShowTrialModal(true);
     }
-  }, [searchParams]);
+  }, [searchParams, trialsEnabled]);
+
+  async function checkTrialsEnabled() {
+    try {
+      // Check platform config for trial_enabled
+      const { data } = await supabase
+        .from('platform_config')
+        .select('value')
+        .eq('key', 'trial_enabled')
+        .single();
+
+      // Value could be boolean 'false' (string) or actual boolean
+      const enabled = data?.value === true || data?.value === 'true';
+      setTrialsEnabled(enabled);
+    } catch {
+      // If config doesn't exist, default to disabled
+      setTrialsEnabled(false);
+    }
+  }
 
   async function handleRequestTrial() {
     // Validate all required fields
@@ -176,13 +196,15 @@ function HomeContent() {
                 <Play className="h-4 w-4" />
                 Take a Tour
               </button>
-              <button
-                onClick={() => setShowTrialModal(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <Gift className="h-4 w-4" />
-                Request Free Trial
-              </button>
+              {trialsEnabled && (
+                <button
+                  onClick={() => setShowTrialModal(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  <Gift className="h-4 w-4" />
+                  Request Free Trial
+                </button>
+              )}
             </div>
             <Link
               href="/pricing"
@@ -253,8 +275,8 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* Trial Request Modal */}
-      {showTrialModal && (
+      {/* Trial Request Modal - only show if trials are enabled */}
+      {showTrialModal && trialsEnabled && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
@@ -331,7 +353,6 @@ function HomeContent() {
                     <option value="basic">Basic (Free) - Digital playbook, film upload</option>
                     <option value="plus">Plus ($29/mo) - Full analytics, drive-by-drive</option>
                     <option value="premium">Premium ($79/mo) - Advanced analytics, O-Line grading</option>
-                    <option value="ai_powered">AI Powered ($199/mo) - Coming soon with AI features</option>
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
                     You can discuss plan options with us during the trial review.

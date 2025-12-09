@@ -6,12 +6,11 @@ import { NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/admin/auth';
 import { SubscriptionTier } from '@/types/admin';
 
-// Tier pricing in cents
+// Tier pricing in cents (ai_powered removed)
 const TIER_PRICES: Record<SubscriptionTier, number> = {
   basic: 0,
   plus: 2900, // $29
-  premium: 7900, // $79
-  ai_powered: 14900 // $149 (future tier)
+  premium: 7900 // $79
 };
 
 interface ChurnedOrganization {

@@ -84,11 +84,29 @@ export async function GET(request: NextRequest) {
  *   email: string (required)
  *   name?: string (optional)
  *   reason?: string (optional)
- *   requested_tier?: string (optional, defaults to 'hs_basic')
+ *   requested_tier?: string (optional, defaults to 'plus')
  * }
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check if trials are enabled via platform config
+    const serviceClient = getServiceClient();
+
+    const { data: trialConfig } = await serviceClient
+      .from('platform_config')
+      .select('value')
+      .eq('key', 'trial_enabled')
+      .single();
+
+    const trialsEnabled = trialConfig?.value === true || trialConfig?.value === 'true';
+
+    if (!trialsEnabled) {
+      return NextResponse.json(
+        { error: 'Trial requests are not currently available. Please check our pricing page for subscription options.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { email, name, reason, requested_tier } = body;
 
@@ -125,12 +143,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate tier - use standardized tier names
-    const validTiers = ['basic', 'plus', 'premium', 'ai_powered'];
+    // Validate tier - use standardized tier names (ai_powered removed)
+    const validTiers = ['basic', 'plus', 'premium'];
     const tier = validTiers.includes(requested_tier) ? requested_tier : 'plus';
-
-    // Use service client to bypass RLS for guest inserts
-    const serviceClient = getServiceClient();
 
     // Check if this email already has a pending request
     const { data: existingRequest } = await serviceClient

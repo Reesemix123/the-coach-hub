@@ -19,6 +19,10 @@ interface TeamBilling {
   monthly_cost_cents: number;
   ai_credits_used: number;
   ai_credits_allowed: number;
+  upload_tokens: {
+    available: number;
+    allocation: number;
+  };
 }
 
 interface BillingSummary {
@@ -115,6 +119,12 @@ export async function GET() {
     .in('team_id', teamIds)
     .gte('period_end', now);
 
+  // Fetch token balances for all teams
+  const { data: tokenBalances } = await supabase
+    .from('token_balance')
+    .select('team_id, subscription_tokens_available, purchased_tokens_available')
+    .in('team_id', teamIds);
+
   // Get tier configs for pricing
   const tierConfigs = await getTierConfigs();
 
@@ -128,10 +138,24 @@ export async function GET() {
     (aiCredits || []).map(c => [c.team_id, c])
   );
 
+  // Build token balance map
+  const tokenMap = new Map(
+    (tokenBalances || []).map(t => [t.team_id, t])
+  );
+
+  // Tier token allocation mapping
+  const tierTokens: Record<string, number> = {
+    'basic': 2,
+    'plus': 4,
+    'premium': 8,
+    'ai_powered': 8
+  };
+
   // Build team billing data
   const teamBillings: TeamBilling[] = teamIds.map(teamId => {
     const subscription = subscriptionMap.get(teamId);
     const credits = creditsMap.get(teamId);
+    const tokens = tokenMap.get(teamId);
     const tier = (subscription?.tier || 'plus') as SubscriptionTier;
     const tierConfig = tierConfigs?.[tier];
 
@@ -140,6 +164,10 @@ export async function GET() {
     if (subscription && !subscription.billing_waived && subscription.status === 'active') {
       monthlyCostCents = tierConfig?.price_monthly || 0;
     }
+
+    // Token calculations
+    const tokensAvailable = (tokens?.subscription_tokens_available || 0) + (tokens?.purchased_tokens_available || 0);
+    const tokenAllocation = tierTokens[tier] || 4;
 
     return {
       team_id: teamId,
@@ -152,7 +180,11 @@ export async function GET() {
       trial_ends_at: subscription?.trial_ends_at || null,
       monthly_cost_cents: monthlyCostCents,
       ai_credits_used: credits?.credits_used || 0,
-      ai_credits_allowed: credits?.credits_allowed || tierConfig?.ai_credits || 0
+      ai_credits_allowed: credits?.credits_allowed || tierConfig?.ai_credits || 0,
+      upload_tokens: {
+        available: tokensAvailable,
+        allocation: tokenAllocation
+      }
     };
   });
 

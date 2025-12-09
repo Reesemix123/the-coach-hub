@@ -1,8 +1,9 @@
 // /api/webhooks/stripe - Stripe webhook handler
 // Handles subscription events from Stripe to sync local database
+// Updated for new tier system with upload tokens
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { getStripeClient, mapStripeStatus, getTierFromPriceId } from '@/lib/stripe/client';
 import { getTierConfig } from '@/lib/admin/config';
@@ -328,7 +329,10 @@ async function handleSubscriptionUpdated(
     return;
   }
 
-  // Allocate AI credits for this billing period
+  // Initialize upload tokens for new subscriptions
+  await initializeUploadTokens(supabase, teamId, tier, subscription);
+
+  // Allocate AI credits for this billing period (legacy, will be replaced in Phase 10)
   await allocateAICredits(supabase, teamId, tier, subscription);
 
   // Log audit event
@@ -391,8 +395,14 @@ async function handleInvoicePaid(
   invoice: Stripe.Invoice
 ) {
   const customerId = invoice.customer as string;
+  const subscriptionId = invoice.subscription as string;
 
-  // Find organization by Stripe customer ID
+  // Handle subscription renewal - refresh tokens
+  if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
+    await handleSubscriptionRenewal(supabase, subscriptionId, invoice);
+  }
+
+  // Find organization by Stripe customer ID (for invoice storage)
   const { data: org } = await supabase
     .from('organizations')
     .select('id')
@@ -461,6 +471,121 @@ async function handleInvoiceFailed(
   console.log(`Invoice ${invoice.id} payment failed for organization ${org.id}`);
 }
 
+// ============================================================================
+// Upload Token Management
+// ============================================================================
+
+/**
+ * Initialize upload tokens for a new subscription
+ * Called when subscription is created or tier changes
+ */
+async function initializeUploadTokens(
+  supabase: ReturnType<typeof createClient>,
+  teamId: string,
+  tier: string,
+  subscription: Stripe.Subscription
+) {
+  const periodStart = new Date(subscription.current_period_start * 1000).toISOString();
+  const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+
+  // Use database function to initialize tokens
+  const { error } = await supabase.rpc('initialize_subscription_tokens', {
+    p_team_id: teamId,
+    p_tier_key: tier,
+    p_period_start: periodStart,
+    p_period_end: periodEnd
+  });
+
+  if (error) {
+    console.error('Failed to initialize upload tokens:', error);
+    // Log for debugging but don't fail the webhook
+    await supabase.from('audit_logs').insert({
+      action: 'tokens.initialization_failed',
+      target_type: 'team',
+      target_id: teamId,
+      metadata: {
+        tier,
+        error: error.message
+      }
+    });
+    return;
+  }
+
+  console.log(`Initialized upload tokens for team ${teamId} with tier ${tier}`);
+}
+
+/**
+ * Handle subscription renewal - refresh tokens for new billing period
+ * Called when invoice.paid fires for subscription_cycle
+ */
+async function handleSubscriptionRenewal(
+  supabase: ReturnType<typeof createClient>,
+  subscriptionId: string,
+  invoice: Stripe.Invoice
+) {
+  // Find the subscription in our database
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('team_id, tier')
+    .eq('stripe_subscription_id', subscriptionId)
+    .single();
+
+  if (!subscription || !subscription.team_id) {
+    console.log(`No subscription found for Stripe subscription ${subscriptionId}`);
+    return;
+  }
+
+  // Get period dates from invoice lines
+  const periodStart = invoice.lines.data[0]?.period?.start
+    ? new Date(invoice.lines.data[0].period.start * 1000).toISOString()
+    : new Date().toISOString();
+  const periodEnd = invoice.lines.data[0]?.period?.end
+    ? new Date(invoice.lines.data[0].period.end * 1000).toISOString()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // Default 30 days
+
+  // Refresh subscription tokens with rollover
+  const { error } = await supabase.rpc('refresh_subscription_tokens', {
+    p_team_id: subscription.team_id,
+    p_tier_key: subscription.tier,
+    p_period_start: periodStart,
+    p_period_end: periodEnd
+  });
+
+  if (error) {
+    console.error('Failed to refresh subscription tokens:', error);
+    await supabase.from('audit_logs').insert({
+      action: 'tokens.refresh_failed',
+      target_type: 'team',
+      target_id: subscription.team_id,
+      metadata: {
+        tier: subscription.tier,
+        error: error.message,
+        invoice_id: invoice.id
+      }
+    });
+    return;
+  }
+
+  // Log successful refresh
+  await supabase.from('audit_logs').insert({
+    action: 'tokens.refreshed',
+    target_type: 'team',
+    target_id: subscription.team_id,
+    metadata: {
+      tier: subscription.tier,
+      period_start: periodStart,
+      period_end: periodEnd,
+      invoice_id: invoice.id
+    }
+  });
+
+  console.log(`Refreshed upload tokens for team ${subscription.team_id}`);
+}
+
+// ============================================================================
+// AI Credits (Legacy - will be replaced in Phase 10)
+// ============================================================================
+
 async function allocateAICredits(
   supabase: ReturnType<typeof createClient>,
   teamId: string,
@@ -483,12 +608,11 @@ async function allocateAICredits(
     console.error('Failed to allocate AI credits via RPC:', error);
 
     // Fallback: direct insert if RPC fails (e.g., function not yet deployed)
-    // Tier-based allocations
+    // Tier-based allocations (ai_powered removed - not in new tier system)
     const tierAllocations: Record<string, { videoMinutes: number; textActions: number; priority: boolean }> = {
       basic: { videoMinutes: 0, textActions: 0, priority: false },
       plus: { videoMinutes: 30, textActions: 100, priority: false },
-      premium: { videoMinutes: 120, textActions: -1, priority: false }, // -1 = unlimited
-      ai_powered: { videoMinutes: 300, textActions: -1, priority: true }
+      premium: { videoMinutes: 120, textActions: -1, priority: false } // -1 = unlimited
     };
 
     const allocation = tierAllocations[tier] || tierAllocations.basic;

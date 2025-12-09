@@ -53,8 +53,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
-    // Validate granted tier if provided
-    const validTiers = ['basic', 'plus', 'premium', 'ai_powered'];
+    // Validate granted tier if provided (ai_powered removed)
+    const validTiers = ['basic', 'plus', 'premium'];
     const tierToGrant = granted_tier && validTiers.includes(granted_tier)
       ? granted_tier
       : null;

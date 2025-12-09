@@ -8,6 +8,7 @@ import AuthGuard from '@/components/AuthGuard';
 import { TeamMetricsService, ComprehensiveTeamMetrics } from '@/lib/services/team-metrics.service';
 import SubscriptionSuccessBanner from '@/components/console/SubscriptionSuccessBanner';
 import TrialBanner from '@/components/console/TrialBanner';
+import TokenBalanceCard from '@/components/TokenBalanceCard';
 
 interface Team {
   id: string;
@@ -141,6 +142,9 @@ export default async function TeamDashboardPage({ params, searchParams }: TeamDa
 
           {/* Trial Banner - shows trial status/days remaining */}
           <TrialBanner teamId={teamId} teamName={team.name} />
+
+          {/* Token Balance Banner */}
+          <TokenBalanceCard teamId={teamId} variant="compact" className="mb-4" />
 
           {/* Compact Season Metrics Banner */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8">

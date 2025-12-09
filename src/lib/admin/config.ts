@@ -2,7 +2,7 @@
 // Platform configuration helper functions
 
 import { createClient } from '@/utils/supabase/server';
-import { PlatformConfig, TierConfigs, TrialConfig, SubscriptionTier } from '@/types/admin';
+import { PlatformConfig, TierConfigs, TrialConfig, SubscriptionTier, TierConfig } from '@/types/admin';
 
 // ============================================================================
 // Known Config Keys
@@ -215,7 +215,8 @@ function validateTierConfigs(value: unknown): string | null {
     return 'tier_configs must be an object';
   }
 
-  const tiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+  // ai_powered removed from tier system
+  const tiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
   const obj = value as Record<string, unknown>;
 
   for (const tier of tiers) {
@@ -296,4 +297,66 @@ function validateMaintenanceConfig(value: unknown): string | null {
   }
 
   return null;
+}
+
+// ============================================================================
+// New Tier Config Table Functions (tier_config table)
+// ============================================================================
+
+/**
+ * Get all tier configurations from the tier_config table.
+ * This is the new single source of truth for tier definitions.
+ */
+export async function getAllTierConfigsFromTable(): Promise<TierConfig[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('tier_config')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order');
+
+  if (error) {
+    console.error('Error fetching tier configs:', error);
+    throw new Error('Failed to fetch tier configurations');
+  }
+
+  return (data || []) as TierConfig[];
+}
+
+/**
+ * Get a specific tier configuration by tier key.
+ */
+export async function getTierConfigFromTable(tierKey: SubscriptionTier): Promise<TierConfig | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('tier_config')
+    .select('*')
+    .eq('tier_key', tierKey)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null; // Not found
+    }
+    console.error(`Error fetching tier config "${tierKey}":`, error);
+    throw new Error(`Failed to fetch tier config: ${tierKey}`);
+  }
+
+  return data as TierConfig;
+}
+
+/**
+ * Get tier config as a record keyed by tier_key.
+ */
+export async function getTierConfigMap(): Promise<Record<SubscriptionTier, TierConfig>> {
+  const configs = await getAllTierConfigsFromTable();
+
+  const map: Partial<Record<SubscriptionTier, TierConfig>> = {};
+  for (const config of configs) {
+    map[config.tier_key] = config;
+  }
+
+  return map as Record<SubscriptionTier, TierConfig>;
 }

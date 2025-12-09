@@ -8,15 +8,15 @@ import Link from 'next/link';
 import {
   CreditCard,
   AlertCircle,
-  ChevronLeft,
   DollarSign,
   Zap,
   Clock,
   AlertTriangle,
-  ExternalLink,
   CheckCircle,
-  XCircle
+  XCircle,
+  Settings
 } from 'lucide-react';
+import ConsoleNav from '@/components/console/ConsoleNav';
 
 interface TeamBilling {
   team_id: string;
@@ -30,6 +30,10 @@ interface TeamBilling {
   monthly_cost_cents: number;
   ai_credits_used: number;
   ai_credits_allowed: number;
+  upload_tokens: {
+    available: number;
+    allocation: number;
+  };
 }
 
 interface BillingSummary {
@@ -59,7 +63,6 @@ export default function ConsoleBillingPage() {
   const [billingData, setBillingData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
 
   const supabase = createClient();
 
@@ -92,25 +95,6 @@ export default function ConsoleBillingPage() {
     setLoading(false);
   }
 
-  async function openBillingPortal() {
-    setPortalLoading(true);
-    try {
-      const response = await fetch('/api/console/billing/stripe/portal', {
-        method: 'POST'
-      });
-      const data = await response.json();
-
-      if (response.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.message || data.error || 'Unable to open billing portal');
-      }
-    } catch (err) {
-      alert('Failed to open billing portal');
-    }
-    setPortalLoading(false);
-  }
-
   function formatCurrency(cents: number): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -131,8 +115,7 @@ export default function ConsoleBillingPage() {
     const names: Record<string, string> = {
       'basic': 'Basic',
       'plus': 'Plus',
-      'premium': 'Premium',
-      'ai_powered': 'AI Powered'
+      'premium': 'Premium'
     };
     return names[tier] || tier;
   }
@@ -242,22 +225,17 @@ export default function ConsoleBillingPage() {
         {/* Header */}
         <div className="border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="flex items-center gap-4 mb-4">
-              <Link
-                href="/console"
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </Link>
-              <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
-                Billing
-              </h1>
-            </div>
-            <p className="text-gray-600 ml-11">
+            <h1 className="text-4xl font-semibold text-gray-900 tracking-tight">
+              Billing
+            </h1>
+            <p className="text-gray-600 mt-2">
               Manage subscriptions and view billing details
             </p>
           </div>
         </div>
+
+        {/* Console Navigation */}
+        <ConsoleNav />
 
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Summary Cards */}
@@ -268,7 +246,7 @@ export default function ConsoleBillingPage() {
                 <div className="p-2 bg-green-100 rounded-lg">
                   <DollarSign className="w-5 h-5 text-green-600" />
                 </div>
-                <span className="text-sm text-gray-600">Monthly Revenue</span>
+                <span className="text-sm text-gray-600">Monthly Cost</span>
               </div>
               <p className="text-3xl font-semibold text-gray-900">
                 {formatCurrency(billingData?.summary.total_mrr_cents || 0)}
@@ -315,23 +293,18 @@ export default function ConsoleBillingPage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={openBillingPortal}
-              disabled={portalLoading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {portalLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <ExternalLink className="w-4 h-4" />
-              )}
-              Manage Billing
-            </button>
+          {/* Team Subscriptions Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Team Subscriptions</h2>
+                <p className="text-sm text-gray-600">
+                  Click &quot;Manage&quot; on any team to view details and change their subscription plan.
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Teams Billing Table */}
           {billingData?.teams.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200">
               <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -346,8 +319,10 @@ export default function ConsoleBillingPage() {
                     <th className="px-6 py-3 font-medium">Plan</th>
                     <th className="px-6 py-3 font-medium">Status</th>
                     <th className="px-6 py-3 font-medium">Monthly Cost</th>
+                    <th className="px-6 py-3 font-medium">Film Uploads</th>
                     <th className="px-6 py-3 font-medium">AI Credits</th>
                     <th className="px-6 py-3 font-medium">Renews</th>
+                    <th className="px-6 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -361,7 +336,7 @@ export default function ConsoleBillingPage() {
                       <tr key={team.team_id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-6 py-4">
                           <Link
-                            href={`/teams/${team.team_id}`}
+                            href={`/console/teams/${team.team_id}`}
                             className="font-medium text-gray-900 hover:text-blue-600"
                           >
                             {team.team_name}
@@ -396,6 +371,27 @@ export default function ConsoleBillingPage() {
                               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full ${
+                                    team.upload_tokens?.available <= 1
+                                      ? 'bg-red-500'
+                                      : team.upload_tokens?.available <= Math.ceil((team.upload_tokens?.allocation || 4) / 2)
+                                      ? 'bg-amber-500'
+                                      : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${Math.min(100, ((team.upload_tokens?.allocation || 4) - (team.upload_tokens?.available || 0)) / (team.upload_tokens?.allocation || 4) * 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                            <span className="text-sm text-gray-600 whitespace-nowrap">
+                              {team.upload_tokens?.available || 0} / {team.upload_tokens?.allocation || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-[100px]">
+                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
                                     creditsPercent >= 90
                                       ? 'bg-red-500'
                                       : creditsPercent >= 70
@@ -417,58 +413,20 @@ export default function ConsoleBillingPage() {
                             : formatDate(team.current_period_end)
                           }
                         </td>
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/console/teams/${team.team_id}`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Manage
+                          </Link>
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
-
-          {/* Pricing Tiers (if available) */}
-          {billingData?.tier_configs && (
-            <div className="mt-12">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">Available Plans</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {Object.entries(billingData.tier_configs).map(([tierId, config]) => (
-                  <div
-                    key={tierId}
-                    className="border border-gray-200 rounded-xl p-6 hover:border-gray-300 transition-colors"
-                  >
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                      {config.name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      {config.description}
-                    </p>
-                    <p className="text-3xl font-semibold text-gray-900 mb-4">
-                      {formatCurrency(config.price_monthly)}
-                      <span className="text-sm font-normal text-gray-500">/mo</span>
-                    </p>
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Zap className="w-4 h-4 text-amber-500" />
-                        {config.ai_credits} AI credits/month
-                      </div>
-                    </div>
-                    {config.features.length > 0 && (
-                      <ul className="space-y-1">
-                        {config.features.slice(0, 4).map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                            {feature}
-                          </li>
-                        ))}
-                        {config.features.length > 4 && (
-                          <li className="text-sm text-gray-500 pl-6">
-                            +{config.features.length - 4} more features
-                          </li>
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>

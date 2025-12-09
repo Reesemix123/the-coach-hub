@@ -53,8 +53,7 @@ const STATUS_LABELS: Record<OrganizationDerivedStatus, string> = {
 const TIER_LABELS: Record<SubscriptionTier, string> = {
   basic: 'Basic',
   plus: 'Plus',
-  premium: 'Premium',
-  ai_powered: 'AI Powered'
+  premium: 'Premium'
 };
 
 function formatMRR(cents: number): string {
@@ -679,7 +678,6 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
                     <option value="basic">Basic</option>
                     <option value="plus">Plus</option>
                     <option value="premium">Premium</option>
-                    <option value="ai_powered">AI Powered</option>
                   </select>
                 </div>
                 <div>

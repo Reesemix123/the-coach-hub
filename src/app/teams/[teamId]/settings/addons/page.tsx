@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Minus, Users, Zap, HardDrive, Loader2, AlertCircle, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Upload, Camera, Calendar, Loader2, AlertCircle, Check } from 'lucide-react';
 
 interface PricingTier {
   min: number;
@@ -18,22 +18,22 @@ interface AddonConfig {
 }
 
 interface AddonPricing {
-  coaches: AddonConfig;
-  ai_credits: AddonConfig;
-  storage: AddonConfig;
+  tokens: AddonConfig;
+  cameras: AddonConfig;
+  retention: AddonConfig;
 }
 
 interface TeamAddons {
-  additional_coaches: number;
-  additional_ai_credits: number;
-  additional_storage_gb: number;
+  additional_tokens: number;
+  additional_cameras: number;
+  additional_retention_days: number;
   monthly_cost_cents: number;
 }
 
 interface EffectiveLimits {
-  max_coaches: number;
-  ai_credits: number;
-  storage_gb: number;
+  upload_tokens: number;
+  cameras_per_game: number;
+  retention_days: number;
   addon_cost_cents: number;
 }
 
@@ -64,9 +64,9 @@ export default function AddonsPage() {
   const [data, setData] = useState<AddonData | null>(null);
 
   // Editable quantities
-  const [coaches, setCoaches] = useState(0);
-  const [aiCredits, setAiCredits] = useState(0);
-  const [storageGb, setStorageGb] = useState(0);
+  const [tokens, setTokens] = useState(0);
+  const [cameras, setCameras] = useState(0);
+  const [retentionDays, setRetentionDays] = useState(0);
 
   // Fetch current add-ons data
   useEffect(() => {
@@ -87,9 +87,9 @@ export default function AddonsPage() {
 
         // Initialize form values from current add-ons
         if (addonData.addons) {
-          setCoaches(addonData.addons.additional_coaches);
-          setAiCredits(addonData.addons.additional_ai_credits);
-          setStorageGb(addonData.addons.additional_storage_gb);
+          setTokens(addonData.addons.additional_tokens);
+          setCameras(addonData.addons.additional_cameras);
+          setRetentionDays(addonData.addons.additional_retention_days);
         }
       } catch (err) {
         console.error('Error fetching add-ons:', err);
@@ -130,25 +130,22 @@ export default function AddonsPage() {
   const calculateTotal = useCallback(() => {
     if (!data?.pricing) return 0;
 
-    const coachCost = calculatePrice(data.pricing.coaches, coaches).totalPrice;
+    const tokenCost = calculatePrice(data.pricing.tokens, tokens).totalPrice;
+    const cameraCost = calculatePrice(data.pricing.cameras, cameras).totalPrice;
 
-    // Convert storage to units (10GB each)
-    const storageUnits = Math.ceil(storageGb / (data.pricing.storage.unit_value || 10));
-    const storageCost = calculatePrice(data.pricing.storage, storageUnits).totalPrice;
+    // Convert retention days to 30-day increments
+    const retentionUnits = Math.ceil(retentionDays / (data.pricing.retention.unit_value || 30));
+    const retentionCost = calculatePrice(data.pricing.retention, retentionUnits).totalPrice;
 
-    // Convert AI credits to units (100 each)
-    const aiUnits = Math.ceil(aiCredits / (data.pricing.ai_credits.unit_value || 100));
-    const aiCost = calculatePrice(data.pricing.ai_credits, aiUnits).totalPrice;
-
-    return coachCost + storageCost + aiCost;
-  }, [data?.pricing, coaches, storageGb, aiCredits, calculatePrice]);
+    return tokenCost + cameraCost + retentionCost;
+  }, [data?.pricing, tokens, cameras, retentionDays, calculatePrice]);
 
   // Check if values have changed
   const hasChanges = data?.addons
-    ? coaches !== data.addons.additional_coaches ||
-      aiCredits !== data.addons.additional_ai_credits ||
-      storageGb !== data.addons.additional_storage_gb
-    : coaches > 0 || aiCredits > 0 || storageGb > 0;
+    ? tokens !== data.addons.additional_tokens ||
+      cameras !== data.addons.additional_cameras ||
+      retentionDays !== data.addons.additional_retention_days
+    : tokens > 0 || cameras > 0 || retentionDays > 0;
 
   // Save changes
   const handleSave = async () => {
@@ -161,9 +158,9 @@ export default function AddonsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          additional_coaches: coaches,
-          additional_ai_credits: aiCredits,
-          additional_storage_gb: storageGb
+          additional_tokens: tokens,
+          additional_cameras: cameras,
+          additional_retention_days: retentionDays
         })
       });
 
@@ -285,16 +282,16 @@ export default function AddonsPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Current Plan Limits</h2>
           <div className="grid grid-cols-3 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Coaches</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.max_coaches}</p>
+              <p className="text-sm text-gray-500">Upload Tokens</p>
+              <p className="text-2xl font-bold text-gray-900">{data.limits.upload_tokens}/mo</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">AI Credits</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.ai_credits.toLocaleString()}</p>
+              <p className="text-sm text-gray-500">Cameras per Game</p>
+              <p className="text-2xl font-bold text-gray-900">{data.limits.cameras_per_game}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Storage</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.storage_gb} GB</p>
+              <p className="text-sm text-gray-500">Retention</p>
+              <p className="text-2xl font-bold text-gray-900">{data.limits.retention_days} days</p>
             </div>
           </div>
         </div>
@@ -303,22 +300,22 @@ export default function AddonsPage() {
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Purchase Add-ons</h2>
 
-          {/* Coaches */}
+          {/* Upload Tokens */}
           <div className="mb-8 pb-8 border-b border-gray-100">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 rounded-lg">
-                  <Users className="w-5 h-5 text-gray-700" />
+                  <Upload className="w-5 h-5 text-gray-700" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">Additional Coaches</h3>
-                  <p className="text-sm text-gray-500">Add extra coach seats beyond your plan limit</p>
+                  <h3 className="font-medium text-gray-900">Additional Upload Tokens</h3>
+                  <p className="text-sm text-gray-500">Extra tokens for uploading more games each month</p>
                 </div>
               </div>
               <div className="text-right">
-                {coaches > 0 && (
+                {tokens > 0 && (
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(calculatePrice(data.pricing.coaches, coaches).totalPrice / 100).toFixed(2)}/mo
+                    ${(calculatePrice(data.pricing.tokens, tokens).totalPrice / 100).toFixed(2)}/mo
                   </p>
                 )}
               </div>
@@ -326,56 +323,49 @@ export default function AddonsPage() {
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setCoaches(Math.max(0, coaches - 1))}
+                onClick={() => setTokens(Math.max(0, tokens - 1))}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                disabled={coaches === 0}
+                disabled={tokens === 0}
               >
                 <Minus className="w-4 h-4" />
               </button>
               <div className="w-20 text-center">
-                <span className="text-2xl font-bold text-gray-900">{coaches}</span>
+                <span className="text-2xl font-bold text-gray-900">{tokens}</span>
               </div>
               <button
-                onClick={() => setCoaches(coaches + 1)}
+                onClick={() => setTokens(tokens + 1)}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Plus className="w-4 h-4" />
               </button>
               <div className="flex-1 text-sm text-gray-500">
-                {coaches > 0 ? (
+                {tokens > 0 ? (
                   <span className="text-green-600">
-                    {calculatePrice(data.pricing.coaches, coaches).tierLabel}
+                    {calculatePrice(data.pricing.tokens, tokens).tierLabel}
                   </span>
                 ) : (
-                  <span>Starting at ${(data.pricing.coaches.tiers[0].price_cents / 100).toFixed(2)}/coach/mo</span>
+                  <span>Starting at ${(data.pricing.tokens.tiers[0].price_cents / 100).toFixed(2)}/token/mo</span>
                 )}
               </div>
             </div>
-
-            {/* Volume discount note */}
-            {coaches > 0 && coaches < 5 && (
-              <p className="mt-2 text-xs text-gray-500">
-                Add {5 - coaches} more to unlock volume discount ($4/coach/mo)
-              </p>
-            )}
           </div>
 
-          {/* AI Credits */}
+          {/* Additional Cameras */}
           <div className="mb-8 pb-8 border-b border-gray-100">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 rounded-lg">
-                  <Zap className="w-5 h-5 text-gray-700" />
+                  <Camera className="w-5 h-5 text-gray-700" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">Additional AI Credits</h3>
-                  <p className="text-sm text-gray-500">Sold in packs of 100 credits</p>
+                  <h3 className="font-medium text-gray-900">Additional Camera Slots</h3>
+                  <p className="text-sm text-gray-500">Add more camera angles per game</p>
                 </div>
               </div>
               <div className="text-right">
-                {aiCredits > 0 && (
+                {cameras > 0 && (
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(calculatePrice(data.pricing.ai_credits, Math.ceil(aiCredits / 100)).totalPrice / 100).toFixed(2)}/mo
+                    ${(calculatePrice(data.pricing.cameras, cameras).totalPrice / 100).toFixed(2)}/mo
                   </p>
                 )}
               </div>
@@ -383,49 +373,49 @@ export default function AddonsPage() {
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setAiCredits(Math.max(0, aiCredits - 100))}
+                onClick={() => setCameras(Math.max(0, cameras - 1))}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                disabled={aiCredits === 0}
+                disabled={cameras === 0}
               >
                 <Minus className="w-4 h-4" />
               </button>
               <div className="w-20 text-center">
-                <span className="text-2xl font-bold text-gray-900">{aiCredits}</span>
+                <span className="text-2xl font-bold text-gray-900">{cameras}</span>
               </div>
               <button
-                onClick={() => setAiCredits(aiCredits + 100)}
+                onClick={() => setCameras(cameras + 1)}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Plus className="w-4 h-4" />
               </button>
               <div className="flex-1 text-sm text-gray-500">
-                {aiCredits > 0 ? (
+                {cameras > 0 ? (
                   <span className="text-green-600">
-                    {Math.ceil(aiCredits / 100)} pack{Math.ceil(aiCredits / 100) !== 1 ? 's' : ''}
+                    {cameras} additional camera{cameras !== 1 ? 's' : ''}
                   </span>
                 ) : (
-                  <span>Starting at ${(data.pricing.ai_credits.tiers[0].price_cents / 100).toFixed(2)}/pack/mo</span>
+                  <span>Starting at ${(data.pricing.cameras.tiers[0].price_cents / 100).toFixed(2)}/camera/mo</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Storage */}
+          {/* Extended Retention */}
           <div>
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gray-100 rounded-lg">
-                  <HardDrive className="w-5 h-5 text-gray-700" />
+                  <Calendar className="w-5 h-5 text-gray-700" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">Additional Storage</h3>
-                  <p className="text-sm text-gray-500">Sold in blocks of 10GB</p>
+                  <h3 className="font-medium text-gray-900">Extended Retention</h3>
+                  <p className="text-sm text-gray-500">Keep your games longer (sold in 30-day increments)</p>
                 </div>
               </div>
               <div className="text-right">
-                {storageGb > 0 && (
+                {retentionDays > 0 && (
                   <p className="text-lg font-semibold text-gray-900">
-                    ${(calculatePrice(data.pricing.storage, Math.ceil(storageGb / 10)).totalPrice / 100).toFixed(2)}/mo
+                    ${(calculatePrice(data.pricing.retention, Math.ceil(retentionDays / 30)).totalPrice / 100).toFixed(2)}/mo
                   </p>
                 )}
               </div>
@@ -433,29 +423,29 @@ export default function AddonsPage() {
 
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setStorageGb(Math.max(0, storageGb - 10))}
+                onClick={() => setRetentionDays(Math.max(0, retentionDays - 30))}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                disabled={storageGb === 0}
+                disabled={retentionDays === 0}
               >
                 <Minus className="w-4 h-4" />
               </button>
-              <div className="w-20 text-center">
-                <span className="text-2xl font-bold text-gray-900">{storageGb}</span>
-                <span className="text-sm text-gray-500 ml-1">GB</span>
+              <div className="w-24 text-center">
+                <span className="text-2xl font-bold text-gray-900">{retentionDays}</span>
+                <span className="text-sm text-gray-500 ml-1">days</span>
               </div>
               <button
-                onClick={() => setStorageGb(storageGb + 10)}
+                onClick={() => setRetentionDays(retentionDays + 30)}
                 className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 <Plus className="w-4 h-4" />
               </button>
               <div className="flex-1 text-sm text-gray-500">
-                {storageGb > 0 ? (
+                {retentionDays > 0 ? (
                   <span className="text-green-600">
-                    {Math.ceil(storageGb / 10)} block{Math.ceil(storageGb / 10) !== 1 ? 's' : ''}
+                    +{Math.ceil(retentionDays / 30)} month{Math.ceil(retentionDays / 30) !== 1 ? 's' : ''} extra retention
                   </span>
                 ) : (
-                  <span>Starting at ${(data.pricing.storage.tiers[0].price_cents / 100).toFixed(2)}/10GB/mo</span>
+                  <span>Starting at ${(data.pricing.retention.tiers[0].price_cents / 100).toFixed(2)}/30 days/mo</span>
                 )}
               </div>
             </div>

@@ -25,6 +25,11 @@ interface TeamResponse {
     allowed: number;
     percentage: number;
   };
+  upload_tokens: {
+    available: number;
+    used_this_period: number;
+    allocation: number;
+  };
 }
 
 export async function GET() {
@@ -97,6 +102,12 @@ export async function GET() {
     .in('team_id', teamIds)
     .gte('period_end', new Date().toISOString());
 
+  // Fetch token balances for all teams
+  const { data: tokenBalances } = await supabase
+    .from('token_balance')
+    .select('team_id, subscription_tokens_available, subscription_tokens_used_this_period, purchased_tokens_available')
+    .in('team_id', teamIds);
+
   // Fetch member counts
   const { data: memberships } = await supabase
     .from('team_memberships')
@@ -131,6 +142,15 @@ export async function GET() {
   const subscriptionMap = new Map(subscriptions?.map(s => [s.team_id, s]) || []);
   const analyticsMap = new Map(analyticsConfigs?.map(a => [a.team_id, a]) || []);
   const creditsMap = new Map(aiCredits?.map(c => [c.team_id, c]) || []);
+  const tokenMap = new Map(tokenBalances?.map(t => [t.team_id, t]) || []);
+
+  // Tier token allocation mapping
+  const tierTokens: Record<string, number> = {
+    'basic': 2,
+    'plus': 4,
+    'premium': 8,
+    'ai_powered': 8
+  };
 
   // Count members per team (including owner)
   const memberCounts: Record<string, Set<string>> = {};
@@ -148,6 +168,7 @@ export async function GET() {
     const subscription = subscriptionMap.get(team.id);
     const analyticsConfig = analyticsMap.get(team.id);
     const credits = creditsMap.get(team.id);
+    const tokens = tokenMap.get(team.id);
 
     // Get tier from subscription first, then analytics config, then default
     const tier = subscription?.tier || analyticsConfig?.tier || 'plus';
@@ -164,6 +185,11 @@ export async function GET() {
 
     const creditsUsed = credits?.credits_used || 0;
     const creditsAllowed = credits?.credits_allowed || 0;
+
+    // Token calculations
+    const tokensAvailable = (tokens?.subscription_tokens_available || 0) + (tokens?.purchased_tokens_available || 0);
+    const tokensUsedThisPeriod = tokens?.subscription_tokens_used_this_period || 0;
+    const tokenAllocation = tierTokens[tier] || 4;
 
     return {
       id: team.id,
@@ -184,6 +210,11 @@ export async function GET() {
         used: creditsUsed,
         allowed: creditsAllowed,
         percentage: creditsAllowed > 0 ? Math.round((creditsUsed / creditsAllowed) * 100) : 0
+      },
+      upload_tokens: {
+        available: tokensAvailable,
+        used_this_period: tokensUsedThisPeriod,
+        allocation: tokenAllocation
       }
     };
   });
