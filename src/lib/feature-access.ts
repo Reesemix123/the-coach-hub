@@ -22,7 +22,7 @@ export type Feature =
   | 'defensive_player_tracking'
   | 'advanced_situational'
   | 'opponent_scouting'
-  // Tier 4 (ai_powered only)
+  // AI features (available on premium, but placeholders for future)
   | 'ai_play_recognition'
   | 'ai_insights'
   | 'ai_credits_enabled';
@@ -53,20 +53,18 @@ export interface SubscriptionInfo {
 // Constants
 // ============================================================================
 
-// Tier hierarchy for comparison
+// Tier hierarchy for comparison (ai_powered removed)
 export const TIER_LEVELS: Record<SubscriptionTier, number> = {
   basic: 1,
   plus: 2,
-  premium: 3,
-  ai_powered: 4
+  premium: 3
 };
 
 // Display names for tiers
 export const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
   basic: 'Basic',
   plus: 'Plus',
-  premium: 'Premium',
-  ai_powered: 'AI Powered'
+  premium: 'Premium'
 };
 
 // Minimum tier required for each feature
@@ -87,10 +85,10 @@ export const FEATURE_MIN_TIERS: Record<Feature, SubscriptionTier> = {
   advanced_situational: 'premium',
   opponent_scouting: 'premium',
 
-  // Tier 4 (ai_powered only)
-  ai_play_recognition: 'ai_powered',
-  ai_insights: 'ai_powered',
-  ai_credits_enabled: 'ai_powered'
+  // AI features - available on premium tier (placeholders for future)
+  ai_play_recognition: 'premium',
+  ai_insights: 'premium',
+  ai_credits_enabled: 'premium'
 };
 
 // Feature display names for UI
@@ -214,10 +212,10 @@ export function computeFeatureAccess(subscription: SubscriptionInfo): FeatureAcc
     advanced_situational: tierLevel >= 3,
     opponent_scouting: tierLevel >= 3,
 
-    // Tier 4 (ai_powered only)
-    ai_play_recognition: tierLevel >= 4,
-    ai_insights: tierLevel >= 4,
-    ai_credits_enabled: tierLevel >= 4
+    // AI features (premium tier - placeholders for future)
+    ai_play_recognition: tierLevel >= 3,
+    ai_insights: tierLevel >= 3,
+    ai_credits_enabled: tierLevel >= 3
   };
 }
 
@@ -251,7 +249,7 @@ export function isUpgrade(fromTier: SubscriptionTier, toTier: SubscriptionTier):
  */
 export function getUpgradeTiers(currentTier: SubscriptionTier): SubscriptionTier[] {
   const currentLevel = TIER_LEVELS[currentTier];
-  const allTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+  const allTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
 
   return allTiers.filter(tier => TIER_LEVELS[tier] > currentLevel);
 }

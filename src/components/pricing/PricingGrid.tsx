@@ -11,27 +11,18 @@ export interface PricingTier {
   price_monthly: number;
   price_annual: number;
   annual_savings: number;
-  ai_video_minutes: number;
-  ai_text_actions: number | 'unlimited';
-  max_coaches: number;
-  storage_gb: number;
+  monthly_upload_tokens: number;
+  max_cameras_per_game: number;
+  retention_days: number;
   features: string[];
-  popular?: boolean;
-  priority_processing?: boolean;
 }
 
 interface PricingGridProps {
   tiers: PricingTier[];
-  trialEnabled: boolean;
-  trialAllowedTiers: SubscriptionTier[];
-  trialDurationDays: number;
 }
 
 export default function PricingGrid({
-  tiers,
-  trialEnabled,
-  trialAllowedTiers,
-  trialDurationDays
+  tiers
 }: PricingGridProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
@@ -74,15 +65,12 @@ export default function PricingGrid({
       </div>
 
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
         {tiers.map((tier) => (
           <PricingCard
             key={tier.id}
             tier={tier}
             billingCycle={billingCycle}
-            trialEnabled={trialEnabled}
-            trialAllowedTiers={trialAllowedTiers}
-            trialDurationDays={trialDurationDays}
           />
         ))}
       </div>

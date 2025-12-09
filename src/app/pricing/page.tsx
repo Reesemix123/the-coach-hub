@@ -20,16 +20,13 @@ export interface PricingTier {
   price_monthly: number;
   price_annual: number;
   annual_savings: number;
-  ai_video_minutes: number;
-  ai_text_actions: number | 'unlimited';
-  max_coaches: number;
-  storage_gb: number;
+  monthly_upload_tokens: number;
+  max_cameras_per_game: number;
+  retention_days: number;
   features: string[];
-  popular?: boolean;
-  priority_processing?: boolean;
 }
 
-// Default tier configs with new pricing structure
+// Default tier configs with new token-based system
 const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = {
   basic: {
     name: 'Basic',
@@ -37,10 +34,9 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     price_monthly: 0,
     price_annual: 0,
     annual_savings: 0,
-    ai_video_minutes: 0,
-    ai_text_actions: 0,
-    max_coaches: 3,
-    storage_gb: 10,
+    monthly_upload_tokens: 2,
+    max_cameras_per_game: 1,
+    retention_days: 30,
     features: [
       'Digital playbook builder',
       'Film upload & playback',
@@ -55,18 +51,16 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     price_monthly: 29,
     price_annual: 290,
     annual_savings: 58,
-    ai_video_minutes: 30,
-    ai_text_actions: 100,
-    max_coaches: 5,
-    storage_gb: 50,
+    monthly_upload_tokens: 4,
+    max_cameras_per_game: 3,
+    retention_days: 180,
     features: [
       'Everything in Basic',
       'Drive-by-drive analytics',
       'Player performance stats',
       'Game planning tools',
       'Situational breakdowns'
-    ],
-    popular: true
+    ]
   },
   premium: {
     name: 'Premium',
@@ -74,36 +68,16 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     price_monthly: 79,
     price_annual: 790,
     annual_savings: 158,
-    ai_video_minutes: 120,
-    ai_text_actions: 'unlimited',
-    max_coaches: 10,
-    storage_gb: 200,
+    monthly_upload_tokens: 8,
+    max_cameras_per_game: 5,
+    retention_days: 365,
     features: [
       'Everything in Plus',
-      'O-Line grading & tracking',
-      'Defensive player tracking',
-      'Advanced situational splits',
+      'Priority support',
+      'Unlimited playbook storage',
+      'Advanced reporting',
       'Opponent scouting reports'
     ]
-  },
-  ai_powered: {
-    name: 'AI Powered',
-    description: 'AI-assisted coaching for elite programs',
-    price_monthly: 199,
-    price_annual: 1990,
-    annual_savings: 398,
-    ai_video_minutes: 300,
-    ai_text_actions: 'unlimited',
-    max_coaches: 10,
-    storage_gb: 500,
-    features: [
-      'Everything in Premium',
-      'Priority AI processing',
-      'Unlimited highlight exports',
-      'Custom AI training on your plays',
-      'Advanced tendency analysis'
-    ],
-    priority_processing: true
   }
 };
 
@@ -114,32 +88,24 @@ const faqs = [
     answer: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you\'ll get immediate access to new features. When downgrading, changes take effect at your next billing cycle.'
   },
   {
+    question: 'What are upload tokens?',
+    answer: 'Upload tokens are used to upload game film to the platform. Each game you upload uses 1 token. Tokens refresh monthly, and unused tokens roll over (up to a cap based on your plan). You can also purchase additional token packs if needed.'
+  },
+  {
+    question: 'How many cameras can I use per game?',
+    answer: 'Each plan includes a certain number of camera angles per game. Basic allows 1 camera, Plus allows 3 cameras, and Premium allows 5 cameras. This lets you capture sideline, end zone, and other angles.'
+  },
+  {
+    question: 'What is game retention?',
+    answer: 'Game retention is how long your uploaded games stay on the platform. Basic keeps games for 30 days, Plus for 6 months, and Premium for a full year. After this period, games are automatically archived.'
+  },
+  {
+    question: 'Can I buy more upload tokens?',
+    answer: 'Yes! You can purchase additional upload token packs at any time from your team settings. Token packs are available in various sizes to fit your needs.'
+  },
+  {
     question: 'What payment methods do you accept?',
     answer: 'We accept all major credit cards (Visa, Mastercard, American Express, Discover) through our secure payment processor, Stripe.'
-  },
-  {
-    question: 'Is there a free trial?',
-    answer: 'Yes! Most paid plans include a 14-day free trial. You can explore all features before committing. Your card won\'t be charged until the trial ends.'
-  },
-  {
-    question: 'What are AI film minutes?',
-    answer: 'AI film minutes are used for automatic play tagging from your game film. Our AI watches your film and tags plays, formations, and results - saving hours of manual work. Each minute of film analyzed uses 1 AI minute.'
-  },
-  {
-    question: 'What are AI actions?',
-    answer: 'AI actions power our text-based AI features: generating scouting reports, practice plans, tendency analysis, and the AI coaching assistant. Plus tier gets 100 actions/month, Premium and AI Powered tiers get unlimited actions.'
-  },
-  {
-    question: 'Can I buy more AI minutes?',
-    answer: 'Yes! You can purchase additional AI film minutes at any time. Packs are available from 15 minutes ($15) to 120 minutes ($79). Purchased minutes are valid for 90 days.'
-  },
-  {
-    question: 'Can I add more coaches to my plan?',
-    answer: 'Absolutely! You can purchase additional coach seats as add-ons at any time. Volume discounts are available for larger coaching staffs.'
-  },
-  {
-    question: 'What happens when I run out of storage?',
-    answer: 'You\'ll receive a notification when approaching your limit. You can either upgrade your plan or purchase additional storage as an add-on.'
   },
   {
     question: 'Do you offer discounts for schools or leagues?',
@@ -177,8 +143,8 @@ async function getPricingData() {
       trial_ai_credits_limit: 25
     };
 
-    // Build tiers array
-    const tiers: PricingTier[] = (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).map(tierId => {
+    // Build tiers array (only 3 tiers: basic, plus, premium)
+    const tiers: PricingTier[] = (['basic', 'plus', 'premium'] as SubscriptionTier[]).map(tierId => {
       const defaultConfig = DEFAULT_TIER_CONFIGS[tierId];
 
       return {
@@ -196,8 +162,8 @@ async function getPricingData() {
   } catch (error) {
     console.error('Error fetching pricing data:', error);
 
-    // Return defaults on error
-    const tiers: PricingTier[] = (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).map(tierId => ({
+    // Return defaults on error (only 3 tiers)
+    const tiers: PricingTier[] = (['basic', 'plus', 'premium'] as SubscriptionTier[]).map(tierId => ({
       id: tierId,
       ...DEFAULT_TIER_CONFIGS[tierId]
     }));
@@ -212,7 +178,7 @@ async function getPricingData() {
 }
 
 export default async function PricingPage() {
-  const { tiers, trialEnabled, trialDurationDays, trialAllowedTiers } = await getPricingData();
+  const { tiers } = await getPricingData();
 
   return (
     <div className="min-h-screen bg-white">
@@ -223,68 +189,16 @@ export default async function PricingPage() {
             Simple, transparent pricing
           </h1>
           <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
-            Choose the plan that fits your program. All plans include unlimited games,
-            plays, and video uploads within your storage limit.
+            Choose the plan that fits your program. Use upload tokens to add games,
+            multiple camera angles for better coverage, and keep your games for longer.
           </p>
-          {trialEnabled && (
-            <p className="mt-4 text-sm font-medium text-green-600">
-              Start with a {trialDurationDays}-day free trial on select plans
-            </p>
-          )}
         </div>
       </section>
 
       {/* Pricing Grid */}
       <section className="pb-16 sm:pb-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <PricingGrid
-            tiers={tiers}
-            trialEnabled={trialEnabled}
-            trialAllowedTiers={trialAllowedTiers}
-            trialDurationDays={trialDurationDays}
-          />
-        </div>
-      </section>
-
-      {/* AI Minutes Purchase Info - Coming Soon */}
-      <section className="py-12 bg-gradient-to-r from-purple-50 to-blue-50">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h2 className="text-2xl font-bold text-gray-900">AI Film Analysis</h2>
-            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
-              Coming Before Your 2026 Season!
-            </span>
-          </div>
-          <p className="mt-4 text-gray-600">
-            Let AI automatically tag your game film - formations, plays, and results.
-            Save hours of manual work each week.
-          </p>
-          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 opacity-75">
-            <div className="bg-white rounded-lg p-4 border border-gray-200">
-              <p className="text-2xl font-bold text-gray-900">15 min</p>
-              <p className="text-gray-600">$15</p>
-              <p className="text-xs text-gray-500">$1.00/min</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200">
-              <p className="text-2xl font-bold text-gray-900">30 min</p>
-              <p className="text-gray-600">$25</p>
-              <p className="text-xs text-gray-500">$0.83/min</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 ring-2 ring-purple-500">
-              <p className="text-xs text-purple-600 font-medium mb-1">Best Value</p>
-              <p className="text-2xl font-bold text-gray-900">60 min</p>
-              <p className="text-gray-600">$45</p>
-              <p className="text-xs text-gray-500">$0.75/min</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200">
-              <p className="text-2xl font-bold text-gray-900">120 min</p>
-              <p className="text-gray-600">$79</p>
-              <p className="text-xs text-gray-500">$0.66/min</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-gray-500">
-            Purchased minutes valid for 90 days. Subscribe now and get AI credits when they launch!
-          </p>
+          <PricingGrid tiers={tiers} />
         </div>
       </section>
 
@@ -293,8 +207,8 @@ export default async function PricingPage() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-gray-900">Need more?</h2>
           <p className="mt-4 text-gray-600">
-            All plans can be customized with add-ons for additional coaches, storage,
-            and AI credits. Volume discounts available for larger coaching staffs.
+            All plans can be customized with add-ons for additional upload tokens,
+            camera slots, and extended retention. Volume discounts available.
           </p>
           <Link
             href="/contact"
@@ -337,14 +251,14 @@ export default async function PricingPage() {
             Ready to elevate your coaching?
           </h2>
           <p className="mt-4 text-lg text-gray-300">
-            Join Youth Coach Hub to start improving how you coach.
+            Join The Coach Hub today to start improving how you coach.
           </p>
           <div className="mt-8 flex justify-center">
             <Link
-              href="/?trial=true"
+              href="/auth/signup"
               className="rounded-lg bg-white px-6 py-3 text-base font-medium text-gray-900 hover:bg-gray-100"
             >
-              Start Free Trial
+              Get Started
             </Link>
           </div>
         </div>

@@ -28,7 +28,7 @@ export interface PricingResponse {
 const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = {
   basic: {
     name: 'Basic',
-    description: 'Perfect for youth leagues and small programs',
+    description: 'Essential game planning for youth coaches',
     price_monthly: 0,
     ai_credits: 0,
     max_coaches: 3,
@@ -37,14 +37,15 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
       'Film upload & playback',
       'Basic play tagging',
       'Roster management',
-      'Up to 3 coaches'
+      '2 game uploads/month',
+      '1 camera angle per game'
     ]
   },
   plus: {
     name: 'Plus',
-    description: 'Full analytics for competitive programs',
+    description: 'Full season workflow for active coaches',
     price_monthly: 29,
-    ai_credits: 100,
+    ai_credits: 0,
     max_coaches: 5,
     storage_gb: 50,
     features: [
@@ -53,15 +54,17 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
       'Player statistics',
       'Game planning tools',
       'Situational analysis',
-      'Up to 5 coaches'
+      '4 game uploads/month',
+      '3 camera angles per game',
+      '180-day game retention'
     ],
     popular: true
   },
   premium: {
     name: 'Premium',
-    description: 'Advanced analytics for serious programs',
+    description: 'Year-round performance for serious programs',
     price_monthly: 79,
-    ai_credits: 500,
+    ai_credits: 0,
     max_coaches: 10,
     storage_gb: 200,
     features: [
@@ -70,23 +73,10 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
       'Defensive player tracking',
       'Advanced situational splits',
       'Opponent scouting reports',
-      'Up to 10 coaches'
-    ]
-  },
-  ai_powered: {
-    name: 'AI Powered',
-    description: 'AI-assisted coaching for elite programs',
-    price_monthly: 149,
-    ai_credits: 2000,
-    max_coaches: 10,
-    storage_gb: 500,
-    features: [
-      'Everything in Premium',
-      'AI play recognition',
-      'AI-generated insights',
-      'Auto-highlights',
-      'Predictive analytics',
-      '2,000 AI credits/month'
+      '8 game uploads/month',
+      '5 camera angles per game',
+      '365-day game retention',
+      'AI Chat included'
     ]
   }
 };
@@ -119,7 +109,7 @@ export async function GET() {
     };
 
     // Build pricing tiers array
-    const tiers: PricingTier[] = (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).map(tierId => {
+    const tiers: PricingTier[] = (['basic', 'plus', 'premium'] as SubscriptionTier[]).map(tierId => {
       const dbConfig = tierConfigs?.[tierId];
       const defaultConfig = DEFAULT_TIER_CONFIGS[tierId];
 
@@ -148,7 +138,7 @@ export async function GET() {
     console.error('Error fetching pricing:', error);
 
     // Return defaults on error
-    const tiers: PricingTier[] = (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).map(tierId => ({
+    const tiers: PricingTier[] = (['basic', 'plus', 'premium'] as SubscriptionTier[]).map(tierId => ({
       id: tierId,
       ...DEFAULT_TIER_CONFIGS[tierId]
     }));

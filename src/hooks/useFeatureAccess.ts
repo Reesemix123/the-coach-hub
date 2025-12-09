@@ -203,7 +203,7 @@ export function useUpgradeInfo(teamId: string | null) {
   const { subscription, tier, status, showUpgradePrompt, loading, error } = useFeatureAccess(teamId);
 
   const upgradeTiers = tier
-    ? (['basic', 'plus', 'premium', 'ai_powered'] as SubscriptionTier[]).filter(
+    ? (['basic', 'plus', 'premium'] as SubscriptionTier[]).filter(
         t => TIER_LEVELS[t] > TIER_LEVELS[tier]
       )
     : [];

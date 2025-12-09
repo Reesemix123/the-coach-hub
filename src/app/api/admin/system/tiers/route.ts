@@ -107,7 +107,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Tier ID is required' }, { status: 400 });
     }
 
-    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+    const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
     if (!validTiers.includes(tierId)) {
       return NextResponse.json({ error: 'Invalid tier ID' }, { status: 400 });
     }

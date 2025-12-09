@@ -145,7 +145,13 @@ export interface Team {
 }
 
 /**
+ * Game type enum
+ */
+export type GameType = 'team' | 'opponent';
+
+/**
  * Database table: games
+ * Games are containers for multiple camera angles (videos)
  */
 export interface Game {
   id: string;
@@ -160,9 +166,19 @@ export interface Game {
   team_score?: number | null;
   opponent_score?: number | null;
   game_result?: 'win' | 'loss' | 'tie' | null;
-  is_opponent_game?: boolean;
+
+  // Game type (replaces is_opponent_game)
+  game_type?: GameType; // 'team' or 'opponent' - defaults to 'team'
+  is_opponent_game?: boolean; // Deprecated, use game_type
   opponent_team_name?: string;
+
+  // Expiration and locking (tier-based)
+  expires_at?: string | null;
+  is_locked?: boolean;
+  locked_reason?: string | null;
+
   created_at: string;
+  updated_at?: string;
 }
 
 /**
@@ -185,7 +201,13 @@ export interface TeamEvent {
 }
 
 /**
+ * Video upload status
+ */
+export type UploadStatus = 'pending' | 'processing' | 'ready' | 'failed';
+
+/**
  * Database table: videos
+ * Videos are camera angles attached to games
  */
 export interface Video {
   id: string;
@@ -194,6 +216,28 @@ export interface Video {
   url?: string;
   game_id: string;
   created_at: string;
+
+  // Camera identification
+  camera_label?: string;  // Display name (End Zone, Sideline, Press Box, etc.)
+  camera_order?: number;  // Order for display (1 = primary)
+
+  // File metadata
+  file_size_bytes?: number;
+  mime_type?: string;
+
+  // Video technical metadata
+  duration_seconds?: number;
+  resolution_width?: number;
+  resolution_height?: number;
+  fps?: number;
+
+  // Processing status
+  upload_status?: UploadStatus;
+  upload_error?: string;
+  thumbnail_url?: string;
+  uploaded_at?: string;
+  updated_at?: string;
+
   // Virtual video support (simplified approach)
   is_virtual?: boolean;           // True if this is a combined video
   source_video_ids?: string[];    // Array of video IDs that make up this virtual video
