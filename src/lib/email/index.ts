@@ -19,8 +19,7 @@ function getResendClient(): Resend {
 
 // Email configuration
 const EMAIL_CONFIG = {
-  // Use Resend's test email for development, swap to custom domain in production
-  from: process.env.EMAIL_FROM || 'Youth Coach Hub <onboarding@resend.dev>',
+  from: process.env.EMAIL_FROM || 'Youth Coach Hub <noreply@youthcoachhub.com>',
   replyTo: process.env.EMAIL_REPLY_TO || 'support@youthcoachhub.com',
 };
 
