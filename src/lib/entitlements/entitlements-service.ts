@@ -450,7 +450,7 @@ export class EntitlementsService {
     const tierConfig = subscription ? await this.getTierConfig(subscription.tier) : null;
 
     return {
-      maxDurationSeconds: tierConfig?.max_video_duration_seconds || 10800, // 3 hours
+      maxDurationSeconds: tierConfig?.max_video_duration_seconds || 7200, // 2 hours (120 min)
       maxResolutionWidth: 1920, // 1080p
       maxResolutionHeight: 1080,
       maxFps: tierConfig?.max_fps || 60,

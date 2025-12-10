@@ -44,8 +44,8 @@ export interface PostUploadValidation {
 // Accepted file extensions
 const ACCEPTED_EXTENSIONS = ['.mp4'];
 
-// Max file size (100MB for Supabase default, can be configured)
-const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+// Max file size (5GB for Supabase Pro resumable uploads)
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024; // 5GB
 
 // Common camera labels
 export const CAMERA_LABELS = [
@@ -97,11 +97,11 @@ export class VideoValidationService {
 
     // Check file size
     if (fileSize > MAX_FILE_SIZE_BYTES) {
-      const maxSizeMB = Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024));
-      const fileSizeMB = Math.round(fileSize / (1024 * 1024));
+      const maxSizeGB = (MAX_FILE_SIZE_BYTES / (1024 * 1024 * 1024)).toFixed(0);
+      const fileSizeGB = (fileSize / (1024 * 1024 * 1024)).toFixed(1);
       return {
         valid: false,
-        error: `File size (${fileSizeMB}MB) exceeds maximum allowed (${maxSizeMB}MB). Please compress your video or split into smaller files.`
+        error: `File size (${fileSizeGB}GB) exceeds maximum allowed (${maxSizeGB}GB). For videos over 50 minutes, we recommend compressing to 10-12 Mbps bitrate using HandBrake (free) or your video editing software.`
       };
     }
 
@@ -264,8 +264,8 @@ export class VideoValidationService {
   getErrorMessage(errorCode: string): string {
     const messages: Record<string, string> = {
       'invalid_format': 'Please upload an MP4 video file.',
-      'file_too_large': 'Video file is too large. Please compress your video.',
-      'duration_exceeded': 'Video must be 3 hours or less.',
+      'file_too_large': 'Video file exceeds 5GB limit. For videos over 50 minutes, compress to 10-12 Mbps using HandBrake (free) or your video editing software.',
+      'duration_exceeded': 'Video must be 2 hours or less.',
       'resolution_exceeded': 'Maximum resolution is 1080p. Please re-export your video.',
       'fps_exceeded': 'Maximum frame rate is 60fps.',
       'camera_limit': 'Your plan allows a limited number of camera angles per game. Upgrade to add more.',
@@ -369,6 +369,6 @@ export function getAcceptedFormats(): string {
 export function getMaxFileSize(): { bytes: number; display: string } {
   return {
     bytes: MAX_FILE_SIZE_BYTES,
-    display: `${Math.round(MAX_FILE_SIZE_BYTES / (1024 * 1024))}MB`
+    display: `${(MAX_FILE_SIZE_BYTES / (1024 * 1024 * 1024)).toFixed(0)}GB`
   };
 }
