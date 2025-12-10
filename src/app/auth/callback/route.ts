@@ -1,5 +1,43 @@
-import { createClient } from '@/utils/supabase/server'
+import { createClient, createServiceClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
+
+/**
+ * Ensures a profile exists for the user.
+ * This is a fallback in case the database trigger fails.
+ */
+async function ensureProfileExists(userId: string, email: string, fullName?: string) {
+  try {
+    const serviceClient = createServiceClient();
+
+    // Check if profile exists
+    const { data: existingProfile } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (!existingProfile) {
+      // Create profile if it doesn't exist
+      const { error } = await serviceClient
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: email,
+          full_name: fullName || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Failed to create profile in callback:', error);
+      } else {
+        console.log('Profile created successfully for user:', userId);
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring profile exists:', error);
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -63,6 +101,12 @@ export async function GET(request: Request) {
     // Successfully authenticated - determine where to route the user
     const user = data?.user
     const selectedTier = user?.user_metadata?.selected_tier
+    const fullName = user?.user_metadata?.full_name
+
+    // Ensure profile exists (fallback in case trigger failed)
+    if (user?.id && user?.email) {
+      await ensureProfileExists(user.id, user.email, fullName);
+    }
 
     // If there's an explicit next URL, use it
     if (next) {
