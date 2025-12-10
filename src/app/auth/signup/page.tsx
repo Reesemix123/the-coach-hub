@@ -27,8 +27,8 @@ function SignUpForm() {
   const tierParam = searchParams.get('tier') as SubscriptionTier | null;
   const inviteParam = searchParams.get('invite');
 
-  // Validate tier param
-  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+  // Validate tier param (only 3 tiers: basic, plus, premium)
+  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
   const selectedTier = tierParam && validTiers.includes(tierParam) ? tierParam : null;
 
   // Determine flow type
