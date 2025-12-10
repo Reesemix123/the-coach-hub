@@ -35,7 +35,11 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   // Capture screenshot when modal opens
   useEffect(() => {
     if (isOpen && !screenshot) {
-      captureScreenshot();
+      // Small delay to ensure portal is mounted before we try to hide/capture
+      const timer = setTimeout(() => {
+        captureScreenshot();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -57,9 +61,10 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   async function captureScreenshot() {
     setIsCapturing(true);
     try {
-      // Hide the modal temporarily for screenshot
-      if (modalRef.current) {
-        modalRef.current.style.display = 'none';
+      // Find and hide the modal overlay temporarily for screenshot
+      const overlay = document.getElementById('feedback-modal-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
       }
 
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -74,9 +79,9 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         }
       });
 
-      // Show the modal again
-      if (modalRef.current) {
-        modalRef.current.style.display = '';
+      // Show the overlay again
+      if (overlay) {
+        overlay.style.display = '';
       }
 
       const dataUrl = canvas.toDataURL('image/png');
@@ -90,9 +95,10 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       }, 'image/png');
     } catch (err) {
       console.error('Screenshot capture failed:', err);
-      // Show modal again even if screenshot fails
-      if (modalRef.current) {
-        modalRef.current.style.display = '';
+      // Show overlay again even if screenshot fails
+      const overlay = document.getElementById('feedback-modal-overlay');
+      if (overlay) {
+        overlay.style.display = '';
       }
     } finally {
       setIsCapturing(false);
