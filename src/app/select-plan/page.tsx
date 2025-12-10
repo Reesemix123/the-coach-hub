@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { Check, Sparkles, Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { SubscriptionTier } from '@/types/admin';
 
 interface PlanOption {
@@ -25,10 +25,11 @@ const PLANS: PlanOption[] = [
     price: 0,
     priceLabel: 'Free forever',
     features: [
+      '2 game uploads/month',
+      '1 camera angle per game',
+      '30-day film retention',
       'Digital playbook builder',
-      'Film upload & playback',
-      'Roster management',
-      'Game scheduling'
+      'Basic play tagging'
     ]
   },
   {
@@ -38,10 +39,11 @@ const PLANS: PlanOption[] = [
     price: 29,
     priceLabel: '/month',
     features: [
-      'Everything in Basic',
+      '4 game uploads/month',
+      '3 camera angles per game',
+      '180-day film retention',
       'Drive-by-drive analytics',
-      'Player performance stats',
-      'Game planning tools'
+      'Player performance stats'
     ],
     popular: true
   },
@@ -52,25 +54,12 @@ const PLANS: PlanOption[] = [
     price: 79,
     priceLabel: '/month',
     features: [
-      'Everything in Plus',
+      '8 game uploads/month',
+      '5 camera angles per game',
+      '365-day film retention',
       'O-Line grading & tracking',
-      'Defensive player tracking',
       'Opponent scouting reports'
     ]
-  },
-  {
-    id: 'ai_powered',
-    name: 'AI Powered',
-    description: 'AI-assisted coaching for elite programs',
-    price: 199,
-    priceLabel: '/month',
-    features: [
-      'Everything in Premium',
-      'AI film analysis',
-      'Custom AI training',
-      'Advanced tendency analysis'
-    ],
-    aiPowered: true
   }
 ];
 
@@ -145,7 +134,7 @@ export default function SelectPlanPage() {
         </div>
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {PLANS.map((plan) => (
             <div
               key={plan.id}
@@ -161,16 +150,6 @@ export default function SelectPlanPage() {
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white">
                     Most Popular
-                  </span>
-                </div>
-              )}
-
-              {/* AI Powered badge */}
-              {plan.aiPowered && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1 text-xs font-medium text-white">
-                    <Sparkles className="h-3 w-3" />
-                    AI Powered
                   </span>
                 </div>
               )}

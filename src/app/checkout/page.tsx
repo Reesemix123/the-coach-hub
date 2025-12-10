@@ -9,32 +9,25 @@ import { TIER_DISPLAY_NAMES } from '@/lib/feature-access';
 
 // Tier pricing for display
 const TIER_PRICES: Record<Exclude<SubscriptionTier, 'basic'>, { monthly: number; yearly: number }> = {
-  plus: { monthly: 19, yearly: 190 },
-  premium: { monthly: 39, yearly: 390 },
-  ai_powered: { monthly: 79, yearly: 790 }
+  plus: { monthly: 29, yearly: 290 },
+  premium: { monthly: 79, yearly: 790 }
 };
 
 // Features by tier for display
 const TIER_FEATURES: Record<Exclude<SubscriptionTier, 'basic'>, string[]> = {
   plus: [
-    'Unlimited playbook entries',
-    'Game film upload & tagging',
-    'Drive analytics',
-    'Player statistics',
-    'Situational analysis'
+    '4 game uploads/month',
+    '3 camera angles per game',
+    '180-day film retention',
+    'Drive-by-drive analytics',
+    'Player performance stats'
   ],
   premium: [
-    'Everything in Plus',
-    'O-Line performance tracking',
-    'Defensive player tracking',
-    'Advanced situational analysis',
+    '8 game uploads/month',
+    '5 camera angles per game',
+    '365-day film retention',
+    'O-Line grading & tracking',
     'Opponent scouting reports'
-  ],
-  ai_powered: [
-    'Everything in Premium',
-    'AI play recognition',
-    'AI-generated insights',
-    'AI credits for analysis'
   ]
 };
 
@@ -50,9 +43,9 @@ function CheckoutContent() {
   const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  // Validate tier
-  const validPaidTiers: Exclude<SubscriptionTier, 'basic'>[] = ['plus', 'premium', 'ai_powered'];
-  const selectedTier = tierParam && validPaidTiers.includes(tierParam as any) ? tierParam as Exclude<SubscriptionTier, 'basic'> : null;
+  // Validate tier (only plus and premium are valid paid tiers)
+  const validPaidTiers: Exclude<SubscriptionTier, 'basic'>[] = ['plus', 'premium'];
+  const selectedTier = tierParam && validPaidTiers.includes(tierParam as Exclude<SubscriptionTier, 'basic'>) ? tierParam as Exclude<SubscriptionTier, 'basic'> : null;
 
   useEffect(() => {
     async function checkAuth() {
