@@ -282,37 +282,58 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               />
             </div>
 
-            {/* Screenshot indicator */}
-            <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                {isCapturing ? (
-                  <>
-                    <Loader2 size={16} className="text-gray-500 animate-spin" />
-                    <span className="text-sm text-gray-600">Capturing screenshot...</span>
-                  </>
-                ) : screenshot ? (
-                  <>
-                    <Camera size={16} className="text-green-600" />
-                    <span className="text-sm text-gray-600">Screenshot captured</span>
-                    <Check size={14} className="text-green-600" />
-                  </>
-                ) : (
-                  <>
-                    <Camera size={16} className="text-gray-400" />
-                    <span className="text-sm text-gray-500">No screenshot</span>
-                  </>
+            {/* Screenshot section */}
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between py-2 px-3 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  {isCapturing ? (
+                    <>
+                      <Loader2 size={16} className="text-gray-500 animate-spin" />
+                      <span className="text-sm text-gray-600">Capturing screenshot...</span>
+                    </>
+                  ) : screenshot ? (
+                    <>
+                      <Camera size={16} className="text-green-600" />
+                      <span className="text-sm text-gray-600">Screenshot attached</span>
+                      <Check size={14} className="text-green-600" />
+                    </>
+                  ) : (
+                    <>
+                      <Camera size={16} className="text-gray-400" />
+                      <span className="text-sm text-gray-500">No screenshot</span>
+                    </>
+                  )}
+                </div>
+                {screenshot && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScreenshot(null);
+                      setScreenshotBlob(null);
+                    }}
+                    className="text-sm text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
                 )}
               </div>
               {screenshot && (
                 <button
                   type="button"
                   onClick={() => setShowPreview(true)}
-                  className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                  className="w-full p-2 hover:bg-gray-50 transition-colors"
                 >
-                  Preview
-                  <ExternalLink size={12} />
+                  <img
+                    src={screenshot}
+                    alt="Screenshot preview"
+                    className="w-full h-24 object-cover object-top rounded border border-gray-200"
+                  />
+                  <span className="text-xs text-gray-500 mt-1 block">Click to enlarge</span>
                 </button>
               )}
+              <p className="text-xs text-gray-400 px-3 py-2 bg-gray-50 border-t border-gray-100">
+                Screenshot only captures this app window, nothing else on your screen.
+              </p>
             </div>
 
             {/* Error message */}
