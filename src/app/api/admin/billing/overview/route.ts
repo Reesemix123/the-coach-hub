@@ -25,12 +25,15 @@ interface BillingOverviewResponse {
     change_percentage: number;
   };
   arr: number;
-  mrr_by_tier: Record<SubscriptionTier, number>;
+  mrr_by_tier: {
+    basic: number;
+    plus: number;
+    premium: number;
+  };
   mrr_trend: MRRTrendItem[];
   subscriptions: {
     total: number;
     active: number;
-    trialing: number;
     past_due: number;
     canceled: number;
     waived: number;
@@ -178,7 +181,6 @@ export async function GET(request: NextRequest) {
       subscriptions: {
         total: subscriptions?.length || 0,
         active: statusCounts.active || 0,
-        trialing: statusCounts.trialing || 0,
         past_due: statusCounts.past_due || 0,
         canceled: statusCounts.canceled || 0,
         waived: statusCounts.waived || 0

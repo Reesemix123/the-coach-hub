@@ -2,7 +2,7 @@
 // Approve, flag, or remove videos
 
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAdmin } from '@/lib/admin/auth';
+import { requirePlatformAdmin, logAdminAction } from '@/lib/admin/auth';
 
 type ModerationStatus = 'pending' | 'approved' | 'flagged' | 'removed';
 
@@ -201,6 +201,21 @@ export async function PUT(
       // Don't fail the request, just log the error
     }
 
+    // Also log to main audit_logs for visibility in admin logs page
+    await logAdminAction(
+      auth.admin.id,
+      auth.admin.email,
+      `video.${actionMap[status]}`,
+      'video',
+      videoId,
+      undefined,
+      {
+        previous_status: previousStatus,
+        new_status: status,
+        reason: reason || null,
+      }
+    );
+
     return NextResponse.json({
       success: true,
       video_id: videoId,
@@ -287,6 +302,20 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    // Log to main audit_logs for visibility
+    await logAdminAction(
+      auth.admin.id,
+      auth.admin.email,
+      'video.deleted',
+      'video',
+      videoId,
+      video.name,
+      {
+        file_path: video.file_path,
+        previous_status: video.moderation_status,
+      }
+    );
 
     return NextResponse.json({
       success: true,

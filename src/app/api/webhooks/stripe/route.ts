@@ -96,7 +96,6 @@ async function handleCheckoutCompleted(
   supabase: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session
 ) {
-  const purchaseType = session.metadata?.purchase_type;
   const teamId = session.metadata?.team_id;
   const userId = session.metadata?.user_id;
   const isSignupFlow = session.metadata?.signup_flow === 'true';
@@ -129,12 +128,6 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  // Handle AI/video minutes purchase (one-time payment)
-  if (purchaseType === 'minutes' || session.mode === 'payment') {
-    await handleAIMinutesPurchase(supabase, session);
-    return;
-  }
-
   // Handle regular subscription checkout
   const tier = session.metadata?.tier;
   const billingCycle = session.metadata?.billing_cycle;
@@ -153,62 +146,6 @@ async function handleCheckoutCompleted(
       customer: session.customer
     }
   });
-}
-
-async function handleAIMinutesPurchase(
-  supabase: ReturnType<typeof createClient>,
-  session: Stripe.Checkout.Session
-) {
-  const teamId = session.metadata?.team_id;
-  const organizationId = session.metadata?.organization_id;
-  const minutes = parseInt(session.metadata?.minutes || '0');
-
-  // Get price from session amount if not in metadata
-  const priceCents = session.amount_total || 0;
-
-  if (!teamId || !minutes) {
-    console.error('AI minutes purchase missing required metadata:', session.id);
-    return;
-  }
-
-  // Calculate expiration date (90 days from now)
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 90);
-
-  // Create purchase record
-  const { error } = await supabase
-    .from('ai_credit_purchases')
-    .insert({
-      team_id: teamId,
-      minutes_purchased: minutes,
-      minutes_remaining: minutes,
-      price_cents: priceCents,
-      purchased_at: new Date().toISOString(),
-      expires_at: expiresAt.toISOString(),
-      stripe_payment_intent_id: session.payment_intent as string || null,
-      stripe_checkout_session_id: session.id
-    });
-
-  if (error) {
-    console.error('Failed to create AI minutes purchase record:', error);
-    return;
-  }
-
-  // Log audit event
-  await supabase.from('audit_logs').insert({
-    action: 'ai_credits.purchase',
-    target_type: 'team',
-    target_id: teamId,
-    metadata: {
-      session_id: session.id,
-      minutes_purchased: minutes,
-      price_cents: priceCents,
-      expires_at: expiresAt.toISOString(),
-      organization_id: organizationId
-    }
-  });
-
-  console.log(`Added ${minutes} AI video minutes purchase for team ${teamId}`);
 }
 
 async function handleSubscriptionUpdated(

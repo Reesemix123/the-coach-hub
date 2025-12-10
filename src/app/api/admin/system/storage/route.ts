@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePlatformAdmin } from '@/lib/admin/auth';
+import { requirePlatformAdmin, logAdminAction } from '@/lib/admin/auth';
 
 /**
  * Admin Storage Configuration API
@@ -55,11 +55,9 @@ export async function GET() {
       ],
       allowed_extensions: ['.mp4', '.mov', '.webm', '.avi', '.m4v', '.mpeg', '.mpg'],
       tier_quotas: {
-        free: 10737418240,        // 10GB
-        basic: 10737418240, // 10GB
+        basic: 10737418240,    // 10GB
         plus: 53687091200,     // 50GB
         premium: 214748364800, // 200GB
-        ai_powered: 536870912000,  // 500GB
       },
       default_quota_bytes: 10737418240, // 10GB
       enforce_quotas: true,
@@ -81,8 +79,70 @@ export async function GET() {
       ),
     };
 
+    // Get storage usage statistics
+    // Note: is_retained column may not exist yet, so we select without it first
+    const { data: videos, error: videosError } = await auth.serviceClient
+      .from('videos')
+      .select('id, file_size, created_at, game_id')
+      .not('file_size', 'is', null);
+
+    if (videosError) {
+      console.error('Get videos error:', videosError);
+    }
+
+    // Calculate storage usage analytics
+    // For now, all videos are considered "visible" since is_retained hasn't been implemented
+    let storageUsage = {
+      total_videos: 0,
+      total_storage_bytes: 0,
+      total_storage_formatted: '0 B',
+      visible_videos: 0, // Videos visible to customers
+      visible_storage_bytes: 0,
+      visible_storage_formatted: '0 B',
+      retained_videos: 0, // Videos kept for model training (not visible to customer)
+      retained_storage_bytes: 0,
+      retained_storage_formatted: '0 B',
+      avg_video_size_bytes: 0,
+      avg_video_size_formatted: '0 B',
+      avg_visible_age_days: 0, // Average age of visible videos
+      avg_total_age_days: 0, // Average age of all videos (including retained)
+    };
+
+    if (videos && videos.length > 0) {
+      const now = new Date();
+      let totalSize = 0;
+      let totalAgeDays = 0;
+
+      for (const video of videos) {
+        const fileSize = Number(video.file_size) || 0;
+        const createdAt = new Date(video.created_at);
+        const ageDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+
+        totalSize += fileSize;
+        totalAgeDays += ageDays;
+      }
+
+      // Currently all videos are visible (is_retained feature not yet implemented)
+      storageUsage = {
+        total_videos: videos.length,
+        total_storage_bytes: totalSize,
+        total_storage_formatted: formatBytes(totalSize),
+        visible_videos: videos.length, // All visible for now
+        visible_storage_bytes: totalSize,
+        visible_storage_formatted: formatBytes(totalSize),
+        retained_videos: 0, // None retained yet
+        retained_storage_bytes: 0,
+        retained_storage_formatted: '0 B',
+        avg_video_size_bytes: Math.round(totalSize / videos.length),
+        avg_video_size_formatted: formatBytes(Math.round(totalSize / videos.length)),
+        avg_visible_age_days: Math.round(totalAgeDays / videos.length),
+        avg_total_age_days: Math.round(totalAgeDays / videos.length),
+      };
+    }
+
     return NextResponse.json({
       config: formatted,
+      usage: storageUsage,
       updated_at: config?.updated_at || null,
     });
   } catch (error) {
@@ -197,6 +257,20 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log the change
+    await logAdminAction(
+      auth.admin.id,
+      auth.admin.email,
+      'storage_config.updated',
+      'config',
+      'storage_limits',
+      undefined,
+      {
+        previous: currentConfig?.value || null,
+        updated: updatedConfig,
+      }
+    );
 
     return NextResponse.json({
       success: true,

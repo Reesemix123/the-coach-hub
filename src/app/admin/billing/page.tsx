@@ -31,13 +31,11 @@ interface BillingOverview {
     basic: number;
     plus: number;
     premium: number;
-    ai_powered: number;
   };
   mrr_trend: MRRTrendItem[];
   subscriptions: {
     total: number;
     active: number;
-    trialing: number;
     past_due: number;
     canceled: number;
     waived: number;
@@ -181,7 +179,6 @@ function RevenueByTier({ data }: { data: BillingOverview['mrr_by_tier'] }) {
   const tiers = [
     { key: 'premium', label: 'Premium', color: 'bg-gray-900' },
     { key: 'plus', label: 'Plus', color: 'bg-gray-600' },
-    { key: 'ai_powered', label: 'AI Powered', color: 'bg-gray-800' },
     { key: 'basic', label: 'Basic', color: 'bg-gray-400' }
   ] as const;
 
@@ -438,7 +435,7 @@ export default function BillingPage() {
             />
             <MetricCard
               title="Active Subscriptions"
-              value={String(overview.subscriptions.active + overview.subscriptions.trialing)}
+              value={String(overview.subscriptions.active)}
               icon={Users}
             />
             <MetricCard
@@ -473,14 +470,10 @@ export default function BillingPage() {
           {/* Subscription Status */}
           <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Subscription Status</h2>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-semibold text-gray-900">{overview.subscriptions.active}</div>
                 <div className="text-sm text-gray-500">Active</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-semibold text-blue-600">{overview.subscriptions.trialing}</div>
-                <div className="text-sm text-gray-500">Trialing</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-semibold text-red-600">{overview.subscriptions.past_due}</div>

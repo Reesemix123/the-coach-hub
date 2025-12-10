@@ -8,35 +8,15 @@ import { SubscriptionTier } from '@/types/admin';
 // STRIPE PRODUCT IDS (for reference - actual checkout uses Price IDs)
 // =============================================================================
 export const STRIPE_PRODUCT_IDS = {
-  // Subscription products (ai_powered removed in tier update)
+  // Subscription products (3 tiers: basic is free, plus and premium are paid)
   plus: 'prod_TY6uP1VMleLZBG',
   premium: 'prod_TY6w1hsD5lYjLa',
-  // One-time purchase products (extra video minutes)
-  minutes_15: 'prod_TY71D0kW83GrZ4',
-  minutes_30: 'prod_TY74MlwZPonHsm',
-  minutes_60: 'prod_TY74xr7XXqMM3u',
-  minutes_120: 'prod_TY75NAb59zPP89'
 } as const;
 
 // =============================================================================
 // PRICING CONFIGURATION
 // =============================================================================
 export type BillingCycle = 'monthly' | 'yearly';
-
-export interface ExtraMinutesPack {
-  minutes: number;
-  price: number; // in dollars
-  pricePerMinute: number;
-  expirationDays: number;
-}
-
-// Extra video minutes packs configuration
-export const EXTRA_MINUTES_PACKS: ExtraMinutesPack[] = [
-  { minutes: 15, price: 15, pricePerMinute: 1.00, expirationDays: 90 },
-  { minutes: 30, price: 25, pricePerMinute: 0.83, expirationDays: 90 },
-  { minutes: 60, price: 45, pricePerMinute: 0.75, expirationDays: 90 },
-  { minutes: 120, price: 79, pricePerMinute: 0.66, expirationDays: 90 }
-];
 
 // =============================================================================
 // STRIPE CLIENT
@@ -70,7 +50,6 @@ export function getPriceIdForTier(
     return null;
   }
 
-  // ai_powered tier removed in tier update
   const priceMap: Record<Exclude<SubscriptionTier, 'basic'>, { monthly?: string; yearly?: string }> = {
     'plus': {
       monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY,
@@ -86,7 +65,6 @@ export function getPriceIdForTier(
 }
 
 // Map Stripe price IDs back to tiers (checks all billing cycles)
-// ai_powered tier removed in tier update
 export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
   const tierMap: Record<string, SubscriptionTier> = {};
 
@@ -110,7 +88,6 @@ export function getTierFromPriceId(priceId: string): SubscriptionTier | null {
 }
 
 // Get billing cycle from price ID
-// ai_powered tier removed in tier update
 export function getBillingCycleFromPriceId(priceId: string): BillingCycle | null {
   const monthlyPrices = [
     process.env.STRIPE_PRICE_PLUS_MONTHLY,
@@ -125,47 +102,6 @@ export function getBillingCycleFromPriceId(priceId: string): BillingCycle | null
   if (monthlyPrices.includes(priceId)) return 'monthly';
   if (yearlyPrices.includes(priceId)) return 'yearly';
   return null;
-}
-
-// =============================================================================
-// ONE-TIME PURCHASE (EXTRA MINUTES) PRICE MAPPING
-// =============================================================================
-
-// Get price ID for extra video minutes pack
-export function getPriceIdForMinutesPack(minutes: number): string | null {
-  const priceMap: Record<number, string | undefined> = {
-    15: process.env.STRIPE_PRICE_MINUTES_15,
-    30: process.env.STRIPE_PRICE_MINUTES_30,
-    60: process.env.STRIPE_PRICE_MINUTES_60,
-    120: process.env.STRIPE_PRICE_MINUTES_120
-  };
-
-  return priceMap[minutes] || null;
-}
-
-// Get minutes from price ID (for one-time purchases)
-export function getMinutesFromPriceId(priceId: string): number | null {
-  const minutesMap: Record<string, number> = {};
-
-  if (process.env.STRIPE_PRICE_MINUTES_15) {
-    minutesMap[process.env.STRIPE_PRICE_MINUTES_15] = 15;
-  }
-  if (process.env.STRIPE_PRICE_MINUTES_30) {
-    minutesMap[process.env.STRIPE_PRICE_MINUTES_30] = 30;
-  }
-  if (process.env.STRIPE_PRICE_MINUTES_60) {
-    minutesMap[process.env.STRIPE_PRICE_MINUTES_60] = 60;
-  }
-  if (process.env.STRIPE_PRICE_MINUTES_120) {
-    minutesMap[process.env.STRIPE_PRICE_MINUTES_120] = 120;
-  }
-
-  return minutesMap[priceId] || null;
-}
-
-// Check if a price ID is for a one-time minutes purchase
-export function isMinutesPurchasePriceId(priceId: string): boolean {
-  return getMinutesFromPriceId(priceId) !== null;
 }
 
 // =============================================================================
@@ -206,16 +142,6 @@ export function areSubscriptionPricesConfigured(): boolean {
   return !!(
     process.env.STRIPE_PRICE_PLUS_MONTHLY ||
     process.env.STRIPE_PRICE_PLUS_YEARLY
-  );
-}
-
-// Check if one-time purchase prices are configured
-export function areMinutesPricesConfigured(): boolean {
-  return !!(
-    process.env.STRIPE_PRICE_MINUTES_15 ||
-    process.env.STRIPE_PRICE_MINUTES_30 ||
-    process.env.STRIPE_PRICE_MINUTES_60 ||
-    process.env.STRIPE_PRICE_MINUTES_120
   );
 }
 

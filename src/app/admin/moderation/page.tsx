@@ -13,8 +13,6 @@ import {
   XCircle,
   Clock,
   Eye,
-  Download,
-  Trash2,
   Shield,
   FileVideo,
   HardDrive

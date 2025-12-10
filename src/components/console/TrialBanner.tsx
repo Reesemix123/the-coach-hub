@@ -23,7 +23,6 @@ const TIER_LABELS: Record<string, string> = {
   basic: 'Basic',
   plus: 'Plus',
   premium: 'Premium',
-  ai_powered: 'AI Powered'
 };
 
 export default function TrialBanner({ teamId, teamName }: TrialBannerProps) {

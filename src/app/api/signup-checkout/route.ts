@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   const { tier, billing_cycle = 'monthly' } = body;
 
   // Validate tier
-  const validTiers: SubscriptionTier[] = ['plus', 'premium', 'ai_powered'];
+  const validTiers: SubscriptionTier[] = ['plus', 'premium'];
   if (!tier || !validTiers.includes(tier)) {
     return NextResponse.json(
       { error: `Invalid tier. Must be one of: ${validTiers.join(', ')}` },

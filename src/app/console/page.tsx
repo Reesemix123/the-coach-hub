@@ -19,9 +19,9 @@ import {
   Shield,
   Upload,
   ArrowRight,
-  ChevronDown
+  ChevronDown,
+  UserPlus
 } from 'lucide-react';
-import TrialBanner from '@/components/console/TrialBanner';
 import ConsoleNav from '@/components/console/ConsoleNav';
 
 interface OverviewData {
@@ -34,6 +34,11 @@ interface OverviewData {
     active_users_count: number;
     total_games: number;
     total_plays_tagged: number;
+  };
+  users: {
+    total: number;
+    new_this_week: number;
+    new_this_month: number;
   };
   ai_credits: {
     used: number;
@@ -378,11 +383,6 @@ export default function ConsolePage() {
             </div>
           )}
 
-          {/* Trial Banners for each team */}
-          {teams.map((team) => (
-            <TrialBanner key={`trial-${team.id}`} teamId={team.id} teamName={team.name} />
-          ))}
-
           {/* Stats Grid */}
           {overview && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -438,6 +438,38 @@ export default function ConsolePage() {
                   {overview.summary.total_plays_tagged.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-600">Plays Tagged</div>
+              </div>
+            </div>
+          )}
+
+          {/* Users Card - Platform-wide metrics */}
+          {overview?.users && (
+            <div className="mb-8">
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Platform Users</h3>
+                  <UserPlus className="w-5 h-5 text-gray-400" />
+                </div>
+                <div className="grid grid-cols-3 gap-6">
+                  <div>
+                    <div className="text-3xl font-semibold text-gray-900 mb-1">
+                      {overview.users.total}
+                    </div>
+                    <div className="text-sm text-gray-600">Total Users</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-semibold text-green-600 mb-1">
+                      +{overview.users.new_this_week}
+                    </div>
+                    <div className="text-sm text-gray-600">New This Week</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-semibold text-blue-600 mb-1">
+                      +{overview.users.new_this_month}
+                    </div>
+                    <div className="text-sm text-gray-600">New This Month</div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -528,15 +560,12 @@ export default function ConsolePage() {
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     overview.billing.status === 'current' || overview.billing.status === 'waived'
                       ? 'bg-green-100 text-green-800'
-                      : overview.billing.status === 'trial'
-                      ? 'bg-blue-100 text-blue-800'
                       : overview.billing.status === 'past_due'
                       ? 'bg-red-100 text-red-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
                     {overview.billing.status === 'current' && 'Current'}
                     {overview.billing.status === 'waived' && 'Waived'}
-                    {overview.billing.status === 'trial' && 'Trial'}
                     {overview.billing.status === 'past_due' && 'Past Due'}
                     {overview.billing.status === 'none' && 'No Subscription'}
                     {overview.billing.status === 'no_payment_method' && 'No Payment Method'}

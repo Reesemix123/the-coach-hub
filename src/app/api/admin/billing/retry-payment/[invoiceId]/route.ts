@@ -117,7 +117,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Attempt to pay the invoice
-      const paidInvoice = await stripe.invoices.pay(invoice.stripe_invoice_id);
+      const paidInvoice = await stripe.invoices.pay(invoice.stripe_invoice_id) as unknown as {
+        status: string;
+        subscription: string | null;
+      };
 
       // Update invoice status in database
       if (paidInvoice.status === 'paid') {
@@ -139,6 +142,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // Log the successful retry
+      // Supabase returns joined relations as arrays
+      const orgsArray = invoice.organizations as Array<{ name: string }> | null;
+      const org = orgsArray?.[0];
+
       await logAdminAction(
         auth.admin.id,
         auth.admin.email,
@@ -148,7 +155,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         invoice.stripe_invoice_id,
         {
           amount_cents: invoice.amount_cents,
-          organization_name: (invoice.organizations as { name: string } | null)?.name,
+          organization_name: org?.name,
           result: paidInvoice.status
         }
       );

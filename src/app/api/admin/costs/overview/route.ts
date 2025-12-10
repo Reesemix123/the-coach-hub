@@ -7,8 +7,10 @@ import { requirePlatformAdmin } from '@/lib/admin/auth';
 import { getTierConfigs } from '@/lib/admin/config';
 import { SubscriptionTier } from '@/types/admin';
 
-// Cost per AI credit (adjust based on actual costs)
-const COST_PER_AI_CREDIT = 0.02; // $0.02 per credit
+// Cost per AI video minute (adjust based on actual costs)
+// This represents the cost to process 1 minute of video through AI
+const COST_PER_VIDEO_MINUTE = 0.10; // $0.10 per video minute
+const COST_PER_TEXT_ACTION = 0.01; // $0.01 per text action
 
 interface CostTrendItem {
   date: string;
@@ -17,7 +19,8 @@ interface CostTrendItem {
 
 interface CostsOverviewResponse {
   current_month: {
-    ai_credits_used: number;
+    video_minutes_used: number;
+    text_actions_used: number;
     ai_cost: number;
     revenue: number;
     margin: number;
@@ -69,19 +72,28 @@ export async function GET(request: NextRequest) {
     const dayOfMonth = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-    // Get AI credits used this month
+    // Get AI usage from the new ai_usage table (migration 071)
     const { data: monthUsage, error: usageError } = await supabase
-      .from('ai_usage_logs')
-      .select('credits_used')
+      .from('ai_usage')
+      .select('usage_type, units_consumed')
       .gte('created_at', monthStart.toISOString());
 
     if (usageError) throw usageError;
 
-    const totalCreditsUsed = (monthUsage || []).reduce(
-      (sum, row) => sum + (row.credits_used || 0),
-      0
-    );
-    const aiCost = totalCreditsUsed * COST_PER_AI_CREDIT;
+    // Calculate video minutes and text actions separately
+    let videoMinutesUsed = 0;
+    let textActionsUsed = 0;
+
+    for (const row of monthUsage || []) {
+      if (row.usage_type === 'video_analysis') {
+        videoMinutesUsed += Number(row.units_consumed) || 0;
+      } else if (row.usage_type === 'text_action') {
+        textActionsUsed += 1;
+      }
+    }
+
+    // Calculate total AI cost
+    const aiCost = (videoMinutesUsed * COST_PER_VIDEO_MINUTE) + (textActionsUsed * COST_PER_TEXT_ACTION);
 
     // Get current MRR (revenue) from active subscriptions
     const { data: subscriptions, error: subError } = await supabase
@@ -107,15 +119,15 @@ export async function GET(request: NextRequest) {
     // Calculate cost trend (weekly buckets based on period)
     const periodStart = getPeriodStartDate(period);
     const { data: trendData, error: trendError } = await supabase
-      .from('ai_usage_logs')
-      .select('credits_used, created_at')
+      .from('ai_usage')
+      .select('usage_type, units_consumed, created_at')
       .gte('created_at', periodStart.toISOString())
       .order('created_at', { ascending: true });
 
     if (trendError) throw trendError;
 
-    // Group by week
-    const costTrend = groupByWeek(trendData || [], COST_PER_AI_CREDIT);
+    // Group by week with proper cost calculation
+    const costTrend = groupByWeek(trendData || []);
 
     // Project to month end
     const projectedCost = dayOfMonth > 0
@@ -128,7 +140,8 @@ export async function GET(request: NextRequest) {
 
     const response: CostsOverviewResponse = {
       current_month: {
-        ai_credits_used: totalCreditsUsed,
+        video_minutes_used: Math.round(videoMinutesUsed * 100) / 100,
+        text_actions_used: textActionsUsed,
         ai_cost: Math.round(aiCost * 100) / 100,
         revenue,
         margin: Math.round(margin * 100) / 100,
@@ -167,8 +180,7 @@ function getPeriodStartDate(period: string): Date {
 }
 
 function groupByWeek(
-  data: { credits_used: number; created_at: string }[],
-  costPerCredit: number
+  data: { usage_type: string; units_consumed: number; created_at: string }[]
 ): CostTrendItem[] {
   const weeklyData: Record<string, number> = {};
 
@@ -180,7 +192,15 @@ function groupByWeek(
     const monday = new Date(date.setDate(diff));
     const weekKey = monday.toISOString().slice(0, 10);
 
-    weeklyData[weekKey] = (weeklyData[weekKey] || 0) + (row.credits_used * costPerCredit);
+    // Calculate cost based on usage type
+    let cost = 0;
+    if (row.usage_type === 'video_analysis') {
+      cost = Number(row.units_consumed) * COST_PER_VIDEO_MINUTE;
+    } else if (row.usage_type === 'text_action') {
+      cost = COST_PER_TEXT_ACTION;
+    }
+
+    weeklyData[weekKey] = (weeklyData[weekKey] || 0) + cost;
   }
 
   return Object.entries(weeklyData)

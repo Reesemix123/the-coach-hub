@@ -15,7 +15,6 @@ import {
   Plus,
   Settings,
   Trash2,
-  Clock,
   CreditCard,
   ChevronRight,
   Upload
@@ -154,21 +153,12 @@ export default function ConsoleTeamsPage() {
   }
 
   function getSubscriptionBadge(subscription: TeamData['subscription']) {
-    const { status, billing_waived, trial_days_remaining } = subscription;
+    const { status, billing_waived } = subscription;
 
     if (billing_waived || status === 'waived') {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
           Waived
-        </span>
-      );
-    }
-
-    if (status === 'trialing' && trial_days_remaining !== null) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-          <Clock className="w-3 h-3" />
-          Trial ({trial_days_remaining}d left)
         </span>
       );
     }

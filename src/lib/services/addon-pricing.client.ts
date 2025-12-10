@@ -48,7 +48,6 @@ const DEFAULT_TIER_LIMITS: Record<string, { max_coaches: number; ai_credits: num
   basic: { max_coaches: 3, ai_credits: 0, storage_gb: 10 },
   plus: { max_coaches: 5, ai_credits: 100, storage_gb: 50 },
   premium: { max_coaches: 10, ai_credits: 500, storage_gb: 200 },
-  ai_powered: { max_coaches: 10, ai_credits: 2000, storage_gb: 500 }
 };
 
 /**

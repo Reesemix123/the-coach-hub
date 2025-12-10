@@ -12,7 +12,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 
 export type Status = 'green' | 'yellow' | 'red' | 'gray';
 export type SeasonPhase = 'pre_game' | 'bye_week' | 'post_game' | 'off_season';
-export type AnalyticsTier = 'basic' | 'plus' | 'premium' | 'ai_powered';
+export type AnalyticsTier = 'basic' | 'plus' | 'premium';
 
 export interface GameWeekContext {
   gameId: string | null;

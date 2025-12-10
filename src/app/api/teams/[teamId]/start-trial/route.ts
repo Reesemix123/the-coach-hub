@@ -9,18 +9,18 @@ interface RouteParams {
 }
 
 // Valid tier values (matching database constraint)
-const VALID_TIERS = ['little_league', 'hs_basic', 'hs_advanced', 'ai_powered'];
+const VALID_TIERS = ['basic', 'plus', 'premium'];
 
 // Map from URL/display tiers to database tiers
+// Note: We now use the new tier names directly in the database
 const TIER_MAP: Record<string, string> = {
-  'basic': 'little_league',
-  'plus': 'hs_basic',
-  'premium': 'hs_advanced',
-  'ai_powered': 'ai_powered',
-  // Also accept database values directly
-  'little_league': 'little_league',
-  'hs_basic': 'hs_basic',
-  'hs_advanced': 'hs_advanced'
+  'basic': 'basic',
+  'plus': 'plus',
+  'premium': 'premium',
+  // Also accept legacy values for backwards compatibility
+  'little_league': 'basic',
+  'hs_basic': 'plus',
+  'hs_advanced': 'premium'
 };
 
 /**
@@ -42,10 +42,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   try {
     const body = await request.json();
-    const requestedTier = body.tier || 'hs_basic';
+    const requestedTier = body.tier || 'plus';
 
     // Map to database tier value
-    const tier = TIER_MAP[requestedTier] || 'hs_basic';
+    const tier = TIER_MAP[requestedTier] || 'plus';
 
     if (!VALID_TIERS.includes(tier)) {
       return NextResponse.json(

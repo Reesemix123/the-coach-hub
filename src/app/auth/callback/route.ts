@@ -1,5 +1,6 @@
 import { createClient, createServiceClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
+import { logAuthEvent, getClientIp, getUserAgent } from '@/lib/services/logging.service'
 
 /**
  * Ensures a profile exists for the user and updates last_active_at.
@@ -120,6 +121,24 @@ export async function GET(request: Request) {
     if (user?.id && user?.email) {
       await ensureProfileExists(user.id, user.email, fullName);
     }
+
+    // Log successful auth event (signup or login via OAuth/magic link)
+    const isNewUser = user?.created_at &&
+      (new Date().getTime() - new Date(user.created_at).getTime()) < 60000; // Created within last minute
+
+    await logAuthEvent({
+      userId: user?.id || null,
+      userEmail: user?.email || null,
+      action: isNewUser ? 'signup' : 'login',
+      status: 'success',
+      ipAddress: getClientIp(new Headers(request.headers)) || undefined,
+      userAgent: getUserAgent(new Headers(request.headers)) || undefined,
+      metadata: {
+        auth_provider: user?.app_metadata?.provider || 'email',
+        via_callback: true,
+        selected_tier: selectedTier || null,
+      },
+    });
 
     // If there's an explicit next URL, use it
     if (next) {

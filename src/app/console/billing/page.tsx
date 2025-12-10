@@ -10,7 +10,6 @@ import {
   AlertCircle,
   DollarSign,
   Zap,
-  Clock,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -138,13 +137,6 @@ export default function ConsoleBillingPage() {
             Active
           </span>
         );
-      case 'trialing':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            <Clock className="w-3 h-3" />
-            Trial
-          </span>
-        );
       case 'past_due':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -266,16 +258,16 @@ export default function ConsoleBillingPage() {
               </p>
             </div>
 
-            {/* Trialing Card */}
+            {/* Waived Card */}
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-amber-100 rounded-lg">
-                  <Clock className="w-5 h-5 text-amber-600" />
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-purple-600" />
                 </div>
-                <span className="text-sm text-gray-600">In Trial</span>
+                <span className="text-sm text-gray-600">Waived</span>
               </div>
               <p className="text-3xl font-semibold text-gray-900">
-                {billingData?.summary.trialing_subscriptions || 0}
+                {billingData?.summary.waived_subscriptions || 0}
               </p>
             </div>
 
@@ -408,10 +400,7 @@ export default function ConsoleBillingPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
-                          {team.status === 'trialing' && team.trial_ends_at
-                            ? `Trial ends ${formatDate(team.trial_ends_at)}`
-                            : formatDate(team.current_period_end)
-                          }
+                          {formatDate(team.current_period_end)}
                         </td>
                         <td className="px-6 py-4">
                           <Link

@@ -1,8 +1,7 @@
 // /api/cron/ai-credits - Scheduled job for AI credit maintenance
-// Handles:
-// - Creating new credit periods for teams with expired periods
-// - Checking and creating credit warning alerts
-// - Should be called via cron job (e.g., Vercel cron, external scheduler)
+// NOTE: This cron job is legacy and may be deprecated.
+// The original AI credits system (video minutes, text actions) has been simplified.
+// This file is kept for reference but the ai_powered tier no longer exists.
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,9 +25,7 @@ function getSupabaseAdmin(): SupabaseClient {
 
 /**
  * GET /api/cron/ai-credits
- * Called by cron scheduler to:
- * 1. Create new credit periods for teams whose periods have ended
- * 2. Check all teams for credit warnings (80%+ usage)
+ * Called by cron scheduler to check for any credit-related maintenance
  *
  * Security: Requires CRON_SECRET header to match env variable
  */
@@ -53,91 +50,21 @@ export async function GET(request: NextRequest) {
   }
 
   const results = {
-    periods_created: 0,
-    warnings_created: 0,
+    message: 'AI credits cron job executed',
+    warnings_checked: 0,
     errors: [] as string[]
   };
 
   try {
-    // =========================================================================
-    // Step 1: Find teams with expired credit periods and active subscriptions
-    // =========================================================================
-    const now = new Date();
-
-    // Get all active AI-powered subscriptions
-    const { data: activeSubscriptions, error: subError } = await getSupabaseAdmin()
-      .from('subscriptions')
-      .select('team_id, tier, current_period_end')
-      .eq('tier', 'ai_powered')
-      .in('status', ['active', 'trialing']);
-
-    if (subError) {
-      console.error('Error fetching subscriptions:', subError);
-      results.errors.push(`Failed to fetch subscriptions: ${subError.message}`);
-    } else if (activeSubscriptions) {
-      // Check each team for expired credit period
-      for (const sub of activeSubscriptions) {
-        // Get current credit period
-        const { data: currentPeriod } = await getSupabaseAdmin()
-          .from('ai_credits')
-          .select('*')
-          .eq('team_id', sub.team_id)
-          .lte('period_start', now.toISOString())
-          .gte('period_end', now.toISOString())
-          .order('period_start', { ascending: false })
-          .limit(1)
-          .single();
-
-        // If no current period, create one
-        if (!currentPeriod) {
-          // Determine period based on subscription's billing cycle
-          // Default to monthly period starting now
-          const periodStart = new Date();
-          periodStart.setHours(0, 0, 0, 0);
-
-          const periodEnd = new Date(periodStart);
-          periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-          // Get tier config for credit allocation
-          const { data: tierConfig } = await getSupabaseAdmin()
-            .from('platform_config')
-            .select('value')
-            .eq('key', `tier_config_${sub.tier}`)
-            .single();
-
-          const creditsAllowed = tierConfig?.value?.ai_credits || 1000;
-
-          const { error: insertError } = await getSupabaseAdmin()
-            .from('ai_credits')
-            .insert({
-              team_id: sub.team_id,
-              credits_allowed: creditsAllowed,
-              credits_used: 0,
-              period_start: periodStart.toISOString(),
-              period_end: periodEnd.toISOString()
-            });
-
-          if (insertError) {
-            console.error(`Failed to create credit period for team ${sub.team_id}:`, insertError);
-            results.errors.push(`Failed to create period for team ${sub.team_id}`);
-          } else {
-            results.periods_created++;
-          }
-        }
-      }
-    }
-
-    // =========================================================================
-    // Step 2: Check all teams for credit warnings
-    // =========================================================================
+    // Check for any credit warnings (if the function exists)
     const { data: warningResults, error: warningError } = await getSupabaseAdmin()
       .rpc('check_credit_warnings');
 
     if (warningError) {
-      console.error('Error checking credit warnings:', warningError);
-      results.errors.push(`Failed to check warnings: ${warningError.message}`);
+      // Function may not exist - that's OK
+      console.log('Credit warnings check skipped:', warningError.message);
     } else if (warningResults) {
-      results.warnings_created = warningResults.filter(
+      results.warnings_checked = warningResults.filter(
         (r: { alert_id: string | null }) => r.alert_id !== null
       ).length;
     }
@@ -158,11 +85,6 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/cron/ai-credits
  * Manual trigger for testing (requires admin auth)
- *
- * Request body:
- * {
- *   action: 'check_warnings' | 'reset_periods' | 'all'
- * }
  */
 export async function POST(request: NextRequest) {
   // Verify cron secret OR admin auth
@@ -171,7 +93,6 @@ export async function POST(request: NextRequest) {
 
   // Allow cron secret
   if (cronSecret === expectedSecret) {
-    // Re-use GET logic
     return GET(request);
   }
 
@@ -200,49 +121,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Parse action
-  let body: { action?: string };
-  try {
-    body = await request.json();
-  } catch {
-    body = { action: 'all' };
-  }
-
-  const action = body.action || 'all';
-  const results = {
-    action,
-    periods_created: 0,
-    warnings_created: 0,
-    errors: [] as string[]
-  };
-
-  try {
-    if (action === 'check_warnings' || action === 'all') {
-      const { data: warningResults, error: warningError } = await getSupabaseAdmin()
-        .rpc('check_credit_warnings');
-
-      if (warningError) {
-        results.errors.push(`Warning check failed: ${warningError.message}`);
-      } else if (warningResults) {
-        results.warnings_created = warningResults.filter(
-          (r: { alert_id: string | null }) => r.alert_id !== null
-        ).length;
-      }
-    }
-
-    if (action === 'reset_periods' || action === 'all') {
-      // This would trigger period reset logic
-      // For now, just document that it's available
-      // Actual reset happens via Stripe webhook on subscription renewal
-      results.errors.push('Period reset is handled by Stripe webhook');
-    }
-
-  } catch (error) {
-    results.errors.push(`Unexpected error: ${error}`);
-  }
-
-  return NextResponse.json({
-    success: results.errors.length === 0,
-    ...results
-  });
+  // Just run the same logic as GET
+  return GET(request);
 }

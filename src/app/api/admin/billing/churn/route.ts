@@ -99,19 +99,22 @@ export async function GET() {
     for (const sub of canceledSubs || []) {
       if (sub.billing_waived) continue; // Skip waived subscriptions
 
-      const team = sub.teams as {
+      // Supabase returns joined relations as arrays
+      const teamsArray = sub.teams as Array<{
         id: string;
         name: string;
         organization_id: string | null;
-        organizations: {
+        organizations: Array<{
           id: string;
           name: string;
           status: string;
-        } | null;
-      };
+        }> | null;
+      }> | null;
+      const team = teamsArray?.[0];
+      const org = team?.organizations?.[0];
 
-      const orgId = team?.organization_id || team?.organizations?.id;
-      const orgName = team?.organizations?.name || team?.name || 'Unknown';
+      const orgId = team?.organization_id || org?.id;
+      const orgName = org?.name || team?.name || 'Unknown';
 
       // Skip if we've already processed this org
       if (orgId && processedOrgIds.has(orgId)) continue;

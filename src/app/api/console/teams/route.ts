@@ -148,8 +148,7 @@ export async function GET() {
   const tierTokens: Record<string, number> = {
     'basic': 2,
     'plus': 4,
-    'premium': 8,
-    'ai_powered': 8
+    'premium': 8
   };
 
   // Count members per team (including owner)

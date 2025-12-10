@@ -17,7 +17,8 @@ import {
 // Types
 interface CostsOverview {
   current_month: {
-    ai_credits_used: number;
+    video_minutes_used: number;
+    text_actions_used: number;
     ai_cost: number;
     revenue: number;
     margin: number;
@@ -34,7 +35,8 @@ interface CostsOverview {
 interface OrganizationCost {
   id: string;
   name: string;
-  ai_credits_used: number;
+  video_minutes_used: number;
+  text_actions_used: number;
   ai_cost: number;
   revenue: number;
   margin: number;
@@ -155,16 +157,16 @@ function OrganizationCostsTable({ organizations }: { organizations: Organization
               Organization
             </th>
             <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              AI Credits
+              Video Min
+            </th>
+            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Text Actions
             </th>
             <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
               AI Cost
             </th>
             <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Revenue
-            </th>
-            <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Margin
             </th>
             <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Margin %
@@ -178,16 +180,16 @@ function OrganizationCostsTable({ organizations }: { organizations: Organization
                 <span className="font-medium text-gray-900">{org.name}</span>
               </td>
               <td className="py-3 px-4 text-right text-gray-600">
-                {org.ai_credits_used.toLocaleString()}
+                {org.video_minutes_used.toLocaleString()}
+              </td>
+              <td className="py-3 px-4 text-right text-gray-600">
+                {org.text_actions_used.toLocaleString()}
               </td>
               <td className="py-3 px-4 text-right text-gray-600">
                 ${org.ai_cost.toFixed(2)}
               </td>
               <td className="py-3 px-4 text-right text-gray-600">
                 ${org.revenue}
-              </td>
-              <td className="py-3 px-4 text-right font-medium text-gray-900">
-                ${org.margin.toFixed(2)}
               </td>
               <td className="py-3 px-4 text-right">
                 <span className={`font-medium ${org.margin_percentage >= 80 ? 'text-green-600' : org.margin_percentage >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -366,10 +368,15 @@ export default function AdminCostsPage() {
       ) : overview ? (
         <>
           {/* Current Month Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <MetricCard
-              title="AI Credits Used"
-              value={overview.current_month.ai_credits_used}
+              title="Video Minutes Used"
+              value={overview.current_month.video_minutes_used}
+              icon={Calculator}
+            />
+            <MetricCard
+              title="Text Actions Used"
+              value={overview.current_month.text_actions_used}
               icon={Calculator}
             />
             <MetricCard

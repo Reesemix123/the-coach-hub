@@ -1,14 +1,13 @@
 'use client';
 
 // /admin/system - System Management Dashboard
-// Platform admin controls for feature flags, tier config, trial settings, and health
+// Platform admin controls for feature flags, tier config, storage, and health
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Settings,
   Flag,
   Layers,
-  Clock,
   Activity,
   RefreshCw,
   Plus,
@@ -21,7 +20,7 @@ import {
 } from 'lucide-react';
 
 // Types
-type SystemTab = 'flags' | 'tiers' | 'trial' | 'health' | 'storage';
+type SystemTab = 'flags' | 'tiers' | 'health' | 'storage';
 
 interface FeatureFlags {
   [key: string]: boolean;
@@ -35,13 +34,6 @@ interface TierConfig {
   price_monthly: number;
   features: string[];
   active_subscriptions: number;
-}
-
-interface TrialConfig {
-  trial_enabled: boolean;
-  trial_duration_days: number;
-  trial_allowed_tiers: string[];
-  trial_ai_credits_limit: number;
 }
 
 interface ServiceStatus {
@@ -85,6 +77,22 @@ interface StorageConfig {
   max_file_size_formatted?: string;
   default_quota_formatted?: string;
   tier_quotas_formatted?: Record<string, string>;
+}
+
+interface StorageUsage {
+  total_videos: number;
+  total_storage_bytes: number;
+  total_storage_formatted: string;
+  visible_videos: number;
+  visible_storage_bytes: number;
+  visible_storage_formatted: string;
+  retained_videos: number;
+  retained_storage_bytes: number;
+  retained_storage_formatted: string;
+  avg_video_size_bytes: number;
+  avg_video_size_formatted: string;
+  avg_visible_age_days: number;
+  avg_total_age_days: number;
 }
 
 // Tab Button Component
@@ -489,154 +497,6 @@ function TierConfigView() {
   );
 }
 
-// Trial Settings View
-function TrialSettingsView() {
-  const [config, setConfig] = useState<TrialConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
-
-  const allTiers = ['basic', 'plus', 'premium', 'ai_powered'];
-
-  const fetchConfig = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/system/trial-config');
-      if (!res.ok) throw new Error('Failed to fetch trial config');
-      const data = await res.json();
-      setConfig(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchConfig();
-  }, [fetchConfig]);
-
-  const handleChange = (field: keyof TrialConfig, value: unknown) => {
-    if (!config) return;
-    setConfig({ ...config, [field]: value });
-    setHasChanges(true);
-  };
-
-  const handleTierToggle = (tier: string) => {
-    if (!config) return;
-    const current = config.trial_allowed_tiers || [];
-    const updated = current.includes(tier)
-      ? current.filter(t => t !== tier)
-      : [...current, tier];
-    handleChange('trial_allowed_tiers', updated);
-  };
-
-  const handleSave = async () => {
-    if (!config) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/system/trial-config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      if (!res.ok) throw new Error('Failed to save trial config');
-      setHasChanges(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>;
-  }
-
-  if (!config) {
-    return <div className="text-center text-gray-500 py-8">Failed to load trial configuration</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          {error}
-          <button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">Enable Trials</h3>
-            <p className="text-sm text-gray-500">Allow new users to start a free trial</p>
-          </div>
-          <Toggle
-            checked={config.trial_enabled}
-            onChange={(checked) => handleChange('trial_enabled', checked)}
-          />
-        </div>
-
-        <div className="border-t border-gray-200 pt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Trial Duration (days)</label>
-          <input
-            type="number"
-            value={config.trial_duration_days}
-            onChange={(e) => handleChange('trial_duration_days', parseInt(e.target.value) || 14)}
-            min={1}
-            max={90}
-            className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
-          />
-        </div>
-
-        <div className="border-t border-gray-200 pt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">AI Credits Limit</label>
-          <input
-            type="number"
-            value={config.trial_ai_credits_limit}
-            onChange={(e) => handleChange('trial_ai_credits_limit', parseInt(e.target.value) || 0)}
-            min={0}
-            className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900"
-          />
-          <p className="text-sm text-gray-500 mt-1">Maximum AI credits allowed during trial</p>
-        </div>
-
-        <div className="border-t border-gray-200 pt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Tiers for Trial</label>
-          <div className="space-y-2">
-            {allTiers.map((tier) => (
-              <label key={tier} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={config.trial_allowed_tiers.includes(tier)}
-                  onChange={() => handleTierToggle(tier)}
-                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900"
-                />
-                <span className="text-sm text-gray-700">{tier.replace('_', ' ')}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {hasChanges && (
-          <div className="border-t border-gray-200 pt-6">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // System Health View
 function SystemHealthView() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -773,6 +633,7 @@ function SystemHealthView() {
 // Storage Settings View
 function StorageSettingsView() {
   const [config, setConfig] = useState<StorageConfig | null>(null);
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -780,11 +641,9 @@ function StorageSettingsView() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const tierLabels: Record<string, string> = {
-    free: 'Free Tier',
     basic: 'Basic',
     plus: 'Plus',
     premium: 'Premium',
-    ai_powered: 'AI Powered',
   };
 
   const fetchConfig = useCallback(async () => {
@@ -793,6 +652,7 @@ function StorageSettingsView() {
       if (!res.ok) throw new Error('Failed to fetch storage config');
       const data = await res.json();
       setConfig(data.config);
+      setUsage(data.usage);
       setUpdatedAt(data.updated_at);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch');
@@ -889,6 +749,49 @@ function StorageSettingsView() {
       {updatedAt && (
         <div className="text-sm text-gray-500">
           Last updated: {new Date(updatedAt).toLocaleString()}
+        </div>
+      )}
+
+      {/* Storage Usage Analytics */}
+      {usage && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <HardDrive className="w-5 h-5" />
+            Storage Usage Analytics
+          </h3>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-500">Total Storage</p>
+              <p className="text-xl font-semibold text-gray-900">{usage.total_storage_formatted}</p>
+              <p className="text-xs text-gray-400">{usage.total_videos} videos</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-500">Visible to Customers</p>
+              <p className="text-xl font-semibold text-gray-900">{usage.visible_storage_formatted}</p>
+              <p className="text-xs text-gray-400">{usage.visible_videos} videos</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-500">Retained (Training)</p>
+              <p className="text-xl font-semibold text-gray-900">{usage.retained_storage_formatted}</p>
+              <p className="text-xs text-gray-400">{usage.retained_videos} videos</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-500">Avg Video Size</p>
+              <p className="text-xl font-semibold text-gray-900">{usage.avg_video_size_formatted}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between py-2">
+              <p className="text-sm text-gray-600">Avg Age (Visible to Customers)</p>
+              <p className="font-medium text-gray-900">{usage.avg_visible_age_days} days</p>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <p className="text-sm text-gray-600">Avg Age (All Retained)</p>
+              <p className="font-medium text-gray-900">{usage.avg_total_age_days} days</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1061,12 +964,6 @@ export default function AdminSystemPage() {
           onClick={() => setActiveTab('tiers')}
         />
         <TabButton
-          label="Trial Settings"
-          icon={Clock}
-          active={activeTab === 'trial'}
-          onClick={() => setActiveTab('trial')}
-        />
-        <TabButton
           label="System Health"
           icon={Activity}
           active={activeTab === 'health'}
@@ -1083,7 +980,6 @@ export default function AdminSystemPage() {
       {/* Tab Content */}
       {activeTab === 'flags' && <FeatureFlagsView />}
       {activeTab === 'tiers' && <TierConfigView />}
-      {activeTab === 'trial' && <TrialSettingsView />}
       {activeTab === 'health' && <SystemHealthView />}
       {activeTab === 'storage' && <StorageSettingsView />}
     </div>

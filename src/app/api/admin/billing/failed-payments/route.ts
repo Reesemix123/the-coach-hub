@@ -85,12 +85,17 @@ export async function GET() {
     // Collect all owner_user_ids to fetch emails in a single query
     const ownerIds = new Set<string>();
     for (const invoice of invoices || []) {
-      const org = invoice.organizations as { owner_user_id: string };
+      // Supabase returns joined relations as arrays
+      const orgsArray = invoice.organizations as Array<{ owner_user_id: string }> | null;
+      const org = orgsArray?.[0];
       if (org?.owner_user_id) ownerIds.add(org.owner_user_id);
     }
     for (const sub of pastDueSubs || []) {
-      const team = sub.teams as { organizations?: { owner_user_id: string } | null };
-      if (team?.organizations?.owner_user_id) ownerIds.add(team.organizations.owner_user_id);
+      // Supabase returns joined relations as arrays
+      const teamsArray = sub.teams as Array<{ organizations?: Array<{ owner_user_id: string }> | null }> | null;
+      const team = teamsArray?.[0];
+      const org = team?.organizations?.[0];
+      if (org?.owner_user_id) ownerIds.add(org.owner_user_id);
     }
 
     // Fetch owner emails from profiles
@@ -116,17 +121,19 @@ export async function GET() {
         if (dueDate > new Date()) continue; // Not past due yet
       }
 
-      const org = invoice.organizations as {
+      // Supabase returns joined relations as arrays
+      const orgsArray = invoice.organizations as Array<{
         id: string;
         name: string;
         owner_user_id: string;
-      };
+      }> | null;
+      const org = orgsArray?.[0];
 
       failedPayments.push({
         id: invoice.id,
         organization_id: invoice.organization_id,
         organization_name: org?.name || 'Unknown',
-        owner_email: ownerEmails[org?.owner_user_id] || 'Unknown',
+        owner_email: ownerEmails[org?.owner_user_id || ''] || 'Unknown',
         team_name: null, // Invoices are at org level
         amount: Math.round(invoice.amount_cents / 100),
         failed_at: invoice.due_date || invoice.created_at,
@@ -137,19 +144,22 @@ export async function GET() {
 
     // Process past_due subscriptions (these may not have invoices yet)
     for (const sub of pastDueSubs || []) {
-      const team = sub.teams as {
+      // Supabase returns joined relations as arrays
+      const teamsArray = sub.teams as Array<{
         id: string;
         name: string;
         organization_id: string | null;
-        organizations: {
+        organizations: Array<{
           id: string;
           name: string;
           owner_user_id: string;
-        } | null;
-      };
+        }> | null;
+      }> | null;
+      const team = teamsArray?.[0];
+      const org = team?.organizations?.[0];
 
       // Skip if we already have a failed invoice for this org
-      const orgId = team?.organization_id || team?.organizations?.id;
+      const orgId = team?.organization_id || org?.id;
       if (orgId && failedPayments.some(fp => fp.organization_id === orgId)) {
         continue;
       }
@@ -157,8 +167,8 @@ export async function GET() {
       failedPayments.push({
         id: sub.id,
         organization_id: orgId || '',
-        organization_name: team?.organizations?.name || 'Unknown',
-        owner_email: ownerEmails[team?.organizations?.owner_user_id || ''] || 'Unknown',
+        organization_name: org?.name || 'Unknown',
+        owner_email: ownerEmails[org?.owner_user_id || ''] || 'Unknown',
         team_name: team?.name || 'Unknown',
         amount: 0, // Unknown until invoice is created
         failed_at: sub.updated_at,

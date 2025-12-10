@@ -24,6 +24,11 @@ interface OverviewResponse {
     total_games: number;
     total_plays_tagged: number;
   };
+  users: {
+    total: number;
+    new_this_week: number;
+    new_this_month: number;
+  };
   ai_credits: {
     used: number;
     allowed: number;
@@ -146,6 +151,28 @@ export async function GET() {
     activeUsersCount = uniqueUsers.size;
   }
 
+  // Get user stats (total users and new users)
+  const now = new Date();
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  // Get total users count
+  const { count: totalUsersCount } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true });
+
+  // Get new users this week
+  const { count: newUsersThisWeek } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', oneWeekAgo.toISOString());
+
+  // Get new users this month
+  const { count: newUsersThisMonth } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', oneMonthAgo.toISOString());
+
   // Get AI credits across all teams
   let aiCreditsUsed = 0;
   let aiCreditsAllowed = 0;
@@ -187,8 +214,7 @@ export async function GET() {
     const tierTokens: Record<string, number> = {
       'basic': 2,
       'plus': 4,
-      'premium': 8,
-      'ai_powered': 8
+      'premium': 8
     };
 
     subscriptions?.forEach(s => {
@@ -283,34 +309,6 @@ export async function GET() {
     });
   }
 
-  // Check for expiring trials
-  if (teamIds.length > 0) {
-    const threeDaysFromNow = new Date();
-    threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
-
-    const { data: expiringTrials } = await supabase
-      .from('subscriptions')
-      .select('team_id, trial_ends_at')
-      .in('team_id', teamIds)
-      .eq('status', 'trialing')
-      .lte('trial_ends_at', threeDaysFromNow.toISOString())
-      .gte('trial_ends_at', new Date().toISOString());
-
-    expiringTrials?.forEach(trial => {
-      const team = teams.find(t => t.id === trial.team_id);
-      const daysLeft = Math.ceil(
-        (new Date(trial.trial_ends_at!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
-      alerts.push({
-        type: 'trial_expiring',
-        message: `${team?.name || 'A team'} trial expires in ${daysLeft} day${daysLeft > 1 ? 's' : ''}`,
-        team_id: trial.team_id,
-        days_left: daysLeft,
-        action_url: `/console/teams/${trial.team_id}/subscribe`
-      });
-    });
-  }
-
   // Check for low upload tokens (teams with <=1 token remaining)
   if (teamIds.length > 0) {
     const { data: lowTokenTeams } = await supabase
@@ -339,6 +337,11 @@ export async function GET() {
       active_users_count: activeUsersCount,
       total_games: totalGames,
       total_plays_tagged: totalPlays
+    },
+    users: {
+      total: totalUsersCount || 0,
+      new_this_week: newUsersThisWeek || 0,
+      new_this_month: newUsersThisMonth || 0
     },
     ai_credits: {
       used: aiCreditsUsed,

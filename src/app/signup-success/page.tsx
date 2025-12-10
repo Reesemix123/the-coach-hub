@@ -17,7 +17,7 @@ function SuccessContent() {
   const [countdown, setCountdown] = useState(5);
 
   // Validate tier for display
-  const validTiers: SubscriptionTier[] = ['plus', 'premium', 'ai_powered'];
+  const validTiers: SubscriptionTier[] = ['plus', 'premium'];
   const displayTier = tierParam && validTiers.includes(tierParam)
     ? TIER_DISPLAY_NAMES[tierParam]
     : 'your new plan';

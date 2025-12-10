@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createServiceClient } from '@/utils/supabase/server';
+import { logAuthEvent, getClientIp, getUserAgent } from '@/lib/services/logging.service';
 
 /**
  * POST /api/user/activity
  * Updates the current user's last_active_at timestamp
  * Call this after successful login
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
@@ -39,6 +40,19 @@ export async function POST() {
         { status: 500 }
       );
     }
+
+    // Log successful login event
+    await logAuthEvent({
+      userId: user.id,
+      userEmail: user.email || null,
+      action: 'login',
+      status: 'success',
+      ipAddress: getClientIp(request.headers) || undefined,
+      userAgent: getUserAgent(request.headers) || undefined,
+      metadata: {
+        auth_provider: user.app_metadata?.provider || 'email',
+      },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

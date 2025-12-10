@@ -211,7 +211,6 @@ export default function OrganizationsPage() {
             <option value="basic">Basic</option>
             <option value="plus">Plus</option>
             <option value="premium">Premium</option>
-            <option value="ai_powered">AI Powered</option>
           </select>
         </div>
       </div>

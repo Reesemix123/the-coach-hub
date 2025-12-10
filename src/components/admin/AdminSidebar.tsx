@@ -15,7 +15,6 @@ import {
   Settings,
   ArrowLeft,
   Shield,
-  Gift,
   UserPlus
 } from 'lucide-react';
 
@@ -29,7 +28,6 @@ const navItems: NavItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/organizations', label: 'Organizations', icon: Building2 },
   { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/trial-requests', label: 'Trial Requests', icon: Gift },
   { href: '/admin/coach-requests', label: 'Coach Requests', icon: UserPlus },
   { href: '/admin/billing', label: 'Revenue', icon: CreditCard },
   { href: '/admin/costs', label: 'Costs', icon: TrendingUp },

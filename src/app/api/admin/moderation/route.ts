@@ -136,31 +136,43 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform response
-    const transformedVideos = videos?.map(video => ({
-      id: video.id,
-      name: video.name,
-      file_path: video.file_path,
-      url: video.url,
-      file_size_bytes: video.file_size_bytes,
-      file_size_formatted: formatBytes(video.file_size_bytes),
-      mime_type: video.mime_type,
-      duration_seconds: video.duration_seconds,
-      moderation_status: video.moderation_status,
-      uploaded_at: video.created_at,
-      uploaded_by: video.uploaded_by,
-      uploader_email: video.uploaded_by ? usersMap[video.uploaded_by]?.email : null,
-      uploader_name: video.uploaded_by ? usersMap[video.uploaded_by]?.full_name : null,
-      upload_ip: video.upload_ip,
-      moderated_at: video.moderated_at,
-      moderated_by: video.moderated_by,
-      moderator_email: video.moderated_by ? usersMap[video.moderated_by]?.email : null,
-      moderation_notes: video.moderation_notes,
-      flagged_reason: video.flagged_reason,
-      game_id: video.game_id,
-      game_name: video.games?.name,
-      team_id: video.games?.team_id,
-      team_name: video.games?.teams?.name,
-    }));
+    const transformedVideos = videos?.map(video => {
+      // Supabase returns joined relations as arrays
+      const gamesArray = video.games as Array<{
+        id: string;
+        name: string;
+        team_id: string;
+        teams: Array<{ id: string; name: string }> | null;
+      }> | null;
+      const game = gamesArray?.[0];
+      const team = game?.teams?.[0];
+
+      return {
+        id: video.id,
+        name: video.name,
+        file_path: video.file_path,
+        url: video.url,
+        file_size_bytes: video.file_size_bytes,
+        file_size_formatted: formatBytes(video.file_size_bytes),
+        mime_type: video.mime_type,
+        duration_seconds: video.duration_seconds,
+        moderation_status: video.moderation_status,
+        uploaded_at: video.created_at,
+        uploaded_by: video.uploaded_by,
+        uploader_email: video.uploaded_by ? usersMap[video.uploaded_by]?.email : null,
+        uploader_name: video.uploaded_by ? usersMap[video.uploaded_by]?.full_name : null,
+        upload_ip: video.upload_ip,
+        moderated_at: video.moderated_at,
+        moderated_by: video.moderated_by,
+        moderator_email: video.moderated_by ? usersMap[video.moderated_by]?.email : null,
+        moderation_notes: video.moderation_notes,
+        flagged_reason: video.flagged_reason,
+        game_id: video.game_id,
+        game_name: game?.name,
+        team_id: game?.team_id,
+        team_name: team?.name,
+      };
+    });
 
     // Get summary stats
     const { data: stats } = await auth.serviceClient

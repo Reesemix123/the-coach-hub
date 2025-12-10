@@ -29,6 +29,12 @@ export default function UserMenu() {
   }, []);
 
   const handleSignOut = async () => {
+    // Log the logout event before signing out
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to log logout event:', error);
+    }
     await supabase.auth.signOut();
     window.location.href = '/';
   };

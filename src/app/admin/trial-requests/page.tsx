@@ -32,7 +32,6 @@ const TIER_NAMES: Record<string, string> = {
   basic: 'Basic',
   plus: 'Plus',
   premium: 'Premium',
-  ai_powered: 'AI Powered',
   // Legacy tier names for backward compatibility
   little_league: 'Little League (Legacy)',
   hs_basic: 'HS Basic (Legacy)',
@@ -273,7 +272,6 @@ export default function TrialRequestsPage() {
                         <option value="basic">Basic (Free)</option>
                         <option value="plus">Plus ($29/mo)</option>
                         <option value="premium">Premium ($79/mo)</option>
-                        <option value="ai_powered">AI Powered ($199/mo)</option>
                       </select>
                     </div>
 

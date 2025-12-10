@@ -39,7 +39,8 @@ export async function GET() {
     ]);
 
     const config: TrialConfig = {
-      trial_enabled: trialEnabled === 'true' || trialEnabled === true,
+      // trialEnabled is string from config, check for 'true' string value
+      trial_enabled: trialEnabled === 'true',
       trial_duration_days: parseInt(String(trialDuration)) || 14,
       trial_allowed_tiers: typeof trialAllowedTiers === 'string'
         ? JSON.parse(trialAllowedTiers)

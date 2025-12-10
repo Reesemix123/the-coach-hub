@@ -7,13 +7,15 @@ import { requirePlatformAdmin } from '@/lib/admin/auth';
 import { getTierConfigs } from '@/lib/admin/config';
 import { SubscriptionTier } from '@/types/admin';
 
-// Cost per AI credit
-const COST_PER_AI_CREDIT = 0.02; // $0.02 per credit
+// Cost per AI action (matches costs/overview/route.ts)
+const COST_PER_VIDEO_MINUTE = 0.10; // $0.10 per video minute
+const COST_PER_TEXT_ACTION = 0.01; // $0.01 per text action
 
 interface OrganizationCost {
   id: string;
   name: string;
-  ai_credits_used: number;
+  video_minutes_used: number;
+  text_actions_used: number;
   ai_cost: number;
   revenue: number;
   margin: number;
@@ -79,10 +81,10 @@ export async function GET() {
 
     if (subError) throw subError;
 
-    // Get AI usage this month grouped by team
+    // Get AI usage this month from ai_usage table (migration 071)
     const { data: aiUsage, error: usageError } = await supabase
-      .from('ai_usage_logs')
-      .select('team_id, credits_used')
+      .from('ai_usage')
+      .select('team_id, usage_type, units_consumed')
       .gte('created_at', monthStart.toISOString());
 
     if (usageError) throw usageError;
@@ -95,12 +97,17 @@ export async function GET() {
       }
     }
 
-    // Calculate AI usage per organization
-    const orgAiCredits: Record<string, number> = {};
+    // Calculate AI usage per organization (video minutes and text actions separately)
+    const orgVideoMinutes: Record<string, number> = {};
+    const orgTextActions: Record<string, number> = {};
     for (const usage of aiUsage || []) {
       const orgId = teamToOrg[usage.team_id];
       if (orgId) {
-        orgAiCredits[orgId] = (orgAiCredits[orgId] || 0) + (usage.credits_used || 0);
+        if (usage.usage_type === 'video_analysis') {
+          orgVideoMinutes[orgId] = (orgVideoMinutes[orgId] || 0) + (Number(usage.units_consumed) || 0);
+        } else if (usage.usage_type === 'text_action') {
+          orgTextActions[orgId] = (orgTextActions[orgId] || 0) + 1;
+        }
       }
     }
 
@@ -118,8 +125,9 @@ export async function GET() {
     // Build results
     const results: OrganizationCost[] = [];
     for (const org of organizations || []) {
-      const aiCreditsUsed = orgAiCredits[org.id] || 0;
-      const aiCost = aiCreditsUsed * COST_PER_AI_CREDIT;
+      const videoMinutes = orgVideoMinutes[org.id] || 0;
+      const textActions = orgTextActions[org.id] || 0;
+      const aiCost = (videoMinutes * COST_PER_VIDEO_MINUTE) + (textActions * COST_PER_TEXT_ACTION);
       const revenue = Math.round((orgRevenue[org.id] || 0) / 100); // Convert cents to dollars
       const margin = revenue - aiCost;
       const marginPercentage = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
@@ -127,7 +135,8 @@ export async function GET() {
       results.push({
         id: org.id,
         name: org.name,
-        ai_credits_used: aiCreditsUsed,
+        video_minutes_used: Math.round(videoMinutes * 100) / 100,
+        text_actions_used: textActions,
         ai_cost: Math.round(aiCost * 100) / 100,
         revenue,
         margin: Math.round(margin * 100) / 100,

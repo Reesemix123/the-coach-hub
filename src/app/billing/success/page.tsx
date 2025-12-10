@@ -47,7 +47,6 @@ function SuccessContent() {
       const tierNames: Record<string, string> = {
         plus: 'Plus',
         premium: 'Premium',
-        ai_powered: 'AI Powered'
       };
       if (tier) {
         setTierName(tierNames[tier] || tier);

@@ -18,16 +18,11 @@ interface FeatureAccess {
   player_stats: boolean;
   situational_analysis: boolean;
 
-  // Tier 3+ (premium and above)
+  // Tier 3 (premium)
   ol_tracking: boolean;
   defensive_player_tracking: boolean;
   advanced_situational: boolean;
   opponent_scouting: boolean;
-
-  // Tier 4 (ai_powered only)
-  ai_play_recognition: boolean;
-  ai_insights: boolean;
-  ai_credits_enabled: boolean;
 }
 
 interface SubscriptionResponse {
@@ -50,16 +45,14 @@ interface SubscriptionResponse {
 const TIER_DISPLAY_NAMES: Record<string, string> = {
   basic: 'Basic',
   plus: 'Plus',
-  premium: 'Premium',
-  ai_powered: 'AI-Powered'
+  premium: 'Premium'
 };
 
 // Tier hierarchy for comparison (using normalized tier names)
 const TIER_LEVELS: Record<string, number> = {
   basic: 1,
   plus: 2,
-  premium: 3,
-  ai_powered: 4
+  premium: 3
 };
 
 /**
@@ -79,16 +72,11 @@ function computeFeatureAccess(tier: string, canAccess: boolean): FeatureAccess {
     player_stats: tierLevel >= 2,
     situational_analysis: tierLevel >= 2,
 
-    // Tier 3+ (premium and above)
+    // Tier 3 (premium)
     ol_tracking: tierLevel >= 3,
     defensive_player_tracking: tierLevel >= 3,
     advanced_situational: tierLevel >= 3,
-    opponent_scouting: tierLevel >= 3,
-
-    // Tier 4 (ai_powered only)
-    ai_play_recognition: tierLevel >= 4,
-    ai_insights: tierLevel >= 4,
-    ai_credits_enabled: tierLevel >= 4
+    opponent_scouting: tierLevel >= 3
   };
 }
 
@@ -118,15 +106,14 @@ function calculateTrialDaysRemaining(trialEndsAt: string | null): number | null 
 
 /**
  * Normalize legacy tier names to new naming convention
- * Database may store: little_league, hs_basic, hs_advanced, ai_powered
- * UI expects: basic, plus, premium, ai_powered
+ * Database may store: little_league, hs_basic, hs_advanced
+ * UI expects: basic, plus, premium
  */
 function normalizeTierName(tier: string): SubscriptionTier {
   const legacyMapping: Record<string, SubscriptionTier> = {
     little_league: 'basic',
     hs_basic: 'plus',
     hs_advanced: 'premium',
-    ai_powered: 'ai_powered',
     // New names map to themselves
     basic: 'basic',
     plus: 'plus',
@@ -206,8 +193,8 @@ export async function GET(
   const tierConfigs = await getTierConfigs();
 
   // Determine current tier and status
-  // Database may use legacy names: little_league, hs_basic, hs_advanced, ai_powered
-  // Normalize to new naming: basic, plus, premium, ai_powered
+  // Database may use legacy names: little_league, hs_basic, hs_advanced
+  // Normalize to new naming: basic, plus, premium
   const rawTier = subscription?.tier || 'plus';
   const tier = normalizeTierName(rawTier);
   const status: SubscriptionStatus = (subscription?.status as SubscriptionStatus) || 'none';

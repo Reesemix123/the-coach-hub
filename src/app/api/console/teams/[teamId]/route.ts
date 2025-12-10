@@ -132,7 +132,6 @@ export async function GET(
     'basic': 2,
     'plus': 4,
     'premium': 8,
-    'ai_powered': 8
   };
 
   // Get AI credits
@@ -195,7 +194,6 @@ export async function GET(
     'basic': 'Basic',
     'plus': 'Plus',
     'premium': 'Premium',
-    'ai_powered': 'AI Powered'
   };
 
   const response: TeamDetailResponse = {
