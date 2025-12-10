@@ -25,7 +25,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -39,7 +38,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         setDescription('');
         setScreenshot(null);
         setScreenshotBlob(null);
-        setShowPreview(false);
         setSubmitted(false);
         setError(null);
       }, 300);
@@ -284,18 +282,13 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 )}
               </div>
               {screenshot ? (
-                <button
-                  type="button"
-                  onClick={() => setShowPreview(true)}
-                  className="w-full p-2 hover:bg-gray-50 transition-colors"
-                >
+                <div className="p-2">
                   <img
                     src={screenshot}
                     alt="Screenshot preview"
-                    className="w-full h-24 object-cover object-top rounded border border-gray-200"
+                    className="w-full h-20 object-cover object-top rounded border border-gray-200"
                   />
-                  <span className="text-xs text-gray-500 mt-1 block">Click to enlarge</span>
-                </button>
+                </div>
               ) : (
                 <div className="p-3 space-y-3">
                   <button
@@ -359,28 +352,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
         )}
         </div>
       </div>
-
-      {/* Screenshot Preview Modal */}
-      {showPreview && screenshot && (
-        <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4"
-          onClick={() => setShowPreview(false)}
-        >
-          <div className="relative max-w-4xl max-h-[80vh] overflow-auto">
-            <button
-              onClick={() => setShowPreview(false)}
-              className="absolute top-2 right-2 p-2 bg-black/50 rounded-full text-white hover:bg-black/70"
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={screenshot}
-              alt="Screenshot preview"
-              className="rounded-lg shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
     </div>,
     document.body
   );
