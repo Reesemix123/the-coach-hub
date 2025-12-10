@@ -100,6 +100,7 @@ export function DirectorsCut({
 
   async function recordCameraSelection(cameraId: string, startTime: number) {
     try {
+      console.log('Recording camera selection:', { cameraId, startTime, gameId, teamId });
       const response = await fetch(`/api/teams/${teamId}/games/${gameId}/camera-selections`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,8 +111,13 @@ export function DirectorsCut({
       });
 
       if (response.ok) {
+        const data = await response.json();
+        console.log('Camera selection saved:', data);
         // Refresh selections
         fetchSelections();
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to save camera selection:', errorData);
       }
     } catch (error) {
       console.error('Error recording camera selection:', error);
@@ -141,13 +147,15 @@ export function DirectorsCut({
   }
 
   function startRecording() {
+    if (!selectedCameraId) {
+      alert('Please select a camera first before recording.');
+      return;
+    }
     setIsRecording(true);
     setIsPlaybackMode(false);
     lastRecordedCameraRef.current = selectedCameraId;
     // Record the initial camera selection
-    if (selectedCameraId) {
-      recordCameraSelection(selectedCameraId, currentTime);
-    }
+    recordCameraSelection(selectedCameraId, currentTime);
   }
 
   function stopRecording() {
