@@ -41,7 +41,14 @@ function LoginForm() {
       setMessageType('error')
       setLoading(false)
     } else {
-      // Successfully logged in - determine where to route the user
+      // Successfully logged in - update activity timestamp
+      try {
+        await fetch('/api/user/activity', { method: 'POST' });
+      } catch {
+        // Don't block login if activity update fails
+      }
+
+      // Determine where to route the user
       const user = data.user
 
       // Check if user has a team

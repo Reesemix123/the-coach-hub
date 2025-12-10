@@ -2,7 +2,7 @@ import { createClient, createServiceClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 /**
- * Ensures a profile exists for the user.
+ * Ensures a profile exists for the user and updates last_active_at.
  * This is a fallback in case the database trigger fails.
  */
 async function ensureProfileExists(userId: string, email: string, fullName?: string) {
@@ -24,7 +24,7 @@ async function ensureProfileExists(userId: string, email: string, fullName?: str
           id: userId,
           email: email,
           full_name: fullName || '',
-          created_at: new Date().toISOString(),
+          last_active_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
 
@@ -32,6 +32,19 @@ async function ensureProfileExists(userId: string, email: string, fullName?: str
         console.error('Failed to create profile in callback:', error);
       } else {
         console.log('Profile created successfully for user:', userId);
+      }
+    } else {
+      // Profile exists - update last_active_at to mark login
+      const { error } = await serviceClient
+        .from('profiles')
+        .update({
+          last_active_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Failed to update last_active_at:', error);
       }
     }
   } catch (error) {
