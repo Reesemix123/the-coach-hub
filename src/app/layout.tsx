@@ -8,6 +8,7 @@ import TeamSwitcher from "@/components/TeamSwitcher";
 import ConsoleLink from "@/components/ConsoleLink";
 import AdminLink from "@/components/AdminLink";
 import TourButton from "@/components/TourButton";
+import NavbarUtilities from "@/components/NavbarUtilities";
 import { GlobalOnboardingProvider, OnboardingTourModal, OnboardingChecklist } from "@/components/onboarding";
 import { Toaster } from "react-hot-toast";
 
@@ -61,8 +62,11 @@ export default function RootLayout({
                   <AdminLink />
                 </div>
               </div>
-              {/* User Menu */}
-              <UserMenu />
+              {/* User Utilities */}
+              <div className="flex items-center gap-2">
+                <NavbarUtilities />
+                <UserMenu />
+              </div>
             </div>
           </div>
         </ScrollingNavbar>
