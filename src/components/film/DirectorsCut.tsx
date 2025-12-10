@@ -148,15 +148,15 @@ export function DirectorsCut({
     }
   }
 
-  async function startRecording() {
+  async function startRecording(resume: boolean = false) {
     if (!selectedCameraId) {
       alert('Please select a camera first before recording.');
       return;
     }
 
-    // If there are existing selections, ask if they want to clear and start fresh
-    if (hasSelections) {
-      const shouldClear = confirm('This will clear your existing Director\'s Cut and start fresh. Continue?');
+    // If there are existing selections and not resuming, ask what to do
+    if (hasSelections && !resume) {
+      const shouldClear = confirm('This will clear your existing Director\'s Cut and start fresh. Continue?\n\nClick Cancel to resume from where you left off instead.');
       if (!shouldClear) return;
 
       // Clear existing selections
@@ -175,15 +175,32 @@ export function DirectorsCut({
     setIsPlaybackMode(false);
     lastRecordedCameraRef.current = selectedCameraId;
 
-    // Record the initial camera selection at time 0 (start of video)
-    // Seek to beginning and start playing
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play();
-    }
+    if (resume && selections.length > 0) {
+      // Resume: seek to the end of the last selection and continue
+      const lastSelection = selections[selections.length - 1];
+      const resumeTime = lastSelection.end_seconds || lastSelection.start_seconds;
 
-    // Record starting camera at time 0
-    recordCameraSelection(selectedCameraId, 0);
+      if (videoRef.current) {
+        videoRef.current.currentTime = resumeTime;
+        videoRef.current.play();
+      }
+
+      // Record current camera at resume point
+      recordCameraSelection(selectedCameraId, resumeTime);
+    } else {
+      // Fresh start: seek to beginning
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play();
+      }
+
+      // Record starting camera at time 0
+      recordCameraSelection(selectedCameraId, 0);
+    }
+  }
+
+  function resumeRecording() {
+    startRecording(true);
   }
 
   function stopRecording() {
@@ -284,28 +301,57 @@ export function DirectorsCut({
                 Record your camera angle choices as you watch, then play back your custom cut.
               </p>
 
-              <div className="flex gap-2">
-                {!isRecording ? (
-                  <button
-                    onClick={startRecording}
-                    disabled={isPlaybackMode}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Circle size={12} className="fill-white" />
-                    Start Recording
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopRecording}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900"
-                  >
-                    <Square size={12} className="fill-white" />
-                    Stop Recording
-                  </button>
-                )}
+              <div className="flex flex-col gap-2">
+                {/* Recording buttons */}
+                <div className="flex gap-2">
+                  {!isRecording ? (
+                    <>
+                      {hasSelections ? (
+                        // Show Resume and Start New options
+                        <>
+                          <button
+                            onClick={resumeRecording}
+                            disabled={isPlaybackMode}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Circle size={12} className="fill-white" />
+                            Resume
+                          </button>
+                          <button
+                            onClick={() => startRecording(false)}
+                            disabled={isPlaybackMode}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Circle size={12} className="fill-white" />
+                            Start New
+                          </button>
+                        </>
+                      ) : (
+                        // No existing selections - just show Start Recording
+                        <button
+                          onClick={() => startRecording(false)}
+                          disabled={isPlaybackMode}
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Circle size={12} className="fill-white" />
+                          Start Recording
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900"
+                    >
+                      <Square size={12} className="fill-white" />
+                      Stop Recording
+                    </button>
+                  )}
+                </div>
 
+                {/* Playback buttons */}
                 {hasSelections && !isRecording && (
-                  <>
+                  <div className="flex gap-2">
                     {!isPlaybackMode ? (
                       <button
                         onClick={startPlayback}
@@ -323,7 +369,7 @@ export function DirectorsCut({
                         Stop Auto
                       </button>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
