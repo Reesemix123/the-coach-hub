@@ -60,24 +60,32 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
   async function captureScreenshot() {
     setIsCapturing(true);
+    console.log('[Feedback] Starting screenshot capture...');
     try {
       // Find and hide the modal overlay temporarily for screenshot
       const overlay = document.getElementById('feedback-modal-overlay');
+      console.log('[Feedback] Overlay found:', !!overlay);
       if (overlay) {
         overlay.style.display = 'none';
       }
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 150));
 
+      console.log('[Feedback] Calling html2canvas...');
       const canvas = await html2canvas(document.body, {
         useCORS: true,
         allowTaint: true,
-        logging: false,
-        scale: 1,
+        logging: true, // Enable logging to see what html2canvas is doing
+        scale: window.devicePixelRatio > 1 ? 1 : window.devicePixelRatio, // Handle retina displays
+        width: window.innerWidth,
+        height: window.innerHeight,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
         ignoreElements: (element) => {
           return element.id === 'feedback-modal-overlay';
         }
       });
+      console.log('[Feedback] Canvas created:', canvas.width, 'x', canvas.height);
 
       // Show the overlay again
       if (overlay) {
@@ -85,16 +93,18 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       }
 
       const dataUrl = canvas.toDataURL('image/png');
+      console.log('[Feedback] Data URL length:', dataUrl.length);
       setScreenshot(dataUrl);
 
       // Convert to blob for upload
       canvas.toBlob((blob) => {
+        console.log('[Feedback] Blob created:', blob?.size);
         if (blob) {
           setScreenshotBlob(blob);
         }
       }, 'image/png');
     } catch (err) {
-      console.error('Screenshot capture failed:', err);
+      console.error('[Feedback] Screenshot capture failed:', err);
       // Show overlay again even if screenshot fails
       const overlay = document.getElementById('feedback-modal-overlay');
       if (overlay) {
@@ -102,6 +112,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       }
     } finally {
       setIsCapturing(false);
+      console.log('[Feedback] Screenshot capture complete');
     }
   }
 
