@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Camera, Check, Loader2, Upload, MonitorUp } from 'lucide-react';
+import { X, Camera, Check, Upload } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface FeedbackModalProps {
@@ -24,16 +24,12 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [description, setDescription] = useState('');
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Note: Auto-capture disabled because html2canvas doesn't support Tailwind v4's lab() colors
-  // Users can manually capture using the "Capture" button which uses the Screen Capture API
 
   // Reset state when modal closes
   useEffect(() => {
@@ -79,68 +75,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     e.target.value = '';
   }
 
-  async function captureScreen() {
-    setIsCapturing(true);
-    setError(null);
-
-    try {
-      // Use the Screen Capture API to let user select what to capture
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          displaySurface: 'browser',
-        } as MediaTrackConstraints,
-        audio: false,
-        // @ts-expect-error - preferCurrentTab is a newer API
-        preferCurrentTab: true,
-      });
-
-      // Create a video element to capture a frame
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-
-      await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play();
-          resolve();
-        };
-      });
-
-      // Wait a brief moment for the video to render
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Create canvas and capture the frame
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(video, 0, 0);
-
-      // Stop all tracks immediately
-      stream.getTracks().forEach(track => track.stop());
-
-      // Convert to data URL and blob
-      const dataUrl = canvas.toDataURL('image/png');
-      setScreenshot(dataUrl);
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          setScreenshotBlob(blob);
-        }
-      }, 'image/png');
-
-      console.log('[Feedback] Screen capture succeeded:', canvas.width, 'x', canvas.height);
-    } catch (err) {
-      // User cancelled or browser doesn't support
-      console.log('[Feedback] Screen capture cancelled or failed:', err);
-      // Don't show error if user just cancelled
-      if ((err as Error).name !== 'NotAllowedError') {
-        setError('Screen capture failed. Try uploading a screenshot instead.');
-      }
-    } finally {
-      setIsCapturing(false);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -323,12 +257,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             <div className="rounded-lg border border-gray-200 overflow-hidden">
               <div className="flex items-center justify-between py-2 px-3 bg-gray-50">
                 <div className="flex items-center gap-2">
-                  {isCapturing ? (
-                    <>
-                      <Loader2 size={16} className="text-gray-500 animate-spin" />
-                      <span className="text-sm text-gray-600">Capturing screenshot...</span>
-                    </>
-                  ) : screenshot ? (
+                  {screenshot ? (
                     <>
                       <Camera size={16} className="text-green-600" />
                       <span className="text-sm text-gray-600">Screenshot attached</span>
@@ -337,11 +266,11 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   ) : (
                     <>
                       <Camera size={16} className="text-gray-400" />
-                      <span className="text-sm text-gray-500">No screenshot (optional)</span>
+                      <span className="text-sm text-gray-500">Screenshot (optional)</span>
                     </>
                   )}
                 </div>
-                {screenshot ? (
+                {screenshot && (
                   <button
                     type="button"
                     onClick={() => {
@@ -352,29 +281,9 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   >
                     Remove
                   </button>
-                ) : !isCapturing && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={captureScreen}
-                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
-                    >
-                      <MonitorUp size={14} />
-                      Capture
-                    </button>
-                    <span className="text-gray-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
-                    >
-                      <Upload size={14} />
-                      Upload
-                    </button>
-                  </div>
                 )}
               </div>
-              {screenshot && (
+              {screenshot ? (
                 <button
                   type="button"
                   onClick={() => setShowPreview(true)}
@@ -387,10 +296,24 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   />
                   <span className="text-xs text-gray-500 mt-1 block">Click to enlarge</span>
                 </button>
+              ) : (
+                <div className="p-3 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-3 px-4 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Upload size={18} />
+                    Upload Screenshot
+                  </button>
+                  <div className="text-xs text-gray-400 space-y-1">
+                    <p className="font-medium text-gray-500">How to take a screenshot:</p>
+                    <p><span className="font-medium">Mac:</span> Cmd + Shift + 4, then drag to select</p>
+                    <p><span className="font-medium">Windows:</span> Win + Shift + S, then drag to select</p>
+                    <p className="text-gray-400 mt-1">Screenshots save to your desktop or clipboard</p>
+                  </div>
+                </div>
               )}
-              <p className="text-xs text-gray-400 px-3 py-2 bg-gray-50 border-t border-gray-100">
-                Add a screenshot to help us understand the issue better.
-              </p>
               {/* Hidden file input */}
               <input
                 ref={fileInputRef}
