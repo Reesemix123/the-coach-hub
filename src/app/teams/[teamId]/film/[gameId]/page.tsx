@@ -339,6 +339,7 @@ export default function GameFilmPage() {
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingSyncSeek, setPendingSyncSeek] = useState<number | null>(null); // Time to seek after camera switch
+  const [shouldResumePlayback, setShouldResumePlayback] = useState(false); // Whether to auto-play after camera switch
 
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -421,6 +422,11 @@ export default function GameFilmPage() {
       if (pendingSyncSeek !== null) {
         video.currentTime = Math.max(0, Math.min(pendingSyncSeek, video.duration));
         setPendingSyncSeek(null);
+        // Resume playback if the video was playing before the switch
+        if (shouldResumePlayback) {
+          video.play();
+          setShouldResumePlayback(false);
+        }
       }
     };
 
@@ -435,7 +441,7 @@ export default function GameFilmPage() {
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [selectedVideo, pendingSyncSeek]);
+  }, [selectedVideo, pendingSyncSeek, shouldResumePlayback]);
 
   async function fetchGame() {
     const { data, error } = await supabase
@@ -747,6 +753,7 @@ export default function GameFilmPage() {
     // If we have a current video playing and sync offsets are set, calculate the synced time
     if (selectedVideo && videoRef.current) {
       const currentVideoTime = videoRef.current.currentTime;
+      const wasPlaying = !videoRef.current.paused;
       const currentOffset = selectedVideo.sync_offset_seconds || 0;
       const newOffset = newCamera.sync_offset_seconds || 0;
 
@@ -756,6 +763,9 @@ export default function GameFilmPage() {
 
       // Set the pending seek time (will be applied when new video loads)
       setPendingSyncSeek(Math.max(0, syncedTime));
+
+      // Remember if we should resume playback after the new video loads
+      setShouldResumePlayback(wasPlaying);
     }
 
     setSelectedVideo(newCamera);
