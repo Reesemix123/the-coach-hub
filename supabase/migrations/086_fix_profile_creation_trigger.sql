@@ -1,9 +1,10 @@
 -- Fix profile creation trigger to ensure it works reliably
 -- The existing trigger may be failing silently due to RLS or permission issues
 
--- First, ensure the profiles table has proper policies for trigger execution
--- Drop and recreate the trigger function with better error handling
+-- First, ensure the profiles table has the created_at column (may be missing)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
+-- Drop and recreate the trigger function with better error handling
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 SECURITY DEFINER
@@ -11,12 +12,11 @@ SET search_path = public
 AS $$
 BEGIN
   -- Insert into profiles with ON CONFLICT to handle any race conditions
-  INSERT INTO public.profiles (id, email, full_name, created_at, updated_at)
+  INSERT INTO public.profiles (id, email, full_name, updated_at)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    NOW(),
     NOW()
   )
   ON CONFLICT (id) DO UPDATE SET
@@ -61,12 +61,11 @@ CREATE POLICY "Trigger can update profiles"
 
 -- Backfill any missing profiles from auth.users
 -- This will catch any users that were created but didn't get profiles
-INSERT INTO public.profiles (id, email, full_name, created_at, updated_at)
+INSERT INTO public.profiles (id, email, full_name, updated_at)
 SELECT
   au.id,
   au.email,
   COALESCE(au.raw_user_meta_data->>'full_name', ''),
-  au.created_at,
   NOW()
 FROM auth.users au
 WHERE NOT EXISTS (
