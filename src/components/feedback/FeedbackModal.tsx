@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Camera, Check, Loader2, Upload } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { X, Camera, Check, Loader2, Upload, MonitorUp } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface FeedbackModalProps {
@@ -33,16 +32,8 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Capture screenshot when modal opens
-  useEffect(() => {
-    if (isOpen && !screenshot) {
-      // Small delay to ensure portal is mounted before we try to hide/capture
-      const timer = setTimeout(() => {
-        captureScreenshot();
-      }, 50);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+  // Note: Auto-capture disabled because html2canvas doesn't support Tailwind v4's lab() colors
+  // Users can manually capture using the "Capture" button which uses the Screen Capture API
 
   // Reset state when modal closes
   useEffect(() => {
@@ -58,81 +49,6 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       }, 300);
     }
   }, [isOpen]);
-
-  async function captureScreenshot() {
-    setIsCapturing(true);
-    console.log('[Feedback] Starting screenshot capture...');
-    try {
-      // Find and hide the modal overlay temporarily for screenshot
-      const overlay = document.getElementById('feedback-modal-overlay');
-      console.log('[Feedback] Overlay found:', !!overlay);
-      if (overlay) {
-        overlay.style.display = 'none';
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      console.log('[Feedback] Attempting screenshot capture with html2canvas...');
-
-      let canvas: HTMLCanvasElement | null = null;
-
-      try {
-        canvas = await html2canvas(document.body, {
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          scale: 1,
-          width: window.innerWidth,
-          height: window.innerHeight,
-          backgroundColor: '#ffffff',
-          ignoreElements: (element) => {
-            return element.id === 'feedback-modal-overlay';
-          },
-        });
-        console.log('[Feedback] html2canvas succeeded');
-      } catch (html2canvasErr) {
-        // html2canvas failed (likely due to lab() colors in Tailwind CSS v4)
-        // This is a known incompatibility - screenshots are optional
-        console.log('[Feedback] html2canvas failed (Tailwind v4 lab() colors not supported):', html2canvasErr);
-      }
-
-      if (canvas) {
-        console.log('[Feedback] Canvas created:', canvas.width, 'x', canvas.height);
-      } else {
-        console.log('[Feedback] Screenshot not available - user can still submit feedback without it');
-      }
-
-      // Show the overlay again
-      if (overlay) {
-        overlay.style.display = '';
-      }
-
-      // Only process if we got a canvas
-      if (canvas) {
-        const dataUrl = canvas.toDataURL('image/png');
-        console.log('[Feedback] Data URL length:', dataUrl.length);
-        setScreenshot(dataUrl);
-
-        // Convert to blob for upload
-        canvas.toBlob((blob) => {
-          console.log('[Feedback] Blob created:', blob?.size);
-          if (blob) {
-            setScreenshotBlob(blob);
-          }
-        }, 'image/png');
-      }
-    } catch (err) {
-      console.error('[Feedback] Screenshot capture failed:', err);
-      // Show overlay again even if screenshot fails
-      const overlay = document.getElementById('feedback-modal-overlay');
-      if (overlay) {
-        overlay.style.display = '';
-      }
-    } finally {
-      setIsCapturing(false);
-      console.log('[Feedback] Screenshot capture complete');
-    }
-  }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -161,6 +77,69 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
     // Reset input so same file can be selected again
     e.target.value = '';
+  }
+
+  async function captureScreen() {
+    setIsCapturing(true);
+    setError(null);
+
+    try {
+      // Use the Screen Capture API to let user select what to capture
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: 'browser',
+        } as MediaTrackConstraints,
+        audio: false,
+        // @ts-expect-error - preferCurrentTab is a newer API
+        preferCurrentTab: true,
+      });
+
+      // Create a video element to capture a frame
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => {
+          video.play();
+          resolve();
+        };
+      });
+
+      // Wait a brief moment for the video to render
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Create canvas and capture the frame
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(video, 0, 0);
+
+      // Stop all tracks immediately
+      stream.getTracks().forEach(track => track.stop());
+
+      // Convert to data URL and blob
+      const dataUrl = canvas.toDataURL('image/png');
+      setScreenshot(dataUrl);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          setScreenshotBlob(blob);
+        }
+      }, 'image/png');
+
+      console.log('[Feedback] Screen capture succeeded:', canvas.width, 'x', canvas.height);
+    } catch (err) {
+      // User cancelled or browser doesn't support
+      console.log('[Feedback] Screen capture cancelled or failed:', err);
+      // Don't show error if user just cancelled
+      if ((err as Error).name !== 'NotAllowedError') {
+        setError('Screen capture failed. Try uploading a screenshot instead.');
+      }
+    } finally {
+      setIsCapturing(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -374,14 +353,25 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                     Remove
                   </button>
                 ) : !isCapturing && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
-                  >
-                    <Upload size={14} />
-                    Upload
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={captureScreen}
+                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      <MonitorUp size={14} />
+                      Capture
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      <Upload size={14} />
+                      Upload
+                    </button>
+                  </div>
                 )}
               </div>
               {screenshot && (
