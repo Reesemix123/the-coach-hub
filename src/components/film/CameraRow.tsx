@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Play, Check, Clock, Settings2, X, GripVertical } from 'lucide-react';
+import { Plus, Play, Check, Clock, Settings2, X, GripVertical, Link2 } from 'lucide-react';
+import { SyncModal } from './SyncModal';
 
 interface Camera {
   id: string;
@@ -42,29 +43,13 @@ export function CameraRow({
   uploadProgress = 0,
 }: CameraRowProps) {
   const [showSyncModal, setShowSyncModal] = useState(false);
-  const [syncingCameraId, setSyncingCameraId] = useState<string | null>(null);
-  const [syncOffset, setSyncOffset] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Sort cameras by camera_order
   const sortedCameras = [...cameras].sort((a, b) => a.camera_order - b.camera_order);
 
   const canAddMore = currentCameraCount < cameraLimit;
-  const primaryCamera = sortedCameras.find(c => c.camera_order === 1);
-
-  const openSyncModal = (camera: Camera) => {
-    setSyncingCameraId(camera.id);
-    setSyncOffset(camera.sync_offset_seconds || 0);
-    setShowSyncModal(true);
-  };
-
-  const handleSaveSync = () => {
-    if (syncingCameraId) {
-      onSyncCamera(syncingCameraId, syncOffset);
-    }
-    setShowSyncModal(false);
-    setSyncingCameraId(null);
-  };
+  const hasSecondaryCameras = sortedCameras.length > 1;
 
   const formatDuration = (seconds: number | null): string => {
     if (!seconds) return '--:--';
@@ -86,20 +71,31 @@ export function CameraRow({
         <h3 className="text-sm font-semibold text-gray-900">
           Camera Angles ({currentCameraCount}/{cameraLimit})
         </h3>
-        {canAddMore && !isUploading && (
-          <button
-            onClick={onAddCamera}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            <Plus size={14} />
-            Add Camera
-          </button>
-        )}
-        {!canAddMore && (
-          <span className="text-xs text-gray-500">
-            Upgrade for more cameras
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {hasSecondaryCameras && (
+            <button
+              onClick={() => setShowSyncModal(true)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Link2 size={14} />
+              Sync Cameras
+            </button>
+          )}
+          {canAddMore && !isUploading && (
+            <button
+              onClick={onAddCamera}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+            >
+              <Plus size={14} />
+              Add Camera
+            </button>
+          )}
+          {!canAddMore && (
+            <span className="text-xs text-gray-500">
+              Upgrade for more cameras
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Camera thumbnails row */}
@@ -181,12 +177,12 @@ export function CameraRow({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      openSyncModal(camera);
+                      setShowSyncModal(true);
                     }}
                     className="absolute bottom-2 right-2 p-1.5 bg-black/70 rounded-full hover:bg-black/90 transition-colors"
-                    title="Adjust sync"
+                    title="Sync cameras"
                   >
-                    <Settings2 size={12} className="text-white" />
+                    <Link2 size={12} className="text-white" />
                   </button>
                 )}
               </div>
@@ -245,72 +241,12 @@ export function CameraRow({
       </div>
 
       {/* Sync Modal */}
-      {showSyncModal && syncingCameraId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Sync Camera</h3>
-              <button
-                onClick={() => setShowSyncModal(false)}
-                className="p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <p className="text-sm text-gray-600 mb-4">
-              Adjust the sync offset relative to the primary camera. Use positive values if this camera starts after the primary, negative if it starts before.
-            </p>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Offset (seconds)
-              </label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSyncOffset(prev => prev - 1)}
-                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-lg font-medium hover:bg-gray-50"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  value={syncOffset}
-                  onChange={(e) => setSyncOffset(Number(e.target.value))}
-                  className="flex-1 h-10 px-3 border border-gray-300 rounded-lg text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-black text-gray-900"
-                />
-                <button
-                  onClick={() => setSyncOffset(prev => prev + 1)}
-                  className="w-10 h-10 rounded-lg border border-gray-300 flex items-center justify-center text-lg font-medium hover:bg-gray-50"
-                >
-                  +
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                {syncOffset === 0
-                  ? 'Cameras are synced'
-                  : syncOffset > 0
-                  ? `This camera starts ${syncOffset}s after the primary`
-                  : `This camera starts ${Math.abs(syncOffset)}s before the primary`}
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowSyncModal(false)}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveSync}
-                className="flex-1 px-4 py-2.5 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800"
-              >
-                Save Sync
-              </button>
-            </div>
-          </div>
-        </div>
+      {showSyncModal && (
+        <SyncModal
+          cameras={cameras}
+          onClose={() => setShowSyncModal(false)}
+          onSyncCamera={onSyncCamera}
+        />
       )}
     </div>
   );
