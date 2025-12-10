@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Camera, Check, Loader2, ExternalLink } from 'lucide-react';
+import { X, Camera, Check, Loader2, Upload } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { createClient } from '@/utils/supabase/client';
 
@@ -31,6 +31,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Capture screenshot when modal opens
   useEffect(() => {
@@ -71,38 +72,55 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
       await new Promise(resolve => setTimeout(resolve, 150));
 
-      console.log('[Feedback] Calling html2canvas...');
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        allowTaint: true,
-        logging: true, // Enable logging to see what html2canvas is doing
-        scale: window.devicePixelRatio > 1 ? 1 : window.devicePixelRatio, // Handle retina displays
-        width: window.innerWidth,
-        height: window.innerHeight,
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        ignoreElements: (element) => {
-          return element.id === 'feedback-modal-overlay';
-        }
-      });
-      console.log('[Feedback] Canvas created:', canvas.width, 'x', canvas.height);
+      console.log('[Feedback] Attempting screenshot capture with html2canvas...');
+
+      let canvas: HTMLCanvasElement | null = null;
+
+      try {
+        canvas = await html2canvas(document.body, {
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          scale: 1,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          backgroundColor: '#ffffff',
+          ignoreElements: (element) => {
+            return element.id === 'feedback-modal-overlay';
+          },
+        });
+        console.log('[Feedback] html2canvas succeeded');
+      } catch (html2canvasErr) {
+        // html2canvas failed (likely due to lab() colors in Tailwind CSS v4)
+        // This is a known incompatibility - screenshots are optional
+        console.log('[Feedback] html2canvas failed (Tailwind v4 lab() colors not supported):', html2canvasErr);
+      }
+
+      if (canvas) {
+        console.log('[Feedback] Canvas created:', canvas.width, 'x', canvas.height);
+      } else {
+        console.log('[Feedback] Screenshot not available - user can still submit feedback without it');
+      }
 
       // Show the overlay again
       if (overlay) {
         overlay.style.display = '';
       }
 
-      const dataUrl = canvas.toDataURL('image/png');
-      console.log('[Feedback] Data URL length:', dataUrl.length);
-      setScreenshot(dataUrl);
+      // Only process if we got a canvas
+      if (canvas) {
+        const dataUrl = canvas.toDataURL('image/png');
+        console.log('[Feedback] Data URL length:', dataUrl.length);
+        setScreenshot(dataUrl);
 
-      // Convert to blob for upload
-      canvas.toBlob((blob) => {
-        console.log('[Feedback] Blob created:', blob?.size);
-        if (blob) {
-          setScreenshotBlob(blob);
-        }
-      }, 'image/png');
+        // Convert to blob for upload
+        canvas.toBlob((blob) => {
+          console.log('[Feedback] Blob created:', blob?.size);
+          if (blob) {
+            setScreenshotBlob(blob);
+          }
+        }, 'image/png');
+      }
     } catch (err) {
       console.error('[Feedback] Screenshot capture failed:', err);
       // Show overlay again even if screenshot fails
@@ -114,6 +132,35 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       setIsCapturing(false);
       console.log('[Feedback] Screenshot capture complete');
     }
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be less than 5MB');
+      return;
+    }
+
+    // Read file as data URL for preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setScreenshot(event.target?.result as string);
+      setScreenshotBlob(file);
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    e.target.value = '';
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -311,11 +358,11 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   ) : (
                     <>
                       <Camera size={16} className="text-gray-400" />
-                      <span className="text-sm text-gray-500">No screenshot</span>
+                      <span className="text-sm text-gray-500">No screenshot (optional)</span>
                     </>
                   )}
                 </div>
-                {screenshot && (
+                {screenshot ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -325,6 +372,15 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                     className="text-sm text-red-600 hover:text-red-700"
                   >
                     Remove
+                  </button>
+                ) : !isCapturing && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                  >
+                    <Upload size={14} />
+                    Upload
                   </button>
                 )}
               </div>
@@ -343,8 +399,16 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 </button>
               )}
               <p className="text-xs text-gray-400 px-3 py-2 bg-gray-50 border-t border-gray-100">
-                Screenshot only captures this app window, nothing else on your screen.
+                Add a screenshot to help us understand the issue better.
               </p>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
             </div>
 
             {/* Error message */}
