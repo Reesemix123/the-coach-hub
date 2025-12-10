@@ -37,6 +37,7 @@ import VideoTimelineMarkers from '@/components/film/VideoTimelineMarkers';
 import MarkerList from '@/components/film/MarkerList';
 import AddMarkerModal from '@/components/film/AddMarkerModal';
 import CameraRow from '@/components/film/CameraRow';
+import DirectorsCut from '@/components/film/DirectorsCut';
 import { VideoMarkerService } from '@/lib/services/video-marker.service';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
 import { Flag } from 'lucide-react';
@@ -1804,6 +1805,28 @@ export default function GameFilmPage() {
               onChange={handleVideoUpload}
               className="hidden"
             />
+
+            {/* Director's Cut - placed below CameraRow when multiple cameras exist */}
+            {videos.filter(v => !v.is_virtual).length > 1 && (
+              <div className="mt-3 flex justify-end">
+                <DirectorsCut
+                  gameId={gameId}
+                  teamId={teamId}
+                  cameras={videos.filter(v => !v.is_virtual).map(v => ({
+                    id: v.id,
+                    name: v.name,
+                    camera_label: v.camera_label || null,
+                    camera_order: v.camera_order || 1,
+                    sync_offset_seconds: v.sync_offset_seconds || 0,
+                    url: v.url,
+                  }))}
+                  currentTime={currentTime}
+                  selectedCameraId={selectedVideo?.id || null}
+                  onCameraSwitch={handleCameraSwitch}
+                  isPlaying={isPlaying}
+                />
+              </div>
+            )}
           </div>
 
           {/* Virtual/Combined Videos List (if any) */}
