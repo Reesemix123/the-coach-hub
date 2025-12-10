@@ -193,13 +193,14 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   return (
     <div
       id="feedback-modal-overlay"
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4"
+      className="fixed inset-0 bg-black/50 z-[100] overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div
-        ref={modalRef}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
-      >
+      <div className="min-h-full flex items-center justify-center p-4">
+        <div
+          ref={modalRef}
+          className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden my-8"
+        >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-gray-900">Share Feedback</h2>
@@ -334,6 +335,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
             </div>
           </form>
         )}
+        </div>
       </div>
 
       {/* Screenshot Preview Modal */}
