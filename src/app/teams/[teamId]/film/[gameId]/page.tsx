@@ -338,6 +338,7 @@ export default function GameFilmPage() {
   const [cameraLimit, setCameraLimit] = useState<number>(1);
   const [showCameraUpload, setShowCameraUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingSyncSeek, setPendingSyncSeek] = useState<number | null>(null); // Time to seek after camera switch
 
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -414,7 +415,14 @@ export default function GameFilmPage() {
     const handleTimeUpdate = () => setCurrentTime(video.currentTime);
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
-    const handleLoadedMetadata = () => setVideoDuration(video.duration);
+    const handleLoadedMetadata = () => {
+      setVideoDuration(video.duration);
+      // If there's a pending seek from camera switch, apply it now
+      if (pendingSyncSeek !== null) {
+        video.currentTime = Math.max(0, Math.min(pendingSyncSeek, video.duration));
+        setPendingSyncSeek(null);
+      }
+    };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
@@ -427,7 +435,7 @@ export default function GameFilmPage() {
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [selectedVideo]);
+  }, [selectedVideo, pendingSyncSeek]);
 
   async function fetchGame() {
     const { data, error } = await supabase
@@ -729,6 +737,28 @@ export default function GameFilmPage() {
       console.error('Error syncing camera:', error);
       alert('Failed to update sync offset');
     }
+  }
+
+  // Handle camera switch with sync - calculates synced timestamp when switching between cameras
+  function handleCameraSwitch(newCameraId: string) {
+    const newCamera = videos.find(v => v.id === newCameraId);
+    if (!newCamera) return;
+
+    // If we have a current video playing and sync offsets are set, calculate the synced time
+    if (selectedVideo && videoRef.current) {
+      const currentVideoTime = videoRef.current.currentTime;
+      const currentOffset = selectedVideo.sync_offset_seconds || 0;
+      const newOffset = newCamera.sync_offset_seconds || 0;
+
+      // Convert current time to "absolute" time, then to new camera's time
+      // Formula: new_time = current_time + current_offset - new_offset
+      const syncedTime = currentVideoTime + currentOffset - newOffset;
+
+      // Set the pending seek time (will be applied when new video loads)
+      setPendingSyncSeek(Math.max(0, syncedTime));
+    }
+
+    setSelectedVideo(newCamera);
   }
 
   // Trigger camera upload from CameraRow
@@ -1748,10 +1778,7 @@ export default function GameFilmPage() {
                 url: v.url,
               }))}
               selectedCameraId={selectedVideo?.id || null}
-              onSelectCamera={(cameraId) => {
-                const camera = videos.find(v => v.id === cameraId);
-                if (camera) setSelectedVideo(camera);
-              }}
+              onSelectCamera={handleCameraSwitch}
               onAddCamera={handleAddCameraClick}
               onSyncCamera={handleSyncCamera}
               cameraLimit={cameraLimit}
