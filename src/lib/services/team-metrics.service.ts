@@ -168,7 +168,7 @@ export class TeamMetricsService {
   static async getComprehensiveMetrics(
     filters: Omit<MetricFilters, 'gamesPlayed'>
   ): Promise<ComprehensiveTeamMetrics> {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     try {
       const { data, error } = await supabase.rpc('calculate_team_metrics', {
@@ -234,7 +234,7 @@ export class TeamMetricsService {
     teamId: string,
     gameId?: string
   ): Promise<number> {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     try {
       const { data, error } = await supabase.rpc('get_turnover_differential', {
