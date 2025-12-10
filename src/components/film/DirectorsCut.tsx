@@ -35,6 +35,7 @@ interface DirectorsCutProps {
   selectedCameraId: string | null;
   onCameraSwitch: (cameraId: string) => void;
   isPlaying: boolean;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
 }
 
 export function DirectorsCut({
@@ -45,6 +46,7 @@ export function DirectorsCut({
   selectedCameraId,
   onCameraSwitch,
   isPlaying,
+  videoRef,
 }: DirectorsCutProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaybackMode, setIsPlaybackMode] = useState(false);
@@ -146,20 +148,55 @@ export function DirectorsCut({
     }
   }
 
-  function startRecording() {
+  async function startRecording() {
     if (!selectedCameraId) {
       alert('Please select a camera first before recording.');
       return;
     }
+
+    // If there are existing selections, ask if they want to clear and start fresh
+    if (hasSelections) {
+      const shouldClear = confirm('This will clear your existing Director\'s Cut and start fresh. Continue?');
+      if (!shouldClear) return;
+
+      // Clear existing selections
+      try {
+        await fetch(`/api/teams/${teamId}/games/${gameId}/camera-selections`, {
+          method: 'DELETE',
+        });
+        setSelections([]);
+        setHasSelections(false);
+      } catch (error) {
+        console.error('Error clearing selections:', error);
+      }
+    }
+
     setIsRecording(true);
     setIsPlaybackMode(false);
     lastRecordedCameraRef.current = selectedCameraId;
-    // Record the initial camera selection
-    recordCameraSelection(selectedCameraId, currentTime);
+
+    // Record the initial camera selection at time 0 (start of video)
+    // Seek to beginning and start playing
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+    }
+
+    // Record starting camera at time 0
+    recordCameraSelection(selectedCameraId, 0);
   }
 
   function stopRecording() {
     setIsRecording(false);
+
+    // Pause the video
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+
+    // Close out the last selection with the current time as end
+    // The API handles this automatically when a new selection is added,
+    // but we should finalize it when stopping
     fetchSelections(); // Refresh to get the complete list
   }
 
@@ -167,6 +204,17 @@ export function DirectorsCut({
     setIsPlaybackMode(true);
     setIsRecording(false);
     lastPlaybackSwitchTimeRef.current = -1;
+
+    // Seek to beginning and start playing
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+    }
+
+    // Switch to the first camera in the selections
+    if (selections.length > 0) {
+      onCameraSwitch(selections[0].camera_id);
+    }
   }
 
   function stopPlayback() {

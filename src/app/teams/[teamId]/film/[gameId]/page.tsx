@@ -1824,6 +1824,7 @@ export default function GameFilmPage() {
                   selectedCameraId={selectedVideo?.id || null}
                   onCameraSwitch={handleCameraSwitch}
                   isPlaying={isPlaying}
+                  videoRef={videoRef}
                 />
               </div>
             )}
