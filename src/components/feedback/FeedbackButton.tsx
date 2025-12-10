@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MessageCircleQuestion } from 'lucide-react';
+import { MessageSquarePlus } from 'lucide-react';
 import { FeedbackModal } from './FeedbackModal';
 
 export function FeedbackButton() {
@@ -11,11 +11,12 @@ export function FeedbackButton() {
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-        title="Share feedback"
-        aria-label="Share feedback"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        title="Send feedback"
+        aria-label="Send feedback"
       >
-        <MessageCircleQuestion size={20} />
+        <MessageSquarePlus size={16} />
+        <span className="hidden sm:inline">Feedback</span>
       </button>
 
       <FeedbackModal
