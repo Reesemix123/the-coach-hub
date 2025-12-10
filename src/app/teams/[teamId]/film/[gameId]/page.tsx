@@ -39,6 +39,7 @@ import AddMarkerModal from '@/components/film/AddMarkerModal';
 import { VideoMarkerService } from '@/lib/services/video-marker.service';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
 import { Flag } from 'lucide-react';
+import { uploadFile, formatBytes, formatTime, formatSpeed, type UploadProgress } from '@/lib/utils/resumable-upload';
 
 interface Game {
   id: string;
@@ -334,6 +335,12 @@ export default function GameFilmPage() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [uploadDetails, setUploadDetails] = useState<{
+    speed: string;
+    remaining: string;
+    uploaded: string;
+    total: string;
+  } | null>(null);
   const [isSettingEndTime, setIsSettingEndTime] = useState(false);
   const [taggingMode, setTaggingMode] = useState<TaggingMode>('offense');
   const [analyticsTier, setAnalyticsTier] = useState<string>('premium');
@@ -702,11 +709,12 @@ export default function GameFilmPage() {
 
     setUploadingVideo(true);
     setUploadProgress(0);
+    setUploadDetails(null);
     setUploadStatus('Checking upload permissions...');
 
     try {
       // Step 1: Pre-flight check with our API (quota, rate limits, file type validation)
-      setUploadProgress(5);
+      setUploadProgress(2);
       const preflightResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -738,59 +746,72 @@ export default function GameFilmPage() {
         setUploadingVideo(false);
         setUploadProgress(0);
         setUploadStatus('');
+        setUploadDetails(null);
         return;
       }
 
       const { uploadId, storagePath } = preflightData;
 
-      // Step 2: Upload to Supabase Storage
-      setUploadProgress(10);
+      // Step 2: Upload to Supabase Storage using resumable upload for large files
+      setUploadProgress(5);
       const fileSizeDisplay = fileSizeGB >= 1 ? `${fileSizeGB.toFixed(1)} GB` : `${fileSizeMB.toFixed(1)} MB`;
       setUploadStatus(`Uploading ${file.name} (${fileSizeDisplay})...`);
 
-      // Simulate progress during upload (since Supabase doesn't provide real-time progress)
-      // Estimate based on ~5-10 Mbps upload speed (average home connection)
-      const estimatedUploadTime = Math.max(5000, fileSizeMB * 150); // ~150ms per MB, min 5s
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 80) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, estimatedUploadTime / 70); // Increment to ~80% over estimated time
+      // Use resumable upload utility (TUS protocol for files > 100MB)
+      const uploadResult = await uploadFile(
+        supabase,
+        'game_videos',
+        storagePath,
+        file,
+        {
+          onProgress: (progress: UploadProgress) => {
+            // Map upload progress to 5-90% range (leave room for finalization)
+            const mappedProgress = 5 + Math.round(progress.percentage * 0.85);
+            setUploadProgress(mappedProgress);
 
-      const uploadOptions = fileSizeMB > 50 ? {
-        cacheControl: '3600',
-        upsert: false,
-        duplex: 'half' as RequestDuplex
-      } : {};
+            // Update detailed progress info
+            setUploadDetails({
+              speed: formatSpeed(progress.speed),
+              remaining: progress.remainingTime > 0 ? formatTime(progress.remainingTime) : 'calculating...',
+              uploaded: formatBytes(progress.bytesUploaded),
+              total: formatBytes(progress.bytesTotal),
+            });
 
-      const { error: uploadError } = await supabase.storage
-        .from('game_videos')
-        .upload(storagePath, file, uploadOptions);
+            // Update status with progress details
+            if (progress.percentage < 100) {
+              setUploadStatus(`Uploading: ${progress.percentage}% • ${formatSpeed(progress.speed)}`);
+            }
+          },
+          onError: async (error: Error) => {
+            console.error('Upload error:', error);
 
-      clearInterval(progressInterval); // Stop simulation when upload completes
+            // Report upload failure to our API
+            await fetch(`/api/teams/${teamId}/videos/upload?uploadId=${uploadId}&reason=storage_error`, {
+              method: 'DELETE',
+            });
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
+            alert(`Error uploading video: ${error.message}\n\nIf uploading a large file (>1GB), please:\n1. Check your internet connection and try again\n2. Or compress the video to 10-12 Mbps using HandBrake (free)`);
+            setUploadingVideo(false);
+            setUploadProgress(0);
+            setUploadStatus('');
+            setUploadDetails(null);
+          },
+        }
+      );
 
-        // Report upload failure to our API
-        await fetch(`/api/teams/${teamId}/videos/upload?uploadId=${uploadId}&reason=storage_error`, {
-          method: 'DELETE',
-        });
-
-        alert(`Error uploading video: ${uploadError.message}\n\nIf uploading a large file (>1GB), please:\n1. Check your internet connection and try again\n2. Or compress the video to 10-12 Mbps using HandBrake (free)`);
-        setUploadingVideo(false);
-        setUploadProgress(0);
-        setUploadStatus('');
+      if (!uploadResult.success) {
+        // Error already handled in onError callback
+        if (uploadResult.error) {
+          console.error('Upload failed:', uploadResult.error);
+        }
         return;
       }
 
       // Step 3: Complete the upload (creates video record and updates storage tracking)
-      setUploadProgress(85);
+      setUploadProgress(92);
       setUploadStatus('Finalizing upload...');
+      setUploadDetails(null);
+
       const completeResponse = await fetch(`/api/teams/${teamId}/videos/upload`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -799,6 +820,8 @@ export default function GameFilmPage() {
           storagePath,
           gameId: game.id,
           fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
         }),
       });
 
@@ -829,11 +852,13 @@ export default function GameFilmPage() {
           setUploadingVideo(false);
           setUploadProgress(0);
           setUploadStatus('');
+          setUploadDetails(null);
         }, 500);
       } else {
         setUploadingVideo(false);
         setUploadProgress(0);
         setUploadStatus('');
+        setUploadDetails(null);
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -841,6 +866,7 @@ export default function GameFilmPage() {
       setUploadingVideo(false);
       setUploadProgress(0);
       setUploadStatus('');
+      setUploadDetails(null);
     }
   }
 
@@ -1580,7 +1606,7 @@ export default function GameFilmPage() {
                 {uploadingVideo ? (
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-48">
+                      <div className="w-64">
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-black transition-all duration-300 ease-out"
@@ -1593,6 +1619,15 @@ export default function GameFilmPage() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500">{uploadStatus}</p>
+                    {uploadDetails && (
+                      <div className="flex gap-4 text-xs text-gray-400">
+                        <span>{uploadDetails.uploaded} / {uploadDetails.total}</span>
+                        <span>{uploadDetails.speed}</span>
+                        {uploadDetails.remaining !== 'calculating...' && (
+                          <span>{uploadDetails.remaining} remaining</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <label className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
