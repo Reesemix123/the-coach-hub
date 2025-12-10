@@ -36,6 +36,7 @@ import { playerHasPosition, playerInPositionGroup, getPlayerDisplayName, getPosi
 import VideoTimelineMarkers from '@/components/film/VideoTimelineMarkers';
 import MarkerList from '@/components/film/MarkerList';
 import AddMarkerModal from '@/components/film/AddMarkerModal';
+import CameraRow from '@/components/film/CameraRow';
 import { VideoMarkerService } from '@/lib/services/video-marker.service';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
 import { Flag } from 'lucide-react';
@@ -62,6 +63,13 @@ interface Video {
   virtual_name?: string;
   video_count?: number;
   video_group_id?: string;
+  // Camera fields (from migration 084 and 090)
+  camera_label?: string | null;
+  camera_order?: number;
+  sync_offset_seconds?: number;
+  thumbnail_url?: string | null;
+  upload_status?: 'pending' | 'processing' | 'ready' | 'failed';
+  duration_seconds?: number | null;
 }
 
 interface Play {
@@ -73,6 +81,7 @@ interface Play {
 interface PlayInstance {
   id: string;
   video_id: string;
+  camera_id?: string; // Which camera was selected when tagging
   play_code: string;
   team_id: string;
   timestamp_start: number;
@@ -325,6 +334,11 @@ export default function GameFilmPage() {
   const [selectedVideoIds, setSelectedVideoIds] = useState<Set<string>>(new Set());
   const [showCombineModal, setShowCombineModal] = useState(false);
 
+  // Camera state
+  const [cameraLimit, setCameraLimit] = useState<number>(1);
+  const [showCameraUpload, setShowCameraUpload] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -370,6 +384,7 @@ export default function GameFilmPage() {
       fetchGame();
       fetchVideos();
       fetchDrives();
+      fetchCameraLimit();
     }
   }, [gameId]);
 
@@ -434,7 +449,7 @@ export default function GameFilmPage() {
       .from('videos')
       .select('*')
       .eq('game_id', gameId)
-      .order('created_at', { ascending: false });
+      .order('camera_order', { ascending: true }); // Order by camera_order for multi-camera
 
     if (!error && data) {
       // Generate signed URLs for videos that have file_path but no url
@@ -462,6 +477,18 @@ export default function GameFilmPage() {
       setVideos(videosWithUrls);
     } else if (error) {
       console.error('Error fetching videos:', error);
+    }
+  }
+
+  async function fetchCameraLimit() {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/games/${gameId}/cameras`);
+      if (response.ok) {
+        const data = await response.json();
+        setCameraLimit(data.cameraLimit || 1);
+      }
+    } catch (error) {
+      console.error('Error fetching camera limit:', error);
     }
   }
 
@@ -680,6 +707,35 @@ export default function GameFilmPage() {
     setShowCombineModal(true);
   }
 
+  // Camera sync handler
+  async function handleSyncCamera(cameraId: string, offsetSeconds: number) {
+    try {
+      const response = await fetch(`/api/teams/${teamId}/videos/${cameraId}/sync`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sync_offset_seconds: offsetSeconds }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setVideos(prev => prev.map(v =>
+          v.id === cameraId ? { ...v, sync_offset_seconds: offsetSeconds } : v
+        ));
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to update sync');
+      }
+    } catch (error) {
+      console.error('Error syncing camera:', error);
+      alert('Failed to update sync offset');
+    }
+  }
+
+  // Trigger camera upload from CameraRow
+  function handleAddCameraClick() {
+    fileInputRef.current?.click();
+  }
+
   async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) {
@@ -740,6 +796,8 @@ export default function GameFilmPage() {
           alert(`File is too large.\n\nMaximum file size: ${preflightData.details.max_file_size_formatted}\nYour file: ${(file.size / (1024 * 1024 * 1024)).toFixed(2)} GB`);
         } else if (preflightData.details?.reason === 'invalid_file_type') {
           alert(`Invalid file type.\n\nOnly video files are allowed: ${preflightData.details.allowed_extensions?.join(', ')}`);
+        } else if (preflightData.details?.reason === 'camera_limit' || preflightData.error === 'camera_limit') {
+          alert(`Camera limit reached.\n\nYour plan allows ${preflightData.details?.limit || cameraLimit} camera angle${(preflightData.details?.limit || cameraLimit) === 1 ? '' : 's'} per game.\n\nUpgrade your plan to add more cameras.`);
         } else {
           alert(`Upload not allowed: ${errorMessage}`);
         }
@@ -1011,6 +1069,7 @@ export default function GameFilmPage() {
 
       const instanceData = {
         video_id: selectedVideo.id,
+        camera_id: selectedVideo.id, // Camera selected when tagging (same as video_id for now)
         team_id: game.team_id,
         drive_id: driveId,
         timestamp_start: tagStartTime,
@@ -1491,14 +1550,44 @@ export default function GameFilmPage() {
     setPrimaryTacklerId(playerId);
   }
 
-  function jumpToPlay(timestamp: number, endTimestamp?: number) {
-    if (videoRef.current) {
-      videoRef.current.currentTime = timestamp;
+  /**
+   * Jump to a play timestamp, accounting for sync offset if viewing on a different camera
+   * @param timestamp - The timestamp on the original camera where the play was tagged
+   * @param endTimestamp - Optional end timestamp
+   * @param sourceCameraId - The camera_id where this play was originally tagged (defaults to video_id)
+   */
+  function jumpToPlay(timestamp: number, endTimestamp?: number, sourceCameraId?: string) {
+    if (videoRef.current && selectedVideo) {
+      // Calculate synced timestamp if we're viewing on a different camera
+      let syncedTimestamp = timestamp;
+      let syncedEndTimestamp = endTimestamp;
+
+      if (sourceCameraId && sourceCameraId !== selectedVideo.id) {
+        // Find source and target camera sync offsets
+        const sourceCamera = videos.find(v => v.id === sourceCameraId);
+        const targetCamera = selectedVideo;
+
+        if (sourceCamera && targetCamera) {
+          const sourceOffset = sourceCamera.sync_offset_seconds || 0;
+          const targetOffset = targetCamera.sync_offset_seconds || 0;
+
+          // Convert: source_timestamp + source_offset = absolute_time
+          // target_timestamp = absolute_time - target_offset
+          syncedTimestamp = timestamp + sourceOffset - targetOffset;
+          if (endTimestamp) {
+            syncedEndTimestamp = endTimestamp + sourceOffset - targetOffset;
+          }
+        }
+      }
+
+      // Clamp to valid range
+      syncedTimestamp = Math.max(0, syncedTimestamp);
+      videoRef.current.currentTime = syncedTimestamp;
       videoRef.current.play();
-      
-      if (endTimestamp) {
+
+      if (syncedEndTimestamp) {
         const checkTime = setInterval(() => {
-          if (videoRef.current && videoRef.current.currentTime >= endTimestamp) {
+          if (videoRef.current && videoRef.current.currentTime >= syncedEndTimestamp!) {
             videoRef.current.pause();
             clearInterval(checkTime);
           }
@@ -1644,81 +1733,60 @@ export default function GameFilmPage() {
             </div>
           </div>
 
-          {/* Unified Video List */}
-          {videos.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Videos ({videos.length})
-                </h2>
-                {selectedVideoIds.size > 0 && (
+          {/* Camera Row - Multi-Camera View */}
+          <div className="mb-6">
+            <CameraRow
+              cameras={videos.filter(v => !v.is_virtual).map(v => ({
+                id: v.id,
+                name: v.name,
+                camera_label: v.camera_label || null,
+                camera_order: v.camera_order || 1,
+                sync_offset_seconds: v.sync_offset_seconds || 0,
+                thumbnail_url: v.thumbnail_url || null,
+                upload_status: v.upload_status || 'ready',
+                duration_seconds: v.duration_seconds || null,
+                url: v.url,
+              }))}
+              selectedCameraId={selectedVideo?.id || null}
+              onSelectCamera={(cameraId) => {
+                const camera = videos.find(v => v.id === cameraId);
+                if (camera) setSelectedVideo(camera);
+              }}
+              onAddCamera={handleAddCameraClick}
+              onSyncCamera={handleSyncCamera}
+              cameraLimit={cameraLimit}
+              currentCameraCount={videos.filter(v => !v.is_virtual).length}
+              isUploading={uploadingVideo}
+              uploadProgress={uploadProgress}
+            />
+            {/* Hidden file input for camera upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleVideoUpload}
+              className="hidden"
+            />
+          </div>
+
+          {/* Virtual/Combined Videos List (if any) */}
+          {videos.filter(v => v.is_virtual).length > 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Combined Videos</h3>
+              <div className="flex gap-2 flex-wrap">
+                {videos.filter(v => v.is_virtual).map((video) => (
                   <button
-                    onClick={handleCombineVideos}
-                    className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+                    key={video.id}
+                    onClick={() => setSelectedVideo(video)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      selectedVideo?.id === video.id
+                        ? 'bg-blue-100 text-blue-800 border-2 border-blue-500'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
-                    Combine {selectedVideoIds.size} Videos
+                    {video.virtual_name || video.name}
                   </button>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {videos.map((video) => {
-                  const isSelected = selectedVideoIds.has(video.id);
-                  const isActive = selectedVideo?.id === video.id;
-
-                  return (
-                    <div
-                      key={video.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                        isActive
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {/* Checkbox */}
-                      {!video.is_virtual && (
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleToggleVideoSelection(video.id)}
-                          className="w-4 h-4 text-black border-gray-300 rounded focus:ring-black cursor-pointer"
-                        />
-                      )}
-
-                      {/* Video info and select button */}
-                      <button
-                        onClick={() => setSelectedVideo(video)}
-                        className="flex-1 flex items-center gap-3 text-left"
-                      >
-                        {/* Icon */}
-                        <div className="flex-shrink-0 text-2xl">
-                          {video.is_virtual ? '🎬' : '📹'}
-                        </div>
-
-                        {/* Name and metadata */}
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium truncate ${
-                            isActive ? 'text-blue-900' : 'text-gray-900'
-                          }`}>
-                            {video.virtual_name || video.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {video.is_virtual
-                              ? `Combined from ${video.video_count} videos`
-                              : new Date(video.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-
-                        {/* Active indicator */}
-                        {isActive && (
-                          <div className="flex-shrink-0 px-2 py-1 bg-blue-600 text-white text-xs font-medium rounded">
-                            Playing
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
+                ))}
               </div>
             </div>
           )}
@@ -1835,7 +1903,7 @@ export default function GameFilmPage() {
                                   width: `${width}%`,
                                   backgroundColor: getPlayColor(index)
                                 }}
-                                onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined)}
+                                onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined, instance.camera_id || instance.video_id)}
                               >
                                 <div className="hidden group-hover:block absolute bottom-full left-0 mb-1 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-30">
                                   {instance.play_code} - {formatTime(instance.timestamp_start)}
@@ -2226,7 +2294,7 @@ export default function GameFilmPage() {
                       </div>
                       
                       <button
-                        onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined)}
+                        onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined, instance.camera_id || instance.video_id)}
                         className="w-full relative overflow-hidden rounded hover:opacity-90 transition-opacity group bg-gray-900"
                       >
                         <div className="w-full h-24 flex items-center justify-center">

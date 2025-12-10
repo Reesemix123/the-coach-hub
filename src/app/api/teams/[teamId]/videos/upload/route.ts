@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { EntitlementsService } from '@/lib/entitlements/entitlements-service';
 
 /**
  * Video Upload API with Server-Side Validation
@@ -126,13 +127,35 @@ export async function POST(
 
     // Get request body
     const body = await request.json();
-    const { fileName, fileSize, mimeType, gameId } = body;
+    const { fileName, fileSize, mimeType, gameId, cameraLabel } = body;
 
     if (!fileName || !fileSize) {
       return NextResponse.json(
         { error: 'Missing required fields: fileName, fileSize' },
         { status: 400 }
       );
+    }
+
+    // Check camera limit if this is for a game
+    if (gameId) {
+      const entitlements = new EntitlementsService(supabase);
+      const cameraCheck = await entitlements.canAddCamera(teamId, gameId);
+
+      if (!cameraCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: 'camera_limit',
+            message: cameraCheck.reason,
+            details: {
+              reason: 'camera_limit',
+              currentUsage: cameraCheck.currentUsage,
+              limit: cameraCheck.limit,
+              upgradeOption: cameraCheck.upgradeOption,
+            }
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Check TOS acceptance (if required by config)
@@ -291,7 +314,7 @@ export async function PUT(
     const clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || null;
 
     const body = await request.json();
-    const { uploadId, storagePath, gameId, fileName, fileSize, mimeType } = body;
+    const { uploadId, storagePath, gameId, fileName, fileSize, mimeType, cameraLabel } = body;
 
     if (!storagePath || !gameId || !fileName) {
       return NextResponse.json(
@@ -312,12 +335,21 @@ export async function PUT(
       }
     }
 
-    // Create video record
+    // Determine camera_order for this upload
+    // Count existing cameras for this game
+    const { count: existingCameras } = await supabase
+      .from('videos')
+      .select('id', { count: 'exact', head: true })
+      .eq('game_id', gameId);
+
+    const cameraOrder = (existingCameras || 0) + 1;
+
+    // Create video record with camera metadata
     // Try with new columns first, fall back to basic columns if they don't exist
     let video;
     let videoError;
 
-    // First try with all columns (if migration 066 has been applied)
+    // First try with all columns including camera metadata
     const fullInsert = await supabase
       .from('videos')
       .insert({
@@ -328,6 +360,10 @@ export async function PUT(
         upload_ip: clientIp,
         file_size_bytes: fileSize || null,
         mime_type: mimeType || null,
+        camera_label: cameraLabel || (cameraOrder === 1 ? 'Main Camera' : `Camera ${cameraOrder}`),
+        camera_order: cameraOrder,
+        sync_offset_seconds: 0, // Primary camera or default
+        upload_status: 'ready',
       })
       .select()
       .single();
