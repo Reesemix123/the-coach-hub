@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SubscriptionTier } from '@/types/admin';
 import { TIER_DISPLAY_NAMES } from '@/lib/feature-access';
-import { Check, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 interface Team {
   id: string;
@@ -33,14 +33,14 @@ const TIER_OPTIONS: TierOption[] = [
     name: 'Basic',
     price: 0,
     description: 'Perfect for youth leagues',
-    features: ['Digital playbook', 'Film upload', 'Roster management']
+    features: ['2 uploads/month', '1 camera angle', '30-day retention']
   },
   {
     id: 'plus',
     name: 'Plus',
     price: 29,
     description: 'Full analytics',
-    features: ['Everything in Basic', 'Drive analytics', 'Player stats'],
+    features: ['4 uploads/month', '3 camera angles', '180-day retention'],
     popular: true
   },
   {
@@ -48,15 +48,7 @@ const TIER_OPTIONS: TierOption[] = [
     name: 'Premium',
     price: 79,
     description: 'Advanced analytics',
-    features: ['Everything in Plus', 'O-Line grading', 'Scouting reports']
-  },
-  {
-    id: 'ai_powered',
-    name: 'AI Powered',
-    price: 199,
-    description: 'AI-assisted coaching',
-    features: ['Everything in Premium', 'AI film analysis', 'Tendency analysis'],
-    aiPowered: true
+    features: ['8 uploads/month', '5 camera angles', '365-day retention']
   }
 ];
 
@@ -81,7 +73,7 @@ function SetupForm() {
   const canceled = searchParams.get('canceled') === 'true';
 
   // Validate tier param and set initial selected tier
-  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium', 'ai_powered'];
+  const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
 
   // Initialize selectedTier from URL param on mount
   useEffect(() => {
@@ -385,16 +377,10 @@ function SetupForm() {
                           : 'border-gray-200 hover:border-gray-400 bg-white'
                       } ${creating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                     >
-                      {/* Popular/AI Badge */}
+                      {/* Popular Badge */}
                       {tier.popular && (
                         <span className="absolute -top-2 right-2 inline-flex items-center rounded-full bg-green-600 px-2 py-0.5 text-xs font-medium text-white">
                           Popular
-                        </span>
-                      )}
-                      {tier.aiPowered && (
-                        <span className="absolute -top-2 right-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-2 py-0.5 text-xs font-medium text-white">
-                          <Sparkles className="h-3 w-3" />
-                          AI
                         </span>
                       )}
 
