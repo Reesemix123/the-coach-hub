@@ -684,10 +684,18 @@ export default function GameFilmPage() {
     }
 
     const fileSizeMB = file.size / (1024 * 1024);
+    const fileSizeGB = fileSizeMB / 1024;
+    const MAX_FILE_SIZE_GB = 5;
 
-    // Show warning for very large files
-    if (fileSizeMB > 1000) {
-      if (!confirm(`This file is ${fileSizeMB.toFixed(0)}MB. Large files may take a while to upload. Continue?`)) {
+    // Check file size limit (5GB max)
+    if (fileSizeGB > MAX_FILE_SIZE_GB) {
+      alert(`File size (${fileSizeGB.toFixed(1)}GB) exceeds maximum allowed (${MAX_FILE_SIZE_GB}GB).\n\nFor videos over 50 minutes, we recommend compressing to 10-12 Mbps bitrate using:\n• HandBrake (free, handbrake.fr)\n• Your video editing software's export settings`);
+      return;
+    }
+
+    // Show warning for large files (over 1GB)
+    if (fileSizeGB > 1) {
+      if (!confirm(`This file is ${fileSizeGB.toFixed(1)}GB. Large files may take a while to upload.\n\nEstimated upload time: ${Math.ceil(fileSizeMB / 10)} - ${Math.ceil(fileSizeMB / 5)} minutes on a good connection.\n\nContinue?`)) {
         return;
       }
     }
@@ -737,10 +745,12 @@ export default function GameFilmPage() {
 
       // Step 2: Upload to Supabase Storage
       setUploadProgress(10);
-      setUploadStatus(`Uploading ${file.name} (${fileSizeMB.toFixed(1)} MB)...`);
+      const fileSizeDisplay = fileSizeGB >= 1 ? `${fileSizeGB.toFixed(1)} GB` : `${fileSizeMB.toFixed(1)} MB`;
+      setUploadStatus(`Uploading ${file.name} (${fileSizeDisplay})...`);
 
       // Simulate progress during upload (since Supabase doesn't provide real-time progress)
-      const estimatedUploadTime = Math.max(5000, fileSizeMB * 100); // Rough estimate: 100ms per MB, min 5s
+      // Estimate based on ~5-10 Mbps upload speed (average home connection)
+      const estimatedUploadTime = Math.max(5000, fileSizeMB * 150); // ~150ms per MB, min 5s
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 80) {
@@ -771,7 +781,7 @@ export default function GameFilmPage() {
           method: 'DELETE',
         });
 
-        alert(`Error uploading video: ${uploadError.message}\n\nFor files larger than 50MB, you may need to:\n1. Check your Supabase project settings\n2. Or compress the video before uploading`);
+        alert(`Error uploading video: ${uploadError.message}\n\nIf uploading a large file (>1GB), please:\n1. Check your internet connection and try again\n2. Or compress the video to 10-12 Mbps using HandBrake (free)`);
         setUploadingVideo(false);
         setUploadProgress(0);
         setUploadStatus('');
