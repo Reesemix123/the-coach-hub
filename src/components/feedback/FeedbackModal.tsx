@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Camera, Check, Loader2, ExternalLink } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { createClient } from '@/utils/supabase/client';
@@ -190,10 +191,13 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
   if (!isOpen) return null;
 
-  return (
+  // Use portal to render modal at document body level to avoid stacking context issues
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       id="feedback-modal-overlay"
-      className="fixed inset-0 bg-black/50 z-[100] overflow-y-auto"
+      className="fixed inset-0 bg-black/50 z-[9999] overflow-y-auto"
     >
       <div
         className="min-h-full flex items-center justify-center p-4"
@@ -362,7 +366,8 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
