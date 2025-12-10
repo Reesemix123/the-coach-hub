@@ -27,6 +27,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,10 +45,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     }
   }, [isOpen]);
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  function processFile(file: File) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please upload an image file');
@@ -68,9 +66,37 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       setError(null);
     };
     reader.readAsDataURL(file);
+  }
 
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
     // Reset input so same file can be selected again
     e.target.value = '';
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
   }
 
 
@@ -291,19 +317,24 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 </div>
               ) : (
                 <div className="p-3 space-y-3">
-                  <button
-                    type="button"
+                  <div
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-3 px-4 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                    className={`w-full py-4 px-4 border-2 border-dashed rounded-lg text-sm cursor-pointer transition-colors flex flex-col items-center justify-center gap-2 ${
+                      isDragging
+                        ? 'border-gray-900 bg-gray-100 text-gray-900'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     <Upload size={18} />
-                    Upload Screenshot
-                  </button>
+                    <span>{isDragging ? 'Drop image here' : 'Click or drag screenshot here'}</span>
+                  </div>
                   <div className="text-xs text-gray-400 space-y-1">
                     <p className="font-medium text-gray-500">How to take a screenshot:</p>
                     <p><span className="font-medium">Mac:</span> Cmd + Shift + 4, then drag to select</p>
                     <p><span className="font-medium">Windows:</span> Win + Shift + S, then drag to select</p>
-                    <p className="text-gray-400 mt-1">Screenshots save to your desktop or clipboard</p>
                   </div>
                 </div>
               )}
