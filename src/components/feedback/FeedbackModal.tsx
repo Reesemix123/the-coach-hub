@@ -194,12 +194,15 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     <div
       id="feedback-modal-overlay"
       className="fixed inset-0 bg-black/50 z-[100] overflow-y-auto"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="min-h-full flex items-center justify-center p-4">
+      <div
+        className="min-h-full flex items-center justify-center p-4"
+        onClick={(e) => e.target === e.currentTarget && onClose()}
+      >
         <div
           ref={modalRef}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden my-8"
+          onClick={(e) => e.stopPropagation()}
         >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
