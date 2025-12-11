@@ -298,44 +298,70 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ feedb
           </div>
         )}
 
-        {/* Reply Form (only when status is need_info) */}
-        {feedback.status === 'need_info' && (
-          <div className="p-6 bg-orange-50">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertCircle size={16} className="text-orange-600" />
-              <h2 className="text-sm font-medium text-orange-800">
-                We need more information from you
-              </h2>
-            </div>
+        {/* Reply Form (only when status is need_info AND user hasn't replied yet) */}
+        {feedback.status === 'need_info' && (() => {
+          // Check if the user has already replied since admin requested info
+          const lastMessage = messages[messages.length - 1];
+          const userHasReplied = lastMessage?.sender_type === 'user';
 
-            <div className="space-y-3">
-              <textarea
-                value={replyMessage}
-                onChange={(e) => setReplyMessage(e.target.value)}
-                placeholder="Type your reply here..."
-                rows={3}
-                className="w-full px-4 py-3 border border-orange-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-              />
-              <button
-                onClick={handleSendReply}
-                disabled={!replyMessage.trim() || isSending}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSending ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    Send Reply
-                  </>
-                )}
-              </button>
+          if (userHasReplied) {
+            // User already replied, show waiting message
+            return (
+              <div className="p-6 bg-blue-50">
+                <div className="flex items-center gap-3">
+                  <Clock size={20} className="text-blue-600" />
+                  <div>
+                    <h2 className="text-sm font-medium text-blue-800">
+                      Reply sent
+                    </h2>
+                    <p className="text-sm text-blue-700 mt-0.5">
+                      We'll review your response and get back to you soon.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Admin requested info, user hasn't replied yet
+          return (
+            <div className="p-6 bg-orange-50">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertCircle size={16} className="text-orange-600" />
+                <h2 className="text-sm font-medium text-orange-800">
+                  We need more information from you
+                </h2>
+              </div>
+
+              <div className="space-y-3">
+                <textarea
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  placeholder="Type your reply here..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-orange-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                />
+                <button
+                  onClick={handleSendReply}
+                  disabled={!replyMessage.trim() || isSending}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isSending ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} />
+                      Send Reply
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Resolved Status */}
         {feedback.status === 'resolved' && (
