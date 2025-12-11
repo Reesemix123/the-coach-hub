@@ -143,13 +143,14 @@ export default function AdminFeedbackPage() {
       // Check for unread replies and attach profile data
       const feedbacksWithReplies = await Promise.all(
         (data || []).map(async (feedback) => {
+          // Use maybeSingle() to avoid 406 error when no messages exist
           const { data: latestMessage } = await supabase
             .from('feedback_messages')
             .select('sender_type, created_at')
             .eq('feedback_id', feedback.id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
           return {
             ...feedback,
