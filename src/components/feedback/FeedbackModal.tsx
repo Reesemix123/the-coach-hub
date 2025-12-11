@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Camera, Check, Upload } from 'lucide-react';
+import { X, Camera, Check, Upload, Loader2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 interface FeedbackModalProps {
