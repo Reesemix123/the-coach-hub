@@ -32,23 +32,23 @@ const TIER_OPTIONS: TierOption[] = [
     id: 'basic',
     name: 'Basic',
     price: 0,
-    description: 'Perfect for youth leagues',
-    features: ['2 uploads/month', '1 camera angle', '30-day retention']
+    description: 'Get started with film review basics',
+    features: ['2 game uploads/month', '1 camera angle', '30-day video storage']
   },
   {
     id: 'plus',
     name: 'Plus',
     price: 29,
-    description: 'Full analytics',
-    features: ['4 uploads/month', '3 camera angles', '180-day retention'],
+    description: 'Full analytics for serious coaches',
+    features: ['4 game uploads/month', '3 camera angles', '180-day video storage', 'Play tagging & stats'],
     popular: true
   },
   {
     id: 'premium',
     name: 'Premium',
     price: 79,
-    description: 'Advanced analytics',
-    features: ['8 uploads/month', '5 camera angles', '365-day retention']
+    description: 'Complete coaching toolkit',
+    features: ['8 game uploads/month', '5 camera angles', '1-year video storage', 'Advanced analytics', 'AI play detection']
   }
 ];
 
@@ -364,7 +364,7 @@ function SetupForm() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Your Plan
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {TIER_OPTIONS.map((tier) => (
                     <button
                       key={tier.id}
@@ -394,13 +394,22 @@ function SetupForm() {
                       )}
 
                       {/* Tier name and price */}
-                      <div className={`${selectedTier === tier.id ? 'pl-6' : ''}`}>
+                      <div className={`w-full ${selectedTier === tier.id ? 'pl-6' : ''}`}>
                         <h4 className="font-semibold text-gray-900">{tier.name}</h4>
                         <div className="flex items-baseline gap-1 mt-1">
                           <span className="text-xl font-bold text-gray-900">${tier.price}</span>
                           {tier.price > 0 && <span className="text-sm text-gray-500">/mo</span>}
                           {tier.price === 0 && <span className="text-sm text-gray-500">Free</span>}
                         </div>
+                        <p className="text-xs text-gray-500 mt-2">{tier.description}</p>
+                        <ul className="mt-3 space-y-1">
+                          {tier.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-1.5 text-xs text-gray-600">
+                              <Check className="w-3 h-3 text-green-600 mt-0.5 flex-shrink-0" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </button>
                   ))}

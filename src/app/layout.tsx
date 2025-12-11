@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
@@ -42,7 +41,7 @@ export default function RootLayout({
               <div className="flex items-center gap-8">
                 <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                   <Image
-                    src="/icon-512.png"
+                    src="/apple-touch-icon.png"
                     alt="Youth Coach Hub"
                     width={44}
                     height={44}

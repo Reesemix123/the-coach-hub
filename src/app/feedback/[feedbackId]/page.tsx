@@ -256,19 +256,7 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ feedb
           )}
         </div>
 
-        {/* Admin Response */}
-        {feedback.admin_note && (
-          <div className="p-6 border-b border-gray-100 bg-gray-50">
-            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-              Response from Youth Coach Hub
-            </h2>
-            <p className="text-gray-900 whitespace-pre-wrap">
-              {feedback.admin_note}
-            </p>
-          </div>
-        )}
-
-        {/* Conversation */}
+        {/* Conversation - all admin-user communication happens here */}
         {messages.length > 0 && (
           <div className="p-6 border-b border-gray-100">
             <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-4">

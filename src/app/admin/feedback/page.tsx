@@ -86,7 +86,6 @@ export default function AdminFeedbackPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [adminNote, setAdminNote] = useState('');
   const [newStatus, setNewStatus] = useState<string>('');
   const [replyMessage, setReplyMessage] = useState('');
 
@@ -96,7 +95,6 @@ export default function AdminFeedbackPage() {
 
   useEffect(() => {
     if (selectedFeedback) {
-      setAdminNote(selectedFeedback.admin_note || '');
       setNewStatus(selectedFeedback.status);
       fetchMessages(selectedFeedback.id);
     }
@@ -192,109 +190,111 @@ export default function AdminFeedbackPage() {
     }
   }
 
-  async function handleSaveAndNotify() {
-    if (!selectedFeedback) return;
+  // Helper to create notification for feedback updates
+  async function sendFeedbackNotification(
+    feedbackId: string,
+    userId: string,
+    body: string
+  ) {
+    const supabase = createClient();
+    const shortId = feedbackId.substring(0, 8).toUpperCase();
 
-    setIsSaving(true);
-    try {
-      const supabase = createClient();
-
-      // Update the feedback report
-      const { error: updateError } = await supabase
-        .from('feedback_reports')
-        .update({
-          status: newStatus,
-          admin_note: adminNote || null,
-        })
-        .eq('id', selectedFeedback.id);
-
-      if (updateError) {
-        console.error('Error updating feedback:', updateError);
-        return;
-      }
-
-      // Create notification for the user
-      const statusChanged = newStatus !== selectedFeedback.status;
-      const noteChanged = adminNote !== selectedFeedback.admin_note;
-
-      if (statusChanged || noteChanged) {
-        const { error: notifyError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: selectedFeedback.user_id,
-            type: 'feedback_update',
-            reference_id: selectedFeedback.id,
-            title: 'Your feedback was updated',
-            body: `Status: ${statusLabels[newStatus].label}${adminNote ? ` - "${adminNote.substring(0, 50)}${adminNote.length > 50 ? '...' : ''}"` : ''}`,
-          });
-
-        if (notifyError) {
-          console.error('Error creating notification:', notifyError);
-        }
-      }
-
-      // Update local state
-      setSelectedFeedback({
-        ...selectedFeedback,
-        status: newStatus as FeedbackReport['status'],
-        admin_note: adminNote,
+    const { error: notifyError } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        type: 'feedback_update',
+        reference_id: feedbackId,
+        title: `Update on feedback #${shortId}`,
+        body,
       });
 
-      setFeedbacks(prev =>
-        prev.map(f =>
-          f.id === selectedFeedback.id
-            ? { ...f, status: newStatus as FeedbackReport['status'], admin_note: adminNote }
-            : f
-        )
-      );
-    } catch (err) {
-      console.error('Error saving feedback:', err);
-    } finally {
-      setIsSaving(false);
+    if (notifyError) {
+      console.error('Error creating notification:', notifyError);
     }
   }
 
-  async function handleSendReply() {
-    if (!selectedFeedback || !replyMessage.trim()) return;
+  async function handleSubmitUpdate() {
+    if (!selectedFeedback) return;
+
+    const statusChanged = newStatus !== selectedFeedback.status;
+    const hasReply = replyMessage.trim().length > 0;
+
+    // Must have at least one change
+    if (!statusChanged && !hasReply) return;
 
     setIsSaving(true);
     try {
       const supabase = createClient();
 
-      // Insert the message
-      const { error: messageError } = await supabase
-        .from('feedback_messages')
-        .insert({
-          feedback_id: selectedFeedback.id,
-          sender_type: 'admin',
-          message: replyMessage.trim(),
-        });
+      // Update status if changed
+      if (statusChanged) {
+        const { error: updateError } = await supabase
+          .from('feedback_reports')
+          .update({ status: newStatus })
+          .eq('id', selectedFeedback.id);
 
-      if (messageError) {
-        console.error('Error sending message:', messageError);
-        return;
+        if (updateError) {
+          console.error('Error updating feedback:', updateError);
+          return;
+        }
       }
 
-      // Create notification for the user
-      const { error: notifyError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: selectedFeedback.user_id,
-          type: 'feedback_reply',
-          reference_id: selectedFeedback.id,
-          title: 'New response to your feedback',
-          body: replyMessage.substring(0, 100) + (replyMessage.length > 100 ? '...' : ''),
-        });
+      // Insert reply message if provided
+      if (hasReply) {
+        const { error: messageError } = await supabase
+          .from('feedback_messages')
+          .insert({
+            feedback_id: selectedFeedback.id,
+            sender_type: 'admin',
+            message: replyMessage.trim(),
+          });
 
-      if (notifyError) {
-        console.error('Error creating notification:', notifyError);
+        if (messageError) {
+          console.error('Error sending message:', messageError);
+          return;
+        }
       }
 
-      // Refresh messages
-      await fetchMessages(selectedFeedback.id);
-      setReplyMessage('');
+      // Create single notification with all changes
+      const notificationParts: string[] = [];
+      if (statusChanged) {
+        notificationParts.push(`Status: ${statusLabels[newStatus].label}`);
+      }
+      if (hasReply) {
+        const preview = replyMessage.substring(0, 60) + (replyMessage.length > 60 ? '...' : '');
+        notificationParts.push(preview);
+      }
+
+      await sendFeedbackNotification(
+        selectedFeedback.id,
+        selectedFeedback.user_id,
+        notificationParts.join(' • ')
+      );
+
+      // Update local state
+      if (statusChanged) {
+        setSelectedFeedback({
+          ...selectedFeedback,
+          status: newStatus as FeedbackReport['status'],
+        });
+
+        setFeedbacks(prev =>
+          prev.map(f =>
+            f.id === selectedFeedback.id
+              ? { ...f, status: newStatus as FeedbackReport['status'] }
+              : f
+          )
+        );
+      }
+
+      // Refresh messages and clear reply
+      if (hasReply) {
+        await fetchMessages(selectedFeedback.id);
+        setReplyMessage('');
+      }
     } catch (err) {
-      console.error('Error sending reply:', err);
+      console.error('Error submitting update:', err);
     } finally {
       setIsSaving(false);
     }
@@ -593,85 +593,63 @@ export default function AdminFeedbackPage() {
                   </div>
                 )}
 
-                {/* Reply to User - always available for ongoing conversation */}
-                {selectedFeedback.status !== 'resolved' && selectedFeedback.status !== 'wont_fix' && (
-                  <div>
-                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Reply to User
-                    </h3>
-                    <div className="flex gap-2">
-                      <textarea
-                        value={replyMessage}
-                        onChange={(e) => setReplyMessage(e.target.value)}
-                        placeholder="Type your message to the user..."
-                        rows={2}
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-                      />
-                      <button
-                        onClick={handleSendReply}
-                        disabled={!replyMessage.trim() || isSaving}
-                        className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Send size={16} />
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      This will send a notification to the user
-                    </p>
-                  </div>
-                )}
               </div>
 
-              {/* Actions */}
-              <div className="p-4 border-t border-gray-100 bg-gray-50">
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                      Status
-                    </label>
-                    <select
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    >
-                      <option value="new">New</option>
-                      <option value="reviewing">Reviewing</option>
-                      <option value="need_info">Need Info</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="planned">Planned</option>
-                      <option value="resolved">Resolved</option>
-                      <option value="wont_fix">Won't Fix</option>
-                    </select>
-                  </div>
+              {/* Admin Response Section - Combined reply and status */}
+              <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-4">
+                {/* Reply textarea */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                    Reply to User (optional)
+                  </label>
+                  <textarea
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    placeholder="Type your message to the user..."
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                      Admin Note (visible to user)
-                    </label>
-                    <textarea
-                      value={adminNote}
-                      onChange={(e) => setAdminNote(e.target.value)}
-                      placeholder="Add a note for the user..."
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-                    />
-                  </div>
-
+                {/* Status and submit */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    Status
+                  </label>
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    <option value="new">New</option>
+                    <option value="reviewing">Reviewing</option>
+                    <option value="need_info">Need Info</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="planned">Planned</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="wont_fix">Won't Fix</option>
+                  </select>
                   <button
-                    onClick={handleSaveAndNotify}
-                    disabled={isSaving}
-                    className="w-full px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    onClick={handleSubmitUpdate}
+                    disabled={isSaving || (!replyMessage.trim() && newStatus === selectedFeedback.status)}
+                    className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isSaving ? (
                       <>
                         <Loader2 size={16} className="animate-spin" />
-                        Saving...
+                        Sending...
                       </>
                     ) : (
-                      'Save & Notify User'
+                      <>
+                        <Send size={16} />
+                        Send Update
+                      </>
                     )}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500">
+                  User will be notified of any changes
+                </p>
               </div>
             </div>
           )}

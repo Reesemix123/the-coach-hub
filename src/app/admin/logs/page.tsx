@@ -582,6 +582,9 @@ export default function AdminLogsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">
                   Admin Activity ({auditTotal.toLocaleString()} entries)
                 </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Tracks billing events, subscription changes, tier upgrades, Stripe webhooks, and system migrations.
+                </p>
               </div>
               <AuditLogsTable logs={auditLogs} />
               <Pagination
@@ -619,9 +622,12 @@ export default function AdminLogsPage() {
 
               {/* Error Logs */}
               <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
                   Error Log ({errorTotal.toLocaleString()} entries)
                 </h2>
+                <p className="text-sm text-gray-500 mt-1 mb-4">
+                  Application errors, API failures, and warnings. Logging not yet implemented - this will track errors as they occur in production.
+                </p>
                 <ErrorLogsTable logs={errorLogs} />
                 <Pagination
                   page={errorPage}
@@ -663,6 +669,9 @@ export default function AdminLogsPage() {
                   <h2 className="text-lg font-semibold text-gray-900">
                     Authentication Events ({authTotal.toLocaleString()} entries)
                   </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    User logins, signups, password resets, and failed attempts. Logging not yet implemented - this will track auth events for security monitoring.
+                  </p>
                 </div>
                 <AuthLogsTable logs={authLogs} />
                 <Pagination
