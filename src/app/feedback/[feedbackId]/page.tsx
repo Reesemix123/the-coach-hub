@@ -298,14 +298,14 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ feedb
           </div>
         )}
 
-        {/* Reply Form (only when status is need_info AND user hasn't replied yet) */}
-        {feedback.status === 'need_info' && (() => {
-          // Check if the user has already replied since admin requested info
+        {/* Reply Form - show for active feedback (not resolved/won't fix) */}
+        {feedback.status !== 'resolved' && feedback.status !== 'wont_fix' && (() => {
           const lastMessage = messages[messages.length - 1];
-          const userHasReplied = lastMessage?.sender_type === 'user';
+          const lastWasFromUser = lastMessage?.sender_type === 'user';
+          const isNeedInfo = feedback.status === 'need_info';
 
-          if (userHasReplied) {
-            // User already replied, show waiting message
+          // If need_info and user already replied, show waiting message
+          if (isNeedInfo && lastWasFromUser) {
             return (
               <div className="p-6 bg-blue-50">
                 <div className="flex items-center gap-3">
@@ -323,28 +323,45 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ feedb
             );
           }
 
-          // Admin requested info, user hasn't replied yet
+          // Show reply form - highlighted if need_info, normal otherwise
+          const isUrgent = isNeedInfo && !lastWasFromUser;
+
           return (
-            <div className="p-6 bg-orange-50">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle size={16} className="text-orange-600" />
-                <h2 className="text-sm font-medium text-orange-800">
-                  We need more information from you
+            <div className={`p-6 ${isUrgent ? 'bg-orange-50' : 'bg-gray-50'}`}>
+              {isUrgent && (
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertCircle size={16} className="text-orange-600" />
+                  <h2 className="text-sm font-medium text-orange-800">
+                    We need more information from you
+                  </h2>
+                </div>
+              )}
+              {!isUrgent && (
+                <h2 className="text-sm font-medium text-gray-700 mb-3">
+                  Add a message
                 </h2>
-              </div>
+              )}
 
               <div className="space-y-3">
                 <textarea
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
-                  placeholder="Type your reply here..."
+                  placeholder="Type your message..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-orange-200 rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  className={`w-full px-4 py-3 border rounded-lg text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 resize-none ${
+                    isUrgent
+                      ? 'border-orange-200 focus:ring-orange-500'
+                      : 'border-gray-200 focus:ring-gray-900'
+                  }`}
                 />
                 <button
                   onClick={handleSendReply}
                   disabled={!replyMessage.trim() || isSending}
-                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                    isUrgent
+                      ? 'bg-orange-600 hover:bg-orange-700'
+                      : 'bg-gray-900 hover:bg-gray-800'
+                  }`}
                 >
                   {isSending ? (
                     <>
@@ -354,7 +371,7 @@ export default function FeedbackDetailPage({ params }: { params: Promise<{ feedb
                   ) : (
                     <>
                       <Send size={16} />
-                      Send Reply
+                      Send Message
                     </>
                   )}
                 </button>

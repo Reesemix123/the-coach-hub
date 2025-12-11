@@ -565,7 +565,7 @@ export default function AdminFeedbackPage() {
                   </div>
                 )}
 
-                {/* Conversation */}
+                {/* Conversation - always show if there are messages */}
                 {messages.length > 0 && (
                   <div>
                     <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
@@ -582,7 +582,7 @@ export default function AdminFeedbackPage() {
                           }`}
                         >
                           <div className="flex items-center gap-2 text-xs opacity-70 mb-1">
-                            <span>{msg.sender_type === 'admin' ? 'You' : 'User'}</span>
+                            <span>{msg.sender_type === 'admin' ? 'You (Admin)' : 'User'}</span>
                             <span>•</span>
                             <span>{formatDate(msg.created_at)}</span>
                           </div>
@@ -593,17 +593,17 @@ export default function AdminFeedbackPage() {
                   </div>
                 )}
 
-                {/* Reply (when need_info) */}
-                {selectedFeedback.status === 'need_info' && (
+                {/* Reply to User - always available for ongoing conversation */}
+                {selectedFeedback.status !== 'resolved' && selectedFeedback.status !== 'wont_fix' && (
                   <div>
                     <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
-                      Send Reply
+                      Reply to User
                     </h3>
                     <div className="flex gap-2">
                       <textarea
                         value={replyMessage}
                         onChange={(e) => setReplyMessage(e.target.value)}
-                        placeholder="Type your reply..."
+                        placeholder="Type your message to the user..."
                         rows={2}
                         className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
                       />
@@ -615,6 +615,9 @@ export default function AdminFeedbackPage() {
                         <Send size={16} />
                       </button>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      This will send a notification to the user
+                    </p>
                   </div>
                 )}
               </div>
