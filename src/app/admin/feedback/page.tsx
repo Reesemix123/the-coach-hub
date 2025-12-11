@@ -107,11 +107,11 @@ export default function AdminFeedbackPage() {
     try {
       const supabase = createClient();
 
+      // First, fetch feedback reports with team data
       let query = supabase
         .from('feedback_reports')
         .select(`
           *,
-          profiles:user_id (id, email, full_name),
           teams:team_id (id, name)
         `)
         .order('created_at', { ascending: false });
@@ -131,7 +131,16 @@ export default function AdminFeedbackPage() {
         return;
       }
 
-      // Check for unread replies
+      // Fetch user profiles separately (user_id references auth.users, not profiles directly)
+      const userIds = [...new Set((data || []).map(f => f.user_id).filter(Boolean))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+
+      const profilesMap = new Map((profiles || []).map(p => [p.id, p]));
+
+      // Check for unread replies and attach profile data
       const feedbacksWithReplies = await Promise.all(
         (data || []).map(async (feedback) => {
           const { data: latestMessage } = await supabase
@@ -144,6 +153,7 @@ export default function AdminFeedbackPage() {
 
           return {
             ...feedback,
+            profiles: profilesMap.get(feedback.user_id) || null,
             has_unread_reply: latestMessage?.sender_type === 'user' &&
               new Date(latestMessage.created_at) > new Date(feedback.updated_at),
           };
