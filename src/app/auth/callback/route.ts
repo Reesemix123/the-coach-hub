@@ -4,9 +4,16 @@ import { logAuthEvent, getClientIp, getUserAgent } from '@/lib/services/logging.
 
 /**
  * Ensures a profile exists for the user and updates last_active_at.
+ * Also updates user_status for login tracking.
  * This is a fallback in case the database trigger fails.
  */
-async function ensureProfileExists(userId: string, email: string, fullName?: string) {
+async function ensureProfileExists(
+  userId: string,
+  email: string,
+  fullName?: string,
+  ipAddress?: string | null,
+  userAgent?: string | null
+) {
   try {
     const serviceClient = createServiceClient();
 
@@ -47,6 +54,18 @@ async function ensureProfileExists(userId: string, email: string, fullName?: str
       if (error) {
         console.error('Failed to update last_active_at:', error);
       }
+    }
+
+    // Update user_status table (login count, first/last login)
+    const { error: statusError } = await serviceClient.rpc('update_user_login_status', {
+      p_user_id: userId,
+      p_ip_address: ipAddress || null,
+      p_user_agent: userAgent || null
+    });
+
+    if (statusError) {
+      console.error('Failed to update user_status:', statusError);
+      // Don't fail - this is supplementary tracking
     }
   } catch (error) {
     console.error('Error ensuring profile exists:', error);
@@ -119,7 +138,9 @@ export async function GET(request: Request) {
 
     // Ensure profile exists (fallback in case trigger failed)
     if (user?.id && user?.email) {
-      await ensureProfileExists(user.id, user.email, fullName);
+      const ipAddress = getClientIp(new Headers(request.headers));
+      const userAgent = getUserAgent(new Headers(request.headers));
+      await ensureProfileExists(user.id, user.email, fullName, ipAddress, userAgent);
     }
 
     // Log successful auth event (signup or login via OAuth/magic link)
