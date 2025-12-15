@@ -170,7 +170,10 @@ export class AnalyticsService {
 
     // Red zone (inside 20 yard line)
     const redZonePlays = plays.filter(p => p.yard_line && p.yard_line <= 20);
-    const redZoneTouchdowns = redZonePlays.filter(p => p.result_type === 'touchdown').length;
+    // Use scoring_type for touchdowns (new field), fall back to is_touchdown or result_type for backward compatibility
+    const redZoneTouchdowns = redZonePlays.filter(p =>
+      p.scoring_type === 'touchdown' || p.is_touchdown || p.result_type === 'touchdown'
+    ).length;
 
     // Group plays by play_code and calculate stats
     const playStats = new Map<string, {
@@ -296,13 +299,17 @@ export class AnalyticsService {
     );
     const successRate = (successfulPlays.length / totalPlays) * 100;
 
+    // Helper to check if a play is a touchdown (supports new scoring_type and legacy fields)
+    const isTouchdown = (p: any) =>
+      p.scoring_type === 'touchdown' || p.is_touchdown || p.result?.includes('touchdown');
+
     // Rushing stats (plays where this player was the ball carrier)
     const rushPlays = plays.filter(p => p.ball_carrier_id === playerId);
     const rushingAttempts = rushPlays.length;
     const rushingYards = rushPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const rushingAvg = rushingAttempts > 0 ? rushingYards / rushingAttempts : 0;
     const rushingTouchdowns = rushPlays.filter(p =>
-      p.result?.includes('touchdown') || (p.yard_line && p.yard_line >= 100)
+      isTouchdown(p) || (p.yard_line && p.yard_line >= 100)
     ).length;
     const rushingFumbles = rushPlays.filter(p => p.is_turnover).length;
 
@@ -311,12 +318,12 @@ export class AnalyticsService {
     const passingAttempts = passPlays.length;
     const completions = passPlays.filter(p =>
       p.result?.includes('complete') ||
-      (p.result?.includes('touchdown') && p.target_id)
+      (isTouchdown(p) && p.target_id)
     ).length;
     const completionPct = passingAttempts > 0 ? (completions / passingAttempts) * 100 : 0;
     const passingYards = passPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const passingTouchdowns = passPlays.filter(p =>
-      p.result?.includes('touchdown') && p.target_id
+      isTouchdown(p) && p.target_id
     ).length;
     const interceptions = passPlays.filter(p =>
       p.result?.includes('interception') || p.is_interception
@@ -328,17 +335,17 @@ export class AnalyticsService {
     const targets = targetPlays.length;
     const receptions = targetPlays.filter(p =>
       p.result?.includes('complete') ||
-      (p.result?.includes('touchdown') && p.target_id === playerId)
+      (isTouchdown(p) && p.target_id === playerId)
     ).length;
     const drops = targetPlays.filter(p =>
       p.result?.includes('incomplete') && !p.result?.includes('defended')
     ).length;
     const receivingYards = targetPlays
-      .filter(p => p.result?.includes('complete') || p.result?.includes('touchdown'))
+      .filter(p => p.result?.includes('complete') || isTouchdown(p))
       .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const receivingAvg = receptions > 0 ? receivingYards / receptions : 0;
     const receivingTouchdowns = targetPlays.filter(p =>
-      p.result?.includes('touchdown')
+      isTouchdown(p)
     ).length;
     const receivingFumbles = targetPlays.filter(p => p.is_turnover).length;
 

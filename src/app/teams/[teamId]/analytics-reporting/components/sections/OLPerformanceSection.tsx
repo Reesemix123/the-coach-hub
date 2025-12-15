@@ -1,7 +1,8 @@
 /**
  * OL Performance Section
  *
- * Shows offensive line statistics from player_participation table (Tier 3).
+ * Shows offensive line statistics from player_participation table.
+ * Requires Comprehensive tagging tier for OL block tracking.
  * Fetches data for all OL positions and displays block win rates.
  */
 
@@ -10,6 +11,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import type { TaggingTier } from '@/types/football';
 
 interface OLPlayerStats {
   playerId: string;
@@ -26,9 +29,10 @@ interface OLPlayerStats {
 interface OLPerformanceSectionProps {
   teamId: string;
   gameId?: string | null;
+  currentTier?: TaggingTier;
 }
 
-export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSectionProps) {
+export default function OLPerformanceSection({ teamId, gameId, currentTier }: OLPerformanceSectionProps) {
   const supabase = createClient();
   const [stats, setStats] = useState<OLPlayerStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,15 +171,11 @@ export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSe
   if (stats.length === 0) {
     return (
       <section className="mb-12">
-        <div className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-3 text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
           Offensive Line Performance
+          <TierRequirementBadge section="ol_performance" />
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-          <p className="text-blue-800 text-lg mb-2">No OL data available</p>
-          <p className="text-blue-700 text-sm">
-            Offensive line stats will appear once you tag plays with OL assignments (Tier 3 feature).
-          </p>
-        </div>
+        <TierUpgradeMessage section="ol_performance" currentTier={currentTier} />
       </section>
     );
   }
@@ -186,8 +186,10 @@ export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSe
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
       >
-        <span>Offensive Line Performance</span>
-        <span className="text-sm font-normal text-gray-600 bg-purple-100 px-2 py-1 rounded ml-2">Tier 3</span>
+        <span className="flex items-center gap-3">
+          Offensive Line Performance
+          <TierRequirementBadge section="ol_performance" />
+        </span>
         {expanded ? (
           <ChevronUp className="h-6 w-6" />
         ) : (
@@ -245,7 +247,7 @@ export default function OLPerformanceSection({ teamId, gameId }: OLPerformanceSe
           <p className="text-sm text-gray-600">
             <strong>Block Win Rate:</strong> Percentage of assignments where the player won their block.
             Good: 70%+, Average: 50-69%, Needs Improvement: &lt;50%.
-            Data comes from play-by-play film tagging (Tier 3).
+            Data comes from Comprehensive tagging level.
           </p>
         </>
       )}

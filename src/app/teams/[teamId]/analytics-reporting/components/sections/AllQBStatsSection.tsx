@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import type { TaggingTier } from '@/types/football';
 
 interface QBStats {
   playerId: string;
@@ -31,9 +33,10 @@ interface QBStats {
 interface AllQBStatsSectionProps {
   teamId: string;
   gameId?: string | null;
+  currentTier?: TaggingTier;
 }
 
-export default function AllQBStatsSection({ teamId, gameId }: AllQBStatsSectionProps) {
+export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQBStatsSectionProps) {
   const supabase = createClient();
   const [stats, setStats] = useState<QBStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,15 +194,11 @@ export default function AllQBStatsSection({ teamId, gameId }: AllQBStatsSectionP
   if (stats.length === 0) {
     return (
       <section className="mb-12">
-        <div className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-3 text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
           Quarterback Stats
+          <TierRequirementBadge section="qb_stats" />
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-          <p className="text-blue-800 text-lg mb-2">No QB data available</p>
-          <p className="text-blue-700 text-sm">
-            QB stats will appear once you tag plays with QB attribution (Tier 2+ feature).
-          </p>
-        </div>
+        <TierUpgradeMessage section="qb_stats" currentTier={currentTier} />
       </section>
     );
   }
@@ -210,8 +209,10 @@ export default function AllQBStatsSection({ teamId, gameId }: AllQBStatsSectionP
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
       >
-        <span>Quarterback Stats</span>
-        <span className="text-sm font-normal text-gray-600 bg-blue-100 px-2 py-1 rounded ml-2">Tier 2+</span>
+        <span className="flex items-center gap-3">
+          Quarterback Stats
+          <TierRequirementBadge section="qb_stats" />
+        </span>
         {expanded ? (
           <ChevronUp className="h-6 w-6" />
         ) : (
@@ -280,7 +281,7 @@ export default function AllQBStatsSection({ teamId, gameId }: AllQBStatsSectionP
           {/* Legend */}
           <p className="text-sm text-gray-600">
             <strong>Success Rate:</strong> Completion percentage (completions / attempts).
-            Good: 60%+. Data from play-by-play film tagging (Tier 2+).
+            Good: 60%+. Data from Standard tagging level.
           </p>
         </>
       )}

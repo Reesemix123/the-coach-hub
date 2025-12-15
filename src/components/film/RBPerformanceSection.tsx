@@ -11,7 +11,7 @@ export function RBPerformanceSection({ register }: RBPerformanceSectionProps) {
   return (
     <CollapsibleSection
       title="Running Back Performance"
-      subtitle="Track RB effectiveness (Tier 3)"
+      subtitle="Track RB effectiveness"
       colorScheme="green"
       defaultExpanded={false}
     >

@@ -19,6 +19,7 @@ import { METRIC_DEFINITIONS, type ComprehensiveTeamMetrics } from '@/lib/service
 import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { TaggingTier } from '@/types/football';
 
 // Import data-fetching sections
 import AllQBStatsSection from '../sections/AllQBStatsSection';
@@ -30,6 +31,7 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
   const supabase = createClient();
   const [metrics, setMetrics] = useState<ComprehensiveTeamMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentTier, setCurrentTier] = useState<TaggingTier | undefined>(undefined);
 
   // Collapsible sections state (all expanded by default)
   const [expandedSections, setExpandedSections] = useState({
@@ -67,6 +69,23 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
       }
 
       setMetrics(metricsData as ComprehensiveTeamMetrics);
+
+      // Fetch tagging tier for the selected game
+      const selectedGameId = filters.gameId || gameId;
+      if (selectedGameId) {
+        const { data: gameData } = await supabase
+          .from('games')
+          .select('tagging_tier')
+          .eq('id', selectedGameId)
+          .single();
+
+        if (gameData?.tagging_tier) {
+          setCurrentTier(gameData.tagging_tier as TaggingTier);
+        }
+      } else {
+        setCurrentTier(undefined);
+      }
+
       setLoading(false);
     }
 
@@ -253,22 +272,22 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
 
       {/* QB Stats */}
       {expandedSections.qb && (
-        <AllQBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+        <AllQBStatsSection teamId={teamId} gameId={filters.gameId || gameId} currentTier={currentTier} />
       )}
 
       {/* RB Stats */}
       {expandedSections.rb && (
-        <AllRBStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+        <AllRBStatsSection teamId={teamId} gameId={filters.gameId || gameId} currentTier={currentTier} />
       )}
 
       {/* WR/TE Stats */}
       {expandedSections.wrte && (
-        <AllWRTEStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+        <AllWRTEStatsSection teamId={teamId} gameId={filters.gameId || gameId} currentTier={currentTier} />
       )}
 
       {/* OL Stats */}
       {expandedSections.ol && (
-        <OLPerformanceSection teamId={teamId} gameId={filters.gameId || gameId} />
+        <OLPerformanceSection teamId={teamId} gameId={filters.gameId || gameId} currentTier={currentTier} />
       )}
     </div>
   );

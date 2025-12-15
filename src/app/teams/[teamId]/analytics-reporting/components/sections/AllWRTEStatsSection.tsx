@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import type { TaggingTier } from '@/types/football';
 
 interface WRTEStats {
   playerId: string;
@@ -29,9 +31,10 @@ interface WRTEStats {
 interface AllWRTEStatsSectionProps {
   teamId: string;
   gameId?: string | null;
+  currentTier?: TaggingTier;
 }
 
-export default function AllWRTEStatsSection({ teamId, gameId }: AllWRTEStatsSectionProps) {
+export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: AllWRTEStatsSectionProps) {
   const supabase = createClient();
   const [stats, setStats] = useState<WRTEStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,15 +168,11 @@ export default function AllWRTEStatsSection({ teamId, gameId }: AllWRTEStatsSect
   if (stats.length === 0) {
     return (
       <section className="mb-12">
-        <div className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-3 text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
           Receiver Stats (WR/TE)
+          <TierRequirementBadge section="wr_te_stats" />
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
-          <p className="text-blue-800 text-lg mb-2">No WR/TE data available</p>
-          <p className="text-blue-700 text-sm">
-            Receiver stats will appear once you tag plays with WR/TE as targets (Tier 2+ feature).
-          </p>
-        </div>
+        <TierUpgradeMessage section="wr_te_stats" currentTier={currentTier} />
       </section>
     );
   }
@@ -184,8 +183,10 @@ export default function AllWRTEStatsSection({ teamId, gameId }: AllWRTEStatsSect
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
       >
-        <span>Receiver Stats (WR/TE)</span>
-        <span className="text-sm font-normal text-gray-600 bg-blue-100 px-2 py-1 rounded ml-2">Tier 2+</span>
+        <span className="flex items-center gap-3">
+          Receiver Stats (WR/TE)
+          <TierRequirementBadge section="wr_te_stats" />
+        </span>
         {expanded ? (
           <ChevronUp className="h-6 w-6" />
         ) : (
@@ -251,7 +252,7 @@ export default function AllWRTEStatsSection({ teamId, gameId }: AllWRTEStatsSect
           <p className="text-sm text-gray-600">
             <strong>Exp:</strong> Explosive catches (15+ yards).
             <strong> Catch %:</strong> Receptions / targets.
-            Data from play-by-play film tagging (Tier 2+).
+            Data from Standard tagging level.
           </p>
         </>
       )}

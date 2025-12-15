@@ -4,8 +4,10 @@
 import { use, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import type { Game, TeamEvent } from '@/types/football';
+import type { Game, TeamEvent, QuarterScores, GameScoreBreakdown } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
+import { ScoreMismatchWarning } from '@/components/film/ScoreMismatchWarning';
+import { gameScoreService, type ScoreMismatchResult } from '@/lib/services/game-score.service';
 
 interface Team {
   id: string;
@@ -41,6 +43,17 @@ type GameFormData = {
   game_result?: 'win' | 'loss' | 'tie' | null;
   team_score?: number | null;
   opponent_score?: number | null;
+  // Quarter-by-quarter scores (optional)
+  team_q1?: number | null;
+  team_q2?: number | null;
+  team_q3?: number | null;
+  team_q4?: number | null;
+  team_ot?: number | null;
+  opponent_q1?: number | null;
+  opponent_q2?: number | null;
+  opponent_q3?: number | null;
+  opponent_q4?: number | null;
+  opponent_ot?: number | null;
 };
 
 export default function TeamSchedulePage({ params }: { params: Promise<{ teamId: string }> }) {
@@ -318,21 +331,54 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
     try {
       const { data: userData } = await supabase.auth.getUser();
 
+      // Extract quarter scores from form data
+      const { team_q1, team_q2, team_q3, team_q4, team_ot,
+              opponent_q1, opponent_q2, opponent_q3, opponent_q4, opponent_ot,
+              ...gameData } = formData;
+
       // Clean up formData - convert empty strings to null for time field
       const cleanData = {
-        ...formData,
+        ...gameData,
         start_time: formData.start_time || null,
       };
 
-      const { error } = await supabase
+      const { data: newGame, error } = await supabase
         .from('games')
         .insert({
           team_id: teamId,
           user_id: userData.user?.id,
           ...cleanData
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // If we have quarter scores, save them using the service
+      const hasQuarterScores = team_q1 !== null || team_q2 !== null || team_q3 !== null ||
+                               team_q4 !== null || opponent_q1 !== null || opponent_q2 !== null ||
+                               opponent_q3 !== null || opponent_q4 !== null;
+
+      if (hasQuarterScores && newGame) {
+        const teamScores: QuarterScores = {
+          q1: team_q1 ?? 0,
+          q2: team_q2 ?? 0,
+          q3: team_q3 ?? 0,
+          q4: team_q4 ?? 0,
+          ot: team_ot ?? 0,
+          total: (team_q1 ?? 0) + (team_q2 ?? 0) + (team_q3 ?? 0) + (team_q4 ?? 0) + (team_ot ?? 0)
+        };
+        const opponentScores: QuarterScores = {
+          q1: opponent_q1 ?? 0,
+          q2: opponent_q2 ?? 0,
+          q3: opponent_q3 ?? 0,
+          q4: opponent_q4 ?? 0,
+          ot: opponent_ot ?? 0,
+          total: (opponent_q1 ?? 0) + (opponent_q2 ?? 0) + (opponent_q3 ?? 0) + (opponent_q4 ?? 0) + (opponent_ot ?? 0)
+        };
+        await gameScoreService.setManualScores(newGame.id, teamScores, opponentScores);
+      }
+
       await fetchData();
       setShowGameModal(false);
       setNewEventDate('');
@@ -344,9 +390,14 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
 
   const handleUpdateGame = async (gameId: string, formData: GameFormData) => {
     try {
+      // Extract quarter scores from form data
+      const { team_q1, team_q2, team_q3, team_q4, team_ot,
+              opponent_q1, opponent_q2, opponent_q3, opponent_q4, opponent_ot,
+              ...gameData } = formData;
+
       // Clean up formData - convert empty strings to null for time field
       const cleanData = {
-        ...formData,
+        ...gameData,
         start_time: formData.start_time || null,
       };
 
@@ -356,6 +407,32 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
         .eq('id', gameId);
 
       if (error) throw error;
+
+      // If we have quarter scores, save them using the service
+      const hasQuarterScores = team_q1 !== null || team_q2 !== null || team_q3 !== null ||
+                               team_q4 !== null || opponent_q1 !== null || opponent_q2 !== null ||
+                               opponent_q3 !== null || opponent_q4 !== null;
+
+      if (hasQuarterScores) {
+        const teamScores: QuarterScores = {
+          q1: team_q1 ?? 0,
+          q2: team_q2 ?? 0,
+          q3: team_q3 ?? 0,
+          q4: team_q4 ?? 0,
+          ot: team_ot ?? 0,
+          total: (team_q1 ?? 0) + (team_q2 ?? 0) + (team_q3 ?? 0) + (team_q4 ?? 0) + (team_ot ?? 0)
+        };
+        const opponentScores: QuarterScores = {
+          q1: opponent_q1 ?? 0,
+          q2: opponent_q2 ?? 0,
+          q3: opponent_q3 ?? 0,
+          q4: opponent_q4 ?? 0,
+          ot: opponent_ot ?? 0,
+          total: (opponent_q1 ?? 0) + (opponent_q2 ?? 0) + (opponent_q3 ?? 0) + (opponent_q4 ?? 0) + (opponent_ot ?? 0)
+        };
+        await gameScoreService.setManualScores(gameId, teamScores, opponentScores);
+      }
+
       await fetchData();
       setShowGameModal(false);
       setEditingGame(null);
@@ -1155,6 +1232,13 @@ function GameModal({
   onSave: (data: GameFormData) => void;
   onClose: () => void;
 }) {
+  const [showQuarterBreakdown, setShowQuarterBreakdown] = useState(false);
+  const [scoreMismatch, setScoreMismatch] = useState<ScoreMismatchResult | null>(null);
+  const [quarterScores, setQuarterScores] = useState<GameScoreBreakdown | null>(null);
+
+  // Parse existing quarter scores from game.quarter_scores if editing
+  const existingQuarterScores = game?.quarter_scores as GameScoreBreakdown | null;
+
   const [formData, setFormData] = useState<GameFormData>({
     name: game?.name || '',
     opponent: game?.opponent || '',
@@ -1166,8 +1250,68 @@ function GameModal({
     opponent_team_name: game?.opponent_team_name || '',
     game_result: game?.game_result || null,
     team_score: game?.team_score ?? null,
-    opponent_score: game?.opponent_score ?? null
+    opponent_score: game?.opponent_score ?? null,
+    // Quarter scores from existing data
+    team_q1: existingQuarterScores?.manual?.team?.q1 ?? null,
+    team_q2: existingQuarterScores?.manual?.team?.q2 ?? null,
+    team_q3: existingQuarterScores?.manual?.team?.q3 ?? null,
+    team_q4: existingQuarterScores?.manual?.team?.q4 ?? null,
+    team_ot: existingQuarterScores?.manual?.team?.ot ?? null,
+    opponent_q1: existingQuarterScores?.manual?.opponent?.q1 ?? null,
+    opponent_q2: existingQuarterScores?.manual?.opponent?.q2 ?? null,
+    opponent_q3: existingQuarterScores?.manual?.opponent?.q3 ?? null,
+    opponent_q4: existingQuarterScores?.manual?.opponent?.q4 ?? null,
+    opponent_ot: existingQuarterScores?.manual?.opponent?.ot ?? null,
   });
+
+  // Load mismatch data when editing existing game
+  useEffect(() => {
+    if (game?.id) {
+      loadMismatchData();
+      // Show quarter breakdown if there's existing quarter data
+      if (existingQuarterScores?.manual) {
+        setShowQuarterBreakdown(true);
+      }
+    }
+  }, [game?.id]);
+
+  const loadMismatchData = async () => {
+    if (!game?.id) return;
+    try {
+      const [mismatch, scores] = await Promise.all([
+        gameScoreService.checkScoreMismatch(game.id),
+        gameScoreService.getQuarterScores(game.id)
+      ]);
+      setScoreMismatch(mismatch);
+      setQuarterScores(scores);
+    } catch (error) {
+      console.error('Error loading mismatch data:', error);
+    }
+  };
+
+  const handleMismatchResolve = async (action: 'use_calculated' | 'use_manual' | 'review') => {
+    if (action === 'use_calculated' && quarterScores?.calculated) {
+      // Update form with calculated scores
+      setFormData(prev => ({
+        ...prev,
+        team_score: quarterScores.calculated!.team.total,
+        opponent_score: quarterScores.calculated!.opponent.total,
+        team_q1: quarterScores.calculated!.team.q1,
+        team_q2: quarterScores.calculated!.team.q2,
+        team_q3: quarterScores.calculated!.team.q3,
+        team_q4: quarterScores.calculated!.team.q4,
+        team_ot: quarterScores.calculated!.team.ot,
+        opponent_q1: quarterScores.calculated!.opponent.q1,
+        opponent_q2: quarterScores.calculated!.opponent.q2,
+        opponent_q3: quarterScores.calculated!.opponent.q3,
+        opponent_q4: quarterScores.calculated!.opponent.q4,
+        opponent_ot: quarterScores.calculated!.opponent.ot,
+      }));
+      setShowQuarterBreakdown(true);
+    }
+    // Refresh mismatch status
+    await loadMismatchData();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1322,6 +1466,18 @@ function GameModal({
                 Set the result after the game has been played
               </p>
 
+              {/* Score Mismatch Warning */}
+              {game && scoreMismatch && scoreMismatch.has_mismatch && !scoreMismatch.mismatch_acknowledged && (
+                <div className="mb-4">
+                  <ScoreMismatchWarning
+                    gameId={game.id}
+                    mismatchResult={scoreMismatch}
+                    onResolve={handleMismatchResolve}
+                    context="schedule"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1376,6 +1532,151 @@ function GameModal({
                   />
                 </div>
               </div>
+
+              {/* Quarter-by-Quarter Breakdown Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowQuarterBreakdown(!showQuarterBreakdown)}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium mb-3"
+              >
+                {showQuarterBreakdown ? '− Hide' : '+ Add'} Quarter-by-Quarter Breakdown
+              </button>
+
+              {/* Quarter-by-Quarter Score Entry */}
+              {showQuarterBreakdown && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-3">
+                    Optional: Enter scores by quarter for detailed tracking
+                  </p>
+
+                  {/* Quarter headers */}
+                  <div className="grid grid-cols-6 gap-2 mb-2 text-center">
+                    <div className="text-xs font-medium text-gray-500"></div>
+                    <div className="text-xs font-medium text-gray-500">Q1</div>
+                    <div className="text-xs font-medium text-gray-500">Q2</div>
+                    <div className="text-xs font-medium text-gray-500">Q3</div>
+                    <div className="text-xs font-medium text-gray-500">Q4</div>
+                    <div className="text-xs font-medium text-gray-500">OT</div>
+                  </div>
+
+                  {/* Team scores row */}
+                  <div className="grid grid-cols-6 gap-2 mb-2 items-center">
+                    <div className="text-xs font-medium text-gray-700">Us</div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.team_q1 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        team_q1: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.team_q2 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        team_q2: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.team_q3 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        team_q3: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.team_q4 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        team_q4: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.team_ot ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        team_ot: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                  </div>
+
+                  {/* Opponent scores row */}
+                  <div className="grid grid-cols-6 gap-2 items-center">
+                    <div className="text-xs font-medium text-gray-700">Opp</div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.opponent_q1 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        opponent_q1: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.opponent_q2 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        opponent_q2: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.opponent_q3 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        opponent_q3: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.opponent_q4 ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        opponent_q4: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.opponent_ot ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        opponent_ot: e.target.value ? parseInt(e.target.value) : null
+                      })}
+                      className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-900 text-center"
+                    />
+                  </div>
+
+                  {/* Show calculated vs manual if there's data from film tagging */}
+                  {quarterScores?.calculated && (
+                    <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                      <strong>From Film Tagging:</strong> {quarterScores.calculated.team.total} - {quarterScores.calculated.opponent.total}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

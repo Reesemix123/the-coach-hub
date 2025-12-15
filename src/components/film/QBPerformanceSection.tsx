@@ -11,7 +11,7 @@ export function QBPerformanceSection({ register }: QBPerformanceSectionProps) {
   return (
     <CollapsibleSection
       title="Quarterback Performance"
-      subtitle="Enhanced QB evaluation (Tier 3)"
+      subtitle="Enhanced QB evaluation"
       colorScheme="purple"
       defaultExpanded={false}
     >

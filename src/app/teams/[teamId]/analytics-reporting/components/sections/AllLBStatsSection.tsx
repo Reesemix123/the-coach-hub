@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import type { TaggingTier } from '@/types/football';
 
 interface LBStats {
   playerId: string;
@@ -41,9 +43,10 @@ interface LBStats {
 interface AllLBStatsSectionProps {
   teamId: string;
   gameId?: string | null;
+  currentTier?: TaggingTier;
 }
 
-export default function AllLBStatsSection({ teamId, gameId }: AllLBStatsSectionProps) {
+export default function AllLBStatsSection({ teamId, gameId, currentTier }: AllLBStatsSectionProps) {
   const supabase = createClient();
   const [stats, setStats] = useState<LBStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,15 +197,11 @@ export default function AllLBStatsSection({ teamId, gameId }: AllLBStatsSectionP
   if (stats.length === 0) {
     return (
       <section className="mb-12">
-        <div className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-3 text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
           Linebacker Stats
+          <TierRequirementBadge section="lb_stats" />
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-8 text-center">
-          <p className="text-purple-800 text-lg mb-2">No LB data available</p>
-          <p className="text-purple-700 text-sm">
-            LB stats will appear once you tag defensive plays with LB participation (Tier 3 feature).
-          </p>
-        </div>
+        <TierUpgradeMessage section="lb_stats" currentTier={currentTier} />
       </section>
     );
   }
@@ -213,8 +212,10 @@ export default function AllLBStatsSection({ teamId, gameId }: AllLBStatsSectionP
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
       >
-        <span>Linebacker Stats</span>
-        <span className="text-sm font-normal text-gray-600 bg-purple-100 px-2 py-1 rounded ml-2">Tier 3</span>
+        <span className="flex items-center gap-3">
+          Linebacker Stats
+          <TierRequirementBadge section="lb_stats" />
+        </span>
         {expanded ? (
           <ChevronUp className="h-6 w-6" />
         ) : (
@@ -299,7 +300,7 @@ export default function AllLBStatsSection({ teamId, gameId }: AllLBStatsSectionP
             <strong>Cov:</strong> Coverage snaps.
             <strong> PBU:</strong> Pass breakups.
             <strong> Havoc:</strong> TFLs + INTs + FFs + PBUs.
-            Data from player_participation table (Tier 3).
+            Data from Comprehensive tagging level.
           </p>
         </>
       )}

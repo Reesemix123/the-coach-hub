@@ -88,8 +88,8 @@ export default function DriveAnalysisReport({ teamId, gameId, filters }: ReportP
         }
 
         // Split into offensive and defensive drives
-        const offensiveDrives = drives.filter(d => d.is_offensive_drive === true);
-        const defensiveDrives = drives.filter(d => d.is_offensive_drive === false);
+        const offensiveDrives = drives.filter(d => d.possession_type === 'offense');
+        const defensiveDrives = drives.filter(d => d.possession_type === 'defense');
 
         // Calculate offensive stats
         const offensive = {

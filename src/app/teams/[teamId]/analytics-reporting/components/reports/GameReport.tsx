@@ -17,10 +17,13 @@ import { METRIC_DEFINITIONS, type ComprehensiveTeamMetrics } from '@/lib/service
 import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { QuarterScoreDisplay } from '@/components/film/QuarterScoreDisplay';
+import type { GameScoreBreakdown } from '@/types/football';
 
 export default function GameReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
-  const [metrics, setMetrics] = useState<ComprehensiveTeamMetrics | null>(null);
+  // Using 'any' type since we build custom metrics object with additional scoring/penalties properties
+  const [metrics, setMetrics] = useState<any>(null);
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -117,7 +120,26 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
       const passingPlays = offensivePlays.filter(p => p.play_type === 'pass');
       const rushingYards = rushingPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
       const passingYards = passingPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-      const touchdowns = offensivePlays.filter(p => p.result === 'touchdown').length;
+      // Scoring breakdown using new scoring_type field with fallback to legacy fields
+      const touchdowns = offensivePlays.filter(p =>
+        p.scoring_type === 'touchdown' || p.is_touchdown || p.result === 'touchdown'
+      ).length;
+      const fieldGoals = offensivePlays.filter(p => p.scoring_type === 'field_goal').length;
+      const extraPoints = offensivePlays.filter(p => p.scoring_type === 'extra_point').length;
+      const twoPointConversions = offensivePlays.filter(p => p.scoring_type === 'two_point_conversion').length;
+      const safeties = offensivePlays.filter(p => p.scoring_type === 'safety').length;
+      const totalPoints = offensivePlays.reduce((sum, p) => sum + (p.scoring_points || 0), 0);
+
+      // Penalty stats
+      const penaltiesOnUs = offensivePlays.filter(p => p.penalty_on_play && p.penalty_on_us === true).length;
+      const penaltiesOnOpponent = offensivePlays.filter(p => p.penalty_on_play && p.penalty_on_us === false).length;
+      const penaltyYardsOnUs = offensivePlays
+        .filter(p => p.penalty_on_play && p.penalty_on_us === true)
+        .reduce((sum, p) => sum + (p.penalty_yards || 0), 0);
+      const penaltyYardsOnOpponent = offensivePlays
+        .filter(p => p.penalty_on_play && p.penalty_on_us === false)
+        .reduce((sum, p) => sum + (p.penalty_yards || 0), 0);
+
       const turnovers = offensivePlays.filter(p => p.is_turnover).length;
       const thirdDowns = offensivePlays.filter(p => p.down === 3);
       const thirdDownConversions = thirdDowns.filter(p => p.resulted_in_first_down).length;
@@ -138,6 +160,20 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
             rushingYards,
             passingYards,
             touchdowns,
+          },
+          scoring: {
+            touchdowns,
+            fieldGoals,
+            extraPoints,
+            twoPointConversions,
+            safeties,
+            totalPoints,
+          },
+          penalties: {
+            penaltiesOnUs,
+            penaltiesOnOpponent,
+            penaltyYardsOnUs,
+            penaltyYardsOnOpponent,
           },
           efficiency: {
             yardsPerPlay: offensivePlays.length > 0 ? totalYards / offensivePlays.length : 0,
@@ -230,7 +266,7 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
         {expandedSections.summary && (
           <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
             <h3 className="text-xl font-semibold text-gray-900 mb-4">{game.name}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div>
                 <p className="text-sm text-gray-600">Date</p>
                 <p className="text-lg font-semibold text-gray-900">
@@ -250,6 +286,14 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
                 </p>
               </div>
             </div>
+
+            {/* Quarter-by-Quarter Score Breakdown */}
+            <QuarterScoreDisplay
+              gameId={game.id}
+              teamName="Our Team"
+              opponentName={game.opponent || 'Opponent'}
+              quarterScores={game.quarter_scores as GameScoreBreakdown | null}
+            />
           </div>
         )}
       </section>
@@ -297,6 +341,80 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
                 />
               </div>
             </div>
+
+            {/* Scoring Breakdown */}
+            {metrics.offense.scoring && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Scoring Breakdown</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <StatCard
+                    title="Total Points"
+                    value={metrics.offense.scoring.totalPoints.toString()}
+                    subtitle="Points scored"
+                    color="green"
+                  />
+                  <StatCard
+                    title="Touchdowns"
+                    value={metrics.offense.scoring.touchdowns.toString()}
+                    subtitle="6 pts each"
+                    color={metrics.offense.scoring.touchdowns > 0 ? 'green' : 'default'}
+                  />
+                  <StatCard
+                    title="Field Goals"
+                    value={metrics.offense.scoring.fieldGoals.toString()}
+                    subtitle="3 pts each"
+                  />
+                  <StatCard
+                    title="Extra Points"
+                    value={metrics.offense.scoring.extraPoints.toString()}
+                    subtitle="1 pt each"
+                  />
+                  <StatCard
+                    title="2-Pt Conv"
+                    value={metrics.offense.scoring.twoPointConversions.toString()}
+                    subtitle="2 pts each"
+                  />
+                  <StatCard
+                    title="Safeties"
+                    value={metrics.offense.scoring.safeties.toString()}
+                    subtitle="2 pts each"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Penalties */}
+            {metrics.offense.penalties && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Penalties</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard
+                    title="Penalties (Us)"
+                    value={metrics.offense.penalties.penaltiesOnUs.toString()}
+                    subtitle={`${metrics.offense.penalties.penaltyYardsOnUs} yards`}
+                    color={metrics.offense.penalties.penaltiesOnUs > 5 ? 'red' : 'default'}
+                  />
+                  <StatCard
+                    title="Penalties (Opp)"
+                    value={metrics.offense.penalties.penaltiesOnOpponent.toString()}
+                    subtitle={`${metrics.offense.penalties.penaltyYardsOnOpponent} yards`}
+                    color={metrics.offense.penalties.penaltiesOnOpponent > 0 ? 'green' : 'default'}
+                  />
+                  <StatCard
+                    title="Penalty Yards (Us)"
+                    value={metrics.offense.penalties.penaltyYardsOnUs.toString()}
+                    subtitle="Yards assessed"
+                    color={metrics.offense.penalties.penaltyYardsOnUs > 50 ? 'red' : 'default'}
+                  />
+                  <StatCard
+                    title="Penalty Diff"
+                    value={(metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs).toString()}
+                    subtitle="+ favors us"
+                    color={(metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs) > 0 ? 'green' : (metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs) < 0 ? 'red' : 'default'}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Efficiency */}
             <div>

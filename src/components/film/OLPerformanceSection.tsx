@@ -18,7 +18,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
   return (
     <CollapsibleSection
       title="Offensive Line Performance"
-      subtitle="Track each OL player's block (Tier 3)"
+      subtitle="Track each OL player's block"
       colorScheme="green"
       defaultExpanded={false}
     >

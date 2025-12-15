@@ -1660,7 +1660,7 @@ export async function getOpponentSpecialTeamsTendencies(
 
   for (const play of puntReturnPlays) {
     if (play.return_yards) prTotalYards += play.return_yards;
-    if (play.is_fair_catch) prFairCatches++;
+    if (play.is_fair_catch || play.kick_result === 'fair_catch') prFairCatches++;
     if (play.result === 'blocked') prBlockAttempts++;
     if (play.result === 'touchdown') prTDs++;
   }

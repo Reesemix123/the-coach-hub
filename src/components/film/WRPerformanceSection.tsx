@@ -11,7 +11,7 @@ export function WRPerformanceSection({ register }: WRPerformanceSectionProps) {
   return (
     <CollapsibleSection
       title="Receiver Performance"
-      subtitle="Track WR/TE effectiveness (Tier 3)"
+      subtitle="Track WR/TE effectiveness"
       colorScheme="blue"
       defaultExpanded={false}
     >

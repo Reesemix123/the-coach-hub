@@ -21,7 +21,7 @@ export function DBPerformanceSection({ register, watch, setValue, players }: DBP
   return (
     <CollapsibleSection
       title="Defensive Back Performance"
-      subtitle="Track DB run support and pass coverage (Tier 3)"
+      subtitle="Track DB run support and pass coverage"
       colorScheme="red"
       defaultExpanded={false}
     >

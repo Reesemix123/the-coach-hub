@@ -21,7 +21,7 @@ export function LBPerformanceSection({ register, watch, setValue, players }: LBP
   return (
     <CollapsibleSection
       title="Linebacker Performance"
-      subtitle="Track LB run fits and pass coverage (Tier 3)"
+      subtitle="Track LB run fits and pass coverage"
       colorScheme="red"
       defaultExpanded={false}
     >

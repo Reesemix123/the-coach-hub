@@ -21,7 +21,7 @@ export function DLPerformanceSection({ register, watch, setValue, players }: DLP
   return (
     <CollapsibleSection
       title="Defensive Line Performance"
-      subtitle="Track DL run defense and pass rush (Tier 3)"
+      subtitle="Track DL run defense and pass rush"
       colorScheme="red"
       defaultExpanded={false}
     >

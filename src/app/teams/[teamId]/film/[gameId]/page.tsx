@@ -8,6 +8,8 @@ import { createClient } from '@/utils/supabase/client';
 import { COMMON_ATTRIBUTES, OPPONENT_PLAY_TYPES } from '@/config/footballConfig';
 import {
   RESULT_TYPES,
+  SCORING_TYPES,
+  PENALTY_TYPES,
   SPECIAL_TEAMS_UNITS,
   KICK_RESULTS,
   PUNT_TYPES,
@@ -40,8 +42,18 @@ import CameraRow from '@/components/film/CameraRow';
 import DirectorsCut from '@/components/film/DirectorsCut';
 import { VideoMarkerService } from '@/lib/services/video-marker.service';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
-import { Flag } from 'lucide-react';
+import { Flag, ChevronDown, ChevronUp } from 'lucide-react';
 import { uploadFile, formatBytes, formatTime, formatSpeed, type UploadProgress } from '@/lib/utils/resumable-upload';
+import { TierSelectorModal } from '@/components/film/TierSelectorModal';
+import { TierBadge } from '@/components/film/TierBadge';
+import { TierUpgradeModal } from '@/components/film/TierUpgradeModal';
+import { isFieldVisibleForTier, type TaggingTier, type GameScoreBreakdown, type FilmAnalysisStatus } from '@/types/football';
+import { QuarterScoreDisplay } from '@/components/film/QuarterScoreDisplay';
+import { ScoreMismatchWarning } from '@/components/film/ScoreMismatchWarning';
+import { FilmAnalysisStatusPanel } from '@/components/film/FilmAnalysisStatusPanel';
+import { ResumeTaggingButton } from '@/components/film/ResumeTaggingButton';
+import { gameScoreService, type ScoreMismatchResult } from '@/lib/services/game-score.service';
+import { filmSessionService } from '@/lib/services/film-session.service';
 
 interface Game {
   id: string;
@@ -50,6 +62,7 @@ interface Game {
   date?: string;
   team_id: string;
   is_opponent_game?: boolean;
+  tagging_tier?: TaggingTier;
 }
 
 interface Video {
@@ -162,6 +175,12 @@ interface PlayInstance {
   penalty_on_play?: boolean;
   penalty_type?: string;
   penalty_yards?: number;
+  penalty_on_us?: boolean;
+  penalty_declined?: boolean;
+
+  // Scoring fields
+  scoring_type?: string;
+  scoring_points?: number;
 }
 
 // Tagging mode: offense, defense, or special teams
@@ -260,6 +279,13 @@ interface PlayTagForm {
   penalty_on_play?: boolean;
   penalty_type?: string;
   penalty_yards?: number;
+  penalty_on_us?: string; // Radio buttons return strings
+  penalty_declined?: boolean; // When true, penalty doesn't affect next play calculations
+
+  // Scoring fields (all tiers)
+  scoring_type?: string;
+  scoring_points?: number;
+  opponent_scored?: boolean; // True when opponent scores on our play (e.g., punt returned for TD)
 }
 
 const DOWNS = [
@@ -279,10 +305,7 @@ const PLAY_TYPES = [
   { value: 'pass', label: 'Pass' },
   { value: 'screen', label: 'Screen' },
   { value: 'rpo', label: 'RPO' },
-  { value: 'trick', label: 'Trick Play' },
-  { value: 'kick', label: 'Kick' },
-  { value: 'pat', label: 'PAT' },
-  { value: 'two_point', label: '2-Point Conversion' }
+  { value: 'trick', label: 'Trick Play' }
 ];
 
 const DIRECTIONS = [
@@ -366,6 +389,13 @@ export default function GameFilmPage() {
 
   // Helper for backwards compatibility - is it a defensive play (opponent has the ball)?
   const isTaggingOpponent = taggingMode === 'defense';
+
+  // Helper function to check if a field should be visible for the current tagging tier
+  const isFieldVisible = (field: string): boolean => {
+    if (!taggingTier) return false; // No tier set, hide all advanced fields
+    const unitType = taggingMode === 'specialTeams' ? 'specialTeams' : (taggingMode === 'defense' ? 'defense' : 'offense');
+    return isFieldVisibleForTier(field, taggingTier, unitType);
+  };
   const [selectedTacklers, setSelectedTacklers] = useState<string[]>([]);
   const [primaryTacklerId, setPrimaryTacklerId] = useState<string>('');
 
@@ -377,10 +407,213 @@ export default function GameFilmPage() {
   // Marker state
   const [markers, setMarkers] = useState<VideoTimelineMarker[]>([]);
   const [showMarkerPanel, setShowMarkerPanel] = useState(false);
+  const [markersCollapsed, setMarkersCollapsed] = useState(false);
   const [showAddMarkerModal, setShowAddMarkerModal] = useState(false);
+  const [showPeriodMarkerMenu, setShowPeriodMarkerMenu] = useState(false);
   const markerService = new VideoMarkerService();
 
+  // Tagging Tier state
+  const [taggingTier, setTaggingTier] = useState<TaggingTier | null>(null);
+  const [showTierSelector, setShowTierSelector] = useState(false);
+  const [showTierUpgrade, setShowTierUpgrade] = useState(false);
+
+  // Quarter Scores & Film Analysis Status
+  const [quarterScores, setQuarterScores] = useState<GameScoreBreakdown | null>(null);
+  const [scoreMismatch, setScoreMismatch] = useState<ScoreMismatchResult | null>(null);
+  const [filmAnalysisStatus, setFilmAnalysisStatus] = useState<FilmAnalysisStatus>('not_started');
+
+  // Auto-population state for down/distance/yard_line
+  const [autoPopulatedFields, setAutoPopulatedFields] = useState<string[]>([]);
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PlayTagForm>();
+
+  // ============================================================================
+  // AUTO-POPULATION HELPER FUNCTIONS
+  // ============================================================================
+
+  interface PlayContext {
+    down: number;
+    distance: number;
+    yard_line: number | undefined;
+    hash_mark?: string;
+    isAutoPopulated: boolean;
+    possessionChanged: boolean;
+  }
+
+  interface PossessionChangeResult {
+    changed: boolean;
+    isAfterScore: boolean;
+  }
+
+  // Detect if the previous play resulted in a possession change
+  function detectPossessionChange(play: PlayInstance): PossessionChangeResult {
+    // After scoring - don't suggest yard line (varies by kickoff position)
+    if (play.scoring_type && ['touchdown', 'field_goal', 'safety'].includes(play.scoring_type)) {
+      return { changed: true, isAfterScore: true };
+    }
+
+    // Turnover (interception, fumble lost)
+    if (play.result_type && ['pass_interception', 'fumble_lost'].includes(play.result_type)) {
+      return { changed: true, isAfterScore: false };
+    }
+
+    // Special teams plays that change possession
+    const possessionChangingUnits: SpecialTeamsUnit[] = ['punt', 'kickoff', 'punt_return', 'kick_return'];
+    if (play.special_teams_unit && possessionChangingUnits.includes(play.special_teams_unit)) {
+      return { changed: true, isAfterScore: false };
+    }
+
+    return { changed: false, isAfterScore: false };
+  }
+
+  // Calculate next distance accounting for yards gained and penalties
+  function calculateNextDistance(play: PlayInstance): { distance: number; isFirstDown: boolean } {
+    const baseDistance = (play.distance || 10) - (play.yards_gained || 0);
+
+    // Handle penalties (only if not declined)
+    if (play.penalty_on_play && play.penalty_type && !play.penalty_declined) {
+      const penaltyDef = PENALTY_TYPES.find(p => p.value === play.penalty_type);
+      const penaltyYards = play.penalty_yards || penaltyDef?.yards || 0;
+      const isAutoFirstDown = penaltyDef?.auto_first === true;
+
+      if (play.penalty_on_us) {
+        // Penalty on our team - adds to distance
+        return {
+          distance: baseDistance + penaltyYards,
+          isFirstDown: false
+        };
+      } else {
+        // Penalty on opponent
+        if (isAutoFirstDown) {
+          return { distance: 10, isFirstDown: true };
+        }
+        const adjustedDistance = baseDistance - penaltyYards;
+        if (adjustedDistance <= 0) {
+          return { distance: 10, isFirstDown: true };
+        }
+        return { distance: adjustedDistance, isFirstDown: false };
+      }
+    }
+
+    // Check if gained enough for first down
+    if (baseDistance <= 0) {
+      return { distance: 10, isFirstDown: true };
+    }
+
+    return { distance: baseDistance, isFirstDown: false };
+  }
+
+  // Calculate next yard line based on previous play outcome
+  function calculateNextYardLine(play: PlayInstance): number {
+    let yardLine = (play.yard_line || 20) + (play.yards_gained || 0);
+
+    // Adjust for penalties (only if not declined)
+    if (play.penalty_on_play && play.penalty_yards && !play.penalty_declined) {
+      if (play.penalty_on_us) {
+        yardLine -= play.penalty_yards; // Move backward
+      } else {
+        yardLine += play.penalty_yards; // Move forward
+      }
+    }
+
+    // Clamp to valid field position (1-99)
+    return Math.max(1, Math.min(99, yardLine));
+  }
+
+  // Calculate yard line after possession change (flip the field)
+  function calculateYardLineAfterPossessionChange(play: PlayInstance): number {
+    const endYardLine = calculateNextYardLine(play);
+    return 100 - endYardLine;
+  }
+
+  // Main function to calculate next play context
+  function calculateNextPlayContext(previousPlay: PlayInstance | null): PlayContext | null {
+    if (!previousPlay) return null;
+
+    // Detect possession change
+    const { changed: possessionChanged, isAfterScore } = detectPossessionChange(previousPlay);
+
+    if (possessionChanged) {
+      return {
+        down: 1,
+        distance: 10,
+        // Don't suggest yard line after scores (kickoff position varies)
+        yard_line: isAfterScore ? undefined : calculateYardLineAfterPossessionChange(previousPlay),
+        isAutoPopulated: true,
+        possessionChanged: true
+      };
+    }
+
+    // Check if previous play resulted in first down
+    if (previousPlay.resulted_in_first_down) {
+      return {
+        down: 1,
+        distance: 10,
+        yard_line: calculateNextYardLine(previousPlay),
+        isAutoPopulated: true,
+        possessionChanged: false
+      };
+    }
+
+    // Normal progression
+    const nextDown = (previousPlay.down || 1) + 1;
+
+    // If it was 4th down and not converted, possession change
+    if (nextDown > 4) {
+      return {
+        down: 1,
+        distance: 10,
+        yard_line: calculateYardLineAfterPossessionChange(previousPlay),
+        isAutoPopulated: true,
+        possessionChanged: true
+      };
+    }
+
+    // Calculate distance with penalty adjustments
+    const { distance, isFirstDown } = calculateNextDistance(previousPlay);
+
+    if (isFirstDown) {
+      return {
+        down: 1,
+        distance: 10,
+        yard_line: calculateNextYardLine(previousPlay),
+        isAutoPopulated: true,
+        possessionChanged: false
+      };
+    }
+
+    return {
+      down: nextDown,
+      distance: Math.max(1, distance),
+      yard_line: calculateNextYardLine(previousPlay),
+      hash_mark: previousPlay.direction, // Suggest hash based on previous play direction
+      isAutoPopulated: true,
+      possessionChanged: false
+    };
+  }
+
+  // Get the previous play based on timestamp
+  function getPreviousPlay(): PlayInstance | null {
+    if (playInstances.length === 0) return null;
+
+    // Find plays before current timestamp, get the most recent one
+    const previousPlays = playInstances
+      .filter(p => p.timestamp_start < tagStartTime)
+      .sort((a, b) => b.timestamp_start - a.timestamp_start);
+
+    return previousPlays[0] || null;
+  }
+
+  // Helper for input styling - highlights auto-populated fields
+  function getFieldClassName(fieldName: string, baseClass: string): string {
+    const isAutoPopulated = autoPopulatedFields.includes(fieldName);
+    return `${baseClass} ${isAutoPopulated ? 'bg-blue-50 border-blue-300' : ''}`;
+  }
+
+  // Clear auto-populated indicator when user manually changes value
+  function handleFieldChange(fieldName: string) {
+    setAutoPopulatedFields(prev => prev.filter(f => f !== fieldName));
+  }
 
   useEffect(() => {
     if (gameId) {
@@ -416,7 +649,13 @@ export default function GameFilmPage() {
 
     const handleTimeUpdate = () => setCurrentTime(video.currentTime);
     const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePause = () => {
+      setIsPlaying(false);
+      // Save position when video pauses
+      if (selectedVideo && gameId) {
+        filmSessionService.savePosition(gameId, selectedVideo.id, video.currentTime * 1000).catch(console.error);
+      }
+    };
     const handleLoadedMetadata = () => {
       setVideoDuration(video.duration);
       // If there's a pending seek from camera switch, apply it now
@@ -442,7 +681,63 @@ export default function GameFilmPage() {
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [selectedVideo, pendingSyncSeek, shouldResumePlayback]);
+  }, [selectedVideo, pendingSyncSeek, shouldResumePlayback, gameId]);
+
+  // Load quarter scores and check for mismatch when game is loaded
+  useEffect(() => {
+    if (gameId && game) {
+      loadQuarterScoresAndMismatch();
+    }
+  }, [gameId, game]);
+
+  // Close period marker menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showPeriodMarkerMenu) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('[data-period-menu]')) {
+          setShowPeriodMarkerMenu(false);
+        }
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showPeriodMarkerMenu]);
+
+  async function loadQuarterScoresAndMismatch() {
+    try {
+      const [scores, mismatch] = await Promise.all([
+        gameScoreService.getQuarterScores(gameId),
+        gameScoreService.checkScoreMismatch(gameId)
+      ]);
+      setQuarterScores(scores);
+      setScoreMismatch(mismatch);
+    } catch (error) {
+      console.error('Error loading scores:', error);
+    }
+  }
+
+  // Handler for resuming to saved position
+  const handleResumePosition = (videoId: string, positionMs: number) => {
+    // Find the video and switch to it
+    const video = videos.find(v => v.id === videoId);
+    if (video) {
+      setSelectedVideo(video);
+      // Set pending seek to resume position (convert ms to seconds)
+      setPendingSyncSeek(positionMs / 1000);
+    }
+  };
+
+  // Handler for score mismatch resolution
+  const handleScoreMismatchResolve = async (action: 'use_calculated' | 'use_manual' | 'review') => {
+    if (action === 'review') {
+      // Scroll to play list or show marker panel
+      setShowMarkerPanel(true);
+    } else {
+      // Reload scores after resolution
+      await loadQuarterScoresAndMismatch();
+    }
+  };
 
   async function fetchGame() {
     const { data, error } = await supabase
@@ -455,6 +750,17 @@ export default function GameFilmPage() {
       setGame(data);
       if (data.is_opponent_game) {
         setTaggingMode('defense');
+      }
+      // Set tagging tier from game data
+      if (data.tagging_tier) {
+        setTaggingTier(data.tagging_tier as TaggingTier);
+      } else {
+        // No tier set yet - will show selector when user tries to tag
+        setTaggingTier(null);
+      }
+      // Set film analysis status from game data
+      if (data.film_analysis_status) {
+        setFilmAnalysisStatus(data.film_analysis_status as FilmAnalysisStatus);
       }
     }
   }
@@ -618,6 +924,51 @@ export default function GameFilmPage() {
     setShowAddMarkerModal(true);
   };
 
+  // Quick add period marker (quarter start/end, game markers)
+  const handleQuickPeriodMarker = async (markerType: MarkerType, quarter?: number, label?: string) => {
+    if (!selectedVideo) return;
+
+    // Check for duplicate period markers
+    const isDuplicate = markers.some(m => {
+      // For quarter_end markers, check if same quarter already marked
+      if (markerType === 'quarter_end' && m.marker_type === 'quarter_end' && m.quarter === quarter) {
+        return true;
+      }
+      // For halftime, game_start, game_end - only one allowed
+      if (['halftime', 'game_start', 'game_end'].includes(markerType) && m.marker_type === markerType) {
+        return true;
+      }
+      // For overtime start, check if same OT period already marked
+      if (markerType === 'overtime' && m.marker_type === 'overtime' && m.quarter === quarter) {
+        return true;
+      }
+      return false;
+    });
+
+    if (isDuplicate) {
+      alert(`A "${label}" marker already exists. Delete the existing one first if you want to change it.`);
+      setShowPeriodMarkerMenu(false);
+      return;
+    }
+
+    try {
+      const timestampMs = Math.floor(currentTime * 1000);
+
+      await markerService.createMarker({
+        video_id: selectedVideo.id,
+        timestamp_start_ms: timestampMs,
+        marker_type: markerType,
+        label: label || undefined,
+        quarter: quarter
+      });
+
+      await fetchMarkers(selectedVideo.id);
+      setShowPeriodMarkerMenu(false);
+    } catch (error) {
+      console.error('Error adding period marker:', error);
+    }
+  };
+
   const handleCreateMarker = async (markerType: MarkerType, label?: string, quarter?: number) => {
     if (!selectedVideo) return;
 
@@ -638,6 +989,45 @@ export default function GameFilmPage() {
     }
   };
 
+  // Tagging Tier functions
+  const handleTierSelect = async (tier: TaggingTier) => {
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({ tagging_tier: tier })
+        .eq('id', gameId);
+
+      if (error) throw error;
+
+      setTaggingTier(tier);
+      setShowTierSelector(false);
+      // Refresh game data
+      fetchGame();
+    } catch (error) {
+      console.error('Error setting tagging tier:', error);
+      alert('Failed to set tagging tier. Please try again.');
+    }
+  };
+
+  const handleTierUpgrade = async (newTier: TaggingTier) => {
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({ tagging_tier: newTier })
+        .eq('id', gameId);
+
+      if (error) throw error;
+
+      setTaggingTier(newTier);
+      setShowTierUpgrade(false);
+      // Refresh game data
+      fetchGame();
+    } catch (error) {
+      console.error('Error upgrading tagging tier:', error);
+      alert('Failed to upgrade tagging tier. Please try again.');
+    }
+  };
+
   const handleDeleteMarker = async (markerId: string) => {
     if (!selectedVideo) return;
 
@@ -653,6 +1043,46 @@ export default function GameFilmPage() {
     if (videoRef.current) {
       videoRef.current.currentTime = timestampMs / 1000; // Convert milliseconds to seconds
     }
+  };
+
+  /**
+   * Determine the quarter based on current timestamp and quarter markers
+   * Returns the quarter number (1-4, 5+ for OT) or undefined if no markers exist
+   */
+  const getQuarterFromTimestamp = (timestampMs: number): number | undefined => {
+    // Get quarter-related markers sorted by timestamp
+    const quarterMarkers = markers
+      .filter(m => ['game_start', 'quarter_start', 'quarter_end', 'halftime', 'game_end'].includes(m.marker_type))
+      .sort((a, b) => a.virtual_timestamp_start_ms - b.virtual_timestamp_start_ms);
+
+    if (quarterMarkers.length === 0) {
+      return undefined; // No markers, can't determine quarter
+    }
+
+    // Find which quarter the timestamp falls in
+    // Logic: timestamp is in quarter N if it's after the Q(N-1) end marker and before Q(N) end marker
+    let currentQuarter = 1; // Default to Q1
+
+    for (const marker of quarterMarkers) {
+      if (timestampMs < marker.virtual_timestamp_start_ms) {
+        // We're before this marker, so we're in the current quarter
+        break;
+      }
+
+      // Update quarter based on marker type
+      if (marker.marker_type === 'quarter_end' && marker.quarter) {
+        // After Q1 end = Q2, after Q2 end = Q3, etc.
+        currentQuarter = marker.quarter + 1;
+      } else if (marker.marker_type === 'quarter_start' && marker.quarter) {
+        currentQuarter = marker.quarter;
+      } else if (marker.marker_type === 'halftime') {
+        // After halftime = Q3
+        currentQuarter = 3;
+      }
+    }
+
+    // Cap at reasonable values (1-10 for up to OT6)
+    return Math.min(Math.max(currentQuarter, 1), 10);
   };
 
   async function fetchPlayInstances(videoId: string) {
@@ -685,6 +1115,12 @@ export default function GameFilmPage() {
         })
       );
       setPlayInstances(instancesWithNames);
+
+      // Auto-fix: If there are plays but status is still 'not_started', update to 'in_progress'
+      if (instancesWithNames.length > 0 && filmAnalysisStatus === 'not_started') {
+        await filmSessionService.updateAnalysisStatus(gameId, 'in_progress');
+        setFilmAnalysisStatus('in_progress');
+      }
     }
   }
 
@@ -971,6 +1407,13 @@ export default function GameFilmPage() {
 
   function handleMarkPlayStart() {
     if (!videoRef.current) return;
+
+    // Check if tagging tier is set - if not, show the tier selector
+    if (!taggingTier) {
+      setShowTierSelector(true);
+      return;
+    }
+
     setTagStartTime(videoRef.current.currentTime);
     setTagEndTime(null);
     setIsSettingEndTime(true);
@@ -985,6 +1428,52 @@ export default function GameFilmPage() {
     setIsSettingEndTime(false);
     setSelectedTacklers([]);
     setPrimaryTacklerId('');
+
+    // Auto-populate quarter from markers based on tag start time
+    const timestampMs = Math.floor(tagStartTime * 1000);
+    const autoQuarter = getQuarterFromTimestamp(timestampMs);
+    if (autoQuarter) {
+      setValue('quarter', autoQuarter);
+    }
+
+    // Auto-populate down, distance, yard_line from previous play
+    const previousPlay = getPreviousPlay();
+    const context = calculateNextPlayContext(previousPlay);
+
+    if (context) {
+      const fieldsToPopulate: string[] = [];
+
+      setValue('down', context.down);
+      fieldsToPopulate.push('down');
+
+      setValue('distance', context.distance);
+      fieldsToPopulate.push('distance');
+
+      if (context.yard_line !== undefined) {
+        setValue('yard_line', context.yard_line);
+        fieldsToPopulate.push('yard_line');
+      }
+
+      if (context.hash_mark) {
+        setValue('hash_mark', context.hash_mark);
+        fieldsToPopulate.push('hash_mark');
+      }
+
+      setAutoPopulatedFields(fieldsToPopulate);
+    } else {
+      // No previous play - clear auto-populated state
+      setAutoPopulatedFields([]);
+    }
+
+    // Auto-calculate next drive number for "Start New Drive"
+    // Drives are tracked separately per team (offense vs defense)
+    const possessionType = isTaggingOpponent ? 'defense' : 'offense';
+    const teamDrives = drives.filter(d => d.possession_type === possessionType);
+    const maxDriveNum = teamDrives.length > 0
+      ? Math.max(...teamDrives.map(d => d.drive_number || 0))
+      : 0;
+    setValue('new_drive_number', maxDriveNum + 1);
+
     setShowTagModal(true);
     videoRef.current.pause();
   }
@@ -1068,6 +1557,16 @@ export default function GameFilmPage() {
     setValue('is_pbu', instance.is_pbu);
     setValue('is_interception', instance.is_interception);
     setValue('qb_decision_grade', instance.qb_decision_grade);
+
+    // Penalty fields
+    setValue('penalty_on_play', instance.penalty_on_play);
+    setValue('penalty_type', instance.penalty_type);
+    setValue('penalty_yards', instance.penalty_yards);
+    setValue('penalty_on_us', instance.penalty_on_us ? 'true' : 'false');
+    setValue('penalty_declined', instance.penalty_declined);
+
+    // Clear auto-populated state when editing (values came from DB, not calculated)
+    setAutoPopulatedFields([]);
 
     setShowTagModal(true);
   }
@@ -1245,19 +1744,45 @@ export default function GameFilmPage() {
         blocker_id: taggingMode === 'specialTeams' && selectedSpecialTeamsUnit === 'fg_block'
           ? (values.blocker_id || undefined) : undefined,
 
-        // Penalty tracking (special teams)
-        penalty_on_play: taggingMode === 'specialTeams' ? (values.penalty_on_play || false) : undefined,
-        penalty_type: taggingMode === 'specialTeams' && values.penalty_on_play ? (values.penalty_type || undefined) : undefined,
-        penalty_yards: taggingMode === 'specialTeams' && values.penalty_on_play && values.penalty_yards
-          ? parseInt(String(values.penalty_yards)) : undefined
+        // ======================================================================
+        // SCORING TRACKING (All modes)
+        // ======================================================================
+        scoring_type: values.scoring_type || undefined,
+        scoring_points: values.scoring_type
+          ? (SCORING_TYPES.find(s => s.value === values.scoring_type)?.points || 0)
+          : undefined,
+        // Also update is_touchdown for backward compatibility
+        is_touchdown: values.scoring_type === 'touchdown',
+        // Opponent scored flag (for special teams: punt/kickoff returned for TD)
+        opponent_scored: values.opponent_scored || false,
+
+        // ======================================================================
+        // PENALTY TRACKING (All modes)
+        // ======================================================================
+        penalty_on_play: values.penalty_type ? true : false,
+        penalty_type: values.penalty_type || undefined,
+        penalty_yards: values.penalty_yards
+          ? parseInt(String(values.penalty_yards))
+          : (values.penalty_type ? (PENALTY_TYPES.find(p => p.value === values.penalty_type)?.yards || 0) : undefined),
+        penalty_on_us: values.penalty_type ? values.penalty_on_us === 'true' : undefined,
+        penalty_declined: values.penalty_declined || false
       };
+
+      // Clean instanceData: convert undefined and empty strings to null for Supabase
+      // This prevents CHECK constraint violations when empty strings are sent
+      const cleanedData = Object.fromEntries(
+        Object.entries(instanceData).map(([key, value]) => [
+          key,
+          value === undefined || value === '' ? null : value
+        ])
+      );
 
       let playInstanceId: string;
 
       if (editingInstance) {
         const { error } = await supabase
           .from('play_instances')
-          .update(instanceData)
+          .update(cleanedData)
           .eq('id', editingInstance.id);
 
         if (error) throw error;
@@ -1284,7 +1809,7 @@ export default function GameFilmPage() {
       } else {
         const { data: newPlay, error } = await supabase
           .from('play_instances')
-          .insert([instanceData])
+          .insert([cleanedData])
           .select('id')
           .single();
 
@@ -1556,6 +2081,12 @@ export default function GameFilmPage() {
       // Show success notification
       alert(editingInstance ? 'Play updated successfully!' : 'Play saved successfully!');
 
+      // Auto-update film analysis status to 'in_progress' if not started
+      if (filmAnalysisStatus === 'not_started') {
+        await filmSessionService.updateAnalysisStatus(gameId, 'in_progress');
+        setFilmAnalysisStatus('in_progress');
+      }
+
       setShowTagModal(false);
       setEditingInstance(null);
       setSelectedTacklers([]);
@@ -1690,6 +2221,41 @@ export default function GameFilmPage() {
     return hash?.label || value;
   }
 
+  // Helper to render player options with preferred players first, then other players
+  function renderPlayerOptions(
+    preferredFilter: (p: any) => boolean,
+    preferredLabel: string = 'Preferred',
+    showPosition: boolean = true,
+    excludeIds: string[] = []
+  ) {
+    const availablePlayers = players.filter(p => !excludeIds.includes(p.id));
+    const preferredPlayers = availablePlayers.filter(preferredFilter);
+    const otherPlayers = availablePlayers.filter(p => !preferredFilter(p));
+
+    return (
+      <>
+        {preferredPlayers.length > 0 && (
+          <optgroup label={preferredLabel}>
+            {preferredPlayers.map(player => (
+              <option key={player.id} value={player.id}>
+                #{player.jersey_number} {player.first_name} {player.last_name}{showPosition ? ` (${getPositionDisplay(player)})` : ''}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {otherPlayers.length > 0 && (
+          <optgroup label="Other Players">
+            {otherPlayers.map(player => (
+              <option key={player.id} value={player.id}>
+                #{player.jersey_number} {player.first_name} {player.last_name}{showPosition ? ` (${getPositionDisplay(player)})` : ''}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </>
+    );
+  }
+
   if (!game) {
     return (
       <AuthGuard>
@@ -1718,7 +2284,17 @@ export default function GameFilmPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-semibold text-gray-900">{game.name}</h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-semibold text-gray-900">{game.name}</h1>
+                  {taggingTier && (
+                    <TierBadge
+                      tier={taggingTier}
+                      size="md"
+                      showUpgradeHint={taggingTier !== 'comprehensive'}
+                      onClick={taggingTier !== 'comprehensive' ? () => setShowTierUpgrade(true) : undefined}
+                    />
+                  )}
+                </div>
                 {game.opponent && (
                   <p className="text-lg text-gray-600 mt-1">vs {game.opponent}</p>
                 )}
@@ -1770,6 +2346,90 @@ export default function GameFilmPage() {
                     />
                   </label>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quarter Scores, Analysis Status, and Resume Button */}
+          <div className="mb-6 space-y-4">
+            {/* Resume Button */}
+            <ResumeTaggingButton
+              gameId={gameId}
+              currentVideoId={selectedVideo?.id}
+              currentPositionMs={currentTime * 1000}
+              onResume={handleResumePosition}
+            />
+
+            {/* Score Mismatch Warning */}
+            {scoreMismatch && scoreMismatch.has_mismatch && !scoreMismatch.mismatch_acknowledged && (
+              <ScoreMismatchWarning
+                gameId={gameId}
+                mismatchResult={scoreMismatch}
+                onResolve={handleScoreMismatchResolve}
+                onDismiss={() => setScoreMismatch(prev => prev ? { ...prev, mismatch_acknowledged: true } : null)}
+                context="film_tagging"
+              />
+            )}
+
+            {/* Compact Score & Analysis Status Bar */}
+            <div className="bg-gray-50 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3">
+              {/* Score Summary */}
+              <div className="flex items-center gap-4">
+                {(() => {
+                  const teamScore = quarterScores?.calculated?.team?.total ?? quarterScores?.manual?.team?.total;
+                  const oppScore = quarterScores?.calculated?.opponent?.total ?? quarterScores?.manual?.opponent?.total;
+                  const hasScore = teamScore !== undefined && teamScore !== null;
+
+                  return hasScore ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Score:</span>
+                      <span className="font-semibold text-gray-900">{teamScore}</span>
+                      <span className="text-gray-400">-</span>
+                      <span className="font-semibold text-gray-900">{oppScore ?? 0}</span>
+                      {quarterScores?.source === 'manual' && (
+                        <span className="text-xs text-gray-500">(manual)</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-500">No score yet</span>
+                  );
+                })()}
+                <div className="h-4 w-px bg-gray-300" />
+                <span className="text-sm text-gray-600">{playInstances.length} {playInstances.length === 1 ? 'play' : 'plays'} tagged</span>
+              </div>
+
+              {/* Analysis Status */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    filmAnalysisStatus === 'complete' ? 'bg-green-500' :
+                    filmAnalysisStatus === 'in_progress' ? 'bg-yellow-500' : 'bg-gray-300'
+                  }`} />
+                  <span className="text-sm text-gray-700">
+                    {filmAnalysisStatus === 'complete' ? 'Complete' :
+                     filmAnalysisStatus === 'in_progress' ? 'In Progress' : 'Not Started'}
+                  </span>
+                </div>
+                <button
+                  onClick={async () => {
+                    const newStatus = filmAnalysisStatus === 'complete' ? 'in_progress' : 'complete';
+                    if (filmAnalysisStatus === 'complete') {
+                      if (!confirm('Are you sure you want to un-mark this as complete?')) return;
+                    }
+                    await filmSessionService.updateAnalysisStatus(gameId, newStatus);
+                    setFilmAnalysisStatus(newStatus);
+                    if (newStatus === 'complete') {
+                      loadQuarterScoresAndMismatch();
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    filmAnalysisStatus === 'complete'
+                      ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  {filmAnalysisStatus === 'complete' ? 'Analysis Complete ✓' : 'Mark Analysis Complete'}
+                </button>
               </div>
             </div>
           </div>
@@ -1997,13 +2657,85 @@ export default function GameFilmPage() {
                               >
                                 ▶ Mark Start
                               </button>
+
+                              {/* Prominent Period Marker Button */}
+                              <div className="relative" data-period-menu>
+                                <button
+                                  onClick={() => setShowPeriodMarkerMenu(!showPeriodMarkerMenu)}
+                                  className="px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold transition-colors flex items-center gap-2"
+                                  title="Mark quarter or game period"
+                                >
+                                  <Flag size={16} />
+                                  Mark Period
+                                </button>
+
+                                {/* Period Marker Dropdown */}
+                                {showPeriodMarkerMenu && (
+                                  <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                    <div className="p-2">
+                                      <p className="text-xs font-semibold text-gray-500 px-2 mb-1">GAME</p>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('game_start', 1, 'Game Start')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-green-50 rounded flex items-center gap-2"
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                                        Start of Game
+                                      </button>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('game_end', undefined, 'Game End')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 rounded flex items-center gap-2"
+                                      >
+                                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                                        End of Game
+                                      </button>
+                                    </div>
+                                    <div className="border-t p-2">
+                                      <p className="text-xs font-semibold text-gray-500 px-2 mb-1">QUARTERS</p>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('quarter_end', 1, 'End Q1')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 rounded"
+                                      >
+                                        End of Q1
+                                      </button>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('halftime', 2, 'Halftime')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-yellow-50 rounded"
+                                      >
+                                        Halftime (End Q2)
+                                      </button>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('quarter_end', 3, 'End Q3')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 rounded"
+                                      >
+                                        End of Q3
+                                      </button>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('quarter_end', 4, 'End Q4')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 rounded"
+                                      >
+                                        End of Q4
+                                      </button>
+                                    </div>
+                                    <div className="border-t p-2">
+                                      <p className="text-xs font-semibold text-gray-500 px-2 mb-1">OVERTIME</p>
+                                      <button
+                                        onClick={() => handleQuickPeriodMarker('overtime', 5, 'OT Start')}
+                                        className="w-full px-3 py-2 text-left text-sm hover:bg-purple-50 rounded"
+                                      >
+                                        Start of Overtime
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
                               <button
                                 onClick={handleAddMarkerAtCurrentTime}
-                                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-semibold transition-colors flex items-center gap-2"
-                                title="Add marker at current time"
+                                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 font-medium transition-colors flex items-center gap-2 text-sm"
+                                title="Add other markers (big play, timeout, etc.)"
                               >
-                                <Flag size={16} />
-                                Add Marker
+                                <Flag size={14} />
+                                Other
                               </button>
                               <button
                                 onClick={() => setShowMarkerPanel(!showMarkerPanel)}
@@ -2050,15 +2782,30 @@ export default function GameFilmPage() {
                   {/* Marker Panel */}
                   {showMarkerPanel && (
                     <div className="bg-white rounded-lg border border-gray-200 p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">Video Markers</h3>
-                        <span className="text-sm text-gray-600">{markers.length} marker{markers.length !== 1 ? 's' : ''}</span>
-                      </div>
-                      <MarkerList
-                        markers={markers}
-                        onJumpToMarker={handleJumpToMarker}
-                        onDeleteMarker={handleDeleteMarker}
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setMarkersCollapsed(!markersCollapsed)}
+                        className="w-full flex items-center justify-between hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold text-gray-900">Video Markers</h3>
+                          <span className="text-sm text-gray-600">({markers.length})</span>
+                        </div>
+                        {markersCollapsed ? (
+                          <ChevronDown className="h-5 w-5 text-gray-400" />
+                        ) : (
+                          <ChevronUp className="h-5 w-5 text-gray-400" />
+                        )}
+                      </button>
+                      {!markersCollapsed && (
+                        <div className="mt-4">
+                          <MarkerList
+                            markers={markers}
+                            onJumpToMarker={handleJumpToMarker}
+                            onDeleteMarker={handleDeleteMarker}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -2257,120 +3004,148 @@ export default function GameFilmPage() {
                 }
 
                 return (
-                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                    {filteredPlays.map((instance, index) => (
-                    <div 
-                      key={instance.id} 
-                      className="border rounded-lg p-3 hover:shadow-sm transition-shadow bg-gray-50"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-medium text-gray-500">
-                              #{index + 1}
-                            </span>
-                            <span className="font-semibold text-gray-900">{instance.play_code}</span>
-                            {instance.special_teams_unit && (
-                              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
-                                {SPECIAL_TEAMS_UNITS.find(u => u.value === instance.special_teams_unit)?.label || 'Special Teams'}
-                              </span>
-                            )}
-                            {instance.is_opponent_play && !instance.special_teams_unit && (
-                              <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
-                                Opponent
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-700 mt-1">{instance.play_name}</p>
-                        </div>
-                        
-                        <div className="flex items-center space-x-1 flex-shrink-0">
-                          <button
-                            onClick={() => handleEditInstance(instance)}
-                            className="p-1 text-gray-600 hover:text-gray-900 transition-colors"
-                            title="Edit"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => deletePlayInstance(instance.id)}
-                            className="p-1 text-gray-600 hover:text-red-600 transition-colors"
-                            title="Delete"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="text-xs space-y-1 text-gray-700 mb-2">
-                        <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-gray-200">
-                          <span className="text-gray-600">Duration:</span>
-                          <span className="font-medium">
-                            {formatTime(instance.timestamp_start)} 
-                            {instance.timestamp_end && ` - ${formatTime(instance.timestamp_end)}`}
-                            {instance.timestamp_end && (
-                              <span className="text-gray-500 ml-1">
-                                ({Math.round(instance.timestamp_end - instance.timestamp_start)}s)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        
-                        {instance.down && instance.distance && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Situation:</span>
-                            <span className="font-medium">
-                              {getDownLabel(String(instance.down))} & {instance.distance}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {instance.result_type && (
-                          <div className="bg-white rounded px-2 py-1 border border-gray-200">
-                            <span className="text-gray-600">Result:</span> 
-                            <span className="text-gray-900 font-medium ml-1">
-                              {RESULT_TYPES.find(r => r.value === instance.result_type)?.label || instance.result_type}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {instance.yards_gained !== null && instance.yards_gained !== undefined && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-600">Yards:</span>
-                            <span className={`font-medium ${instance.yards_gained >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {instance.yards_gained > 0 ? '+' : ''}{instance.yards_gained}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {instance.notes && (
-                          <div className="text-gray-700 mt-1 text-xs bg-yellow-50 p-2 rounded border border-yellow-200">
-                            {instance.notes}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <button
-                        onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined, instance.camera_id || instance.video_id)}
-                        className="w-full relative overflow-hidden rounded hover:opacity-90 transition-opacity group bg-gray-900"
+                  <div className="space-y-3">
+                    <div className="max-h-[600px] overflow-y-auto pr-2 space-y-3">
+                      {filteredPlays.map((instance, index) => (
+                      <div
+                        key={instance.id}
+                        className="border rounded-lg p-3 hover:shadow-sm transition-shadow bg-gray-50"
                       >
-                        <div className="w-full h-24 flex items-center justify-center">
-                          <div className="bg-white bg-opacity-90 rounded-full p-2 group-hover:bg-opacity-100 transition-all">
-                            <svg className="w-6 h-6 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M8 5v14l11-7z"/>
-                            </svg>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-medium text-gray-500">
+                                #{index + 1}
+                              </span>
+                              <span className="font-semibold text-gray-900">{instance.play_code}</span>
+                              {instance.special_teams_unit && (
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded font-medium">
+                                  {SPECIAL_TEAMS_UNITS.find(u => u.value === instance.special_teams_unit)?.label || 'Special Teams'}
+                                </span>
+                              )}
+                              {instance.is_opponent_play && !instance.special_teams_unit && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded font-medium">
+                                  Opponent
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-700 mt-1">{instance.play_name}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                            <button
+                              onClick={() => handleEditInstance(instance)}
+                              className="p-1 text-gray-600 hover:text-gray-900 transition-colors"
+                              title="Edit"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => deletePlayInstance(instance.id)}
+                              className="p-1 text-gray-600 hover:text-red-600 transition-colors"
+                              title="Delete"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
-                      </button>
+
+                        <div className="text-xs space-y-1 text-gray-700 mb-2">
+                          <div className="flex items-center justify-between bg-white px-2 py-1 rounded border border-gray-200">
+                            <span className="text-gray-600">Duration:</span>
+                            <span className="font-medium">
+                              {formatTime(instance.timestamp_start)}
+                              {instance.timestamp_end && ` - ${formatTime(instance.timestamp_end)}`}
+                              {instance.timestamp_end && (
+                                <span className="text-gray-500 ml-1">
+                                  ({Math.round(instance.timestamp_end - instance.timestamp_start)}s)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+
+                          {instance.down && instance.distance && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Situation:</span>
+                              <span className="font-medium">
+                                {getDownLabel(String(instance.down))} & {instance.distance}
+                              </span>
+                            </div>
+                          )}
+
+                          {instance.result_type && (
+                            <div className="bg-white rounded px-2 py-1 border border-gray-200">
+                              <span className="text-gray-600">Result:</span>
+                              <span className="text-gray-900 font-medium ml-1">
+                                {RESULT_TYPES.find(r => r.value === instance.result_type)?.label || instance.result_type}
+                              </span>
+                            </div>
+                          )}
+
+                          {instance.yards_gained !== null && instance.yards_gained !== undefined && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-600">Yards:</span>
+                              <span className={`font-medium ${instance.yards_gained >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {instance.yards_gained > 0 ? '+' : ''}{instance.yards_gained}
+                              </span>
+                            </div>
+                          )}
+
+                          {instance.notes && (
+                            <div className="text-gray-700 mt-1 text-xs bg-yellow-50 p-2 rounded border border-yellow-200">
+                              {instance.notes}
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={() => jumpToPlay(instance.timestamp_start, instance.timestamp_end || undefined, instance.camera_id || instance.video_id)}
+                          className="w-full relative overflow-hidden rounded hover:opacity-90 transition-opacity group bg-gray-900"
+                        >
+                          <div className="w-full h-24 flex items-center justify-center">
+                            <div className="bg-white bg-opacity-90 rounded-full p-2 group-hover:bg-opacity-100 transition-all">
+                              <svg className="w-6 h-6 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                              </svg>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    ))}
                     </div>
-                  ))}
-                </div>
+
+                  </div>
                 );
               })()}
+
+              {/* Resume from here button */}
+              {playInstances.length > 0 && (
+                <button
+                  onClick={() => {
+                    // Find the last play by timestamp
+                    const sortedPlays = [...playInstances].sort((a, b) =>
+                      (b.timestamp_end || b.timestamp_start) - (a.timestamp_end || a.timestamp_start)
+                    );
+                    const lastPlay = sortedPlays[0];
+                    if (lastPlay && videoRef.current) {
+                      const lastPlayEndTime = lastPlay.timestamp_end || lastPlay.timestamp_start;
+                      videoRef.current.currentTime = lastPlayEndTime;
+                      videoRef.current.pause();
+                    }
+                  }}
+                  className="w-full mt-4 px-4 py-3 bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Resume Tagging
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2563,7 +3338,16 @@ export default function GameFilmPage() {
                     <input
                       type="radio"
                       checked={driveAssignMode === 'new'}
-                      onChange={() => setDriveAssignMode('new')}
+                      onChange={() => {
+                        setDriveAssignMode('new');
+                        // Auto-calculate next drive number (per team)
+                        const possessionType = isTaggingOpponent ? 'defense' : 'offense';
+                        const teamDrives = drives.filter(d => d.possession_type === possessionType);
+                        const maxDriveNum = teamDrives.length > 0
+                          ? Math.max(...teamDrives.map(d => d.drive_number || 0))
+                          : 0;
+                        setValue('new_drive_number', maxDriveNum + 1);
+                      }}
                       className="w-4 h-4 text-gray-900"
                     />
                     <span className="text-sm font-medium text-gray-900">Start New Drive</span>
@@ -2647,20 +3431,26 @@ export default function GameFilmPage() {
                   <label className="block text-xs font-medium text-gray-700 mb-1">Down</label>
                   <select
                     {...register('down', {
-                      onChange: () => {
-                        // Recalculate first down when down changes
-                        const yards = parseInt(String(watch('yards_gained') || '0'));
-                        const distance = parseInt(String(watch('distance') || '0'));
-                        const down = parseInt(String(watch('down') || '0'));
+                      onChange: (e) => {
+                        handleFieldChange('down');
+                        const down = parseInt(e.target.value || '0');
 
-                        if (!isNaN(yards) && !isNaN(distance) && down > 1) {
-                          setValue('resulted_in_first_down', yards >= distance);
-                        } else if (down === 1) {
+                        // Auto-set distance to 10 for 1st down
+                        if (down === 1) {
+                          setValue('distance', 10);
                           setValue('resulted_in_first_down', false);
+                        } else {
+                          // Recalculate first down when down changes
+                          const yards = parseInt(String(watch('yards_gained') || '0'));
+                          const distance = parseInt(String(watch('distance') || '0'));
+
+                          if (!isNaN(yards) && !isNaN(distance)) {
+                            setValue('resulted_in_first_down', yards >= distance);
+                          }
                         }
                       }
                     })}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                    className={getFieldClassName('down', 'w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900')}
                   >
                     <option value="">-</option>
                     {DOWNS.map(down => (
@@ -2673,6 +3463,7 @@ export default function GameFilmPage() {
                   <input
                     {...register('distance', {
                       onChange: () => {
+                        handleFieldChange('distance');
                         // Recalculate first down when distance changes
                         const yards = parseInt(String(watch('yards_gained') || '0'));
                         const distance = parseInt(String(watch('distance') || '0'));
@@ -2689,7 +3480,7 @@ export default function GameFilmPage() {
                     min="1"
                     max="99"
                     placeholder="10"
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                    className={getFieldClassName('distance', 'w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900')}
                   />
                 </div>
               </div>
@@ -2700,20 +3491,24 @@ export default function GameFilmPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Yard Line</label>
                   <input
-                    {...register('yard_line')}
+                    {...register('yard_line', {
+                      onChange: () => handleFieldChange('yard_line')
+                    })}
                     type="number"
                     min="0"
                     max="100"
                     placeholder="25"
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                    className={getFieldClassName('yard_line', 'w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900')}
                   />
                   <p className="text-xs text-gray-500 mt-1">0 = own goal, 50 = midfield, 100 = opp goal</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Hash Mark</label>
                   <select
-                    {...register('hash_mark')}
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
+                    {...register('hash_mark', {
+                      onChange: () => handleFieldChange('hash_mark')
+                    })}
+                    className={getFieldClassName('hash_mark', 'w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900')}
                   >
                     <option value="">-</option>
                     {HASH_MARKS.map(hash => (
@@ -2722,6 +3517,14 @@ export default function GameFilmPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Auto-populated fields legend */}
+              {autoPopulatedFields.length > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-600">
+                  <span className="inline-block w-3 h-3 bg-blue-50 border border-blue-300 rounded"></span>
+                  <span>Auto-calculated from previous play</span>
+                </div>
+              )}
             </div>
             )}
 
@@ -2741,20 +3544,7 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     >
                       <option value="">Select kicker...</option>
-                      {players
-                        .filter(p => playerHasPosition(p, 'K'))
-                        .map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      <optgroup label="All Players">
-                        {players.map(player => (
-                          <option key={`all-${player.id}`} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {renderPlayerOptions(p => playerHasPosition(p, 'K'), 'Kickers')}
                     </select>
                   </div>
                 )}
@@ -2768,20 +3558,7 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     >
                       <option value="">Select punter...</option>
-                      {players
-                        .filter(p => playerHasPosition(p, 'P'))
-                        .map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      <optgroup label="All Players">
-                        {players.map(player => (
-                          <option key={`all-${player.id}`} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {renderPlayerOptions(p => playerHasPosition(p, 'P'), 'Punters')}
                     </select>
                   </div>
                 )}
@@ -2795,20 +3572,7 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     >
                       <option value="">Select returner...</option>
-                      {players
-                        .filter(p => playerHasPosition(p, 'KR') || playerHasPosition(p, 'PR'))
-                        .map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      <optgroup label="All Players">
-                        {players.map(player => (
-                          <option key={`all-${player.id}`} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {renderPlayerOptions(p => playerHasPosition(p, 'KR') || playerHasPosition(p, 'PR'), 'Returners')}
                     </select>
                   </div>
                 )}
@@ -2822,20 +3586,7 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     >
                       <option value="">Select player who blocked...</option>
-                      {players
-                        .filter(p => playerHasPosition(p, ['DL', 'LB', 'DE', 'DT', 'NT']))
-                        .map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      <optgroup label="All Players">
-                        {players.map(player => (
-                          <option key={`all-${player.id}`} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {renderPlayerOptions(p => playerHasPosition(p, ['DL', 'LB', 'DE', 'DT', 'NT']), 'Defensive Players')}
                     </select>
                   </div>
                 )}
@@ -2876,7 +3627,36 @@ export default function GameFilmPage() {
                 <div className="mb-3">
                   <label className="block text-xs font-medium text-gray-700 mb-1">Result</label>
                   <select
-                    {...register('kick_result')}
+                    {...register('kick_result', {
+                      onChange: (e) => {
+                        const result = e.target.value;
+                        // Auto-populate scoring based on result and unit type
+                        // Punt/Kickoff = we're kicking, opponent returns = opponent scores
+                        // Punt Return/Kick Return = we're returning = we score
+                        const isKickingUnit = ['punt', 'kickoff'].includes(selectedSpecialTeamsUnit);
+                        const isReturningUnit = ['punt_return', 'kick_return'].includes(selectedSpecialTeamsUnit);
+
+                        if (result === 'returned_td' || result === 'blocked_td') {
+                          setValue('scoring_type', 'touchdown');
+                          setValue('scoring_points', 6);
+                          // Opponent scores when they return our punt/kickoff for TD
+                          setValue('opponent_scored', isKickingUnit);
+                        } else if (result === 'made' && selectedSpecialTeamsUnit === 'field_goal') {
+                          setValue('scoring_type', 'field_goal');
+                          setValue('scoring_points', 3);
+                          setValue('opponent_scored', false);
+                        } else if (result === 'made' && selectedSpecialTeamsUnit === 'pat') {
+                          setValue('scoring_type', 'pat');
+                          setValue('scoring_points', 1);
+                          setValue('opponent_scored', false);
+                        } else {
+                          // Clear scoring for non-scoring results
+                          setValue('scoring_type', '');
+                          setValue('scoring_points', undefined);
+                          setValue('opponent_scored', false);
+                        }
+                      }
+                    })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                   >
                     <option value="">Select result...</option>
@@ -2922,35 +3702,6 @@ export default function GameFilmPage() {
                   )}
                 </div>
 
-                {/* Return Options: Fair Catch, Touchback, Muffed */}
-                {['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) && (
-                  <div className="flex flex-wrap gap-4 mb-3">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        {...register('is_fair_catch')}
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm text-gray-700">Fair Catch</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        {...register('is_touchback')}
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm text-gray-700">Touchback</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        {...register('is_muffed')}
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300"
-                      />
-                      <span className="text-sm text-gray-700">Muffed</span>
-                    </label>
-                  </div>
-                )}
 
                 {/* Long Snapper - For Punt, FG, PAT */}
                 {['punt', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit) && (
@@ -2962,20 +3713,7 @@ export default function GameFilmPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                       >
                         <option value="">Select...</option>
-                        {players
-                          .filter(p => playerHasPosition(p, 'LS'))
-                          .map(player => (
-                            <option key={player.id} value={player.id}>
-                              #{player.jersey_number} {getPlayerDisplayName(player)}
-                            </option>
-                          ))}
-                        <optgroup label="All Players">
-                          {players.map(player => (
-                            <option key={`all-${player.id}`} value={player.id}>
-                              #{player.jersey_number} {getPlayerDisplayName(player)}
-                            </option>
-                          ))}
-                        </optgroup>
+                        {renderPlayerOptions(p => playerHasPosition(p, 'LS'), 'Long Snappers')}
                       </select>
                     </div>
                     <div>
@@ -3002,20 +3740,7 @@ export default function GameFilmPage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
                     >
                       <option value="">Select holder...</option>
-                      {players
-                        .filter(p => playerHasPosition(p, 'H') || playerHasPosition(p, 'P') || playerHasPosition(p, 'QB'))
-                        .map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      <optgroup label="All Players">
-                        {players.map(player => (
-                          <option key={`all-${player.id}`} value={player.id}>
-                            #{player.jersey_number} {getPlayerDisplayName(player)}
-                          </option>
-                        ))}
-                      </optgroup>
+                      {renderPlayerOptions(p => playerHasPosition(p, 'H') || playerHasPosition(p, 'P') || playerHasPosition(p, 'QB'), 'Holders')}
                     </select>
                   </div>
                 )}
@@ -3040,6 +3765,70 @@ export default function GameFilmPage() {
                   </div>
                 )}
 
+                {/* Scoring Section - For scoring plays */}
+                <div className="mt-4 pt-3 border-t border-green-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-gray-900">Scoring</label>
+                    {watch('opponent_scored') && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                        Opponent Scores
+                      </span>
+                    )}
+                    {watch('scoring_type') && !watch('opponent_scored') && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-medium">
+                        Your Team Scores
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Score Type</label>
+                      <select
+                        {...register('scoring_type', {
+                          onChange: (e) => {
+                            const selectedType = SCORING_TYPES.find(s => s.value === e.target.value);
+                            if (selectedType) {
+                              setValue('scoring_points', selectedType.points);
+                            } else {
+                              setValue('scoring_points', undefined);
+                            }
+                          }
+                        })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                      >
+                        <option value="">No Score</option>
+                        {SCORING_TYPES.map(score => (
+                          <option key={score.value} value={score.value}>
+                            {score.label} ({score.points} pts)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Points</label>
+                      <input
+                        {...register('scoring_points')}
+                        type="number"
+                        min="0"
+                        max="8"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 bg-gray-50"
+                        readOnly
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {['punt', 'kickoff'].includes(selectedSpecialTeamsUnit)
+                      ? 'If opponent returns for TD, points go to opponent'
+                      : selectedSpecialTeamsUnit === 'kick_return' || selectedSpecialTeamsUnit === 'punt_return'
+                      ? 'If you return for TD, points go to your team'
+                      : selectedSpecialTeamsUnit === 'field_goal'
+                      ? 'Auto-set when FG result is "Made"'
+                      : selectedSpecialTeamsUnit === 'pat'
+                      ? 'Auto-set when PAT result is "Made"'
+                      : 'Select if play resulted in scoring'}
+                  </p>
+                </div>
+
                 {/* Penalty Section */}
                 <div className="mt-4 pt-3 border-t border-amber-200">
                   <label className="flex items-center space-x-2 mb-2">
@@ -3052,54 +3841,121 @@ export default function GameFilmPage() {
                   </label>
 
                   {watch('penalty_on_play') && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Type</label>
-                        <input
-                          {...register('penalty_type')}
-                          type="text"
-                          placeholder="e.g., Holding"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                        />
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Type</label>
+                          <select
+                            {...register('penalty_type', {
+                              onChange: (e) => {
+                                const selectedPenalty = PENALTY_TYPES.find(p => p.value === e.target.value);
+                                if (selectedPenalty) {
+                                  setValue('penalty_yards', selectedPenalty.yards);
+                                }
+                              }
+                            })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                          >
+                            <option value="">Select penalty...</option>
+                            {PENALTY_TYPES.map((penalty) => (
+                              <option key={penalty.value} value={penalty.value}>
+                                {penalty.label} ({penalty.yards > 0 ? `${penalty.yards} yds` : 'Spot foul'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Yards</label>
+                          <input
+                            {...register('penalty_yards')}
+                            type="number"
+                            min="0"
+                            max="99"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Penalty Yards</label>
-                        <input
-                          {...register('penalty_yards')}
-                          type="number"
-                          min="0"
-                          max="99"
-                          placeholder="10"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                        />
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs font-medium text-gray-700">Penalty On:</span>
+                        <label className="flex items-center gap-1">
+                          <input
+                            {...register('penalty_on_us')}
+                            type="radio"
+                            value="true"
+                            className="text-gray-900"
+                          />
+                          <span className="text-xs text-gray-700">Our Team</span>
+                        </label>
+                        <label className="flex items-center gap-1">
+                          <input
+                            {...register('penalty_on_us')}
+                            type="radio"
+                            value="false"
+                            className="text-gray-900"
+                          />
+                          <span className="text-xs text-gray-700">Opponent</span>
+                        </label>
                       </div>
+                      <label className="flex items-center gap-2 mt-2">
+                        <input
+                          {...register('penalty_declined')}
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-gray-300 text-gray-600"
+                        />
+                        <span className="text-xs text-gray-600">Penalty Declined</span>
+                      </label>
+                      {watch('penalty_declined') && (
+                        <p className="text-xs text-gray-500 italic">
+                          Penalty will not affect next play calculations
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Yard Line for Special Teams */}
+            {/* Field Position & Quarter for Special Teams */}
             {taggingMode === 'specialTeams' && selectedSpecialTeamsUnit && (
               <div className="mb-4 bg-white rounded p-3 border border-gray-200">
-                <label className="block text-xs font-semibold text-gray-900 mb-2">Field Position</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Yard Line</label>
-                    <input
-                      {...register('yard_line')}
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder={selectedSpecialTeamsUnit === 'kickoff' ? '35' : '25'}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {selectedSpecialTeamsUnit === 'kickoff' ? 'Where ball was kicked from' :
-                       ['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit) ? 'Where return ended' :
-                       '0 = own goal, 50 = midfield'}
-                    </p>
-                  </div>
+                {/* Only show yard line for punt, punt_return, field_goal, fg_block - not for kickoff, kick_return, pat */}
+                {['punt', 'punt_return', 'field_goal', 'fg_block'].includes(selectedSpecialTeamsUnit) ? (
+                  <>
+                    <label className="block text-xs font-semibold text-gray-900 mb-2">Field Position</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Yard Line</label>
+                        <input
+                          {...register('yard_line')}
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="25"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {['punt_return'].includes(selectedSpecialTeamsUnit) ? 'Where return ended' :
+                           '0 = own goal, 50 = midfield'}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Quarter</label>
+                        <select
+                          {...register('quarter')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          <option value="1">Q1</option>
+                          <option value="2">Q2</option>
+                          <option value="3">Q3</option>
+                          <option value="4">Q4</option>
+                          <option value="5">OT</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* For kickoff, kick_return, pat - just show Quarter */
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Quarter</label>
                     <select
@@ -3114,7 +3970,7 @@ export default function GameFilmPage() {
                       <option value="5">OT</option>
                     </select>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -3267,13 +4123,13 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Player Performance Section (All Tiers) - Only for Offense, not Special Teams */}
+              {/* Player Performance Section - Only for Offense, not Special Teams */}
               {taggingMode === 'offense' && (
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Player Performance</h4>
 
-                  {/* Play Type & Direction (Tier 2+) */}
-                  {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
+                  {/* Play Type & Direction (Standard+) */}
+                  {isFieldVisible('play_type') && (
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Play Type</label>
@@ -3287,25 +4143,27 @@ export default function GameFilmPage() {
                           ))}
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
-                        <select
-                          {...register('direction')}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
-                        >
-                          <option value="">-</option>
-                          {DIRECTIONS.map(dir => (
-                            <option key={dir.value} value={dir.value}>{dir.label}</option>
-                          ))}
-                        </select>
-                      </div>
+                      {isFieldVisible('direction') && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
+                          <select
+                            {...register('direction')}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                          >
+                            <option value="">-</option>
+                            {DIRECTIONS.map(dir => (
+                              <option key={dir.value} value={dir.value}>{dir.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Player Attribution */}
                   <div className="space-y-2">
-                    {/* QB (Tier 2+) */}
-                    {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
+                    {/* QB (Standard+) */}
+                    {isFieldVisible('qb_id') && (
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">QB</label>
                         <select
@@ -3313,48 +4171,45 @@ export default function GameFilmPage() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
                         >
                           <option value="">-</option>
-                          {players.filter(p => playerHasPosition(p, 'QB')).map(player => (
-                            <option key={player.id} value={player.id}>
-                              #{player.jersey_number} {player.first_name} {player.last_name}
-                            </option>
-                          ))}
+                          {renderPlayerOptions(p => playerHasPosition(p, 'QB'), 'Quarterbacks', false)}
                         </select>
                       </div>
                     )}
 
-                    {/* Ball Carrier (All Tiers) */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Ball Carrier <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        {...register('ball_carrier_id')}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
-                      >
-                        <option value="">-</option>
-                        {players.map(player => (
-                          <option key={player.id} value={player.id}>
-                            #{player.jersey_number} {player.first_name} {player.last_name} ({getPositionDisplay(player)})
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500 mt-1">Who had the ball (RB on runs, WR on catches)</p>
-                    </div>
-
-                    {/* Target (Tier 2+) */}
-                    {(analyticsTier === 'plus' || analyticsTier === 'premium') && (
+                    {/* Ball Carrier - Show for Run, RPO, and Trick plays */}
+                    {(['run', 'rpo', 'trick', ''].includes(watch('play_type') || '')) && (
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Target (Pass Plays)</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Ball Carrier {watch('play_type') === 'run' && <span className="text-red-600">*</span>}
+                        </label>
+                        <select
+                          {...register('ball_carrier_id')}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                        >
+                          <option value="">-</option>
+                          {renderPlayerOptions(p => playerHasPosition(p, ['QB', 'RB', 'FB', 'WR']), 'Ball Carriers')}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Who had the ball (RB on runs)</p>
+                      </div>
+                    )}
+
+                    {/* Target - Show for Pass, Screen, RPO, and Trick plays */}
+                    {(['pass', 'screen', 'rpo', 'trick', ''].includes(watch('play_type') || '')) && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Target {['pass', 'screen'].includes(watch('play_type') || '') && <span className="text-red-600">*</span>}
+                        </label>
                         <select
                           {...register('target_id')}
                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
                         >
                           <option value="">-</option>
-                          {players.filter(p => playerHasPosition(p, ['WR', 'TE', 'RB'])).map(player => (
-                            <option key={player.id} value={player.id}>
-                              #{player.jersey_number} {player.first_name} {player.last_name}
-                            </option>
-                          ))}
+                          {renderPlayerOptions(
+                            p => playerHasPosition(p, ['WR', 'TE', 'RB']),
+                            'Receivers',
+                            true,
+                            watch('qb_id') ? [watch('qb_id')] : []
+                          )}
                         </select>
                         <p className="text-xs text-gray-500 mt-1">Intended receiver (even if incomplete)</p>
                       </div>
@@ -3363,8 +4218,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Advanced Offensive Position Performance (Tier 3) - Only for Offense, not Special Teams */}
-              {taggingMode === 'offense' && analyticsTier === 'premium' && (
+              {/* Advanced Offensive Position Performance (Comprehensive) - Only for Offense, not Special Teams */}
+              {taggingMode === 'offense' && isFieldVisible('qb_decision_grade') && (
                 <div className="space-y-3">
                   <QBPerformanceSection register={register} />
                   <RBPerformanceSection register={register} />
@@ -3373,8 +4228,8 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Basic Defensive Tracking (All Tiers) - Only for Defense, not Special Teams */}
-              {taggingMode === 'defense' && (analyticsTier === 'basic' || analyticsTier === 'plus') && (
+              {/* Basic Defensive Tracking (Quick/Standard) - Only for Defense, not Special Teams */}
+              {taggingMode === 'defense' && taggingTier && taggingTier !== 'comprehensive' && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Your Defensive Players</h4>
                   <p className="text-xs text-gray-600 mb-3">Track which of your players made tackles on this opponent play</p>
@@ -3436,10 +4291,10 @@ export default function GameFilmPage() {
                 </div>
               )}
 
-              {/* Advanced Defensive Performance (Tier 3) - Only for Defense, not Special Teams */}
-              {taggingMode === 'defense' && analyticsTier === 'premium' && (
+              {/* Advanced Defensive Performance (Comprehensive) - Only for Defense, not Special Teams */}
+              {taggingMode === 'defense' && taggingTier === 'comprehensive' && (
                 <div className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Defensive Stats (Tier 3)</h4>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Defensive Stats (Comprehensive)</h4>
 
                   <div className="space-y-3">
                     {/* Tacklers - Multi-Select with Primary Designation */}
@@ -3894,6 +4749,115 @@ export default function GameFilmPage() {
                 </div>
               )}
 
+              {/* Score - For all tiers, visible for offense/defense */}
+              {taggingMode !== 'specialTeams' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Score</label>
+                  <select
+                    {...register('scoring_type', {
+                      onChange: (e) => {
+                        const selectedType = SCORING_TYPES.find(s => s.value === e.target.value);
+                        if (selectedType) {
+                          setValue('scoring_points', selectedType.points);
+                        } else {
+                          setValue('scoring_points', undefined);
+                        }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                  >
+                    <option value="">No score on this play</option>
+                    {SCORING_TYPES.map(score => (
+                      <option key={score.value} value={score.value}>{score.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Select if this play resulted in points</p>
+                </div>
+              )}
+
+              {/* Penalty - For all tiers, visible for offense/defense */}
+              {taggingMode !== 'specialTeams' && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Penalty</label>
+                  <select
+                    {...register('penalty_type', {
+                      onChange: (e) => {
+                        const selectedPenalty = PENALTY_TYPES.find(p => p.value === e.target.value);
+                        if (selectedPenalty) {
+                          setValue('penalty_on_play', true);
+                          setValue('penalty_yards', selectedPenalty.yards);
+                        } else {
+                          setValue('penalty_on_play', false);
+                          setValue('penalty_yards', undefined);
+                          setValue('penalty_on_us', undefined);
+                        }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                  >
+                    <option value="">No penalty on this play</option>
+                    {PENALTY_TYPES.map(penalty => (
+                      <option key={penalty.value} value={penalty.value}>
+                        {penalty.label} ({penalty.yards > 0 ? `${penalty.yards} yds` : 'Spot foul'})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Penalty details - only show when penalty is selected */}
+                  {watch('penalty_type') && (
+                    <div className="pl-4 border-l-2 border-yellow-400 space-y-2">
+                      <div className="flex items-center space-x-4">
+                        <label className="text-sm font-medium text-gray-700">Penalty On:</label>
+                        <div className="flex items-center space-x-4">
+                          <label className="flex items-center space-x-1">
+                            <input
+                              {...register('penalty_on_us')}
+                              type="radio"
+                              value="true"
+                              className="text-gray-900"
+                            />
+                            <span className="text-sm text-gray-700">Our Team</span>
+                          </label>
+                          <label className="flex items-center space-x-1">
+                            <input
+                              {...register('penalty_on_us')}
+                              type="radio"
+                              value="false"
+                              className="text-gray-900"
+                            />
+                            <span className="text-sm text-gray-700">Opponent</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Penalty Yards</label>
+                          <input
+                            {...register('penalty_yards')}
+                            type="number"
+                            className="w-24 px-2 py-1 text-sm border border-gray-300 rounded-md text-gray-900"
+                            placeholder="Yards"
+                          />
+                        </div>
+                        <label className="flex items-center gap-2 mt-4">
+                          <input
+                            {...register('penalty_declined')}
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 text-gray-600"
+                          />
+                          <span className="text-sm text-gray-600">Declined</span>
+                        </label>
+                      </div>
+                      {watch('penalty_declined') && (
+                        <p className="text-xs text-gray-500 italic">
+                          Penalty will not affect next play's down, distance, or field position
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
@@ -3972,6 +4936,24 @@ export default function GameFilmPage() {
         onAdd={handleCreateMarker}
         currentTimestamp={`${Math.floor(currentTime / 60)}:${Math.floor(currentTime % 60).toString().padStart(2, '0')}`}
       />
+
+      {/* Tagging Tier Selector Modal */}
+      <TierSelectorModal
+        isOpen={showTierSelector}
+        onSelect={handleTierSelect}
+        gameName={game?.name}
+      />
+
+      {/* Tagging Tier Upgrade Modal */}
+      {taggingTier && (
+        <TierUpgradeModal
+          isOpen={showTierUpgrade}
+          currentTier={taggingTier}
+          playsTaggedCount={playInstances.length}
+          onConfirm={handleTierUpgrade}
+          onCancel={() => setShowTierUpgrade(false)}
+        />
+      )}
     </AuthGuard>
   );
 }

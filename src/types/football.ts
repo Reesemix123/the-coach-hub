@@ -149,6 +149,44 @@ export interface Team {
  */
 export type GameType = 'team' | 'opponent';
 
+// ============================================
+// QUARTER SCORES & FILM ANALYSIS STATUS
+// ============================================
+
+/**
+ * Quarter-by-quarter score breakdown
+ */
+export interface QuarterScores {
+  q1: number;
+  q2: number;
+  q3: number;
+  q4: number;
+  ot: number;  // Combined OT score
+  total: number;
+}
+
+/**
+ * Calculated and manual score breakdown for a game
+ */
+export interface GameScoreBreakdown {
+  calculated?: {
+    team: QuarterScores;
+    opponent: QuarterScores;
+  };
+  manual?: {
+    team: QuarterScores;
+    opponent: QuarterScores;
+  };
+  source?: 'calculated' | 'manual';
+  mismatch_acknowledged?: boolean;
+  last_calculated_at?: string;
+}
+
+/**
+ * Film analysis status
+ */
+export type FilmAnalysisStatus = 'not_started' | 'in_progress' | 'complete';
+
 /**
  * Database table: games
  * Games are containers for multiple camera angles (videos)
@@ -176,6 +214,23 @@ export interface Game {
   expires_at?: string | null;
   is_locked?: boolean;
   locked_reason?: string | null;
+
+  // Quarter scores (calculated from tagging and/or manual entry)
+  quarter_scores?: GameScoreBreakdown;
+
+  // Film analysis status
+  film_analysis_status?: FilmAnalysisStatus;
+  film_analysis_completed_at?: string;
+  film_analysis_completed_by?: string;
+
+  // Resume position tracking (per-game)
+  last_tagging_video_id?: string;
+  last_tagging_position_ms?: number;
+  last_tagging_at?: string;
+  last_tagging_by?: string;
+
+  // Tagging tier
+  tagging_tier?: TaggingTier;
 
   created_at: string;
   updated_at?: string;
@@ -350,11 +405,80 @@ export const RESULT_TYPES = [
   { value: 'pass_incomplete', label: 'Pass - Incomplete' },
   { value: 'pass_interception', label: 'Pass - Interception' },
   { value: 'pass_sack', label: 'Pass - Sack' },
-  { value: 'touchdown', label: 'Touchdown' },
   { value: 'fumble_lost', label: 'Fumble - Lost' },
   { value: 'fumble_recovered', label: 'Fumble - Recovered' },
-  { value: 'penalty', label: 'Penalty' },
 ];
+
+// ============================================
+// SCORING TYPES
+// ============================================
+export const SCORING_TYPES = [
+  { value: 'touchdown', label: 'Touchdown (6 pts)', points: 6 },
+  { value: 'extra_point', label: 'Extra Point (1 pt)', points: 1 },
+  { value: 'two_point_conversion', label: '2-Point Conversion (2 pts)', points: 2 },
+  { value: 'field_goal', label: 'Field Goal (3 pts)', points: 3 },
+  { value: 'safety', label: 'Safety (2 pts)', points: 2 },
+] as const;
+
+export type ScoringType = typeof SCORING_TYPES[number]['value'];
+
+// ============================================
+// PENALTY TYPES (most common first)
+// ============================================
+export const PENALTY_TYPES = [
+  // Most Common Penalties
+  { value: 'false_start', label: 'False Start', yards: 5 },
+  { value: 'offside', label: 'Offside', yards: 5 },
+  { value: 'holding_offense', label: 'Holding (Offense)', yards: 10 },
+  { value: 'holding_defense', label: 'Holding (Defense)', yards: 5, auto_first: true },
+  { value: 'pass_interference_offense', label: 'Pass Interference (Offense)', yards: 10 },
+  { value: 'pass_interference_defense', label: 'Pass Interference (Defense)', yards: 0, spot_foul: true, auto_first: true },
+  { value: 'illegal_procedure', label: 'Illegal Procedure', yards: 5 },
+  { value: 'delay_of_game', label: 'Delay of Game', yards: 5 },
+  { value: 'encroachment', label: 'Encroachment', yards: 5 },
+  { value: 'neutral_zone_infraction', label: 'Neutral Zone Infraction', yards: 5 },
+
+  // Personal Fouls (15 yards)
+  { value: 'face_mask', label: 'Face Mask', yards: 15, auto_first: true },
+  { value: 'roughing_the_passer', label: 'Roughing the Passer', yards: 15, auto_first: true },
+  { value: 'roughing_the_kicker', label: 'Roughing the Kicker', yards: 15, auto_first: true },
+  { value: 'unnecessary_roughness', label: 'Unnecessary Roughness', yards: 15, auto_first: true },
+  { value: 'personal_foul', label: 'Personal Foul', yards: 15, auto_first: true },
+  { value: 'targeting', label: 'Targeting', yards: 15, auto_first: true },
+  { value: 'late_hit', label: 'Late Hit', yards: 15, auto_first: true },
+  { value: 'horse_collar', label: 'Horse Collar Tackle', yards: 15, auto_first: true },
+
+  // Other Common Penalties
+  { value: 'illegal_motion', label: 'Illegal Motion', yards: 5 },
+  { value: 'illegal_shift', label: 'Illegal Shift', yards: 5 },
+  { value: 'illegal_formation', label: 'Illegal Formation', yards: 5 },
+  { value: 'illegal_contact', label: 'Illegal Contact', yards: 5, auto_first: true },
+  { value: 'ineligible_downfield', label: 'Ineligible Receiver Downfield', yards: 5 },
+  { value: 'illegal_block_back', label: 'Illegal Block in the Back', yards: 10 },
+  { value: 'chop_block', label: 'Chop Block', yards: 15 },
+  { value: 'clipping', label: 'Clipping', yards: 15 },
+  { value: 'tripping', label: 'Tripping', yards: 10 },
+
+  // Special Teams Penalties
+  { value: 'kick_catch_interference', label: 'Kick Catch Interference', yards: 15 },
+  { value: 'illegal_kick', label: 'Illegal Kick', yards: 10 },
+  { value: 'running_into_kicker', label: 'Running Into the Kicker', yards: 5 },
+  { value: 'leaping', label: 'Leaping', yards: 15 },
+
+  // Unsportsmanlike
+  { value: 'unsportsmanlike_conduct', label: 'Unsportsmanlike Conduct', yards: 15 },
+  { value: 'taunting', label: 'Taunting', yards: 15 },
+
+  // Other
+  { value: 'intentional_grounding', label: 'Intentional Grounding', yards: 0, loss_of_down: true, spot_foul: true },
+  { value: 'illegal_forward_pass', label: 'Illegal Forward Pass', yards: 5, loss_of_down: true },
+  { value: 'illegal_hands_face', label: 'Illegal Use of Hands (Face)', yards: 10 },
+  { value: 'illegal_substitution', label: 'Illegal Substitution', yards: 5 },
+  { value: 'too_many_men', label: 'Too Many Men on Field', yards: 5 },
+  { value: 'other', label: 'Other Penalty', yards: 0 },
+] as const;
+
+export type PenaltyType = typeof PENALTY_TYPES[number]['value'];
 
 // ============================================
 // SPECIAL TEAMS CONSTANTS
@@ -381,12 +505,14 @@ export const KICK_RESULTS = [
   { value: 'touchback', label: 'Touchback' },
   { value: 'fair_catch', label: 'Fair Catch' },
   { value: 'returned', label: 'Returned' },
+  { value: 'returned_td', label: 'Returned for TD' },
   { value: 'out_of_bounds', label: 'Out of Bounds' },
   { value: 'onside_recovered', label: 'Onside - Recovered' },
   { value: 'onside_lost', label: 'Onside - Lost' },
   { value: 'fake_success', label: 'Fake - Success' },
   { value: 'fake_fail', label: 'Fake - Fail' },
   { value: 'muffed', label: 'Muffed' },
+  { value: 'muffed_lost', label: 'Muffed - Lost' },
   { value: 'downed', label: 'Downed' },
 ] as const;
 
@@ -431,19 +557,19 @@ export function getKickResultsForUnit(unit: SpecialTeamsUnit): typeof KICK_RESUL
       );
     case 'kickoff':
       return KICK_RESULTS.filter(r =>
-        ['touchback', 'returned', 'out_of_bounds', 'onside_recovered', 'onside_lost', 'muffed'].includes(r.value)
+        ['touchback', 'returned', 'returned_td', 'out_of_bounds', 'onside_recovered', 'onside_lost', 'muffed', 'muffed_lost'].includes(r.value)
       );
     case 'kick_return':
       return KICK_RESULTS.filter(r =>
-        ['returned', 'touchback', 'muffed', 'fair_catch'].includes(r.value)
+        ['returned', 'returned_td', 'touchback', 'muffed', 'muffed_lost', 'fair_catch'].includes(r.value)
       );
     case 'punt':
       return KICK_RESULTS.filter(r =>
-        ['returned', 'touchback', 'fair_catch', 'out_of_bounds', 'downed', 'blocked', 'muffed', 'fake_success', 'fake_fail'].includes(r.value)
+        ['returned', 'returned_td', 'touchback', 'fair_catch', 'out_of_bounds', 'downed', 'blocked', 'muffed', 'muffed_lost', 'fake_success', 'fake_fail'].includes(r.value)
       );
     case 'punt_return':
       return KICK_RESULTS.filter(r =>
-        ['returned', 'fair_catch', 'touchback', 'muffed', 'blocked'].includes(r.value)
+        ['returned', 'returned_td', 'fair_catch', 'touchback', 'muffed', 'muffed_lost', 'blocked'].includes(r.value)
       );
     case 'fg_block':
       return KICK_RESULTS.filter(r =>
@@ -492,6 +618,249 @@ export interface TeamAnalyticsConfig {
   default_tagging_mode: 'quick' | 'standard' | 'advanced';
   updated_at: string;
   updated_by?: string;
+}
+
+// ============================================
+// TAGGING TIER SYSTEM
+// ============================================
+
+/**
+ * Tagging tier for film analysis
+ * Controls which fields are shown during play tagging
+ * Distinct from subscription tiers (Basic/Plus/Premium)
+ */
+export type TaggingTier = 'quick' | 'standard' | 'comprehensive';
+
+/**
+ * Tagging tier configuration with UI copy
+ */
+export interface TaggingTierConfig {
+  id: TaggingTier;
+  name: string;
+  tagline: string;
+  description: string;
+  timePerPlay: string;
+  coachQuestion: string;
+  enables: string[];
+}
+
+/**
+ * Tagging tier configurations
+ */
+export const TAGGING_TIERS: TaggingTierConfig[] = [
+  {
+    id: 'quick',
+    name: 'Quick',
+    tagline: 'Track the game, remember the season',
+    description: 'Capture game essentials: score, total yards, turnovers, and key moments. Get a clear record of what happened without the time investment.',
+    timePerPlay: '15-20 sec',
+    coachQuestion: 'What happened?',
+    enables: ['Game record', 'Season stats', 'Turnover tracking', 'Big play highlights']
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    tagline: 'Understand what\'s working, prepare for next week',
+    description: 'Add play-level context to see which plays and formations succeed in different situations. Identify tendencies and adjust your game plan.',
+    timePerPlay: '30-45 sec',
+    coachQuestion: 'Why did it work?',
+    enables: ['Play/scheme effectiveness', 'Situational tendencies', 'Opponent prep', 'Coaching decision insights']
+  },
+  {
+    id: 'comprehensive',
+    name: 'Comprehensive',
+    tagline: 'Evaluate and develop every player',
+    description: 'Full player-level tracking including grades, assignments, and individual performance metrics. Know exactly who\'s contributing and where to focus practice time.',
+    timePerPlay: '2-3 min',
+    coachQuestion: 'How did each player perform?',
+    enables: ['Player grades', 'Position group analysis', 'Development tracking', 'Lineup decisions']
+  }
+];
+
+/**
+ * Get fields visible for each tagging tier by unit type
+ */
+export interface TierFieldVisibility {
+  // Quick tier fields (always visible)
+  quick: {
+    offense: string[];
+    defense: string[];
+    specialTeams: string[];
+  };
+  // Standard tier adds these fields
+  standard: {
+    offense: string[];
+    defense: string[];
+    specialTeams: string[];
+  };
+  // Comprehensive tier adds these fields
+  comprehensive: {
+    offense: string[];
+    defense: string[];
+    specialTeams: string[];
+  };
+}
+
+/**
+ * Field visibility configuration per tier
+ */
+export const TIER_FIELD_VISIBILITY: TierFieldVisibility = {
+  quick: {
+    offense: [
+      'drive_context', 'down', 'distance', 'yard_line', 'hash_mark',
+      'play_code', 'formation', 'play_type', 'result_type', 'yards_gained',
+      'resulted_in_first_down', 'notes', 'fumbled'
+    ],
+    defense: [
+      'drive_context', 'down', 'distance', 'yard_line', 'hash_mark',
+      'opponent_play_type', 'result_type', 'yards_gained', 'resulted_in_first_down',
+      'notes', 'is_tfl', 'is_sack', 'is_forced_fumble', 'is_pbu'
+    ],
+    specialTeams: [
+      'special_teams_unit', 'kick_result', 'kick_distance', 'return_yards',
+      'is_fair_catch', 'is_touchback', 'is_muffed', 'penalty_on_play'
+    ]
+  },
+  standard: {
+    offense: [
+      'direction', 'qb_id', 'ball_carrier_id', 'target_id',
+      'drop', 'contested_catch'
+    ],
+    defense: [
+      'formation', 'opponent_player_number', 'pressure_player_ids',
+      'coverage_player_id', 'opponent_qb_evaluation', 'tackler_ids'
+    ],
+    specialTeams: [
+      'kicker_id', 'punter_id', 'returner_id', 'kickoff_type', 'punt_type',
+      'blocked_by'
+    ]
+  },
+  comprehensive: {
+    offense: [
+      'qb_performance_section', 'rb_performance_section',
+      'wr_performance_section', 'ol_performance_section', 'special_events_section'
+    ],
+    defense: [
+      'missed_tackle_ids', 'dl_performance_section',
+      'lb_performance_section', 'db_performance_section'
+    ],
+    specialTeams: [
+      'coverage_tackler_id', 'gunner_tackle_id', 'long_snapper_id',
+      'snap_quality', 'holder_id'
+    ]
+  }
+};
+
+/**
+ * Check if a field should be visible for a given tier and unit type
+ */
+export function isFieldVisibleForTier(
+  field: string,
+  tier: TaggingTier,
+  unitType: 'offense' | 'defense' | 'specialTeams'
+): boolean {
+  // Quick tier fields are always visible
+  if (TIER_FIELD_VISIBILITY.quick[unitType].includes(field)) {
+    return true;
+  }
+
+  // Standard tier fields visible for standard and comprehensive
+  if (tier === 'standard' || tier === 'comprehensive') {
+    if (TIER_FIELD_VISIBILITY.standard[unitType].includes(field)) {
+      return true;
+    }
+  }
+
+  // Comprehensive tier fields only visible for comprehensive
+  if (tier === 'comprehensive') {
+    if (TIER_FIELD_VISIBILITY.comprehensive[unitType].includes(field)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if a tier can be upgraded to another tier (one-way upgrade only)
+ */
+export function canUpgradeTier(currentTier: TaggingTier, targetTier: TaggingTier): boolean {
+  const tierOrder: TaggingTier[] = ['quick', 'standard', 'comprehensive'];
+  const currentIndex = tierOrder.indexOf(currentTier);
+  const targetIndex = tierOrder.indexOf(targetTier);
+  return targetIndex > currentIndex;
+}
+
+/**
+ * Get the minimum tier required for a report section
+ */
+export type ReportSection =
+  | 'qb_stats' | 'rb_stats' | 'wr_te_stats' | 'tackler_attribution'
+  | 'ol_performance' | 'dl_stats' | 'lb_stats' | 'db_stats'
+  | 'player_report_basic' | 'player_report_full';
+
+export const REPORT_SECTION_MIN_TIERS: Record<ReportSection, TaggingTier> = {
+  qb_stats: 'standard',
+  rb_stats: 'standard',
+  wr_te_stats: 'standard',
+  tackler_attribution: 'standard',
+  ol_performance: 'comprehensive',
+  dl_stats: 'comprehensive',
+  lb_stats: 'comprehensive',
+  db_stats: 'comprehensive',
+  player_report_basic: 'standard',
+  player_report_full: 'comprehensive'
+};
+
+/**
+ * Get upgrade message for a report section
+ */
+export function getReportTierMessage(section: ReportSection): string {
+  const tier = REPORT_SECTION_MIN_TIERS[section];
+  const tierName = tier.charAt(0).toUpperCase() + tier.slice(1);
+
+  const messages: Record<ReportSection, string> = {
+    qb_stats: `Tag games at **${tierName}** level to see quarterback statistics.`,
+    rb_stats: `Tag games at **${tierName}** level to see running back statistics.`,
+    wr_te_stats: `Tag games at **${tierName}** level to see receiver statistics.`,
+    tackler_attribution: `Tag games at **${tierName}** level to see tackler statistics.`,
+    ol_performance: `Tag games at **${tierName}** level to see offensive line performance.`,
+    dl_stats: `Tag games at **${tierName}** level to see defensive line statistics.`,
+    lb_stats: `Tag games at **${tierName}** level to see linebacker statistics.`,
+    db_stats: `Tag games at **${tierName}** level to see defensive back statistics.`,
+    player_report_basic: `Tag games at **${tierName}** level to unlock player involvement stats.`,
+    player_report_full: `Tag games at **${tierName}** level for individual player grades and position-specific metrics.`
+  };
+
+  return messages[section];
+}
+
+// ============================================
+// AI ASSIST PLACEHOLDERS (Future)
+// ============================================
+
+/**
+ * Tag source for tracking how a field was populated
+ * TODO: Future AI Assist integration
+ */
+export type TagSource = 'manual' | 'ai' | 'ai_corrected';
+
+/**
+ * Check if AI assist is available for subscription
+ * TODO: Implement when AI assist is ready
+ */
+export function canUseAIAssist(_subscriptionTier: AnalyticsTier): boolean {
+  // TODO: Future - AI Assist available only for Plus and Premium
+  // return subscriptionTier === 'plus' || subscriptionTier === 'premium';
+  return false; // AI Assist not yet implemented
+}
+
+/**
+ * Tagging tier access check
+ * All subscription levels can access all tagging tiers
+ */
+export function canAccessTaggingTier(_tier: TaggingTier): boolean {
+  return true; // All tiers available to all users
 }
 
 /**
@@ -713,6 +1082,8 @@ export interface PlayInstance {
   penalty_on_play?: boolean;
   penalty_type?: string;
   penalty_yards?: number;
+  penalty_on_us?: boolean;
+  penalty_declined?: boolean;  // When true, penalty doesn't affect next play calculations
 
   // Multi-coach attribution
   tagged_by_user_id?: string;
@@ -844,12 +1215,15 @@ export type MarkerType =
   | 'turnover'       // Turnover marker
   | 'timeout'        // Timeout marker
   | 'quarter'        // Legacy quarter marker
-  | 'custom';        // Custom marker
+  | 'custom'         // Custom marker
+  | 'game_start'     // Start of game
+  | 'game_end';      // End of game
 
 /**
  * Helper: Default colors for each marker type
  */
 export const MARKER_COLORS: Record<MarkerType, string> = {
+  game_start: '#059669',    // emerald-600 (NEW)
   quarter_start: '#10B981', // green-500
   quarter_end: '#EF4444',   // red-500
   halftime: '#F59E0B',      // amber-500
@@ -859,13 +1233,15 @@ export const MARKER_COLORS: Record<MarkerType, string> = {
   timeout: '#6B7280',       // gray-500
   play: '#3B82F6',          // blue-500
   quarter: '#10B981',       // green-500 (legacy)
-  custom: '#6366F1'         // indigo-500
+  custom: '#6366F1',        // indigo-500
+  game_end: '#DC2626'       // red-600 (NEW)
 };
 
 /**
  * Helper: Display labels for each marker type
  */
 export const MARKER_LABELS: Record<MarkerType, string> = {
+  game_start: 'Game Start',
   quarter_start: 'Quarter Start',
   quarter_end: 'Quarter End',
   halftime: 'Halftime',
@@ -875,8 +1251,21 @@ export const MARKER_LABELS: Record<MarkerType, string> = {
   timeout: 'Timeout',
   play: 'Play',
   quarter: 'Quarter',
-  custom: 'Custom Marker'
+  custom: 'Custom Marker',
+  game_end: 'Game End'
 };
+
+/**
+ * Game period marker types (for score calculation)
+ */
+export const GAME_PERIOD_MARKER_TYPES: MarkerType[] = [
+  'game_start',
+  'quarter_start',
+  'quarter_end',
+  'halftime',
+  'overtime',
+  'game_end'
+];
 
 /**
  * Database table: video_groups

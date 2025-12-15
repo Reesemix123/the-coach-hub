@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import type { TaggingTier } from '@/types/football';
 
 interface DLStats {
   playerId: string;
@@ -36,9 +38,10 @@ interface DLStats {
 interface AllDLStatsSectionProps {
   teamId: string;
   gameId?: string | null;
+  currentTier?: TaggingTier;
 }
 
-export default function AllDLStatsSection({ teamId, gameId }: AllDLStatsSectionProps) {
+export default function AllDLStatsSection({ teamId, gameId, currentTier }: AllDLStatsSectionProps) {
   const supabase = createClient();
   const [stats, setStats] = useState<DLStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,15 +183,11 @@ export default function AllDLStatsSection({ teamId, gameId }: AllDLStatsSectionP
   if (stats.length === 0) {
     return (
       <section className="mb-12">
-        <div className="text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
+        <div className="flex items-center gap-3 text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200">
           Defensive Line Stats
+          <TierRequirementBadge section="dl_stats" />
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-8 text-center">
-          <p className="text-purple-800 text-lg mb-2">No DL data available</p>
-          <p className="text-purple-700 text-sm">
-            DL stats will appear once you tag defensive plays with DL participation (Tier 3 feature).
-          </p>
-        </div>
+        <TierUpgradeMessage section="dl_stats" currentTier={currentTier} />
       </section>
     );
   }
@@ -199,8 +198,10 @@ export default function AllDLStatsSection({ teamId, gameId }: AllDLStatsSectionP
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-2xl font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-200 hover:text-gray-700 transition-colors"
       >
-        <span>Defensive Line Stats</span>
-        <span className="text-sm font-normal text-gray-600 bg-purple-100 px-2 py-1 rounded ml-2">Tier 3</span>
+        <span className="flex items-center gap-3">
+          Defensive Line Stats
+          <TierRequirementBadge section="dl_stats" />
+        </span>
         {expanded ? (
           <ChevronUp className="h-6 w-6" />
         ) : (
@@ -277,7 +278,7 @@ export default function AllDLStatsSection({ teamId, gameId }: AllDLStatsSectionP
             <strong>TFLs:</strong> Tackles for loss.
             <strong> FF:</strong> Forced fumbles.
             <strong> Havoc:</strong> TFLs + forced fumbles (disruptive plays).
-            Data from player_participation table (Tier 3).
+            Data from Comprehensive tagging level.
           </p>
         </>
       )}
