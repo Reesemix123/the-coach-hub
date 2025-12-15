@@ -53,16 +53,21 @@ export default function RootLayout({
                   </span>
                 </Link>
 
-                {/* Team Context */}
+                {/* Team Context - Desktop */}
                 <div className="hidden md:flex items-center gap-6">
                   <TeamSwitcher />
-                  <TourButton />
+                  <ConsoleLink />
+                  <AdminLink />
+                </div>
+                {/* Admin/Console - Mobile (always visible for authorized users) */}
+                <div className="flex md:hidden items-center gap-3 ml-4">
                   <ConsoleLink />
                   <AdminLink />
                 </div>
               </div>
               {/* User Utilities */}
               <div className="flex items-center gap-2">
+                <TourButton />
                 <NavbarUtilities />
                 <UserMenu />
               </div>
