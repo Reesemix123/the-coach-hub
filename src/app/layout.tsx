@@ -35,16 +35,16 @@ export default function RootLayout({
       <body className="bg-gray-50">
         <GlobalOnboardingProvider>
         <ScrollingNavbar>
-          <div className="max-w-7xl mx-auto px-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-20">
               {/* Logo/Brand */}
               <div className="flex items-center gap-8">
-                <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <Link href="/" className="flex-shrink-0 flex items-center gap-3 hover:opacity-80 transition-opacity">
                   <Image
                     src="/apple-touch-icon.png"
                     alt="Youth Coach Hub"
-                    width={44}
-                    height={44}
+                    width={40}
+                    height={40}
                     className="rounded-lg"
                     priority
                   />

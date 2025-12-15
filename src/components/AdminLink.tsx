@@ -70,11 +70,11 @@ export default function AdminLink() {
   return (
     <Link
       href="/admin"
-      className={`flex items-center gap-1.5 text-red-600 hover:text-red-800 font-bold text-lg ${
-        isActive ? 'text-red-800' : ''
+      className={`text-gray-700 hover:text-black font-semibold text-sm ${
+        isActive ? 'text-black' : ''
       }`}
     >
-      🔴 Admin
+      Admin
     </Link>
   );
 }
