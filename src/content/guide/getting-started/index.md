@@ -35,17 +35,17 @@ Upload game footage and tag individual plays with detailed information. The plat
 
 Turn your tagged data into actionable insights. See success rates by formation, identify your best plays, track player development, and prepare for opponents.
 
-## Choosing Your Analytics Tier
+## Choosing Your Tagging Level
 
 Youth Coach Hub offers different levels of detail based on your team's needs:
 
-| Tier | Best For | Key Features |
-|------|----------|--------------|
-| Little League | Youth teams | Participation tracking, simple stats |
-| Basic | Middle/High School | Play concepts, drive analytics |
-| Advanced | Varsity | OL grades, defensive stats, situational splits |
+| Level | Best For | Key Features |
+|-------|----------|--------------|
+| Quick | Game recording | Score, yards, turnovers, key moments |
+| Standard | Game planning | Play concepts, formations, drive analytics |
+| Comprehensive | Player development | Position grades, individual performance metrics |
 
-You can change your tier at any time in your team settings.
+You can change your tagging level at any time when starting film analysis.
 
 ## Getting Help
 

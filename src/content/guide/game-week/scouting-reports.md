@@ -91,7 +91,7 @@ Export key insights to a condensed format you can reference during the game:
 The more opponent film you tag, the better your scouting reports become:
 
 - **Multiple games** reveal consistent tendencies vs. one-game anomalies
-- **Detailed tagging** (Tier 2+) provides richer analysis
+- **Detailed tagging** (Standard or Comprehensive) provides richer analysis
 - **Personnel tracking** shows substitution patterns
 
 > **Pro Tip:** Tag opponent film immediately after games while it's fresh. The data you collect throughout the season makes your playoff scouting reports invaluable.

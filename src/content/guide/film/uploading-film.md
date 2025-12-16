@@ -64,9 +64,9 @@ Use clear, consistent names for your videos:
 
 ## Storage Limits
 
-Storage limits depend on your subscription tier:
+Storage limits depend on your subscription plan:
 
-| Tier | Storage |
+| Plan | Storage |
 |------|---------|
 | Free | 5 GB |
 | Pro | 50 GB |

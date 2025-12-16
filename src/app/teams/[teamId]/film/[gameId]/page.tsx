@@ -40,6 +40,7 @@ import MarkerList from '@/components/film/MarkerList';
 import AddMarkerModal from '@/components/film/AddMarkerModal';
 import CameraRow from '@/components/film/CameraRow';
 import DirectorsCut from '@/components/film/DirectorsCut';
+import { TimelineEditor } from '@/components/film/TimelineEditor';
 import { VideoMarkerService } from '@/lib/services/video-marker.service';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
 import { Flag, ChevronDown, ChevronUp } from 'lucide-react';
@@ -364,6 +365,7 @@ export default function GameFilmPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingSyncSeek, setPendingSyncSeek] = useState<number | null>(null); // Time to seek after camera switch
   const [shouldResumePlayback, setShouldResumePlayback] = useState(false); // Whether to auto-play after camera switch
+  const [showTimelineEditor, setShowTimelineEditor] = useState(false); // Toggle between CameraRow and Timeline editor
 
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -2434,9 +2436,51 @@ export default function GameFilmPage() {
             </div>
           </div>
 
-          {/* Camera Row - Multi-Camera View */}
+          {/* Camera Row / Timeline Editor Toggle */}
           <div className="mb-6">
-            <CameraRow
+            {/* View Mode Toggle */}
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">Camera Management</h3>
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setShowTimelineEditor(false)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    !showTimelineEditor
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Camera View
+                </button>
+                <button
+                  onClick={() => setShowTimelineEditor(true)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    showTimelineEditor
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Timeline Editor
+                </button>
+              </div>
+            </div>
+
+            {/* Timeline Editor View */}
+            {showTimelineEditor ? (
+              <TimelineEditor
+                gameId={gameId}
+                teamId={teamId}
+                onTimeChange={(timeMs) => {
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = timeMs / 1000;
+                  }
+                  setCurrentTime(timeMs / 1000);
+                }}
+                initialTimeMs={currentTime * 1000}
+              />
+            ) : (
+              /* Camera Row - Original View */
+              <CameraRow
               cameras={videos.filter(v => !v.is_virtual).map(v => ({
                 id: v.id,
                 name: v.name,
@@ -2457,7 +2501,9 @@ export default function GameFilmPage() {
               isUploading={uploadingVideo}
               uploadProgress={uploadProgress}
             />
-            {/* Hidden file input for camera upload */}
+            )}
+
+            {/* Hidden file input for camera upload (always available) */}
             <input
               ref={fileInputRef}
               type="file"
@@ -2466,8 +2512,8 @@ export default function GameFilmPage() {
               className="hidden"
             />
 
-            {/* Director's Cut - placed below CameraRow when multiple cameras exist */}
-            {videos.filter(v => !v.is_virtual).length > 1 && (
+            {/* Director's Cut - placed below CameraRow when multiple cameras exist (only in Camera View mode) */}
+            {!showTimelineEditor && videos.filter(v => !v.is_virtual).length > 1 && (
               <div className="mt-3 flex justify-end">
                 <DirectorsCut
                   gameId={gameId}

@@ -24,36 +24,44 @@ Play tagging is the process of marking individual plays in your game film with d
 4. Fill in the play details in the tagging form
 5. Click **Save Play** to record the tag
 
-## Understanding Tagging Tiers
+## Understanding Tagging Levels
 
 Youth Coach Hub offers different levels of detail based on your needs:
 
-### Tier 1: Little League
+### Quick
 
-Simplified tagging focused on participation:
+*Track the game, remember the season* (~15-20 sec per play)
+
+Capture game essentials without the time investment:
 
 - Quarter and time
 - Ball carrier
 - Yards gained
 - Result (touchdown, first down, etc.)
+- Turnovers and big plays
 
-### Tier 2: Basic
+### Standard
 
-Standard tagging for game planning:
+*Understand what's working, prepare for next week* (~30-45 sec per play)
 
-- All Tier 1 fields
+Add play-level context to see which plays succeed:
+
+- All Quick fields
 - Down and distance
 - Formation and play type
 - QB and target (for passes)
 - Drive tracking
+- Situational tendencies
 
-### Tier 3: Advanced
+### Comprehensive
 
-Comprehensive data for detailed analysis:
+*Evaluate and develop every player* (~2-3 min per play)
 
-- All Tier 2 fields
-- Offensive line performance
-- Defensive player tracking
+Full player-level tracking for detailed analysis:
+
+- All Standard fields
+- Position-by-position grades for all offensive players
+- Position-by-position grades for all defensive players
 - Situational tags (motion, blitz, etc.)
 - Coverage information
 
