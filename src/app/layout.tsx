@@ -10,6 +10,8 @@ import AdminLink from "@/components/AdminLink";
 import TourButton from "@/components/TourButton";
 import NavbarUtilities from "@/components/NavbarUtilities";
 import { GlobalOnboardingProvider, OnboardingTourModal, OnboardingChecklist } from "@/components/onboarding";
+import { GuideProvider } from "@/contexts/GuideContext";
+import { GuideSlideOver } from "@/components/guide";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -33,6 +35,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-gray-50">
+        <GuideProvider>
         <GlobalOnboardingProvider>
         <ScrollingNavbar>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -107,6 +110,10 @@ export default function RootLayout({
         <OnboardingTourModal />
         <OnboardingChecklist />
         </GlobalOnboardingProvider>
+
+        {/* Guide slide-over panel */}
+        <GuideSlideOver />
+        </GuideProvider>
       </body>
     </html>
   );
