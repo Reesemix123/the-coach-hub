@@ -112,7 +112,7 @@ export default async function DocPage({ params }: DocPageProps) {
         <div className="flex gap-8">
           {/* Sidebar */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-28">
+            <div className="sticky top-28 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 scrollbar-thin">
               <DocsSidebar />
             </div>
           </aside>
