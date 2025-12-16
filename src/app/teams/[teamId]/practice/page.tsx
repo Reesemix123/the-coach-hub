@@ -278,20 +278,12 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
             <h1 className="text-3xl font-bold text-gray-900">Practice Plans</h1>
             <p className="text-gray-600 mt-2">Plan and organize your practice sessions</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
-              className="px-5 py-3 border border-purple-300 text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors font-medium"
-            >
-              + Create Template
-            </button>
-            <button
-              onClick={() => router.push(`/teams/${teamId}/practice/new`)}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              + Create Practice Plan
-            </button>
-          </div>
+          <button
+            onClick={() => router.push(`/teams/${teamId}/practice/new`)}
+            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+          >
+            + Create Practice Plan
+          </button>
         </div>
 
         {/* Filter Tabs */}
@@ -369,12 +361,20 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
                 <p className="text-gray-500 text-sm mb-6">
                   Create practice plans to organize your practice sessions
                 </p>
-                <button
-                  onClick={() => router.push(`/teams/${teamId}/practice/new`)}
-                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-                >
-                  Create Your First Practice Plan
-                </button>
+                <div className="flex flex-col items-center gap-3">
+                  <button
+                    onClick={() => router.push(`/teams/${teamId}/practice/new`)}
+                    className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                  >
+                    Create Your First Practice Plan
+                  </button>
+                  <button
+                    onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
+                    className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                  >
+                    or create a reusable template
+                  </button>
+                </div>
               </>
             )}
           </div>
