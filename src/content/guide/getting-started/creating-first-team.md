@@ -31,8 +31,8 @@ If you haven't already selected a plan, you'll see three options:
 | Plan | Best For | Key Features |
 |------|----------|--------------|
 | **Basic** | Getting started | 2 uploads/month, 1 camera, 30-day storage |
-| **Plus** | Serious coaches | 4 uploads/month, 3 cameras, play tagging & stats |
-| **Premium** | Complete toolkit | 8 uploads/month, 5 cameras, advanced analytics, AI features |
+| **Plus** | Serious coaches | 4 uploads/month, 3 cameras, 90-day storage |
+| **Premium** | Complete toolkit | 8 uploads/month, 5 cameras, 1-year storage |
 
 Click on the plan that fits your needs.
 
