@@ -35,7 +35,10 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'coach' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [settingsTab, setSettingsTab] = useState<'members' | 'usage_tokens' | 'ai_credits' | 'onboarding'>('members');
+  const [settingsTab, setSettingsTab] = useState<'team' | 'members' | 'usage_tokens' | 'ai_credits' | 'onboarding'>('team');
+  const [primaryColor, setPrimaryColor] = useState('#000000');
+  const [secondaryColor, setSecondaryColor] = useState('#FFFFFF');
+  const [savingColors, setSavingColors] = useState(false);
   const onboarding = useGlobalOnboardingSafe();
 
   const router = useRouter();
@@ -58,6 +61,14 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
       if (teamError) throw teamError;
       setTeam(teamData);
+
+      // Initialize colors from team data
+      if (teamData.colors?.primary) {
+        setPrimaryColor(teamData.colors.primary.startsWith('#') ? teamData.colors.primary : '#000000');
+      }
+      if (teamData.colors?.secondary) {
+        setSecondaryColor(teamData.colors.secondary.startsWith('#') ? teamData.colors.secondary : '#FFFFFF');
+      }
 
       // Fetch games for record
       const { data: gamesData } = await supabase
@@ -119,6 +130,38 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     );
   }
 
+  const handleSaveColors = async () => {
+    setSavingColors(true);
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .update({
+          colors: {
+            primary: primaryColor,
+            secondary: secondaryColor
+          }
+        })
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      // Update local team state
+      if (team) {
+        setTeam({
+          ...team,
+          colors: { primary: primaryColor, secondary: secondaryColor }
+        });
+      }
+
+      alert('Team colors saved!');
+    } catch (error) {
+      console.error('Error saving colors:', error);
+      alert('Error saving team colors');
+    } finally {
+      setSavingColors(false);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'owner': return 'bg-black text-white';
@@ -154,6 +197,19 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold text-gray-900">Team Settings</h2>
             <div className="flex gap-8">
+              <button
+                onClick={() => setSettingsTab('team')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'team'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Team Info
+                {settingsTab === 'team' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
               <button
                 onClick={() => setSettingsTab('members')}
                 className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
@@ -214,6 +270,96 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
+        {settingsTab === 'team' && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Team Information</h2>
+              <p className="text-gray-600">
+                Customize your team's appearance.
+              </p>
+            </div>
+
+            {/* Team Colors */}
+            <div className="border border-gray-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Colors</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Set your team's colors. The primary color is used for the team icon throughout the app.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Primary Color */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Primary Color
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      className="w-12 h-12 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      placeholder="#000000"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-900 uppercase"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Used for your team icon</p>
+                </div>
+
+                {/* Secondary Color */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Secondary Color
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      className="w-12 h-12 rounded-lg border border-gray-300 cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      placeholder="#FFFFFF"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-900 uppercase"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Secondary accent color</p>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <p className="text-sm font-medium text-gray-700 mb-3">Preview</p>
+                <div className="flex items-center gap-4">
+                  <div
+                    className="h-12 w-12 rounded-lg"
+                    style={{ backgroundColor: primaryColor }}
+                  />
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">{team.name}</h4>
+                    <p className="text-sm text-gray-600">{team.level}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveColors}
+                disabled={savingColors}
+                className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 font-medium"
+              >
+                {savingColors ? 'Saving...' : 'Save Colors'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {settingsTab === 'members' && (
           <div>
             <div className="mb-8">
