@@ -3,9 +3,9 @@
 
 import { use, useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PracticeTimeline from '@/components/PracticeTimeline';
-import { FileText } from 'lucide-react';
+import { FileText, Layers } from 'lucide-react';
 
 type PeriodType = 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
 
@@ -39,7 +39,11 @@ interface Template {
 export default function NewPracticePlanPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Check if creating a template (from URL param)
+  const isTemplateMode = searchParams.get('template') === 'true';
 
   // Template selection
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -56,9 +60,8 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
   const [periods, setPeriods] = useState<Period[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Save as template option
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateName, setTemplateName] = useState('');
+  // Save as template option - initialize based on URL param
+  const [saveAsTemplate, setSaveAsTemplate] = useState(isTemplateMode);
 
   // Load available templates
   useEffect(() => {
@@ -206,7 +209,7 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
 
   const handleSave = async () => {
     if (!title.trim()) {
-      alert('Please enter a practice title');
+      alert(saveAsTemplate ? 'Please enter a template name' : 'Please enter a practice title');
       return;
     }
 
@@ -215,18 +218,18 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
     try {
       const { data: userData } = await supabase.auth.getUser();
 
-      // Create practice plan
+      // Create practice plan (or template)
       const { data: practice, error: practiceError } = await supabase
         .from('practice_plans')
         .insert({
           team_id: teamId,
           title,
-          date,
+          date: saveAsTemplate ? new Date().toISOString().split('T')[0] : date, // Templates use current date as placeholder
           duration_minutes: duration,
           location: location || null,
           notes: notes || null,
           is_template: saveAsTemplate,
-          template_name: saveAsTemplate ? (templateName.trim() || title) : null,
+          template_name: saveAsTemplate ? title : null, // Use title as template name
           created_by: userData.user?.id
         })
         .select()
@@ -274,29 +277,31 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
         }
       }
 
-      // Create corresponding schedule event with practice_plan_id link
-      const { error: eventError } = await supabase
-        .from('team_events')
-        .insert({
-          team_id: teamId,
-          event_type: 'practice',
-          title: title,
-          description: notes || null,
-          date: date,
-          location: location || null,
-          practice_plan_id: practice.id, // Link to practice plan
-          created_by: userData.user?.id
-        });
+      // Only create a schedule event for practice plans, not templates
+      if (!saveAsTemplate) {
+        const { error: eventError } = await supabase
+          .from('team_events')
+          .insert({
+            team_id: teamId,
+            event_type: 'practice',
+            title: title,
+            description: notes || null,
+            date: date,
+            location: location || null,
+            practice_plan_id: practice.id,
+            created_by: userData.user?.id
+          });
 
-      if (eventError) {
-        console.error('Error creating schedule event:', eventError);
-        // Don't fail the whole operation if event creation fails
+        if (eventError) {
+          console.error('Error creating schedule event:', eventError);
+          // Don't fail the whole operation if event creation fails
+        }
       }
 
       router.push(`/teams/${teamId}/practice/${practice.id}`);
     } catch (error) {
-      console.error('Error saving practice plan:', error);
-      alert('Error saving practice plan');
+      console.error('Error saving:', error);
+      alert(saveAsTemplate ? 'Error saving template' : 'Error saving practice plan');
       setSaving(false);
     }
   };
@@ -309,8 +314,22 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create Practice Plan</h1>
-            <p className="text-gray-600 mt-2">Plan your practice session</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {saveAsTemplate ? 'Create Practice Template' : 'Create Practice Plan'}
+              </h1>
+              {saveAsTemplate && (
+                <span className="px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+                  Template
+                </span>
+              )}
+            </div>
+            <p className="text-gray-600 mt-2">
+              {saveAsTemplate
+                ? 'Create a reusable template for future practice plans'
+                : 'Plan your practice session'
+              }
+            </p>
           </div>
           <button
             onClick={() => router.back()}
@@ -320,8 +339,47 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
           </button>
         </div>
 
-        {/* Start from Template */}
-        {!loadingTemplates && templates.length > 0 && (
+        {/* Mode Toggle */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Layers className="w-5 h-5 text-gray-600" />
+              <div>
+                <span className="text-sm font-medium text-gray-900">What are you creating?</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Templates can be reused to quickly create future practice plans
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setSaveAsTemplate(false)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  !saveAsTemplate
+                    ? 'bg-black text-white'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Practice Plan
+              </button>
+              <button
+                type="button"
+                onClick={() => setSaveAsTemplate(true)}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  saveAsTemplate
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Template
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Start from Template - only show when creating a practice (not a template) */}
+        {!saveAsTemplate && !loadingTemplates && templates.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-3">
               <FileText className="w-5 h-5 text-blue-600" />
@@ -357,35 +415,44 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
 
         {/* Basic Info */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Practice Details</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            {saveAsTemplate ? 'Template Details' : 'Practice Details'}
+          </h2>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className={`grid ${saveAsTemplate ? 'grid-cols-1' : 'grid-cols-2'} gap-4 mb-4`}>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Practice Title *
+                {saveAsTemplate ? 'Template Name *' : 'Practice Title *'}
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Tuesday Practice - Week 3"
+                placeholder={saveAsTemplate ? 'e.g., Tuesday Full Pads Practice' : 'e.g., Tuesday Practice - Week 3'}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
                 required
               />
+              {saveAsTemplate && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose a descriptive name that makes it easy to identify this template later
+                </p>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date *
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
-                required
-              />
-            </div>
+            {!saveAsTemplate && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date *
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
@@ -428,44 +495,6 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
             />
           </div>
 
-          {/* Save as Template Option */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={saveAsTemplate}
-                onChange={(e) => setSaveAsTemplate(e.target.checked)}
-                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-              />
-              <span className="text-sm font-medium text-gray-700">
-                Save as Template
-              </span>
-              <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700 border border-purple-200">
-                Template
-              </span>
-            </label>
-            <p className="text-xs text-gray-500 mt-1 ml-7">
-              Templates can be reused to quickly create future practices with the same structure.
-            </p>
-
-            {saveAsTemplate && (
-              <div className="mt-3 ml-7">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Template Name
-                </label>
-                <input
-                  type="text"
-                  value={templateName}
-                  onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder={title || "e.g., Tuesday Full Pads Practice"}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Leave blank to use the practice title as the template name.
-                </p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Visual Timeline */}
@@ -677,9 +706,18 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
           <button
             onClick={handleSave}
             disabled={saving || !title.trim()}
-            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium"
+            className={`px-6 py-3 text-white rounded-lg disabled:bg-gray-400 disabled:cursor-not-allowed font-medium ${
+              saveAsTemplate
+                ? 'bg-purple-600 hover:bg-purple-700'
+                : 'bg-black hover:bg-gray-800'
+            }`}
           >
-            {saving ? 'Saving...' : 'Create Practice Plan'}
+            {saving
+              ? 'Saving...'
+              : saveAsTemplate
+                ? 'Create Template'
+                : 'Create Practice Plan'
+            }
           </button>
         </div>
       </div>

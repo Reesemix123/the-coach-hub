@@ -278,12 +278,20 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
             <h1 className="text-3xl font-bold text-gray-900">Practice Plans</h1>
             <p className="text-gray-600 mt-2">Plan and organize your practice sessions</p>
           </div>
-          <button
-            onClick={() => router.push(`/teams/${teamId}/practice/new`)}
-            className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-          >
-            + Create Practice Plan
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
+              className="px-5 py-3 border border-purple-300 text-purple-700 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors font-medium"
+            >
+              + Create Template
+            </button>
+            <button
+              onClick={() => router.push(`/teams/${teamId}/practice/new`)}
+              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+            >
+              + Create Practice Plan
+            </button>
+          </div>
         </div>
 
         {/* Filter Tabs */}
@@ -337,22 +345,38 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
         {/* Practice Plans List */}
         {filteredPractices.length === 0 ? (
           <div className="text-center py-20 bg-gray-50 rounded-lg">
-            <div className="text-6xl mb-4">📋</div>
+            <div className="text-6xl mb-4">{filter === 'templates' ? '📄' : '📋'}</div>
             <div className="text-gray-400 mb-4 text-lg">
               {filter === 'templates' ? 'No practice templates yet' :
                filter === 'upcoming' ? 'No upcoming practices scheduled' :
                filter === 'past' ? 'No past practices' :
                'No practice plans yet'}
             </div>
-            <p className="text-gray-500 text-sm mb-6">
-              Create practice plans to organize your practice sessions
-            </p>
-            <button
-              onClick={() => router.push(`/teams/${teamId}/practice/new`)}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
-            >
-              Create Your First Practice Plan
-            </button>
+            {filter === 'templates' ? (
+              <>
+                <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">
+                  Templates let you save practice structures that you can reuse. Create a template once, then use it to quickly generate new practice plans.
+                </p>
+                <button
+                  onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Create Your First Template
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-500 text-sm mb-6">
+                  Create practice plans to organize your practice sessions
+                </p>
+                <button
+                  onClick={() => router.push(`/teams/${teamId}/practice/new`)}
+                  className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800"
+                >
+                  Create Your First Practice Plan
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
