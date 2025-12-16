@@ -31,7 +31,7 @@ export function MobileDocNav() {
           {/* Panel */}
           <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white z-50 lg:hidden shadow-xl">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <span className="text-lg font-semibold text-gray-900">Guide</span>
+              <span className="text-lg font-semibold text-gray-900">User Guide</span>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"

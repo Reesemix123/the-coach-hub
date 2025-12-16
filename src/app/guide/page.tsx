@@ -19,7 +19,7 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export const metadata = {
-  title: 'Guide | Youth Coach Hub',
+  title: 'User Guide | Youth Coach Hub',
   description: 'Learn how to use Youth Coach Hub to manage your team, build playbooks, and analyze game film.',
 };
 
@@ -47,7 +47,7 @@ export default function GuidePage() {
               <div className="flex items-center gap-3 mb-4">
                 <BookOpen className="h-8 w-8 text-gray-900" />
                 <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 tracking-tight">
-                  Guide
+                  User Guide
                 </h1>
               </div>
               <p className="text-xl text-gray-600 max-w-2xl">

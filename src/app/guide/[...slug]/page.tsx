@@ -76,11 +76,11 @@ export async function generateMetadata({ params }: DocPageProps) {
   const section = findSectionByPath(slug);
   const doc = getDocContent(slug);
 
-  const title = doc?.frontmatter.title || section?.title || 'Guide';
+  const title = doc?.frontmatter.title || section?.title || 'User Guide';
   const description = doc?.frontmatter.description || `Learn about ${title} in Youth Coach Hub`;
 
   return {
-    title: `${title} | Guide | Youth Coach Hub`,
+    title: `${title} | User Guide | Youth Coach Hub`,
     description,
   };
 }
