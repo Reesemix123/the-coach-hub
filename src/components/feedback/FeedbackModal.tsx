@@ -10,13 +10,15 @@ interface FeedbackModalProps {
   onClose: () => void;
 }
 
-type FeedbackType = 'bug' | 'confusing' | 'missing' | 'suggestion';
+type FeedbackType = 'bug' | 'confusing' | 'missing' | 'suggestion' | 'feature_request' | 'praise';
 
 const feedbackTypes: { value: FeedbackType; label: string }[] = [
   { value: 'bug', label: 'Something isn\'t working' },
   { value: 'confusing', label: 'Something is confusing' },
   { value: 'missing', label: 'Something is missing' },
   { value: 'suggestion', label: 'I have a suggestion' },
+  { value: 'feature_request', label: 'Feature request' },
+  { value: 'praise', label: 'Share positive feedback' },
 ];
 
 export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {

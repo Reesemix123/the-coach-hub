@@ -19,7 +19,7 @@ import { useRouter } from 'next/navigation';
 
 interface FeedbackReport {
   id: string;
-  type: 'bug' | 'confusing' | 'missing' | 'suggestion';
+  type: 'bug' | 'confusing' | 'missing' | 'suggestion' | 'feature_request' | 'praise';
   description: string;
   screenshot_url: string | null;
   status: 'new' | 'reviewing' | 'need_info' | 'in_progress' | 'planned' | 'resolved' | 'wont_fix';
@@ -41,6 +41,8 @@ const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ cl
   confusing: { label: 'Something is confusing', icon: HelpCircle },
   missing: { label: 'Something is missing', icon: MessageSquare },
   suggestion: { label: 'Suggestion', icon: Lightbulb },
+  feature_request: { label: 'Feature request', icon: Lightbulb },
+  praise: { label: 'Positive feedback', icon: MessageSquare },
 };
 
 const statusLabels: Record<string, { label: string; color: string; description: string }> = {

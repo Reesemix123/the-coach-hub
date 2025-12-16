@@ -25,7 +25,7 @@ interface FeedbackReport {
   id: string;
   user_id: string;
   team_id: string | null;
-  type: 'bug' | 'confusing' | 'missing' | 'suggestion';
+  type: 'bug' | 'confusing' | 'missing' | 'suggestion' | 'feature_request' | 'praise';
   description: string;
   page_url: string | null;
   screenshot_url: string | null;
@@ -64,6 +64,8 @@ const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ cl
   confusing: { label: 'Something is confusing', icon: HelpCircle },
   missing: { label: 'Something is missing', icon: MessageSquare },
   suggestion: { label: 'Suggestion', icon: Lightbulb },
+  feature_request: { label: 'Feature request', icon: Lightbulb },
+  praise: { label: 'Positive feedback', icon: MessageSquare },
 };
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -389,6 +391,8 @@ export default function AdminFeedbackPage() {
                   <option value="confusing">Confusing</option>
                   <option value="missing">Missing</option>
                   <option value="suggestion">Suggestions</option>
+                  <option value="feature_request">Feature Requests</option>
+                  <option value="praise">Positive Feedback</option>
                 </select>
 
                 <select

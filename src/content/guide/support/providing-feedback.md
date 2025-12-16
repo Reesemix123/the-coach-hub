@@ -8,211 +8,174 @@ order: 1
 
 Your feedback shapes the future of Youth Coach Hub. We actively listen to coaches and use your input to prioritize new features, improvements, and fixes.
 
-## Ways to Provide Feedback
+## Submitting Feedback
 
-### In-App Feedback Button
+### Using the Feedback Button
 
-The easiest way to send feedback:
-
-1. Look for the **Feedback** button in the navigation
-2. Click to open the feedback form
-3. Select a feedback type
-4. Write your message
-5. Submit
+1. Click the **Feedback** button in the navigation
+2. Select a feedback type
+3. Describe your feedback in detail
+4. Optionally attach a screenshot
+5. Click **Submit**
 
 ### Feedback Types
 
-When submitting feedback, categorize it:
+Choose the category that best fits your feedback:
 
-| Type | Use For |
-|------|---------|
-| **Feature Request** | New features you'd like to see |
-| **Improvement** | Ways to make existing features better |
-| **Question** | General questions about the platform |
-| **Praise** | Let us know what's working well |
+| Type | When to Use |
+|------|-------------|
+| **Something isn't working** | Report bugs or errors you've encountered |
+| **Something is confusing** | UI or workflow that's hard to understand |
+| **Something is missing** | Functionality you expected but couldn't find |
+| **I have a suggestion** | Ideas for improving existing features |
+| **Feature request** | New features you'd like to see added |
+| **Share positive feedback** | Let us know what's working well |
 
-## Submitting Feature Requests
+### Adding Screenshots
 
-### What Makes a Good Feature Request
+Screenshots help us understand your feedback:
 
-Help us understand your needs:
+1. Click the screenshot area in the feedback form
+2. Upload an image or drag and drop
+3. Preview appears before submission
 
-**Include:**
-- What you're trying to accomplish
-- Why current features don't solve it
-- How you envision the solution
-- How often you'd use it
+**How to take a screenshot:**
+- **Mac:** Cmd + Shift + 4, then drag to select
+- **Windows:** Win + Shift + S, then drag to select
 
-**Example - Good Request:**
-> "I'd love to be able to filter plays by game situation (red zone, 3rd down, etc.) when selecting plays to tag. Currently I have to scroll through all plays. This would save time during busy game weeks."
+## Tracking Your Feedback
 
-**Example - Less Helpful:**
-> "Add more filters."
+### Viewing Your Feedback
 
-### Feature Request Process
+When we respond to your feedback, you'll receive a notification. Click the notification to view the full conversation.
 
-1. **Submit** - Your request is logged
-2. **Review** - We evaluate the request
-3. **Prioritize** - Based on demand and feasibility
-4. **Build** - If approved, added to roadmap
-5. **Release** - You're notified when it ships
+### Feedback Statuses
 
-### Checking Request Status
+Your feedback moves through these stages:
 
-Currently, feature requests are reviewed internally. Major releases include notes on what's new. We're working on a public roadmap.
+| Status | What It Means |
+|--------|---------------|
+| **New** | We received your feedback |
+| **Reviewing** | We're looking into this |
+| **Need Info** | We need more information from you |
+| **In Progress** | We're actively working on this |
+| **Planned** | This is on our roadmap |
+| **Resolved** | This has been addressed |
+| **Won't Fix** | We won't be addressing this |
 
-## Suggesting Improvements
+### Responding to Requests for Information
 
-### Types of Improvements
+If your feedback status shows **Need Info**:
 
-- **Usability** - Making features easier to use
-- **Performance** - Faster loading, smoother experience
-- **Design** - Better layouts, clearer interfaces
-- **Workflow** - Streamlined processes
+1. Click the notification or go to your feedback
+2. You'll see a highlighted message area
+3. Provide the additional details requested
+4. Click **Send Message**
 
-### How to Describe Improvements
+We'll review your response and update the status accordingly.
 
-Be specific about the current experience:
+## Conversation with Our Team
 
-> "When tagging plays, I have to click 6 times to save. It would be faster if there was a 'Save & Next' button to immediately move to the next play."
+### How Communication Works
 
-### Screenshots Help
+After submitting feedback, you can have a back-and-forth conversation:
 
-If you're describing a UI improvement:
+1. We review your submission
+2. If we have questions, we'll send a message
+3. You receive a notification
+4. Reply directly in the feedback thread
+5. Continue until resolved
 
-- Take a screenshot of the current state
-- Describe what you'd change
-- Mock it up if you can (optional)
+### Notifications
 
-## Asking Questions
+You'll be notified when:
 
-### Before Asking
+- Your feedback status changes
+- We send you a message
+- Your issue is resolved
 
-1. Check this documentation
-2. Look for tooltips in the app
-3. Review the FAQ section
+Check the notification bell in the navigation to see updates.
 
-### Asking Good Questions
-
-Include context:
-
-- What you're trying to do
-- What you've already tried
-- What happened vs. what you expected
-
-**Example:**
-> "I'm trying to upload a game video from my iPhone. When I select the file, nothing happens. I expected to see an upload progress bar. I'm using Safari on iOS 17."
-
-### Question Response
-
-Questions submitted via feedback are answered:
-
-- By email to your account address
-- Based on your plan's response time
-- With helpful resources when applicable
-
-## Providing Praise
-
-### Why Praise Matters
-
-Positive feedback helps us:
-
-- Know what's working well
-- Avoid changing things you love
-- Motivate the team
-
-### What to Share
-
-- Features that save you time
-- Moments when the app impressed you
-- Things that "just work"
-- Comparisons to previous tools
-
-**Example:**
-> "The play builder is incredibly intuitive. I was able to digitize our entire playbook in one afternoon. Much better than drawing plays by hand!"
-
-## Feedback Best Practices
+## Writing Effective Feedback
 
 ### Be Specific
 
 Vague feedback is harder to act on:
 
-- ❌ "The app is slow"
-- ✅ "Video playback stutters when I have 3+ camera angles"
-
-### One Topic Per Submission
-
-Multiple issues in one message get confused:
-
-- Submit separate feedback for separate topics
-- Each gets proper tracking and attention
+- **Less helpful:** "The app is slow"
+- **More helpful:** "Video playback stutters when I have 3+ camera angles"
 
 ### Include Context
 
-Help us reproduce your experience:
+Help us understand your situation:
 
+- What you were trying to accomplish
+- What happened vs. what you expected
 - What device/browser you're using
-- What you were doing when it happened
 - Any error messages you saw
 
-### Be Constructive
+### One Topic Per Submission
 
-We value all perspectives:
+Submit separate feedback for separate topics. This helps us:
 
-- Focus on the problem and potential solutions
-- Assume we want to help
-- Frustration is understandable, but specifics help more
+- Track each issue properly
+- Respond more effectively
+- Measure progress accurately
+
+### Good Feedback Examples
+
+**Bug report:**
+> "When I click 'Save Play' after drawing routes, the page refreshes and loses my changes. This happens in Chrome on macOS. I've tried three times."
+
+**Feature request:**
+> "I'd like to filter plays by game situation (red zone, 3rd down) when selecting plays to tag. Currently I scroll through all plays, which takes time during busy game weeks."
+
+**Positive feedback:**
+> "The play builder is incredibly intuitive. I was able to digitize our entire playbook in one afternoon!"
 
 ## What Happens to Your Feedback
 
-### Review Process
+### Our Review Process
 
-1. **Received** - Logged in our system
+1. **Received** - Logged in our system with your context
 2. **Categorized** - Sorted by type and priority
-3. **Analyzed** - Evaluated for feasibility
-4. **Prioritized** - Ranked against other requests
-5. **Addressed** - Fixed, built, or responded to
+3. **Reviewed** - Evaluated by our team
+4. **Actioned** - Fixed, built, or responded to
+5. **Resolved** - You're notified of the outcome
 
-### You May Receive
+### Your Impact
 
-- **Acknowledgment** - Confirmation we received it
-- **Follow-up questions** - If we need more details
-- **Status update** - When something changes
-- **Resolution** - When it's addressed
-
-### Feedback Impact
-
-Your feedback has led to:
+User feedback has led to:
 
 - New features built by request
 - UI improvements for usability
-- Bug fixes and performance gains
-- Documentation updates
+- Bug fixes and performance improvements
+- Documentation updates and clarifications
 
-## Feedback FAQ
+## FAQ
 
-### Will someone respond?
+### Will someone respond to my feedback?
 
-For questions and issues, yes. For feature requests, we may not respond individually but all are reviewed.
+For questions and issues, we aim to respond. For feature requests and suggestions, we review all submissions but may not respond individually.
 
-### How long until my feature is built?
+### How do I check on my feedback?
 
-It depends on complexity, demand, and our roadmap. Some take weeks, others months.
+Click notifications when we update your feedback, or look for the notification bell in the navigation.
 
-### Can I talk to someone directly?
+### How long until my request is addressed?
 
-Premium plans include priority support. Contact us about direct communication options.
+It depends on complexity, demand, and our roadmap. Bug fixes are prioritized; features may take longer.
 
 ### Is my feedback anonymous?
 
-Feedback is associated with your account so we can follow up, but it's kept confidential.
+Feedback is associated with your account so we can follow up and keep you updated on progress.
 
-### What if I have urgent feedback?
+### What if I have an urgent issue?
 
-For urgent issues, mark them as bugs and include "URGENT" in the description.
+Select "Something isn't working" and include "URGENT" in your description. We prioritize critical bugs.
 
 ## Next Steps
 
-- [Report a bug](/guide/support/reporting-bugs) if something isn't working
+- [Report a bug](/guide/support/reporting-bugs) for detailed bug reporting guidance
 - Return to [using the platform](/guide/getting-started/creating-account)
 - Explore features in the [Guide](/guide)
