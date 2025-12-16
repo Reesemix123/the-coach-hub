@@ -278,7 +278,7 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
             <h1 className="text-3xl font-bold text-gray-900">Practice Plans</h1>
             <p className="text-gray-600 mt-2">Plan and organize your practice sessions</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-3">
             <button
               onClick={() => router.push(`/teams/${teamId}/practice/new`)}
               className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
@@ -287,9 +287,9 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
             </button>
             <button
               onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
-              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
             >
-              Create a reusable practice plan template
+              + Create Reusable Template
             </button>
           </div>
         </div>
