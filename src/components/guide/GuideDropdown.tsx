@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   BookOpen,
   ChevronRight,
+  ClipboardList,
   Rocket,
   Users,
   Video,
@@ -24,6 +25,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Rocket,
   Users,
   BookOpen,
+  ClipboardList,
   Video,
   BarChart3,
   Calendar,

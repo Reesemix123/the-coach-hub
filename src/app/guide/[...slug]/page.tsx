@@ -3,7 +3,7 @@ import path from 'path';
 import matter from 'gray-matter';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DocsSidebar, DocRenderer, MobileDocNav } from '@/components/docs';
 import { docsNavigation, getAllDocPaths, findSectionByPath } from '@/config/docs-navigation';
 
@@ -118,36 +118,22 @@ export default async function DocPage({ params }: DocPageProps) {
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 min-w-0">
-            {/* Mobile Navigation & Back Button */}
-            <div className="flex items-center gap-3 mb-4">
-              <Link
-                href="/"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Dashboard</span>
-              </Link>
-              <div className="lg:hidden">
-                <MobileDocNav />
-              </div>
+          <main className="flex-1 min-w-0 max-w-3xl">
+            {/* Mobile Navigation */}
+            <div className="lg:hidden mb-4">
+              <MobileDocNav />
             </div>
 
-            {/* Breadcrumb */}
-            <nav className="mb-6">
-              <ol className="flex flex-wrap items-center gap-2 text-sm">
-                <li>
-                  <Link href="/guide" className="text-gray-500 hover:text-gray-700">
-                    Guide
-                  </Link>
-                </li>
+            {/* Breadcrumb - simplified to Section > Page */}
+            <nav className="mb-8">
+              <ol className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
                 {breadcrumbs.map((crumb, index) => (
                   <li key={crumb.href} className="flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                    {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
                     {index === breadcrumbs.length - 1 ? (
-                      <span className="text-gray-900 font-medium">{crumb.title}</span>
+                      <span className="text-gray-900">{crumb.title}</span>
                     ) : (
-                      <Link href={crumb.href} className="text-gray-500 hover:text-gray-700">
+                      <Link href={crumb.href} className="hover:text-gray-700">
                         {crumb.title}
                       </Link>
                     )}

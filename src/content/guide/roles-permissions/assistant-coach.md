@@ -1,33 +1,37 @@
 ---
-title: Assistant Coach
-description: Understanding the Coach, Analyst, and Viewer roles in Youth Coach Hub.
+title: Coach
+description: Understanding the Coach role in Youth Coach Hub.
 order: 2
 ---
 
 ## Overview
 
-Assistant coaches and other team members can be invited to collaborate on your team with different permission levels. This guide covers the Coach, Analyst, and Viewer roles—everything except the Owner role.
+Coaches can be invited to collaborate on your team with full coaching access. This guide covers the Coach role and what it allows you to do.
 
-## Role Comparison
+## Coach Capabilities
 
-| Feature | Coach | Analyst | Viewer |
-|---------|-------|---------|--------|
-| View playbook | ✓ | ✓ | ✓ |
-| View film | ✓ | ✓ | ✓ |
-| View analytics | ✓ | ✓ | ✓ |
-| View roster | ✓ | ✓ | ✓ |
-| Tag plays | ✓ | ✓ | ✗ |
-| Create/edit plays | ✓ | ✓ | ✗ |
-| Upload film | ✓ | ✗ | ✗ |
-| Manage roster | ✓ | ✗ | ✗ |
-| Manage schedule | ✓ | ✗ | ✗ |
-| Team settings | ✓ | ✗ | ✗ |
-| Invite members | ✗ | ✗ | ✗ |
-| Billing access | ✗ | ✗ | ✗ |
+### Full Coaching Access
 
-## Coach Role
+As a Coach, you have access to:
 
-### Who Should Be a Coach?
+- Create and edit plays in the playbook
+- Upload game film
+- Tag plays with full detail
+- View and analyze team analytics
+- Manage the roster (add/edit players)
+- Update the schedule (add games, record results)
+- Access team settings
+
+### Cannot Do
+
+Only the Owner / Head Coach can:
+
+- Invite or remove team members
+- Access billing or subscription
+- Delete the team
+- Change other members' roles
+
+## Who Should Be a Coach?
 
 The Coach role is ideal for:
 
@@ -37,26 +41,7 @@ The Coach role is ideal for:
 - Graduate assistants
 - Trusted volunteers with full responsibilities
 
-### Coach Capabilities
-
-**Full Coaching Access:**
-
-- Create and edit plays in the playbook
-- Upload game film
-- Tag plays with full detail
-- View and analyze team analytics
-- Manage the roster (add/edit players)
-- Update the schedule (add games, record results)
-- Access team settings (view-only for some items)
-
-**Cannot Do:**
-
-- Invite or remove team members
-- Access billing or subscription
-- Delete the team
-- Change other members' roles
-
-### Day-to-Day Workflow
+## Day-to-Day Workflow
 
 As a Coach, your typical activities include:
 
@@ -65,84 +50,6 @@ As a Coach, your typical activities include:
 3. **Analytics Review** - Analyze performance data
 4. **Roster Updates** - Maintain player information
 5. **Schedule Management** - Add games and record results
-
-## Analyst Role
-
-### Who Should Be an Analyst?
-
-The Analyst role is ideal for:
-
-- Volunteer film taggers
-- Student managers
-- Part-time helpers
-- Quality control assistants
-- Anyone focused solely on film/playbook
-
-### Analyst Capabilities
-
-**Content Creation Access:**
-
-- View the playbook
-- Create and edit plays
-- Tag plays in game film
-- View all analytics
-- Access film library
-
-**Cannot Do:**
-
-- Upload new film
-- Manage the roster
-- Update the schedule
-- Modify team settings
-- Invite team members
-- Access billing
-
-### Typical Analyst Workflow
-
-1. **Film Tagging** - Tag plays that coaches assign
-2. **Playbook Entry** - Digitize plays from paper playbooks
-3. **Analytics Review** - Help analyze performance
-4. **Quality Control** - Review tagging accuracy
-
-### Why Use Analyst Role?
-
-- **Limited scope** - Focused on specific tasks
-- **Safety** - Can't accidentally modify roster or schedule
-- **Appropriate access** - Right permissions for the job
-
-## Viewer Role
-
-### Who Should Be a Viewer?
-
-The Viewer role is ideal for:
-
-- Parents wanting to see analytics
-- Players reviewing film
-- Administrators needing visibility
-- Anyone who just needs to watch
-
-### Viewer Capabilities
-
-**Read-Only Access:**
-
-- View the playbook (cannot edit)
-- Watch game film (cannot tag)
-- See analytics and stats
-- View roster and schedule
-
-**Cannot Do:**
-
-- Create or edit anything
-- Tag plays
-- Upload content
-- Modify any data
-
-### Typical Viewer Uses
-
-- Parents checking their player's stats
-- Players reviewing game film
-- Administrators monitoring the program
-- Scouts (with permission) viewing content
 
 ## Joining a Team
 
@@ -162,7 +69,6 @@ Once joined:
 1. Log in to Youth Coach Hub
 2. You'll see the team in your dashboard
 3. Click on the team to access it
-4. Your permissions are based on your assigned role
 
 ### Multiple Teams
 
@@ -172,42 +78,31 @@ You can be a member of multiple teams:
 - Switch between teams in the dashboard
 - Each team is separate (different data, subscriptions)
 
-## Working Within Your Role
+## Best Practices
 
-### Best Practices
+### Coordinate with Your Team
 
-**For Coaches:**
-- Coordinate with other coaches on playbook organization
 - Follow tagging conventions set by the head coach
 - Communicate about film uploads to avoid duplicates
-
-**For Analysts:**
-- Complete assigned tagging tasks
-- Ask questions if unsure about tagging decisions
 - Maintain consistency with team standards
-
-**For Viewers:**
-- Use the platform for viewing only
-- Contact a Coach if you notice issues
-- Respect the access you've been given
+- Coordinate on playbook organization
 
 ### Communication
 
-Since you can't change settings or membership:
+Since you can't manage team membership:
 
-- Contact the team owner for access issues
-- Ask coaches about tagging standards
+- Contact the Owner / Head Coach for access issues
 - Report problems to someone who can address them
 
 ## Requesting Different Access
 
-### Need More Permissions?
+### Need Owner Access?
 
-If you need a different role:
+If you need owner-level permissions:
 
-1. Contact the team owner
+1. Contact the Owner / Head Coach
 2. Explain what you need to do
-3. They can update your role from the Console
+3. They can update your role from Team Settings
 
 ### Role Changes Take Effect Immediately
 
@@ -243,4 +138,4 @@ You'll lose access to that team immediately. Your account remains active for oth
 
 - [Learn about managing team members](/guide/roles-permissions/managing-team-members)
 - [Start tagging plays](/guide/film/tagging-plays)
-- [Explore the playbook](/guide/playbook/creating-plays)
+- [Explore the playbook](/guide/playbook/getting-started)

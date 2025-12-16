@@ -14,12 +14,11 @@ You can change your subscription plan at any time. Whether you need more feature
 
 Consider upgrading when you:
 
-- Need more monthly uploads
-- Want multiple camera angles
-- Need longer video storage
-- Want advanced analytics
-- Have more coaches joining
-- Need player-level statistics
+- Need more monthly game uploads
+- Want multiple camera angles per game
+- Need longer video retention (180 days or 1 year)
+- Need more storage per game
+- Have more coaches joining your staff
 
 ### How to Upgrade
 
@@ -46,9 +45,9 @@ Consider upgrading when you:
 
 If you upgrade mid-cycle:
 
-- **Current:** Basic plan ($19/month), 15 days into billing cycle
-- **Upgrading to:** Plus plan ($49/month)
-- **Charge:** ~$15 for remaining 15 days at Plus rate
+- **Current:** Plus plan ($29.99/month), 15 days into billing cycle
+- **Upgrading to:** Premium plan ($79.99/month)
+- **Charge:** ~$25 for remaining 15 days at Premium rate
 
 ## Downgrading Your Plan
 
@@ -73,14 +72,16 @@ You might downgrade when:
 
 **At End of Billing Cycle:**
 - New plan takes effect at next billing date
-- You keep current features until then
+- You keep current limits until then
 - No prorated refunds
 
-**Feature Changes:**
-- Access to higher-tier features ends
-- Data is preserved but may be inaccessible
-- Upload limits reduce
+**Capacity Changes:**
+- Monthly upload tokens reduce
+- Camera angles per game reduce
+- Storage per game reduces
+- Video retention period shortens
 - Coach limits may be affected
+- All features remain available (only capacity changes)
 
 ### Preserving Your Data
 
@@ -142,12 +143,7 @@ If you're running out of tokens:
 - Tokens reset at your billing cycle
 - Upload after the reset date
 
-**Option 2: Purchase Additional Tokens**
-- Buy extra tokens for the current month
-- Available in the billing section
-- Purchased tokens roll over for 30 days
-
-**Option 3: Upgrade Your Plan**
+**Option 2: Upgrade Your Plan**
 - Higher plans include more tokens
 - Upgrade takes effect immediately
 
@@ -190,10 +186,12 @@ On annual Basic, need Plus features:
 
 ### What Happens After Cancellation
 
-- Access continues until period ends
-- Data is retained for 30 days
-- Videos may be deleted after grace period
-- You can resubscribe anytime
+- **No refunds** - you keep full access until your billing period ends
+- Monthly subscriptions end at end of current month
+- Annual subscriptions end at end of current year
+- After subscription ends, data is retained for 30 days (grace period)
+- Videos and data may be deleted after the grace period
+- You can resubscribe anytime to retain your data
 
 ### Resubscribing
 
@@ -202,36 +200,13 @@ To restart your subscription:
 1. Log back in
 2. Go to billing
 3. Select a plan
-4. Your data may still be available (within 30 days)
-
-## Discounts and Special Offers
-
-### Available Discounts
-
-- **Annual billing:** 20% savings
-- **Multi-team:** Discounts for multiple teams
-- **Education:** Special pricing for schools
-- **Youth organizations:** League and association rates
-
-### Applying a Discount
-
-1. Contact support with your situation
-2. Receive a discount code
-3. Apply during checkout or in billing
-
-### Promotional Offers
-
-Watch for seasonal promotions:
-
-- Pre-season specials
-- Annual plan offers
-- New feature launches
+4. Your data is available if within the 30-day grace period
 
 ## Common Questions
 
 ### Will I lose my data if I downgrade?
 
-Your data is preserved, but you may lose access to features that display it (like advanced analytics).
+Your data is preserved. All features remain available on all tiers. However, videos beyond your new retention period may expire, and games beyond your storage limits may become inaccessible.
 
 ### Can I upgrade for just one month?
 

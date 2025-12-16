@@ -33,7 +33,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [games, setGames] = useState<Game[]>([]);
   const [members, setMembers] = useState<TeamMemberWithUser[]>([]);
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
-  const [userRole, setUserRole] = useState<'owner' | 'coach' | 'analyst' | 'viewer' | null>(null);
+  const [userRole, setUserRole] = useState<'owner' | 'coach' | null>(null);
   const [loading, setLoading] = useState(true);
   const [settingsTab, setSettingsTab] = useState<'members' | 'usage_tokens' | 'ai_credits' | 'onboarding'>('members');
   const onboarding = useGlobalOnboardingSafe();
@@ -123,8 +123,6 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     switch (role) {
       case 'owner': return 'bg-black text-white';
       case 'coach': return 'bg-gray-700 text-white';
-      case 'analyst': return 'bg-gray-500 text-white';
-      case 'viewer': return 'bg-gray-300 text-gray-700';
       default: return 'bg-gray-200 text-gray-600';
     }
   };

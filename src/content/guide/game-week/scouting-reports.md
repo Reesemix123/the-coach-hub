@@ -1,97 +1,97 @@
 ---
-title: Scouting Reports
-description: Build comprehensive opponent scouting reports from your tagged film data.
+title: Opponent Tendencies
+description: How opponent film data informs your game plan.
 order: 2
 ---
 
-## Understanding Your Opponent
+## Opponent Intelligence in Your Game Plan
 
-Scouting reports transform tagged opponent film into actionable intelligence. Every play you've tagged about your opponent contributes to a clearer picture of what you'll face on game day.
+When you build a game plan in The Coach Hub, opponent tendencies are automatically surfaced alongside your playbook. Every play you've tagged as an "opponent play" contributes to a profile of what you'll face on game day.
 
-## Generating a Scouting Report
+## Where to Find It
 
-### Prerequisites
-
-To generate a meaningful scouting report, you need:
-
-- At least one game with opponent plays tagged
-- Basic tagging data (formation, play type, result)
-- Ideally 20+ plays for statistical significance
-
-### Creating the Report
+Opponent analysis appears directly in the **Game Plan** builder:
 
 1. Navigate to **Game Week** from your team dashboard
-2. Select **Scouting Reports**
-3. Choose the opponent you're preparing for
-4. Select which games to include in the analysis
-5. Click **Generate Report**
+2. Click the **Game Plan** tile (or "Build Game Plan")
+3. Select the upcoming game you're preparing for
+4. Opponent tendencies display in the sidebar as you browse plays
 
-## What the Report Shows
+## What You'll See
 
 ### Defensive Tendencies
 
-If you're scouting their defense:
+When planning your offense, you'll see the opponent's defensive profile:
 
 | Metric | What It Tells You |
 |--------|-------------------|
-| Base Formation % | What defense do they line up in most? |
-| Coverage Distribution | Man vs Zone breakdown |
-| Blitz Rate by Down | When do they bring pressure? |
-| Tendencies by Hash | Do they favor certain looks by field position? |
+| **Overall Blitz Rate** | How often they bring extra rushers |
+| **Run Stop Rate** | Their success defending the run |
+| **Pass Defense Rate** | Their effectiveness in coverage |
+| **Primary Coverage** | The coverage they use most |
+| **Coverage Distribution** | Breakdown of all coverages used |
+| **High Blitz Situations** | Specific downs where they blitz heavily |
 
 ### Offensive Tendencies
 
-If you're scouting their offense:
+When planning your defense, you'll see:
 
 | Metric | What It Tells You |
 |--------|-------------------|
-| Run/Pass Ratio | Are they run-heavy or pass-happy? |
-| Personnel Groupings | What formations do they favor? |
-| Play Type by Down | What do they call on 1st down vs 3rd? |
-| Key Players | Who gets the ball most often? |
+| **Run/Pass Ratio** | Their tendency to run vs. pass |
+| **Yards Per Play** | Overall offensive efficiency |
+| **Play Type by Down** | What they call on 1st, 2nd, 3rd down |
+| **Formation Tendencies** | Their most common offensive looks |
 
-### Situational Analysis
+### Special Teams Tendencies
 
-The report breaks down tendencies by situation:
+If you've tagged special teams plays:
 
-- **Early Downs** (1st & 2nd) - What's their approach when ahead of schedule?
-- **Third Down** - How do they convert? What do they call?
-- **Red Zone** - How do they try to score?
-- **Goal Line** - What's their go-to play?
-- **Two-Minute** - How do they operate under time pressure?
+- Kickoff coverage patterns
+- Punt tendencies
+- Return schemes
 
-## Using the Data
+## Confidence Indicators
 
-### Identify Exploitable Patterns
+The analysis shows confidence levels based on sample size:
 
-Look for:
+| Sample Size | Confidence |
+|-------------|------------|
+| 60+ plays | High - strong patterns |
+| 30-59 plays | Medium - reasonable trends |
+| Under 30 | Low - use with caution |
 
-- **Predictable tendencies** - Do they always run on 1st down?
-- **Coverage tells** - Does their safety alignment give away the coverage?
-- **Personnel-based patterns** - Do certain players only come in for certain plays?
+## Recommendations
 
-### Prepare Counter-Strategies
+Based on the data, the system provides tailored recommendations:
 
-For each tendency you identify:
+- **High blitz rate?** "Use quick passes and screens"
+- **Weak run defense?** "Establish the run early"
+- **Cover 3 heavy?** "Target the seams and deep posts"
+- **Aggressive vs. run?** "Mix in play-action and misdirection"
 
-1. Note the pattern
-2. Select plays from your playbook that attack it
-3. Practice recognition and execution
+## Building Better Opponent Data
 
-### Create Game Day Notes
+The more opponent film you tag, the better your insights:
 
-Export key insights to a condensed format you can reference during the game:
+- **Tag opponent plays** - Check "Opponent Play" when tagging their film
+- **Include coverage** - Note what coverage they're running
+- **Track formations** - Record their defensive/offensive formations
+- **Multiple games** - Tag film from several games for trends
 
-- Top 5 things to remember
-- Adjustments by situation
-- Key players to watch
+### How to Tag Opponent Plays
 
-## Building Better Reports Over Time
+1. Go to **Film** and select a game against this opponent
+2. When tagging plays, check **"Opponent Play"**
+3. Fill in formation, coverage, and result
+4. The data automatically flows to your Game Plan
 
-The more opponent film you tag, the better your scouting reports become:
+> **Pro Tip:** Tag opponent film immediately after games while it's fresh. The data you collect throughout the season makes your playoff game plans significantly stronger.
 
-- **Multiple games** reveal consistent tendencies vs. one-game anomalies
-- **Detailed tagging** (Standard or Comprehensive) provides richer analysis
-- **Personnel tracking** shows substitution patterns
+---
 
-> **Pro Tip:** Tag opponent film immediately after games while it's fresh. The data you collect throughout the season makes your playoff scouting reports invaluable.
+## Next Steps
+
+- [Build Your Game Plan](/guide/game-week/practice-planning) - Put opponent intelligence to work
+- [Tagging Plays](/guide/film/tagging-plays) - How to tag film effectively
+- [Game Day Ready](/guide/game-week/game-day-ready) - Final preparation checklist

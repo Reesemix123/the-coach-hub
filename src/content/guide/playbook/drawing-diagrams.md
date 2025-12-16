@@ -1,7 +1,7 @@
 ---
-title: Play Builder
-description: Master the visual play builder tool to create professional play diagrams.
-order: 3
+title: Drawing Play Diagrams
+description: Master the visual Play Builder tool to create professional play diagrams.
+order: 2
 ---
 
 ## Overview
@@ -252,33 +252,6 @@ Warnings appear as:
 - Highlights on affected players
 - Suggestions for fixes
 
-## Saving Your Play
-
-### Before Saving
-
-1. Review the diagram for accuracy
-2. Check validation warnings
-3. Add play name and attributes
-
-### Required Fields
-
-- Play name
-- Formation (auto-filled)
-- Play type (run/pass/etc.)
-
-### Optional Fields
-
-- Personnel grouping
-- Tags
-- Notes
-- Play action indicator
-
-### Save Options
-
-- **Save** - Save and return to playbook
-- **Save & New** - Save and start another play
-- **Cancel** - Discard changes
-
 ## Keyboard Shortcuts
 
 Speed up your workflow:
@@ -287,8 +260,8 @@ Speed up your workflow:
 |----------|--------|
 | **Esc** | Deselect player |
 | **Delete** | Remove selected route |
-| **Ctrl+S** | Save play |
-| **Ctrl+Z** | Undo last action |
+| **Ctrl+S / Cmd+S** | Save play |
+| **Ctrl+Z / Cmd+Z** | Undo last action |
 
 ## Tips for Better Diagrams
 
@@ -344,6 +317,6 @@ Speed up your workflow:
 
 ## Next Steps
 
-- [Create your first plays](/guide/playbook/creating-plays)
-- [Organize your playbook](/guide/playbook/organizing-playbook)
-- [Tag plays in game film](/guide/film/tagging-plays)
+- [Get started with plays](/guide/playbook/getting-started) for the basics
+- [Manage your playbook](/guide/playbook/managing-playbook) as it grows
+- [Tag plays in game film](/guide/film/tagging-plays) to track effectiveness

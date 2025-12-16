@@ -1,5 +1,5 @@
 ---
-title: Seasons
+title: Schedule & Calendar
 description: Learn how to manage your game schedule, track your season record, and organize team events in Youth Coach Hub.
 order: 3
 ---
@@ -238,5 +238,5 @@ If the quarter scores don't add up to the final score, you'll see a warning. Upd
 ## Next Steps
 
 - [Upload game film](/guide/film/uploading-film) for your scheduled games
-- [Create practice plans](/guide/game-week/practice-planning) for your practice events
+- [Create practice plans](/guide/practice/creating-practice-plans) for your practice events
 - [Review analytics](/guide/analytics/team-analytics) to track your season progress

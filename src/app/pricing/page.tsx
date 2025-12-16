@@ -27,10 +27,11 @@ export interface PricingTier {
 }
 
 // Default tier configs with new token-based system
+// NOTE: All tiers have the same features - only capacity differs
 const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = {
   basic: {
     name: 'Basic',
-    description: 'Perfect for youth leagues and small programs',
+    description: 'Perfect for getting started',
     price_monthly: 0,
     price_annual: 0,
     annual_savings: 0,
@@ -38,45 +39,48 @@ const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = 
     max_cameras_per_game: 1,
     retention_days: 30,
     features: [
-      'Digital playbook builder',
-      'Film upload & playback',
-      'Basic play tagging',
-      'Roster management',
-      'Game scheduling'
+      '2 games/month (1 team + 1 opponent)',
+      '1 camera per game',
+      '5 GB per game, 10 GB total',
+      '30-day film retention',
+      'Up to 3 coaches',
+      'All features included'
     ]
   },
   plus: {
     name: 'Plus',
-    description: 'Full analytics for competitive programs',
-    price_monthly: 29,
-    price_annual: 290,
-    annual_savings: 58,
+    description: 'For active coaching programs',
+    price_monthly: 29.99,
+    price_annual: 299.90,
+    annual_savings: 60,
     monthly_upload_tokens: 4,
     max_cameras_per_game: 3,
     retention_days: 180,
     features: [
-      'Everything in Basic',
-      'Drive-by-drive analytics',
-      'Player performance stats',
-      'Game planning tools',
-      'Situational breakdowns'
+      '4 games/month (2 team + 2 opponent)',
+      '3 cameras per game',
+      '10 GB per game, ~240 GB total',
+      '180-day film retention',
+      'Up to 5 coaches',
+      'All features included'
     ]
   },
   premium: {
     name: 'Premium',
-    description: 'Advanced analytics for serious programs',
-    price_monthly: 79,
-    price_annual: 790,
-    annual_savings: 158,
+    description: 'Maximum capacity for serious programs',
+    price_monthly: 79.99,
+    price_annual: 799.90,
+    annual_savings: 160,
     monthly_upload_tokens: 8,
     max_cameras_per_game: 5,
     retention_days: 365,
     features: [
-      'Everything in Plus',
-      'Priority support',
-      'Unlimited playbook storage',
-      'Advanced reporting',
-      'Opponent scouting reports'
+      '8 games/month (4 team + 4 opponent)',
+      '5 cameras per game',
+      '25 GB per game, ~2.4 TB total',
+      '365-day film retention',
+      'Up to 10 coaches',
+      'All features included'
     ]
   }
 };
@@ -89,7 +93,7 @@ const faqs = [
   },
   {
     question: 'What are upload tokens?',
-    answer: 'Upload tokens are used to upload game film to the platform. Each game you upload uses 1 token. Tokens refresh monthly, and unused tokens roll over (up to a cap based on your plan). You can also purchase additional token packs if needed.'
+    answer: 'Upload tokens are used to upload game film to the platform. Each game you upload uses 1 token. Tokens refresh monthly. If you need more tokens, you can upgrade to a higher plan.'
   },
   {
     question: 'How many cameras can I use per game?',
@@ -100,16 +104,12 @@ const faqs = [
     answer: 'Game retention is how long your uploaded games stay on the platform. Basic keeps games for 30 days, Plus for 6 months, and Premium for a full year. After this period, games are automatically archived.'
   },
   {
-    question: 'Can I buy more upload tokens?',
-    answer: 'Yes! You can purchase additional upload token packs at any time from your team settings. Token packs are available in various sizes to fit your needs.'
+    question: 'What if I run out of upload tokens?',
+    answer: 'Tokens refresh at the start of each billing cycle. If you frequently run out of tokens, consider upgrading to a higher plan for more monthly uploads.'
   },
   {
     question: 'What payment methods do you accept?',
     answer: 'We accept all major credit cards (Visa, Mastercard, American Express, Discover) through our secure payment processor, Stripe.'
-  },
-  {
-    question: 'Do you offer discounts for schools or leagues?',
-    answer: 'Yes! We offer special pricing for multi-team organizations and school districts. Contact us for a custom quote.'
   },
   {
     question: 'Can I cancel at any time?',
@@ -205,17 +205,11 @@ export default async function PricingPage() {
       {/* Feature Comparison Note */}
       <section className="py-12 bg-gray-50">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold text-gray-900">Need more?</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Need more capacity?</h2>
           <p className="mt-4 text-gray-600">
-            All plans can be customized with add-ons for additional upload tokens,
-            camera slots, and extended retention. Volume discounts available.
+            Upgrade to a higher plan for more monthly uploads, additional camera angles,
+            longer retention, and more storage per game.
           </p>
-          <Link
-            href="/contact"
-            className="mt-6 inline-block text-sm font-medium text-gray-900 underline hover:no-underline"
-          >
-            Contact us for custom enterprise pricing
-          </Link>
         </div>
       </section>
 

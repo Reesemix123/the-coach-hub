@@ -31,7 +31,16 @@ export const docsNavigation: DocSection[] = [
     children: [
       { title: "Team Settings", slug: "team-settings" },
       { title: "Roster Management", slug: "roster-management" },
-      { title: "Seasons", slug: "seasons" },
+      { title: "Schedule & Calendar", slug: "schedule" },
+    ],
+  },
+  {
+    title: "Practice",
+    slug: "practice",
+    icon: "ClipboardList",
+    children: [
+      { title: "Creating Practice Plans", slug: "creating-practice-plans" },
+      { title: "Practice Templates", slug: "templates" },
     ],
   },
   {
@@ -39,9 +48,9 @@ export const docsNavigation: DocSection[] = [
     slug: "playbook",
     icon: "BookOpen",
     children: [
-      { title: "Creating Plays", slug: "creating-plays" },
-      { title: "Organizing Your Playbook", slug: "organizing-playbook" },
-      { title: "Play Builder", slug: "play-builder" },
+      { title: "Getting Started with Plays", slug: "getting-started" },
+      { title: "Drawing Play Diagrams", slug: "drawing-diagrams" },
+      { title: "Managing Your Playbook", slug: "managing-playbook" },
     ],
   },
   {
@@ -53,6 +62,7 @@ export const docsNavigation: DocSection[] = [
       { title: "Tagging Plays", slug: "tagging-plays" },
       { title: "Tagging Levels", slug: "tagging-levels" },
       { title: "Multi-Camera", slug: "multi-camera" },
+      { title: "Storage Limits", slug: "storage-limits" },
     ],
   },
   {
@@ -60,9 +70,14 @@ export const docsNavigation: DocSection[] = [
     slug: "analytics",
     icon: "BarChart3",
     children: [
-      { title: "Team Analytics", slug: "team-analytics" },
-      { title: "Season Trends", slug: "season-trends" },
-      { title: "Player Stats", slug: "player-stats" },
+      { title: "Season Overview", slug: "season-overview" },
+      { title: "Game Report", slug: "game-report" },
+      { title: "Offensive Report", slug: "offensive-report" },
+      { title: "Defensive Report", slug: "defensive-report" },
+      { title: "Situational Report", slug: "situational-report" },
+      { title: "Drive Analysis", slug: "drive-analysis" },
+      { title: "Special Teams", slug: "special-teams-report" },
+      { title: "Player Report", slug: "player-report" },
     ],
   },
   {
@@ -71,8 +86,8 @@ export const docsNavigation: DocSection[] = [
     icon: "Calendar",
     children: [
       { title: "Overview", slug: "overview" },
-      { title: "Scouting Reports", slug: "scouting-reports" },
-      { title: "Practice Planning", slug: "practice-planning" },
+      { title: "Opponent Tendencies", slug: "scouting-reports" },
+      { title: "Data-Driven Practice", slug: "practice-planning" },
       { title: "Game Day Ready", slug: "game-day-ready" },
     ],
   },
@@ -82,7 +97,7 @@ export const docsNavigation: DocSection[] = [
     icon: "Shield",
     children: [
       { title: "Owner / Head Coach", slug: "owner-head-coach" },
-      { title: "Assistant Coach", slug: "assistant-coach" },
+      { title: "Coach", slug: "assistant-coach" },
       { title: "Managing Team Members", slug: "managing-team-members" },
     ],
   },

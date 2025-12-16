@@ -17,48 +17,49 @@ interface PlanOption {
   aiPowered?: boolean;
 }
 
+// All tiers have the same features - only capacity differs
 const PLANS: PlanOption[] = [
   {
     id: 'basic',
     name: 'Basic',
-    description: 'Perfect for youth leagues',
+    description: 'Perfect for getting started',
     price: 0,
     priceLabel: 'Free forever',
     features: [
-      '2 game uploads/month',
-      '1 camera angle per game',
-      '30-day film retention',
-      'Digital playbook builder',
-      'Basic play tagging'
+      '2 games/month (1 team + 1 opponent)',
+      '1 camera per game',
+      '30-day retention',
+      'Up to 3 coaches',
+      'All features included'
     ]
   },
   {
     id: 'plus',
     name: 'Plus',
-    description: 'Full analytics for competitive programs',
-    price: 29,
+    description: 'For active coaching programs',
+    price: 29.99,
     priceLabel: '/month',
     features: [
-      '4 game uploads/month',
-      '3 camera angles per game',
-      '180-day film retention',
-      'Drive-by-drive analytics',
-      'Player performance stats'
+      '4 games/month (2 team + 2 opponent)',
+      '3 cameras per game',
+      '180-day retention',
+      'Up to 5 coaches',
+      'All features included'
     ],
     popular: true
   },
   {
     id: 'premium',
     name: 'Premium',
-    description: 'Advanced analytics for serious programs',
-    price: 79,
+    description: 'Maximum capacity for serious programs',
+    price: 79.99,
     priceLabel: '/month',
     features: [
-      '8 game uploads/month',
-      '5 camera angles per game',
-      '365-day film retention',
-      'O-Line grading & tracking',
-      'Opponent scouting reports'
+      '8 games/month (4 team + 4 opponent)',
+      '5 cameras per game',
+      '365-day retention',
+      'Up to 10 coaches',
+      'All features included'
     ]
   }
 ];

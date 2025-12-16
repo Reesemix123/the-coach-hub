@@ -2,7 +2,7 @@
 // Video Upload Validation Service
 // Validates video files before and after upload based on tier requirements
 
-import { EntitlementsService, VideoRequirements } from './entitlements-service';
+import { EntitlementsService, VideoRequirements, GameUploadCheckResult } from './entitlements-service';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/utils/supabase/server';
 
@@ -20,6 +20,7 @@ export interface PreUploadValidation {
   valid: boolean;
   error?: string;
   requirements?: VideoRequirements;
+  gameStorageCheck?: GameUploadCheckResult;
 }
 
 export interface VideoMetadata {
@@ -114,12 +115,23 @@ export class VideoValidationService {
       };
     }
 
+    // Check per-game storage limit
+    const gameStorageCheck = await this.entitlements.checkGameUploadAllowed(gameId, fileSize);
+    if (!gameStorageCheck.allowed) {
+      return {
+        valid: false,
+        error: gameStorageCheck.message || 'Game storage limit would be exceeded',
+        gameStorageCheck
+      };
+    }
+
     // Get requirements for display
     const requirements = await this.entitlements.getVideoRequirements(teamId);
 
     return {
       valid: true,
-      requirements
+      requirements,
+      gameStorageCheck
     };
   }
 

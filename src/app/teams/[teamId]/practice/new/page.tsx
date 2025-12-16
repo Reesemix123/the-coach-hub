@@ -1,10 +1,11 @@
 // src/app/teams/[teamId]/practice/new/page.tsx
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import PracticeTimeline from '@/components/PracticeTimeline';
+import { FileText } from 'lucide-react';
 
 type PeriodType = 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
 
@@ -27,10 +28,24 @@ interface Drill {
   play_codes: string[];
 }
 
+interface Template {
+  id: string;
+  title: string;
+  template_name: string | null;
+  duration_minutes: number;
+  notes: string | null;
+}
+
 export default function NewPracticePlanPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
   const router = useRouter();
   const supabase = createClient();
+
+  // Template selection
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
   // Practice plan fields
   const [title, setTitle] = useState('');
@@ -40,6 +55,87 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
   const [notes, setNotes] = useState('');
   const [periods, setPeriods] = useState<Period[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Save as template option
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+
+  // Load available templates
+  useEffect(() => {
+    async function loadTemplates() {
+      const { data, error } = await supabase
+        .from('practice_plans')
+        .select('id, title, template_name, duration_minutes, notes')
+        .eq('team_id', teamId)
+        .eq('is_template', true)
+        .order('template_name');
+
+      if (!error && data) {
+        setTemplates(data);
+      }
+      setLoadingTemplates(false);
+    }
+    loadTemplates();
+  }, [teamId, supabase]);
+
+  // Load template data when selected
+  const handleTemplateSelect = async (templateId: string) => {
+    if (!templateId) {
+      setSelectedTemplateId(null);
+      return;
+    }
+
+    setSelectedTemplateId(templateId);
+    setLoadingTemplate(true);
+
+    try {
+      // Fetch the template with its periods and drills
+      const { data: templateData, error: templateError } = await supabase
+        .from('practice_plans')
+        .select('*')
+        .eq('id', templateId)
+        .single();
+
+      if (templateError) throw templateError;
+
+      const { data: periodsData, error: periodsError } = await supabase
+        .from('practice_periods')
+        .select('*, practice_drills(*)')
+        .eq('practice_plan_id', templateId)
+        .order('period_order');
+
+      if (periodsError) throw periodsError;
+
+      // Populate the form with template data
+      setDuration(templateData.duration_minutes || 90);
+      setNotes(templateData.notes || '');
+
+      // Convert periods and drills to local state format
+      const loadedPeriods: Period[] = (periodsData || []).map((p: any) => ({
+        id: `temp-${Date.now()}-${p.id}`,
+        name: p.name || '',
+        duration_minutes: p.duration_minutes || 15,
+        period_type: p.period_type || 'drill',
+        notes: p.notes || '',
+        start_time: p.start_time,
+        is_concurrent: p.is_concurrent || false,
+        drills: (p.practice_drills || []).map((d: any) => ({
+          id: `temp-${Date.now()}-${d.id}`,
+          drill_name: d.drill_name || '',
+          position_group: d.position_group || 'All',
+          description: d.description || '',
+          play_codes: d.play_codes || []
+        }))
+      }));
+
+      setPeriods(loadedPeriods);
+    } catch (error) {
+      console.error('Error loading template:', error);
+      alert('Error loading template');
+    } finally {
+      setLoadingTemplate(false);
+    }
+  };
 
   const addPeriod = () => {
     // Calculate default start time (sequential after last period)
@@ -129,7 +225,8 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
           duration_minutes: duration,
           location: location || null,
           notes: notes || null,
-          is_template: false,
+          is_template: saveAsTemplate,
+          template_name: saveAsTemplate ? (templateName.trim() || title) : null,
           created_by: userData.user?.id
         })
         .select()
@@ -223,6 +320,41 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
           </button>
         </div>
 
+        {/* Start from Template */}
+        {!loadingTemplates && templates.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-blue-900 mb-1">
+                  Start from Template
+                </label>
+                <select
+                  value={selectedTemplateId || ''}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
+                  disabled={loadingTemplate}
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
+                >
+                  <option value="">Start from scratch</option>
+                  {templates.map(template => (
+                    <option key={template.id} value={template.id}>
+                      {template.template_name || template.title} ({template.duration_minutes} min)
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {loadingTemplate && (
+                <div className="text-blue-600 text-sm">Loading...</div>
+              )}
+            </div>
+            {selectedTemplateId && (
+              <p className="text-xs text-blue-700 mt-2">
+                Template loaded. Customize the title, date, and content below.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Basic Info */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Practice Details</h2>
@@ -294,6 +426,45 @@ export default function NewPracticePlanPage({ params }: { params: Promise<{ team
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
             />
+          </div>
+
+          {/* Save as Template Option */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={saveAsTemplate}
+                onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Save as Template
+              </span>
+              <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700 border border-purple-200">
+                Template
+              </span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1 ml-7">
+              Templates can be reused to quickly create future practices with the same structure.
+            </p>
+
+            {saveAsTemplate && (
+              <div className="mt-3 ml-7">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Template Name
+                </label>
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder={title || "e.g., Tuesday Full Pads Practice"}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave blank to use the practice title as the template name.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

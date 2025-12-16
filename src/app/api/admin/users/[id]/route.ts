@@ -204,7 +204,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { role, full_name, is_platform_admin } = body;
 
     // Validate role if provided
-    const validRoles = ['platform_admin', 'owner', 'coach', 'analyst', 'viewer'];
+    const validRoles = ['platform_admin', 'owner', 'coach'];
     if (role && !validRoles.includes(role)) {
       return NextResponse.json(
         { error: 'Invalid role value' },

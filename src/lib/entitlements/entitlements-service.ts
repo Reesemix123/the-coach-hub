@@ -37,6 +37,39 @@ export interface VideoRequirements {
   acceptedFormats: string[];
 }
 
+export interface GameStorageLimits {
+  maxStoragePerGameBytes: number | null;
+  maxDurationPerGameSeconds: number | null;
+  maxDurationPerCameraSeconds: number | null;
+}
+
+export interface GameStorageUsage {
+  gameId: string;
+  teamId: string;
+  tier: string;
+  totalStorageBytes: number;
+  totalDurationSeconds: number;
+  cameraCount: number;
+  limits: GameStorageLimits;
+  isStorageExceeded: boolean;
+  isDurationExceeded: boolean;
+}
+
+export interface GameUploadCheckResult {
+  allowed: boolean;
+  reason?: string;
+  message?: string;
+  currentBytes?: number;
+  fileBytes?: number;
+  maxBytes?: number;
+  currentSeconds?: number;
+  fileSeconds?: number;
+  maxSeconds?: number;
+  cameraLane?: number;
+  currentCameraSeconds?: number;
+  maxCameraSeconds?: number;
+}
+
 export interface TierInfo {
   tierKey: SubscriptionTier;
   displayName: string;
@@ -80,10 +113,12 @@ export class EntitlementsService {
     tier: SubscriptionTier;
     status: SubscriptionStatus;
     billing_waived: boolean;
+    past_due_since: string | null;
+    payment_suspended: boolean;
   } | null> {
     const { data, error } = await this.supabase
       .from('subscriptions')
-      .select('tier, status, billing_waived')
+      .select('tier, status, billing_waived, past_due_since, payment_suspended')
       .eq('team_id', teamId)
       .single();
 
@@ -94,7 +129,9 @@ export class EntitlementsService {
     return {
       tier: data.tier as SubscriptionTier,
       status: data.status as SubscriptionStatus,
-      billing_waived: data.billing_waived
+      billing_waived: data.billing_waived,
+      past_due_since: data.past_due_since,
+      payment_suspended: data.payment_suspended || false
     };
   }
 
@@ -137,9 +174,66 @@ export class EntitlementsService {
     return data as TierConfig[];
   }
 
-  private isActiveStatus(status: SubscriptionStatus, billingWaived: boolean): boolean {
+  private isActiveStatus(
+    status: SubscriptionStatus,
+    billingWaived: boolean,
+    pastDueSince: string | null,
+    paymentSuspended: boolean
+  ): boolean {
     if (billingWaived) return true;
+
+    // If payment is suspended (grace period expired), deny access
+    if (paymentSuspended) return false;
+
+    // If past_due, check if within 7-day grace period
+    if (status === 'past_due' && pastDueSince) {
+      const gracePeriodDays = 7;
+      const pastDueDate = new Date(pastDueSince);
+      const gracePeriodEnd = new Date(pastDueDate.getTime() + gracePeriodDays * 24 * 60 * 60 * 1000);
+
+      if (new Date() > gracePeriodEnd) {
+        // Grace period expired - should be suspended
+        // (The webhook or a cron should have set payment_suspended, but check here too)
+        return false;
+      }
+    }
+
     return ['active', 'trialing', 'past_due', 'waived'].includes(status);
+  }
+
+  /**
+   * Get payment status info for a team (for displaying warnings)
+   */
+  async getPaymentStatus(teamId: string): Promise<{
+    status: 'current' | 'past_due' | 'suspended' | 'none';
+    gracePeriodDaysRemaining: number | null;
+    pastDueSince: string | null;
+  }> {
+    const subscription = await this.getSubscription(teamId);
+
+    if (!subscription) {
+      return { status: 'none', gracePeriodDaysRemaining: null, pastDueSince: null };
+    }
+
+    if (subscription.payment_suspended) {
+      return { status: 'suspended', gracePeriodDaysRemaining: 0, pastDueSince: subscription.past_due_since };
+    }
+
+    if (subscription.status === 'past_due' && subscription.past_due_since) {
+      const gracePeriodDays = 7;
+      const pastDueDate = new Date(subscription.past_due_since);
+      const now = new Date();
+      const daysPassed = Math.floor((now.getTime() - pastDueDate.getTime()) / (24 * 60 * 60 * 1000));
+      const daysRemaining = Math.max(0, gracePeriodDays - daysPassed);
+
+      if (daysRemaining === 0) {
+        return { status: 'suspended', gracePeriodDaysRemaining: 0, pastDueSince: subscription.past_due_since };
+      }
+
+      return { status: 'past_due', gracePeriodDaysRemaining: daysRemaining, pastDueSince: subscription.past_due_since };
+    }
+
+    return { status: 'current', gracePeriodDaysRemaining: null, pastDueSince: null };
   }
 
   // ============================================================================
@@ -156,7 +250,7 @@ export class EntitlementsService {
       return { allowed: false, reason: 'No subscription found' };
     }
 
-    if (!this.isActiveStatus(subscription.status, subscription.billing_waived)) {
+    if (!this.isActiveStatus(subscription.status, subscription.billing_waived, subscription.past_due_since, subscription.payment_suspended)) {
       return { allowed: false, reason: 'Subscription is not active' };
     }
 
@@ -221,7 +315,7 @@ export class EntitlementsService {
       return { allowed: false, reason: 'No subscription found' };
     }
 
-    if (!this.isActiveStatus(subscription.status, subscription.billing_waived)) {
+    if (!this.isActiveStatus(subscription.status, subscription.billing_waived, subscription.past_due_since, subscription.payment_suspended)) {
       return { allowed: false, reason: 'Subscription is not active' };
     }
 
@@ -286,7 +380,7 @@ export class EntitlementsService {
       return { allowed: false, reason: 'No subscription found' };
     }
 
-    if (!this.isActiveStatus(subscription.status, subscription.billing_waived)) {
+    if (!this.isActiveStatus(subscription.status, subscription.billing_waived, subscription.past_due_since, subscription.payment_suspended)) {
       return { allowed: false, reason: 'Subscription is not active' };
     }
 
@@ -326,7 +420,7 @@ export class EntitlementsService {
       return { allowed: false, reason: 'No subscription found' };
     }
 
-    if (!this.isActiveStatus(subscription.status, subscription.billing_waived)) {
+    if (!this.isActiveStatus(subscription.status, subscription.billing_waived, subscription.past_due_since, subscription.payment_suspended)) {
       return { allowed: false, reason: 'Subscription is not active' };
     }
 
@@ -562,6 +656,123 @@ export class EntitlementsService {
   }
 
   // ============================================================================
+  // Game Storage Limits
+  // ============================================================================
+
+  /**
+   * Get game storage limits for a team's tier
+   */
+  async getGameStorageLimits(teamId: string): Promise<GameStorageLimits> {
+    const subscription = await this.getSubscription(teamId);
+    const tierConfig = subscription ? await this.getTierConfig(subscription.tier) : null;
+
+    return {
+      maxStoragePerGameBytes: tierConfig?.max_storage_per_game_bytes || null,
+      maxDurationPerGameSeconds: tierConfig?.max_duration_per_game_seconds || null,
+      maxDurationPerCameraSeconds: tierConfig?.max_duration_per_camera_seconds || null
+    };
+  }
+
+  /**
+   * Get current storage/duration usage for a game
+   */
+  async getGameStorageUsage(gameId: string): Promise<GameStorageUsage | null> {
+    const { data, error } = await this.supabase.rpc('get_game_storage_usage', {
+      p_game_id: gameId
+    });
+
+    if (error || !data) {
+      console.error('Failed to get game storage usage:', error);
+      return null;
+    }
+
+    return {
+      gameId: data.game_id,
+      teamId: data.team_id,
+      tier: data.tier,
+      totalStorageBytes: data.total_storage_bytes,
+      totalDurationSeconds: data.total_duration_seconds,
+      cameraCount: data.camera_count,
+      limits: {
+        maxStoragePerGameBytes: data.limits?.max_storage_bytes || null,
+        maxDurationPerGameSeconds: data.limits?.max_duration_seconds || null,
+        maxDurationPerCameraSeconds: data.limits?.max_duration_per_camera_seconds || null
+      },
+      isStorageExceeded: data.is_storage_exceeded,
+      isDurationExceeded: data.is_duration_exceeded
+    };
+  }
+
+  /**
+   * Check if a video upload is allowed for a game based on per-game limits
+   */
+  async checkGameUploadAllowed(
+    gameId: string,
+    fileSizeBytes: number,
+    durationSeconds?: number,
+    cameraLane?: number
+  ): Promise<GameUploadCheckResult> {
+    const { data, error } = await this.supabase.rpc('check_game_upload_allowed', {
+      p_game_id: gameId,
+      p_file_size_bytes: fileSizeBytes,
+      p_duration_seconds: durationSeconds || null,
+      p_camera_lane: cameraLane || null
+    });
+
+    if (error) {
+      console.error('Failed to check game upload allowed:', error);
+      // Allow upload if check fails (fail open)
+      return { allowed: true };
+    }
+
+    return {
+      allowed: data.allowed,
+      reason: data.reason,
+      message: data.message,
+      currentBytes: data.current_bytes || data.current_storage_bytes,
+      fileBytes: data.file_bytes,
+      maxBytes: data.max_bytes,
+      currentSeconds: data.current_seconds || data.current_duration_seconds,
+      fileSeconds: data.file_seconds,
+      maxSeconds: data.max_seconds,
+      cameraLane: data.camera_lane,
+      currentCameraSeconds: data.current_camera_seconds,
+      maxCameraSeconds: data.max_camera_seconds
+    };
+  }
+
+  /**
+   * Check if adding a clip to a timeline lane is allowed
+   */
+  async checkTimelineClipAllowed(
+    gameId: string,
+    cameraLane: number,
+    videoId: string
+  ): Promise<GameUploadCheckResult> {
+    const { data, error } = await this.supabase.rpc('check_timeline_clip_allowed', {
+      p_game_id: gameId,
+      p_camera_lane: cameraLane,
+      p_video_id: videoId
+    });
+
+    if (error) {
+      console.error('Failed to check timeline clip allowed:', error);
+      // Allow if check fails (fail open)
+      return { allowed: true };
+    }
+
+    return {
+      allowed: data.allowed,
+      reason: data.reason,
+      message: data.message,
+      cameraLane: data.camera_lane,
+      currentCameraSeconds: data.current_lane_seconds,
+      fileSeconds: data.clip_seconds,
+      maxCameraSeconds: data.max_camera_seconds
+    };
+  }
+
+  // ============================================================================
   // Helpers
   // ============================================================================
 
@@ -610,4 +821,49 @@ export async function checkCanAddCamera(teamId: string, gameId: string): Promise
 export async function checkCanAccessGame(teamId: string, gameId: string): Promise<EntitlementResult> {
   const service = await createEntitlementsService();
   return service.canAccessGame(teamId, gameId);
+}
+
+/**
+ * Quick check if a video upload is allowed for a game based on per-game limits
+ */
+export async function checkGameUploadAllowed(
+  gameId: string,
+  fileSizeBytes: number,
+  durationSeconds?: number,
+  cameraLane?: number
+): Promise<GameUploadCheckResult> {
+  const service = await createEntitlementsService();
+  return service.checkGameUploadAllowed(gameId, fileSizeBytes, durationSeconds, cameraLane);
+}
+
+/**
+ * Quick check if adding a clip to a timeline lane is allowed
+ */
+export async function checkTimelineClipAllowed(
+  gameId: string,
+  cameraLane: number,
+  videoId: string
+): Promise<GameUploadCheckResult> {
+  const service = await createEntitlementsService();
+  return service.checkTimelineClipAllowed(gameId, cameraLane, videoId);
+}
+
+/**
+ * Get game storage usage and limits
+ */
+export async function getGameStorageUsage(gameId: string): Promise<GameStorageUsage | null> {
+  const service = await createEntitlementsService();
+  return service.getGameStorageUsage(gameId);
+}
+
+/**
+ * Get payment status for a team (for warning banners)
+ */
+export async function getPaymentStatus(teamId: string): Promise<{
+  status: 'current' | 'past_due' | 'suspended' | 'none';
+  gracePeriodDaysRemaining: number | null;
+  pastDueSince: string | null;
+}> {
+  const service = await createEntitlementsService();
+  return service.getPaymentStatus(teamId);
 }

@@ -32,8 +32,6 @@ View all coaches and staff who have access to your team.
 |------|-------------|
 | **Owner** | Full control - manage team, billing, coaches, and all features |
 | **Coach** | Create/edit plays, tag film, manage games and roster |
-| **Analyst** | Tag film, view analytics, access playbook |
-| **Viewer** | View-only access to film, analytics, and playbook |
 
 > **Note:** Only the team owner can add or remove coaches. This is done from the Console, not the Settings page.
 
@@ -57,21 +55,15 @@ Track your game upload tokens and usage for the billing period.
 
 > **Tip:** Tokens reset at the beginning of each billing period. Unused tokens don't roll over.
 
-### AI Credits
+### AI Features
 
-Monitor your AI feature usage (Premium plan feature).
+AI-powered tools to speed up your workflow (Plus and Premium plans).
 
-**What you'll see:**
+**Available AI Features:**
 
-- **Credits Used** - AI credits consumed this period
-- **Credits Allowed** - Your monthly AI credit allocation
-- **Usage Percentage** - Visual indicator of credit consumption
-
-**AI Features That Use Credits:**
-
-- AI play detection
-- Automated play tagging suggestions
-- Pattern recognition analysis
+- **AI Tag Suggestions** - Get intelligent recommendations while tagging plays
+- **Play Detection** - Automatically identify play boundaries in your film
+- **Pattern Recognition** - Surface insights from your tagged plays
 
 ### Onboarding
 
@@ -113,7 +105,7 @@ Your new plan takes effect immediately, and tokens are prorated.
 ### Regular Check-ins
 
 - Review your token usage mid-month to ensure you have enough uploads
-- Check AI credits if you're using automated features
+- Explore AI features if you're on Plus or Premium
 
 ### Team Communication
 
@@ -123,18 +115,18 @@ Your new plan takes effect immediately, and tokens are prorated.
 ### Plan Appropriately
 
 - If you consistently run out of tokens, consider upgrading
-- Premium plan is best if you want AI-assisted tagging
+- Plus or Premium plans include AI-assisted tagging
 
 ## Troubleshooting
 
 ### Can't See Settings?
 
-Only team owners and coaches can access settings. Viewers and analysts have limited access.
+Only team owners and coaches can access settings.
 
 ### Missing Features?
 
 Some features are plan-specific:
-- AI Credits tab only appears for Premium plans
+- AI features are available on Plus and Premium plans
 - Token limits vary by plan
 
 ### Need to Add Coaches?
@@ -149,5 +141,5 @@ Adding coaches is done from the Console, not Settings:
 ## Next Steps
 
 - [Manage your roster](/guide/teams/roster-management)
-- [Set up your schedule](/guide/teams/seasons)
+- [Set up your schedule](/guide/teams/schedule)
 - [Invite more coaches](/guide/getting-started/inviting-coaches)

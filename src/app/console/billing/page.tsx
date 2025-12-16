@@ -13,7 +13,9 @@ import {
   AlertTriangle,
   CheckCircle,
   XCircle,
-  Settings
+  Settings,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import ConsoleNav from '@/components/console/ConsoleNav';
 
@@ -62,6 +64,8 @@ export default function ConsoleBillingPage() {
   const [billingData, setBillingData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -92,6 +96,30 @@ export default function ConsoleBillingPage() {
     }
 
     setLoading(false);
+  }
+
+  async function openStripePortal() {
+    setPortalLoading(true);
+    setPortalError(null);
+
+    try {
+      const response = await fetch('/api/console/billing/stripe/portal', {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Redirect to Stripe's billing portal
+        window.location.href = data.url;
+      } else {
+        const errData = await response.json();
+        setPortalError(errData.message || errData.error || 'Failed to open billing portal');
+        setPortalLoading(false);
+      }
+    } catch {
+      setPortalError('Failed to connect to server');
+      setPortalLoading(false);
+    }
   }
 
   function formatCurrency(cents: number): string {
@@ -283,6 +311,41 @@ export default function ConsoleBillingPage() {
                 {billingData?.summary.past_due_subscriptions || 0}
               </p>
             </div>
+          </div>
+
+          {/* Payment Method Section */}
+          <div className="mb-8 p-6 bg-white border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Payment Method</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manage your payment method through our secure payment partner, Stripe.
+                </p>
+              </div>
+              <button
+                onClick={openStripePortal}
+                disabled={portalLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {portalLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Opening...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    Manage Payment Method
+                    <ExternalLink className="w-3 h-3" />
+                  </>
+                )}
+              </button>
+            </div>
+            {portalError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{portalError}</p>
+              </div>
+            )}
           </div>
 
           {/* Team Subscriptions Section */}

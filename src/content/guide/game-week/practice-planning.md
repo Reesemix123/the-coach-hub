@@ -1,12 +1,14 @@
 ---
-title: Practice Planning
+title: Data-Driven Practice
 description: Use analytics to design focused, efficient practices that prepare your team for game day.
 order: 3
 ---
 
-## Data-Driven Practice
+## Overview
 
-Practice time is limited. Youth Coach Hub helps you use it wisely by identifying exactly what your team needs to work on based on real performance data.
+Practice time is limited. Use your analytics to identify exactly what your team needs to work on based on real performance data.
+
+> **Looking for how to build practices in the app?** See [Creating Practice Plans](/guide/practice/creating-practice-plans) for step-by-step instructions on building and managing practice plans.
 
 ## Identifying Practice Priorities
 
@@ -97,31 +99,18 @@ Over time, you can see if practice is translating:
 - Are situations you focus on improving?
 - Is there carryover from practice to games?
 
-## Weekly Practice Template
+## Weekly Practice Flow
 
-**Monday: Install & Corrections**
-- Review film from previous game
-- Identify areas for improvement
-- Begin installing game plan
+Use your analytics to structure each day's focus:
 
-**Tuesday: Situational Focus**
-- Practice identified priorities
-- Run opponent scout looks
-- Work on corrections from Monday
+| Day | Focus | Data Source |
+|-----|-------|-------------|
+| **Monday** | Film review, corrections | Previous game analytics |
+| **Tuesday** | Priority situations | Success rate by situation |
+| **Wednesday** | Team execution | Game plan plays, opponent tendencies |
+| **Thursday** | Fine-tuning | Remaining weak spots |
+| **Friday** | Mental reps | Walk through key plays |
 
-**Wednesday: Team Execution**
-- Full team periods with game situations
-- Polish game plan plays
-- Simulate opponent tendencies
-
-**Thursday: Fine-Tuning**
-- Light practice
-- Review key adjustments
-- Walk through game plan
-
-**Friday: Mental Prep**
-- Walk through only
-- Review scouting report
-- Visualize game situations
+> **Tip:** Use [practice templates](/guide/practice/templates) to save your weekly structure and customize each week based on what your data tells you.
 
 > **Remember:** The goal isn't to practice everything - it's to practice the right things. Your analytics tell you what matters most.

@@ -27,7 +27,7 @@ export interface TeamWithMembership {
 export interface InviteCoachParams {
   teamId: string;
   email: string;
-  role: 'coach' | 'analyst' | 'viewer';
+  role: 'owner' | 'coach';
 }
 
 export interface InviteCoachResult {
@@ -375,7 +375,7 @@ export class TeamMembershipService {
    * Only owners can change roles
    * Cannot change own role
    */
-  async updateRole(teamId: string, targetUserId: string, newRole: 'owner' | 'coach' | 'analyst' | 'viewer'): Promise<void> {
+  async updateRole(teamId: string, targetUserId: string, newRole: 'owner' | 'coach'): Promise<void> {
     // Verify current user
     const { data: { user } } = await this.supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -426,7 +426,7 @@ export class TeamMembershipService {
    * Get current user's role for a team
    * Returns null if not a member
    */
-  async getUserRole(teamId: string, userId?: string): Promise<'owner' | 'coach' | 'analyst' | 'viewer' | null> {
+  async getUserRole(teamId: string, userId?: string): Promise<'owner' | 'coach' | null> {
     // Get current user if not specified
     if (!userId) {
       const { data: { user } } = await this.supabase.auth.getUser();
@@ -485,18 +485,18 @@ export class TeamMembershipService {
    * Check if user has specific permission level
    * @param teamId - Team to check
    * @param userId - User to check (defaults to current user)
-   * @param minRole - Minimum role required ('owner', 'coach', 'analyst', 'viewer')
+   * @param minRole - Minimum role required ('owner', 'coach')
    */
   async hasPermission(
     teamId: string,
-    minRole: 'owner' | 'coach' | 'analyst' | 'viewer',
+    minRole: 'owner' | 'coach',
     userId?: string
   ): Promise<boolean> {
     const userRole = await this.getUserRole(teamId, userId);
     if (!userRole) return false;
 
-    // Role hierarchy: owner > coach > analyst > viewer
-    const roleHierarchy = { owner: 4, coach: 3, analyst: 2, viewer: 1 };
+    // Role hierarchy: owner > coach
+    const roleHierarchy = { owner: 2, coach: 1 };
     return roleHierarchy[userRole] >= roleHierarchy[minRole];
   }
 }

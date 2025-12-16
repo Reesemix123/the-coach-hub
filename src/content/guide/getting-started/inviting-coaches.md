@@ -18,9 +18,8 @@ When inviting a coach, you'll assign them one of these roles:
 
 | Role | Permissions |
 |------|-------------|
+| **Owner** | Full access including team settings, billing, and member management |
 | **Coach** | Tag plays, view analytics, manage roster, access playbook |
-| **Analyst** | Tag plays, view analytics, access playbook (cannot manage roster) |
-| **Viewer** | View-only access to film, analytics, and playbook |
 
 ## How to Invite a Coach
 
@@ -39,7 +38,7 @@ When inviting a coach, you'll assign them one of these roles:
 
 1. Click the **Add Coach** or **Invite** button
 2. Enter the coach's email address
-3. Select their role (Coach, Analyst, or Viewer)
+3. Select their role
 4. Click **Send Invitation**
 
 ### Step 4: Coach Receives Invitation
@@ -110,9 +109,8 @@ Deactivated members can no longer access the team but their tagging contribution
 
 ### Assign Roles Thoughtfully
 
-- **Coach** role is best for assistant coaches who need full access
-- **Analyst** role works well for volunteers who help with film review
-- **Viewer** role is useful for parents or players who want to see analytics
+- **Owner** role for head coaches who need full team control
+- **Coach** role for assistant coaches who need access to film and playbook
 
 ### Communicate Expectations
 
@@ -153,7 +151,7 @@ If a coach created an account but can't see the team:
 Some plans have limits on the number of coaches:
 
 - Check your plan's coach limit in Console > Billing
-- Upgrade your plan or purchase additional coach seats if needed
+- Upgrade to a higher tier for more coach seats
 
 ## Next Steps
 

@@ -12,6 +12,18 @@ import type {
 } from '@/types/timeline';
 
 /**
+ * Result of a clip validation check
+ */
+export interface ClipValidationResult {
+  allowed: boolean;
+  reason?: string;
+  message?: string;
+  currentLaneSeconds?: number;
+  clipSeconds?: number;
+  maxCameraSeconds?: number;
+}
+
+/**
  * TimelineService handles all CRUD operations for the multi-clip camera timeline feature
  */
 export class TimelineService {
@@ -202,21 +214,70 @@ export class TimelineService {
   }
 
   /**
+   * Validate if adding a clip to a lane is allowed based on per-camera duration limits
+   */
+  async validateClipAddition(
+    gameId: string,
+    cameraLane: number,
+    videoId: string
+  ): Promise<ClipValidationResult> {
+    // Call the database function to check limits
+    const { data, error } = await this.supabase.rpc('check_timeline_clip_allowed', {
+      p_game_id: gameId,
+      p_camera_lane: cameraLane,
+      p_video_id: videoId,
+    });
+
+    if (error) {
+      console.error('Failed to validate clip addition:', error);
+      // Allow if check fails (fail open for now)
+      return { allowed: true };
+    }
+
+    return {
+      allowed: data.allowed,
+      reason: data.reason,
+      message: data.message,
+      currentLaneSeconds: data.current_lane_seconds,
+      clipSeconds: data.clip_seconds,
+      maxCameraSeconds: data.max_camera_seconds,
+    };
+  }
+
+  /**
    * Add a clip to a lane
    */
   async addClip(
     videoGroupId: string,
-    data: CreateClipData
+    data: CreateClipData,
+    gameId?: string,
+    validateLimits: boolean = true
   ): Promise<TimelineClip> {
     // Get video info first
     const { data: video, error: videoError } = await this.supabase
       .from('videos')
-      .select('name, url, thumbnail_url, duration_seconds')
+      .select('name, url, thumbnail_url, duration_seconds, game_id')
       .eq('id', data.videoId)
       .single();
 
     if (videoError || !video) {
       throw new Error('Video not found');
+    }
+
+    // Validate per-camera duration limits if requested
+    if (validateLimits) {
+      const actualGameId = gameId || video.game_id;
+      if (actualGameId) {
+        const validation = await this.validateClipAddition(
+          actualGameId,
+          data.cameraLane,
+          data.videoId
+        );
+
+        if (!validation.allowed) {
+          throw new Error(validation.message || 'Camera duration limit would be exceeded');
+        }
+      }
     }
 
     // Insert the clip
@@ -256,7 +317,31 @@ export class TimelineService {
   /**
    * Move a clip to a new position or lane
    */
-  async moveClip(data: MoveClipData): Promise<void> {
+  async moveClip(data: MoveClipData, gameId?: string, validateLimits: boolean = true): Promise<void> {
+    // If moving to a different lane, validate per-camera limits
+    if (validateLimits && gameId && data.originalLane !== undefined && data.originalLane !== data.newLane) {
+      // Get the video ID for this clip
+      const { data: member, error: memberError } = await this.supabase
+        .from('video_group_members')
+        .select('video_id')
+        .eq('id', data.clipId)
+        .single();
+
+      if (memberError || !member) {
+        throw new Error('Clip not found');
+      }
+
+      const validation = await this.validateClipAddition(
+        gameId,
+        data.newLane,
+        member.video_id
+      );
+
+      if (!validation.allowed) {
+        throw new Error(validation.message || 'Moving this clip would exceed the camera duration limit');
+      }
+    }
+
     const { error } = await this.supabase
       .from('video_group_members')
       .update({

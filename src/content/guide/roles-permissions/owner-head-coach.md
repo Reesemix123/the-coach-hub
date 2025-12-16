@@ -68,7 +68,7 @@ Access the Console for administrative functions:
 1. Go to **Console > People**
 2. Click **Add Coach** or **Invite**
 3. Enter their email address
-4. Select their role (Coach, Analyst, or Viewer)
+4. Select their role
 5. Send the invitation
 
 See [Managing Team Members](/guide/roles-permissions/managing-team-members) for details.
@@ -77,9 +77,8 @@ See [Managing Team Members](/guide/roles-permissions/managing-team-members) for 
 
 When inviting, choose the appropriate role:
 
-- **Coach** - For assistant coaches who need full coaching access
-- **Analyst** - For volunteers helping with film tagging
-- **Viewer** - For read-only access (parents, players)
+- **Owner** - For head coaches who need full team control
+- **Coach** - For assistant coaches who need coaching access
 
 ### Monitoring Activity
 
@@ -112,7 +111,7 @@ The owner manages all billing:
 Track your team's resource usage:
 
 - Upload tokens used and remaining
-- AI credits (if applicable)
+- AI feature usage (Plus and Premium plans)
 - Storage consumption
 
 ## Team Settings
@@ -140,8 +139,8 @@ As owner, you're responsible for:
 
 You don't have to do everything yourself:
 
-- Assign coordinators as Coaches
-- Let volunteers tag film as Analysts
+- Assign coordinators and assistants as Coaches
+- Let coaches help with film tagging
 - Focus on administration and oversight
 
 ### Backup Access

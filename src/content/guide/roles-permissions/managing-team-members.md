@@ -36,9 +36,8 @@ The People page shows:
 
 1. Enter the person's email address
 2. Select their role:
+   - **Owner** - Full team control and billing access
    - **Coach** - Full coaching access
-   - **Analyst** - Film and playbook access
-   - **Viewer** - Read-only access
 
 ### Step 3: Send the Invitation
 
@@ -99,10 +98,9 @@ To revoke an invitation before it's accepted:
 
 You might change a role when:
 
-- Promoting an analyst to coach
-- Limiting a coach to analyst
-- Giving a viewer tagging access
+- Promoting a coach to owner
 - Adjusting responsibilities
+- Transferring team ownership
 
 ### How to Change a Role
 
@@ -202,23 +200,17 @@ When inviting new members:
 2. Their tagging work is preserved
 3. Reassign their responsibilities
 
-### Volunteer Joining for Film
-
-1. Invite as Analyst role
-2. Explain tagging conventions
-3. Assign specific games to tag
-
-### Parent Wants to See Stats
-
-1. Invite as Viewer role
-2. They can see analytics
-3. Cannot modify anything
-
 ### New Assistant Coach Starting
 
 1. Invite as Coach role
 2. Provide onboarding information
 3. Introduce to existing workflows
+
+### Volunteer Helping with Film
+
+1. Invite as Coach role
+2. Explain tagging conventions
+3. Assign specific games to tag
 
 ## Troubleshooting
 

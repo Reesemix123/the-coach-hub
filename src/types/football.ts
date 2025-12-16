@@ -592,7 +592,7 @@ export interface TeamMembership {
   id: string;
   team_id: string;
   user_id: string;
-  role: 'owner' | 'coach' | 'analyst' | 'viewer';
+  role: 'owner' | 'coach';
   invited_by?: string;
   invited_at: string;
   joined_at: string;

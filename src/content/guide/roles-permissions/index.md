@@ -20,29 +20,25 @@ Youth Coach Hub supports multi-coach collaboration with different permission lev
 |------|-------------|
 | **Owner** | Team creator with full control and billing access |
 | **Coach** | Full coaching features without admin/billing access |
-| **Analyst** | Film tagging and analytics access |
-| **Viewer** | Read-only access to team content |
 
 ### Quick Reference
 
 **Who can...**
 
-| Action | Owner | Coach | Analyst | Viewer |
-|--------|-------|-------|---------|--------|
-| View playbook | ✓ | ✓ | ✓ | ✓ |
-| View analytics | ✓ | ✓ | ✓ | ✓ |
-| Tag plays | ✓ | ✓ | ✓ | ✗ |
-| Create plays | ✓ | ✓ | ✓ | ✗ |
-| Manage roster | ✓ | ✓ | ✗ | ✗ |
-| Manage schedule | ✓ | ✓ | ✗ | ✗ |
-| Upload film | ✓ | ✓ | ✗ | ✗ |
-| Invite coaches | ✓ | ✗ | ✗ | ✗ |
-| Manage billing | ✓ | ✗ | ✗ | ✗ |
-| Delete team | ✓ | ✗ | ✗ | ✗ |
+| Action | Owner | Coach |
+|--------|-------|-------|
+| View playbook | ✓ | ✓ |
+| View analytics | ✓ | ✓ |
+| Tag plays | ✓ | ✓ |
+| Create plays | ✓ | ✓ |
+| Manage roster | ✓ | ✓ |
+| Manage schedule | ✓ | ✓ |
+| Upload film | ✓ | ✓ |
+| Invite coaches | ✓ | ✗ |
+| Manage billing | ✓ | ✗ |
+| Delete team | ✓ | ✗ |
 
 ### Choosing the Right Role
 
 - **Owner** - The head coach or primary administrator
 - **Coach** - Assistant coaches and coordinators
-- **Analyst** - Volunteers helping with film review
-- **Viewer** - Parents, players, or observers

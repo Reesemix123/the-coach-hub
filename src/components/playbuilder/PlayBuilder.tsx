@@ -221,6 +221,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   );
   const [formation, setFormation] = useState(existingPlay?.attributes.formation || '');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isDuplicateMode, setIsDuplicateMode] = useState(false);
 
   // Offensive Play Attributes
   const [playType, setPlayType] = useState(existingPlay?.attributes.playType || '');
@@ -383,6 +384,36 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     }
     router.push(`/teams/${teamId}/playbook`);
   }, [hasUnsavedChanges, router, teamId]);
+
+  // Duplicate play handler - creates a copy of the current play
+  const handleDuplicate = useCallback(async () => {
+    // Generate a new play code
+    const { data, error } = await supabase
+      .from('playbook_plays')
+      .select('play_code')
+      .eq('team_id', teamId === 'personal' ? null : teamId)
+      .order('created_at', { ascending: false });
+
+    let newCode = 'P-001';
+    if (!error && data && data.length > 0) {
+      let maxNum = 0;
+      data.forEach(item => {
+        const match = item.play_code.match(/P-(\d+)/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+      newCode = `P-${(maxNum + 1).toString().padStart(3, '0')}`;
+    }
+
+    // Update state for duplicate mode
+    setPlayCode(newCode);
+    setPlayName(prev => prev.endsWith(' (Copy)') ? prev : `${prev} (Copy)`);
+    setIsDuplicateMode(true);
+    setHasUnsavedChanges(true);
+    toast.success('Duplicating play - save to create the copy');
+  }, [teamId, supabase]);
 
   useEffect(() => {
     if (!existingPlay && !playCode) {
@@ -1751,7 +1782,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     };
 
     try {
-      if (existingPlay) {
+      if (existingPlay && !isDuplicateMode) {
         const { error } = await supabase
           .from('playbook_plays')
           .update({
@@ -1846,8 +1877,9 @@ const loadSpecialTeamFormation = (teamType: string) => {
           }
         }
 
-        toast.success('Play saved successfully!');
+        toast.success(isDuplicateMode ? 'Play duplicated successfully!' : 'Play saved successfully!');
         setHasUnsavedChanges(false);
+        setIsDuplicateMode(false);
         // Clear auto-save draft
         localStorage.removeItem(`playbuilder-draft-${teamId}`);
         setLastAutoSave(null);
@@ -1861,7 +1893,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
     } finally {
       setIsSaving(false);
     }
-  }, [playName, formation, saveAnywayConfirmed, odk, players, playType, routes, targetHole, ballCarrier, coverage, existingPlay, playCode, teamId, onSave, supabase, isSaving]);
+  }, [playName, formation, saveAnywayConfirmed, odk, players, playType, routes, targetHole, ballCarrier, coverage, existingPlay, playCode, teamId, onSave, supabase, isSaving, isDuplicateMode]);
 
   // Keyboard navigation - must be after handleBack and savePlay are defined
   useEffect(() => {
@@ -2421,10 +2453,11 @@ const loadSpecialTeamFormation = (teamType: string) => {
       <PlayBuilderHeader
         hasUnsavedChanges={hasUnsavedChanges}
         lastAutoSave={lastAutoSave}
-        existingPlay={existingPlay}
+        existingPlay={existingPlay && !isDuplicateMode ? existingPlay : null}
         isSaving={isSaving}
         onBack={handleBack}
         onSave={savePlay}
+        onDuplicate={existingPlay ? handleDuplicate : undefined}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { DocsSidebar, MobileDocNav } from '@/components/docs';
 import { docsNavigation } from '@/config/docs-navigation';
-import { Rocket, Users, BookOpen, Video, BarChart3, Calendar, Shield, CreditCard, Sparkles, HelpCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Rocket, Users, BookOpen, ClipboardList, Video, BarChart3, Calendar, Shield, CreditCard, Sparkles, HelpCircle, ArrowRight } from 'lucide-react';
 
 // Map icon names to components
 const iconMap: Record<string, React.ElementType> = {
   Rocket,
   Users,
   BookOpen,
+  ClipboardList,
   Video,
   BarChart3,
   Calendar,
@@ -35,19 +36,10 @@ export default function GuidePage() {
           </aside>
 
           {/* Main Content */}
-          <main className="flex-1 min-w-0">
-            {/* Mobile Navigation & Back Button */}
-            <div className="flex items-center gap-3 mb-4">
-              <Link
-                href="/"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Dashboard</span>
-              </Link>
-              <div className="lg:hidden">
-                <MobileDocNav />
-              </div>
+          <main className="flex-1 min-w-0 max-w-3xl">
+            {/* Mobile Navigation */}
+            <div className="lg:hidden mb-4">
+              <MobileDocNav />
             </div>
 
             {/* Hero */}

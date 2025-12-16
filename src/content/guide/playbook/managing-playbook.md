@@ -1,12 +1,61 @@
 ---
-title: Organizing Your Playbook
-description: Learn how to structure and organize your plays for easy access and game planning.
-order: 2
+title: Managing Your Playbook
+description: Learn how to organize, edit, and maintain your playbook as it grows.
+order: 3
 ---
 
 ## Overview
 
-As your playbook grows, organization becomes essential. Youth Coach Hub provides multiple ways to categorize, filter, and find plays quickly during game week preparation and in-game situations.
+As your playbook grows, organization becomes essential. Youth Coach Hub provides multiple ways to categorize, filter, edit, and manage plays for easy access during game week preparation and in-game situations.
+
+## Editing Plays
+
+### Making Changes
+
+To modify an existing play:
+
+1. Find the play in your playbook
+2. Click to open it
+3. Click **Edit**
+4. Make your changes
+5. Click **Save**
+
+> **Note:** Editing a play updates it everywhere, including film tags that reference it.
+
+## Duplicating Plays
+
+### Creating Variations
+
+To create variations of existing plays:
+
+1. Open the play you want to copy
+2. Click **Duplicate**
+3. **Rename the play** - The name will have "(Copy)" appended; update it to describe the variation (e.g., "22 Power Left" to "22 Power Right")
+4. Modify the diagram or attributes as needed
+5. Click **Save Play**
+
+### When to Duplicate
+
+This is useful for:
+
+- Creating mirrored versions (left/right)
+- Adding motion variations
+- Building play-action off run plays
+- Creating situational variations (red zone, goal line)
+
+> **Note:** The duplicate gets a new play code automatically. All film tags stay with the original play.
+
+## Deleting Plays
+
+### Removing a Play
+
+To remove a play:
+
+1. Open the play
+2. Click **Delete** or **Archive**
+3. Confirm the action
+
+> **Warning:** Deleted plays are permanently removed. Consider archiving instead if you might need it later.
 
 ## Playbook Views
 
@@ -128,6 +177,23 @@ During game week:
 2. Filter by those tags during the game
 3. Quickly access your game plan plays
 
+## Search Functionality
+
+### Quick Search
+
+Use the search bar to find plays by:
+
+- Play name
+- Play code
+- Formation name
+- Concept name
+
+### Search Tips
+
+- Search "power" to find all Power plays
+- Search "trips" to find all Trips formations
+- Search "P-042" to find a specific play code
+
 ## Organizing by Formation Family
 
 ### Formation Groups
@@ -178,23 +244,6 @@ Create temporary packages for each game:
 2. Filter by that tag during the game
 3. Remove tags after the game or archive
 
-## Search Functionality
-
-### Quick Search
-
-Use the search bar to find plays by:
-
-- Play name
-- Play code
-- Formation name
-- Concept name
-
-### Search Tips
-
-- Search "power" to find all Power plays
-- Search "trips" to find all Trips formations
-- Search "P-042" to find a specific play code
-
 ## Archiving Plays
 
 ### When to Archive
@@ -223,7 +272,7 @@ Archive plays that are:
 2. Click **Restore**
 3. The play returns to active status
 
-## Playbook Structure Recommendations
+## Playbook Size Recommendations
 
 ### By Level
 
@@ -316,6 +365,7 @@ Let performance guide organization:
 
 ## Next Steps
 
-- [Master the Play Builder](/guide/playbook/play-builder) for better diagrams
+- [Get started with plays](/guide/playbook/getting-started) for the basics
+- [Master the Play Builder](/guide/playbook/drawing-diagrams) for better diagrams
 - [Tag plays in film](/guide/film/tagging-plays) to see play performance
 - [View analytics](/guide/analytics/team-analytics) to identify your best plays

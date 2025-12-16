@@ -6,141 +6,73 @@ order: 1
 
 ## Overview
 
-Youth Coach Hub offers three subscription plans to meet the needs of different coaching programs. This guide provides a detailed comparison to help you choose the right plan.
+Youth Coach Hub offers three subscription plans. All plans include full access to every feature—the difference is in how much you can store and how long your film is retained.
 
 ## Plan Summary
 
-### Basic Plan
+### Basic Plan (Free)
 
-**Best for:** New coaches getting started with digital film
+**Best for:** New coaches trying out digital film
 
-- 2 game uploads per month
+- 1 team game + 1 opponent game per month
 - 1 camera angle per game
-- 30-day video storage
+- 5 GB storage per game (10 GB total)
+- 30-day video retention
 - Up to 3 coaches
-- Basic play tagging
-- Essential analytics
+- **Full access to all features**
 
 ### Plus Plan
 
-**Best for:** Established programs wanting comprehensive tools
+**Best for:** Established programs with regular film needs
 
-- 4 game uploads per month
+- 2 team games + 2 opponent games per month
 - 3 camera angles per game
-- 90-day video storage
-- Up to 10 coaches
-- Full play tagging (all levels)
-- Standard analytics
-- Player statistics
+- 10 GB storage per game (~240 GB total)
+- 180-day video retention (6 months)
+- Up to 5 coaches
+- **Full access to all features**
 
 ### Premium Plan
 
-**Best for:** Serious programs wanting every advantage
+**Best for:** Serious programs wanting maximum capacity
 
-- 8 game uploads per month
+- 4 team games + 4 opponent games per month
 - 5 camera angles per game
-- 1-year video storage
-- Unlimited coaches
-- Full play tagging with AI assistance
-- Advanced analytics
-- Complete player stats
-- Priority support
+- 25 GB storage per game (~2.4 TB total)
+- 365-day video retention (1 year)
+- Up to 10 coaches
+- **Full access to all features**
 
 ## Feature Comparison
 
-### Film Upload & Storage
+### All Plans Include
 
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Monthly uploads | 2 | 4 | 8 |
-| Camera angles | 1 | 3 | 5 |
-| Video storage | 30 days | 90 days | 1 year |
-| Max file size | 5 GB | 10 GB | 25 GB |
-| Video formats | MP4, MOV | All common | All formats |
+Every subscription tier has full access to:
 
-**What counts as an upload?**
-- Each game uses 1 upload token
-- Multiple camera angles count as 1 upload
-- Re-uploading a corrected file doesn't use a token
+- **Playbook Builder** - Create and manage your digital playbook
+- **Film Upload & Tagging** - Upload game film and tag plays
+- **All Tagging Levels** - Quick, Standard, and Comprehensive tagging
+- **Full Analytics Suite** - Season overview, game reports, offensive/defensive analysis
+- **Player Statistics** - Individual player performance tracking
+- **Situational Analysis** - Down, distance, and field position breakdowns
+- **Drive Analytics** - Points per drive, red zone efficiency
+- **Game Week Tools** - Game plans, opponent tendencies
+- **Roster Management** - Full player roster and depth charts
+- **Schedule Management** - Season calendar and game results
 
-### Play Tagging
+### Capacity Differences
 
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Quick tagging | ✓ | ✓ | ✓ |
-| Standard tagging | ✗ | ✓ | ✓ |
-| Comprehensive tagging | ✗ | ✓ | ✓ |
-| Player attribution | Limited | Full | Full |
-| Custom tags | 5 | 20 | Unlimited |
-| AI tag suggestions | ✗ | ✗ | ✓ |
-
-### Playbook
-
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Create plays | ✓ | ✓ | ✓ |
-| Formations library | 20+ | 40+ | 50+ |
-| Custom formations | ✗ | ✓ | ✓ |
-| Play organization | Basic | Full | Full |
-| Print/export plays | ✓ | ✓ | ✓ |
-
-### Analytics
-
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Team success rate | ✓ | ✓ | ✓ |
-| Play effectiveness | ✓ | ✓ | ✓ |
-| Situational analytics | ✗ | ✓ | ✓ |
-| Player statistics | ✗ | ✓ | ✓ |
-| Season trends | ✗ | ✓ | ✓ |
-| Advanced metrics | ✗ | ✗ | ✓ |
-| Custom reports | ✗ | ✗ | ✓ |
-
-### Team Management
-
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Coaches allowed | 3 | 10 | Unlimited |
-| Roster size | Unlimited | Unlimited | Unlimited |
-| Multiple teams | ✗ | ✓ | ✓ |
-| Role permissions | Basic | Full | Full |
-
-### Support
-
-| Feature | Basic | Plus | Premium |
-|---------|-------|------|---------|
-| Email support | ✓ | ✓ | ✓ |
-| Response time | 48 hours | 24 hours | 4 hours |
-| Video tutorials | ✓ | ✓ | ✓ |
-| Priority support | ✗ | ✗ | ✓ |
-
-## Choosing the Right Plan
-
-### Choose Basic If...
-
-- You're new to digital film review
-- You only need 1-2 games per month
-- You have a small coaching staff (1-3)
-- You want to try the platform affordably
-- Basic analytics meet your needs
-
-### Choose Plus If...
-
-- You film most or all games
-- You want comprehensive play tagging
-- You need player-level statistics
-- You have 4-10 coaches on staff
-- You want season trend analysis
-- You use multiple camera angles
-
-### Choose Premium If...
-
-- You want every available feature
-- You upload many games per month
-- You want AI-assisted tagging
-- You have a large coaching staff
-- Long-term video storage matters
-- You need priority support
+| Limit | Basic | Plus | Premium |
+|-------|-------|------|---------|
+| Team games/month | 1 | 2 | 4 |
+| Opponent games/month | 1 | 2 | 4 |
+| **Total games/month** | **2** | **4** | **8** |
+| Max active games | 2 | ~24 | ~96 |
+| Cameras per game | 1 | 3 | 5 |
+| Storage per game | 5 GB | 10 GB | 25 GB |
+| Total storage | 10 GB | ~240 GB | ~2.4 TB |
+| Video retention | 30 days | 180 days | 365 days |
+| Coaches allowed | 3 | 5 | 10 |
 
 ## Pricing
 
@@ -148,66 +80,115 @@ Youth Coach Hub offers three subscription plans to meet the needs of different c
 
 | Plan | Monthly Price |
 |------|---------------|
-| Basic | $19/month |
-| Plus | $49/month |
-| Premium | $99/month |
+| Basic | Free |
+| Plus | $29.99/month |
+| Premium | $79.99/month |
 
-### Annual Billing (Save 20%)
+### Annual Billing
 
-| Plan | Annual Price | Monthly Equivalent |
-|------|--------------|-------------------|
-| Basic | $182/year | $15.17/month |
-| Plus | $470/year | $39.17/month |
-| Premium | $950/year | $79.17/month |
+| Plan | Annual Price | Savings |
+|------|--------------|---------|
+| Basic | Free | - |
+| Plus | $299.90/year | Save ~$60 |
+| Premium | $799.90/year | Save ~$160 |
 
-> **Tip:** Annual billing saves you 2+ months of subscription cost.
+## Understanding the Limits
 
-## Add-Ons
+### Game Uploads
 
-### Additional Uploads
+Each month you receive upload tokens:
+- **Team games** - Film of your own team's games
+- **Opponent games** - Film for scouting opponents
 
-Need more uploads in a month?
+Tokens reset each billing cycle.
 
-- Purchase additional upload tokens
-- Tokens are added to your current month
-- Unused purchased tokens roll over (30 days)
+### Max Active Games
 
-### Additional Storage
+This represents how many games you can have accessible at once, based on your retention period:
+- **Basic:** 2 games × 30 days = up to 2 active games
+- **Plus:** 4 games/month × 6 months retention = ~24 active games
+- **Premium:** 8 games/month × 12 months retention = ~96 active games
 
-Need longer video retention?
+### Video Retention
 
-- Extend storage for specific games
-- Keep important games beyond normal retention
-- Archive championship games permanently
+How long your uploaded film remains accessible:
+- After the retention period, videos are automatically removed
+- **To keep film longer, upgrade your subscription**
+- There is no way to extend retention without upgrading
+
+### Storage Per Game
+
+Each game has a storage limit for all camera angles combined:
+- Basic: 5 GB total across all cameras
+- Plus: 10 GB total across all cameras
+- Premium: 25 GB total across all cameras
+
+### Cameras Per Game
+
+Multi-camera support varies by tier:
+- **Basic:** Single camera angle only
+- **Plus:** Up to 3 camera angles (sideline, end zone, etc.)
+- **Premium:** Up to 5 camera angles for complete coverage
+
+## Choosing the Right Plan
+
+### Choose Basic If...
+
+- You're new to digital film review
+- You want to try the platform for free
+- You only need 1-2 games per month
+- You have a small coaching staff (1-3)
+- Short-term film access is fine
+
+### Choose Plus If...
+
+- You film most of your games
+- You want multi-camera coverage
+- You need 6 months of film history
+- You have 4-5 coaches
+- You scout opponents regularly
+
+### Choose Premium If...
+
+- You want maximum game uploads
+- You need a full year of film retention
+- You use 4-5 camera angles
+- You have a large coaching staff
+- Season-long film access matters
+
+## Upgrading Your Plan
+
+When you upgrade:
+- New limits take effect immediately
+- Existing games get extended retention
+- You gain access to more cameras and storage
+- No data is lost
 
 ## Frequently Asked Questions
 
-### Can I change plans anytime?
+### Do all plans have the same features?
 
-Yes, you can upgrade or downgrade at any time. Changes take effect immediately.
+Yes. Every plan includes full access to all features: playbook, tagging, analytics, player stats, game planning, and more. The only differences are capacity limits.
 
-### What happens to my data if I downgrade?
+### What happens when videos expire?
 
-Your data is preserved. However, you may lose access to features (like advanced analytics) until you upgrade again.
+After your retention period (30/180/365 days), videos are automatically removed. Tagged play data is preserved, but video playback is no longer available.
+
+### Can I extend retention for specific games?
+
+The only way to extend retention is to upgrade your subscription. There are no per-game retention add-ons.
 
 ### Do unused uploads roll over?
 
-No, monthly upload tokens reset each billing cycle. Use them or lose them.
+No, monthly upload tokens reset each billing cycle.
 
-### Can I try before I buy?
+### Can I downgrade later?
 
-The Basic plan is affordable enough to try the platform. We also offer demos for schools and organizations.
+Yes, you can change plans anytime. If you downgrade, your retention period shortens and older games may become inaccessible.
 
-### Is there a free trial?
+### Is there a free trial of Plus or Premium?
 
 Contact us about trial options for your program.
-
-### Do you offer discounts?
-
-- Annual billing saves 20%
-- Multi-team discounts available
-- Youth organization discounts available
-- Contact us for education pricing
 
 ## Next Steps
 

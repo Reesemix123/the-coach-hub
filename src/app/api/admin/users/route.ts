@@ -43,7 +43,7 @@ function deriveUserStatus(
  * Query params:
  * - search: Search by email or name
  * - status: Filter by derived status (active, inactive, deactivated, never_logged_in)
- * - role: Filter by role (platform_admin, owner, coach, analyst, viewer)
+ * - role: Filter by role (platform_admin, owner, coach)
  * - organization_id: Filter by organization
  * - is_platform_admin: Filter to only show platform admins
  * - is_deactivated: Filter to only show deactivated users

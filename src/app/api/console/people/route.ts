@@ -108,7 +108,7 @@ export async function GET() {
   const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
   // Role hierarchy for determining primary role
-  const roleHierarchy: Record<string, number> = { owner: 4, coach: 3, analyst: 2, viewer: 1 };
+  const roleHierarchy: Record<string, number> = { owner: 2, coach: 1 };
 
   // Group by user
   const userMap = new Map<string, {
@@ -199,7 +199,7 @@ export async function GET() {
     // Calculate primary role (highest across all teams)
     const primaryRole = u.teams.reduce((highest, t) => {
       return (roleHierarchy[t.role] || 0) > (roleHierarchy[highest] || 0) ? t.role : highest;
-    }, 'viewer');
+    }, 'coach');
 
     // Determine overall status
     // Active if any team membership is active, deactivated if all are deactivated

@@ -40,9 +40,7 @@ const STATUS_LABELS: Record<UserDerivedStatus, string> = {
 const ROLE_LABELS: Record<UserRole, string> = {
   platform_admin: 'Platform Admin',
   owner: 'Owner',
-  coach: 'Coach',
-  analyst: 'Analyst',
-  viewer: 'Viewer'
+  coach: 'Coach'
 };
 
 function formatDate(dateString: string): string {
@@ -212,8 +210,6 @@ export default function UsersPage() {
             <option value="platform_admin">Platform Admin</option>
             <option value="owner">Owner</option>
             <option value="coach">Coach</option>
-            <option value="analyst">Analyst</option>
-            <option value="viewer">Viewer</option>
           </select>
 
           {/* Admin Filter */}

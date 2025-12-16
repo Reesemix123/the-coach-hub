@@ -45,9 +45,7 @@ const STATUS_LABELS: Record<UserDerivedStatus, string> = {
 const ROLE_LABELS: Record<UserRole, string> = {
   platform_admin: 'Platform Admin',
   owner: 'Owner',
-  coach: 'Coach',
-  analyst: 'Analyst',
-  viewer: 'Viewer'
+  coach: 'Coach'
 };
 
 function formatDate(dateString: string | null): string {

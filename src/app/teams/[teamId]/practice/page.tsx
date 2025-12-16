@@ -71,7 +71,11 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
   };
 
   const handleDeletePractice = async (practiceId: string) => {
-    if (!confirm('Are you sure you want to delete this practice plan?')) return;
+    const practice = practices.find(p => p.id === practiceId);
+    const confirmMessage = practice?.is_template
+      ? 'Are you sure you want to delete this template? Practices created from it will not be affected.'
+      : 'Are you sure you want to delete this practice plan?';
+    if (!confirm(confirmMessage)) return;
 
     try {
       // Delete corresponding schedule event first (using practice_plan_id link)
@@ -405,7 +409,7 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
                         onClick={() => router.push(`/teams/${teamId}/practice/${practice.id}/edit`)}
                         className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
                       >
-                        Edit
+                        {practice.is_template ? 'Edit Template' : 'Edit'}
                       </button>
                     </div>
                     <div className="flex items-center gap-2">
@@ -427,7 +431,7 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
                         onClick={() => handleDeletePractice(practice.id)}
                         className="px-3 py-1.5 text-red-600 hover:text-red-700 text-xs font-medium"
                       >
-                        Delete
+                        {practice.is_template ? 'Delete Template' : 'Delete'}
                       </button>
                     </div>
                   </div>

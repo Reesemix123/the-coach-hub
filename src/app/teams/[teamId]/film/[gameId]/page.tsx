@@ -55,6 +55,7 @@ import { FilmAnalysisStatusPanel } from '@/components/film/FilmAnalysisStatusPan
 import { ResumeTaggingButton } from '@/components/film/ResumeTaggingButton';
 import { gameScoreService, type ScoreMismatchResult } from '@/lib/services/game-score.service';
 import { filmSessionService } from '@/lib/services/film-session.service';
+import StorageUsageCard from '@/components/StorageUsageCard';
 
 interface Game {
   id: string;
@@ -2398,6 +2399,11 @@ export default function GameFilmPage() {
                 })()}
                 <div className="h-4 w-px bg-gray-300" />
                 <span className="text-sm text-gray-600">{playInstances.length} {playInstances.length === 1 ? 'play' : 'plays'} tagged</span>
+                <div className="h-4 w-px bg-gray-300" />
+                {/* Storage Usage Indicator */}
+                <div className="w-48">
+                  <StorageUsageCard teamId={teamId} compact />
+                </div>
               </div>
 
               {/* Analysis Status */}

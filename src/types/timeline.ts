@@ -114,6 +114,7 @@ export interface MoveClipData {
   clipId: string;
   newLane: number;
   newPositionMs: number;
+  originalLane?: number;  // For validating lane changes
 }
 
 /**

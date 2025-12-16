@@ -10,17 +10,17 @@ The Playbook is where you create, organize, and manage all of your team's plays.
 
 ### What You'll Learn
 
-- **[Creating Plays](/guide/playbook/creating-plays)** - Add new plays to your playbook with formations, routes, and assignments
-- **[Organizing Your Playbook](/guide/playbook/organizing-playbook)** - Structure your plays by category, formation, and situation
-- **[Play Builder](/guide/playbook/play-builder)** - Master the visual play builder tool for creating diagrams
+- **[Getting Started with Plays](/guide/playbook/getting-started)** - Add your first plays with formations, attributes, and naming conventions
+- **[Drawing Play Diagrams](/guide/playbook/drawing-diagrams)** - Master the visual Play Builder tool for routes, blocking, and motion
+- **[Managing Your Playbook](/guide/playbook/managing-playbook)** - Organize, edit, duplicate, and maintain your plays
 
 ### Getting Started
 
 If you're new to the playbook:
 
-1. Start by [creating a few basic plays](/guide/playbook/creating-plays) to learn the system
-2. Learn the [Play Builder](/guide/playbook/play-builder) tool to create visual diagrams
-3. [Organize your plays](/guide/playbook/organizing-playbook) as your playbook grows
+1. Start by [creating a few basic plays](/guide/playbook/getting-started) to learn the system
+2. Learn the [Play Builder tool](/guide/playbook/drawing-diagrams) to create visual diagrams
+3. [Manage your playbook](/guide/playbook/managing-playbook) as it grows with filters, tags, and packages
 
 ### Why Use a Digital Playbook?
 

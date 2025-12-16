@@ -40,7 +40,7 @@ Prepare your team with confidence:
 |-------|----------------|
 | [Overview](/guide/game-week/overview) | The complete preparation workflow |
 | [Scouting Reports](/guide/game-week/scouting-reports) | Building opponent intelligence |
-| [Practice Planning](/guide/game-week/practice-planning) | Data-driven practice design |
+| [Data-Driven Practice](/guide/game-week/practice-planning) | Using analytics to decide what to practice |
 | [Game Day Ready](/guide/game-week/game-day-ready) | Final preparation and in-game tools |
 
 ## Why This Matters

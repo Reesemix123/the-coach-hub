@@ -26,13 +26,14 @@ The billing page shows:
 
 ## Payment Methods
 
-### Adding a Payment Method
+Payment methods are securely managed through Stripe, our payment processor. We never store your card details directly.
+
+### Managing Your Payment Method
 
 1. Go to **Console > Billing**
-2. Click **Payment Methods**
-3. Click **Add Payment Method**
-4. Enter your card details
-5. Save the payment method
+2. Click **Manage Payment Method**
+3. You'll be redirected to Stripe's secure billing portal
+4. Add, update, or remove payment methods there
 
 ### Accepted Payment Types
 
@@ -44,17 +45,8 @@ The billing page shows:
 When your card expires or changes:
 
 1. Go to **Console > Billing**
-2. Click **Payment Methods**
-3. Add the new card
-4. Set it as default
-5. Remove the old card (optional)
-
-### Removing a Payment Method
-
-1. Go to Payment Methods
-2. Click the card you want to remove
-3. Select **Remove**
-4. Confirm removal
+2. Click **Manage Payment Method**
+3. In the Stripe portal, add your new card and set it as default
 
 > **Note:** You must have at least one valid payment method for active subscriptions.
 
@@ -86,8 +78,8 @@ To switch from monthly to annual (or vice versa):
 ### Viewing Invoices
 
 1. Go to **Console > Billing**
-2. Click **Invoices** or **Billing History**
-3. See all past invoices
+2. Click **Manage Payment Method**
+3. In the Stripe portal, view your billing history and invoices
 
 ### Invoice Details
 
@@ -101,9 +93,9 @@ Each invoice shows:
 
 ### Downloading Invoices
 
-1. Find the invoice in your history
-2. Click **Download** or **PDF**
-3. Save for your records
+1. Open the Stripe billing portal
+2. Find the invoice in your history
+3. Click to download the PDF
 
 ### Need an Invoice for Reimbursement?
 
@@ -124,9 +116,9 @@ Your plan price, charged each cycle:
 
 | Plan | Monthly | Annual |
 |------|---------|--------|
-| Basic | $19 | $182 |
-| Plus | $49 | $470 |
-| Premium | $99 | $950 |
+| Basic | Free | Free |
+| Plus | $29.99 | $299.90 |
+| Premium | $79.99 | $799.90 |
 
 ### Prorated Charges
 
@@ -135,16 +127,6 @@ When you upgrade mid-cycle:
 - Charged for remaining days at new rate
 - Credit applied for unused days at old rate
 - Net difference charged immediately
-
-### Add-On Purchases
-
-Additional charges may include:
-
-- Extra upload tokens
-- Extended storage
-- Additional features
-
-These appear as separate line items on invoices.
 
 ## Failed Payments
 
@@ -159,42 +141,75 @@ Common reasons:
 
 ### What Happens When Payment Fails
 
-1. We attempt to charge again
-2. You receive an email notification
-3. Access continues for a grace period
-4. Update payment method to resolve
+When a payment fails, here's the process:
+
+1. **Immediate:** Stripe attempts to charge your card
+2. **Day 1:** You receive an email notification about the failed payment
+3. **Days 1-7:** A warning banner appears in the app showing days remaining
+4. **During grace period:** Stripe makes multiple retry attempts automatically
+5. **After 7 days:** If not resolved, account access is suspended
+
+### In-App Warning Banner
+
+When your payment fails, you'll see a warning banner at the top of the app:
+
+- **Amber banner:** Shows during the 7-day grace period with countdown
+- **Action button:** Click "Update Payment" to fix immediately
+- **Dismissible:** You can dismiss the banner for 24 hours, but it will return
+
+### Grace Period (7 Days)
+
+After a payment fails, you have **7 days** to update your payment method:
+
+- Full access continues during this period
+- The warning banner shows how many days remain
+- Stripe automatically retries payment during this time
+- If payment succeeds (retry or updated card), the warning clears
+
+### Account Suspension
+
+If the grace period expires without successful payment:
+
+- Access to team features is blocked
+- You'll be redirected to a payment update page
+- Your data is preserved and safe
+- Access is restored immediately when payment succeeds
 
 ### Resolving Failed Payments
 
+To restore access:
+
 1. Go to **Console > Billing**
-2. Check the alert about failed payment
-3. Update your payment method
+2. Click **Manage Payment Method**
+3. Update your card in Stripe's secure portal
 4. Payment will be retried automatically
+5. Once successful, access is restored immediately
 
-### Grace Period
+### Avoiding Payment Issues
 
-After a failed payment:
+To prevent failed payments:
 
-- Access continues for 7 days
-- Multiple retry attempts are made
-- Account may be suspended if not resolved
+- Keep your card details up to date
+- Update expiring cards before they expire
+- Ensure sufficient funds around billing dates
+- Add a backup payment method in Stripe
 
 ## Refunds
 
 ### Refund Policy
 
-- **Monthly subscriptions:** No refunds for partial months
-- **Annual subscriptions:** Contact support for refund requests
-- **Add-on purchases:** Non-refundable once used
+When you cancel your subscription, you keep full access until the end of your current billing period. No prorated refunds are issued.
 
-### Requesting a Refund
+- **Monthly subscriptions:** Access continues until end of current month
+- **Annual subscriptions:** Access continues until end of current year
 
-If you believe you're entitled to a refund:
+### Questions About Charges
+
+If you have questions about a charge:
 
 1. Contact support
 2. Explain the situation
-3. Provide relevant details
-4. We'll review and respond
+3. We'll review and respond
 
 ## Tax Information
 
@@ -243,11 +258,7 @@ If you own multiple teams:
 
 ### Organization-Wide Billing
 
-For large organizations with multiple teams:
-
-- Contact us about consolidated billing
-- Single invoice for all teams
-- Volume discounts may apply
+For large organizations with multiple teams, each team maintains its own separate subscription.
 
 ## Security
 
@@ -288,7 +299,7 @@ Contact support first. We'll investigate and resolve most issues directly.
 
 ### Can I pay by check or invoice?
 
-Contact us about enterprise billing options for schools and large organizations.
+We currently only accept credit and debit card payments through Stripe.
 
 ### Is my payment information safe?
 
@@ -302,7 +313,9 @@ Yes, we use Stripe for payment processing and never store your full card number.
 - Make sure you're logged into the correct account
 - Try logging out and back in
 
-### Payment Method Not Saving
+### Issues with Payment Method
+
+If you're having trouble updating your payment method in Stripe:
 
 - Verify card details are correct
 - Check that the card isn't expired

@@ -238,26 +238,56 @@ async function handleSubscriptionUpdated(
     return;
   }
 
+  // Get current subscription to check status change
+  const { data: currentSub } = await supabase
+    .from('subscriptions')
+    .select('status, past_due_since')
+    .eq('team_id', teamId)
+    .single();
+
+  const previousStatus = currentSub?.status;
+  const isNewlyPastDue = status === 'past_due' && previousStatus !== 'past_due';
+  const isNoLongerPastDue = status !== 'past_due' && previousStatus === 'past_due';
+
+  // Build update object
+  const subscriptionUpdate: Record<string, unknown> = {
+    team_id: teamId,
+    tier,
+    status,
+    stripe_subscription_id: subscription.id,
+    stripe_price_id: stripePrice,
+    current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    trial_ends_at: subscription.trial_end
+      ? new Date(subscription.trial_end * 1000).toISOString()
+      : null,
+    cancel_at_period_end: subscription.cancel_at_period_end,
+    canceled_at: subscription.canceled_at
+      ? new Date(subscription.canceled_at * 1000).toISOString()
+      : null,
+    updated_at: new Date().toISOString()
+  };
+
+  // Track when subscription enters past_due status for grace period
+  if (isNewlyPastDue) {
+    subscriptionUpdate.past_due_since = new Date().toISOString();
+    subscriptionUpdate.payment_suspended = false;
+    subscriptionUpdate.payment_suspended_at = null;
+    console.log(`Subscription for team ${teamId} entered past_due status. Grace period started.`);
+  }
+
+  // Clear past_due tracking when payment is resolved
+  if (isNoLongerPastDue) {
+    subscriptionUpdate.past_due_since = null;
+    subscriptionUpdate.payment_suspended = false;
+    subscriptionUpdate.payment_suspended_at = null;
+    console.log(`Subscription for team ${teamId} resolved from past_due to ${status}.`);
+  }
+
   // Update or create local subscription record
   const { error: upsertError } = await supabase
     .from('subscriptions')
-    .upsert({
-      team_id: teamId,
-      tier,
-      status,
-      stripe_subscription_id: subscription.id,
-      stripe_price_id: stripePrice,
-      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      trial_ends_at: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000).toISOString()
-        : null,
-      cancel_at_period_end: subscription.cancel_at_period_end,
-      canceled_at: subscription.canceled_at
-        ? new Date(subscription.canceled_at * 1000).toISOString()
-        : null,
-      updated_at: new Date().toISOString()
-    }, {
+    .upsert(subscriptionUpdate, {
       onConflict: 'team_id'
     });
 

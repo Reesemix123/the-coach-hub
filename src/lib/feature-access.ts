@@ -68,27 +68,25 @@ export const TIER_DISPLAY_NAMES: Record<SubscriptionTier, string> = {
 };
 
 // Minimum tier required for each feature
+// NOTE: All features are available on all tiers. Tiers only differ by capacity limits
+// (games/month, storage, retention, cameras, coaches). See tier-comparison.md for details.
 export const FEATURE_MIN_TIERS: Record<Feature, SubscriptionTier> = {
-  // Core features (all tiers)
+  // All features available on all tiers
   playbook_builder: 'basic',
   film_upload: 'basic',
   basic_tagging: 'basic',
+  drive_analytics: 'basic',
+  player_stats: 'basic',
+  situational_analysis: 'basic',
+  ol_tracking: 'basic',
+  defensive_player_tracking: 'basic',
+  advanced_situational: 'basic',
+  opponent_scouting: 'basic',
 
-  // Tier 2+ (plus and above)
-  drive_analytics: 'plus',
-  player_stats: 'plus',
-  situational_analysis: 'plus',
-
-  // Tier 3+ (premium and above)
-  ol_tracking: 'premium',
-  defensive_player_tracking: 'premium',
-  advanced_situational: 'premium',
-  opponent_scouting: 'premium',
-
-  // AI features - available on premium tier (placeholders for future)
-  ai_play_recognition: 'premium',
-  ai_insights: 'premium',
-  ai_credits_enabled: 'premium'
+  // AI features - available on all tiers (placeholders for future)
+  ai_play_recognition: 'basic',
+  ai_insights: 'basic',
+  ai_credits_enabled: 'basic'
 };
 
 // Feature display names for UI
@@ -195,27 +193,22 @@ export function computeFeatureAccess(subscription: SubscriptionInfo): FeatureAcc
   const hasAccess = statusAllowsAccess(subscription.status, subscription.billing_waived);
   const tierLevel = hasAccess ? TIER_LEVELS[subscription.tier] : 0;
 
+  // All features are available on all tiers (tier level >= 1)
+  // Tiers only differ by capacity limits (games, storage, retention, cameras, coaches)
   return {
-    // Core features (all tiers)
     playbook_builder: tierLevel >= 1,
     film_upload: tierLevel >= 1,
     basic_tagging: tierLevel >= 1,
-
-    // Tier 2+ (plus and above)
-    drive_analytics: tierLevel >= 2,
-    player_stats: tierLevel >= 2,
-    situational_analysis: tierLevel >= 2,
-
-    // Tier 3+ (premium and above)
-    ol_tracking: tierLevel >= 3,
-    defensive_player_tracking: tierLevel >= 3,
-    advanced_situational: tierLevel >= 3,
-    opponent_scouting: tierLevel >= 3,
-
-    // AI features (premium tier - placeholders for future)
-    ai_play_recognition: tierLevel >= 3,
-    ai_insights: tierLevel >= 3,
-    ai_credits_enabled: tierLevel >= 3
+    drive_analytics: tierLevel >= 1,
+    player_stats: tierLevel >= 1,
+    situational_analysis: tierLevel >= 1,
+    ol_tracking: tierLevel >= 1,
+    defensive_player_tracking: tierLevel >= 1,
+    advanced_situational: tierLevel >= 1,
+    opponent_scouting: tierLevel >= 1,
+    ai_play_recognition: tierLevel >= 1,
+    ai_insights: tierLevel >= 1,
+    ai_credits_enabled: tierLevel >= 1
   };
 }
 

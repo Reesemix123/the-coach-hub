@@ -66,39 +66,12 @@ After creating your team, you'll be redirected to your team dashboard where you 
 
 ## What's Next?
 
-After creating your team, we recommend this order:
+Now that your team is set up:
 
-### 1. Add Your Roster
-
-Build your roster with player information:
-
-- Navigate to **Players** from your team dashboard
-- Click **Add Player**
-- Enter jersey numbers, names, and positions
-- Having players set up makes it easier to track individual performance
-
-### 2. Invite Coaches
-
-Add assistant coaches to help with film review:
-
-- See [Inviting Coaches](/guide/getting-started/inviting-coaches) for detailed instructions
-
-### 3. Create Your Playbook
-
-Start building your digital playbook:
-
-- Navigate to **Playbook** from your team dashboard
-- Click **New Play** to create your first play
-- Use the play builder to draw formations and routes
-
-### 4. Upload Game Film
-
-Get your first game into the system:
-
-- Navigate to **Film** from your team dashboard
-- Create a new game
-- Upload your video file
-- See [Uploading Film](/guide/film/uploading-film) for detailed instructions
+- [Invite your coaching staff](/guide/getting-started/inviting-coaches)
+- [Add players to your roster](/guide/teams/roster-management)
+- [Upload your first game film](/guide/film/uploading-film)
+- [Start building your playbook](/guide/playbook/creating-plays)
 
 ## Managing Multiple Teams
 

@@ -9,6 +9,7 @@ import ConsoleLink from "@/components/ConsoleLink";
 import AdminLink from "@/components/AdminLink";
 import TourButton from "@/components/TourButton";
 import NavbarUtilities from "@/components/NavbarUtilities";
+import PaymentWarningBanner from "@/components/PaymentWarningBanner";
 import { GlobalOnboardingProvider, OnboardingTourModal, OnboardingChecklist } from "@/components/onboarding";
 import { GuideProvider } from "@/contexts/GuideContext";
 import { GuideSlideOver } from "@/components/guide";
@@ -77,6 +78,11 @@ export default function RootLayout({
             </div>
           </div>
         </ScrollingNavbar>
+
+        {/* Payment warning banner - shows when payment is past due or suspended */}
+        <div className="fixed top-20 left-0 right-0 z-40">
+          <PaymentWarningBanner />
+        </div>
 
         <main className="pt-24">
           {children}

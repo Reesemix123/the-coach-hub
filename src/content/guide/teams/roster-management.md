@@ -208,6 +208,6 @@ If you need a position that's not listed, use the closest equivalent and note th
 
 ## Next Steps
 
-- [Set up your schedule](/guide/teams/seasons)
+- [Set up your schedule](/guide/teams/schedule)
 - [Upload game film](/guide/film/uploading-film) to start tracking player performance
 - [Tag plays](/guide/film/tagging-plays) with player attribution

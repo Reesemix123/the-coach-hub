@@ -135,6 +135,9 @@ export interface TierConfig {
   max_opponent_games: number | null;
   retention_days: number;
   max_cameras_per_game: number;
+  max_storage_per_game_bytes: number | null; // null = unlimited
+  max_duration_per_game_seconds: number | null; // null = unlimited
+  max_duration_per_camera_seconds: number | null; // null = unlimited
 
   // Upload Token System
   monthly_upload_tokens: number;
@@ -457,7 +460,7 @@ export interface OrganizationFilters {
 // User Browser Types
 // ============================================================================
 
-export type UserRole = 'platform_admin' | 'owner' | 'coach' | 'analyst' | 'viewer';
+export type UserRole = 'platform_admin' | 'owner' | 'coach';
 
 export type UserDerivedStatus = 'active' | 'inactive' | 'deactivated' | 'never_logged_in';
 

@@ -15,10 +15,10 @@ export function DocRenderer({ content, title, description }: DocRendererProps) {
     <article className="prose prose-gray max-w-none">
       {/* Header */}
       {title && (
-        <header className="mb-8 pb-6 border-b border-gray-200">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-2">{title}</h1>
+        <header className="mb-10 pb-6 border-b border-gray-200">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-3">{title}</h1>
           {description && (
-            <p className="text-lg text-gray-600">{description}</p>
+            <p className="text-lg text-gray-600 leading-relaxed">{description}</p>
           )}
         </header>
       )}
@@ -29,7 +29,7 @@ export function DocRenderer({ content, title, description }: DocRendererProps) {
         components={{
           // Custom heading styles
           h2: ({ children }) => (
-            <h2 className="text-xl font-semibold text-gray-900 mt-8 mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 mt-10 mb-4">
               {children}
             </h2>
           ),
