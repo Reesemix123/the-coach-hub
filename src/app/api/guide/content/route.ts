@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-import matter from 'gray-matter';
+import guideContent from '@/lib/generated/guide-content.json';
 
-const contentDir = path.join(process.cwd(), 'src/content/guide');
+// Type for the generated content
+interface GuideEntry {
+  content: string;
+  frontmatter: {
+    title?: string;
+    description?: string;
+    order?: number;
+  };
+}
+
+const content = guideContent as Record<string, GuideEntry>;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -13,24 +21,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing slug parameter' }, { status: 400 });
   }
 
-  const slugPath = slugParam.split('/').filter(Boolean);
+  // Normalize the slug (remove trailing slashes, etc.)
+  const slug = slugParam.split('/').filter(Boolean).join('/');
 
-  // Try different file paths
-  const possiblePaths = [
-    path.join(contentDir, ...slugPath) + '.md',
-    path.join(contentDir, ...slugPath, 'index.md'),
-  ];
+  // Look up the content
+  const entry = content[slug];
 
-  for (const filePath of possiblePaths) {
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
-      const { content, data } = matter(fileContent);
-      return NextResponse.json({
-        content,
-        frontmatter: data,
-        slug: slugPath,
-      });
-    }
+  if (entry) {
+    return NextResponse.json({
+      content: entry.content,
+      frontmatter: entry.frontmatter,
+      slug: slug.split('/'),
+    });
   }
 
   return NextResponse.json({ error: 'Content not found' }, { status: 404 });
