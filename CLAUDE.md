@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
+## IMPORTANT: Documentation Updates
+
+**Before updating any user-facing documentation or AI context, read `DOCUMENTATION_PROCESS.md`.**
+
+When adding or changing features, you MUST ask the user:
+> "Should I update the Feature Registry (`features.ts`) to keep the AI Assistant and User Guide in sync?"
+
+Do NOT update `src/content/features.ts` without user confirmation.
+
+---
+
 # Youth Coach Hub - Codebase Architecture
 
 ## Overview
