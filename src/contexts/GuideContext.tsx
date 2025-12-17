@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 interface GuideState {
   isOpen: boolean;
@@ -75,6 +75,19 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
       isOpen: false,
     }));
   }, []);
+
+  // Listen for guide-open events (from chat links)
+  useEffect(() => {
+    const handleGuideOpen = (e: CustomEvent<string[]>) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        openGuide(e.detail);
+      }
+    };
+    window.addEventListener('guide-open', handleGuideOpen as EventListener);
+    return () => {
+      window.removeEventListener('guide-open', handleGuideOpen as EventListener);
+    };
+  }, [openGuide]);
 
   return (
     <GuideContext.Provider value={{ ...state, openGuide, closeGuide }}>

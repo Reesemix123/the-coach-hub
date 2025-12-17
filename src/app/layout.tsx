@@ -13,6 +13,7 @@ import PaymentWarningBanner from "@/components/PaymentWarningBanner";
 import { GlobalOnboardingProvider, OnboardingTourModal, OnboardingChecklist } from "@/components/onboarding";
 import { GuideProvider } from "@/contexts/GuideContext";
 import { GuideSlideOver } from "@/components/guide";
+import { ChatWidget } from "@/components/chat";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
@@ -119,6 +120,9 @@ export default function RootLayout({
 
         {/* Guide slide-over panel */}
         <GuideSlideOver />
+
+        {/* Floating AI Assistant Chat Widget */}
+        <ChatWidget />
         </GuideProvider>
       </body>
     </html>
