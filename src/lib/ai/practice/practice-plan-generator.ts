@@ -180,8 +180,8 @@ export async function generatePracticePlan(
     // Parse JSON from response
     const plan = parseGeneratedPlan(result.text);
 
-    // Validate the plan
-    validatePlan(plan, options.duration || 90);
+    // Validate and fix the plan (ensures correct number of concurrent periods)
+    validatePlan(plan, options.duration || 90, options.coachCount || 2);
 
     return plan;
   } catch (error) {
@@ -320,15 +320,9 @@ function parseGeneratedPlan(text: string): GeneratedPracticePlan {
 }
 
 /**
- * Validate a generated plan
+ * Validate and fix a generated plan
  */
-function validatePlan(plan: GeneratedPracticePlan, expectedDuration: number): void {
-  // Check duration adds up
-  const totalDuration = plan.periods.reduce((sum, p) => sum + p.duration_minutes, 0);
-  if (Math.abs(totalDuration - expectedDuration) > 5) {
-    console.warn(`Plan duration mismatch: expected ${expectedDuration}, got ${totalDuration}`);
-  }
-
+function validatePlan(plan: GeneratedPracticePlan, expectedDuration: number, coachCount: number = 2): void {
   // Validate period types
   const validTypes: PeriodType[] = ['warmup', 'drill', 'team', 'special_teams', 'conditioning', 'other'];
   for (const period of plan.periods) {
@@ -345,6 +339,109 @@ function validatePlan(plan: GeneratedPracticePlan, expectedDuration: number): vo
         drill.position_group = 'All';
       }
     }
+  }
+
+  // CRITICAL: Enforce correct number of concurrent periods for multi-coach setups
+  if (coachCount > 1) {
+    const concurrentPeriods = plan.periods.filter(p => p.is_concurrent);
+
+    if (concurrentPeriods.length < coachCount) {
+      console.warn(`AI only generated ${concurrentPeriods.length} concurrent periods, need ${coachCount}`);
+
+      // Find the start_time of existing concurrent periods, or calculate from warmup
+      let startTime = 17; // Default fallback
+      if (concurrentPeriods.length > 0) {
+        startTime = concurrentPeriods[0].start_time ?? 17;
+      } else {
+        // Calculate start_time from non-concurrent periods before drill time
+        let runningTime = 0;
+        for (const period of plan.periods) {
+          if (!period.is_concurrent && (period.period_type === 'warmup' || period.period_type === 'other')) {
+            runningTime += period.duration_minutes;
+          } else {
+            break;
+          }
+        }
+        startTime = runningTime;
+      }
+
+      // Find duration to use for new concurrent periods
+      const duration = concurrentPeriods[0]?.duration_minutes ?? 15;
+
+      // Position groups for new concurrent periods
+      const positionGroupTemplates = [
+        { name: 'Individual - Offensive Line', group: 'OL', notes: 'Offensive line fundamentals: stance, steps, hand placement' },
+        { name: 'Individual - Skill Positions', group: 'WR', notes: 'RB/WR/TE route work and ball handling' },
+        { name: 'Individual - Defense', group: 'DL', notes: 'DL/LB/DB technique work' },
+        { name: 'Individual - Special Teams', group: 'All', notes: 'Kicking game specialists' },
+      ];
+
+      // Determine which position groups are already used
+      const usedGroups = concurrentPeriods.map(p => p.name);
+
+      // Add missing concurrent periods
+      const periodsToAdd = coachCount - concurrentPeriods.length;
+      for (let i = 0; i < periodsToAdd; i++) {
+        // Find a template that hasn't been used
+        const template = positionGroupTemplates.find(t => !usedGroups.includes(t.name)) || positionGroupTemplates[i % positionGroupTemplates.length];
+        usedGroups.push(template.name);
+
+        const newPeriod: GeneratedPeriod = {
+          name: template.name,
+          duration_minutes: duration,
+          period_type: 'drill',
+          is_concurrent: true,
+          start_time: startTime,
+          notes: template.notes,
+          drills: [
+            {
+              drill_name: 'Position Fundamentals',
+              position_group: template.group as PositionGroup | 'All',
+              description: `Focus on ${template.group} fundamentals and technique work.`,
+            }
+          ],
+        };
+
+        // Insert after the last concurrent period (or after warmup if none exist)
+        const insertIndex = concurrentPeriods.length > 0
+          ? plan.periods.findIndex(p => p === concurrentPeriods[concurrentPeriods.length - 1]) + 1
+          : plan.periods.findIndex(p => p.period_type === 'drill') || 2;
+
+        plan.periods.splice(insertIndex, 0, newPeriod);
+        concurrentPeriods.push(newPeriod); // Track for next iteration
+      }
+
+      console.log(`Added ${periodsToAdd} concurrent period(s) to reach ${coachCount} total`);
+    }
+
+    // Ensure all concurrent periods have the same start_time
+    const firstConcurrent = plan.periods.find(p => p.is_concurrent);
+    if (firstConcurrent) {
+      const targetStartTime = firstConcurrent.start_time;
+      for (const period of plan.periods) {
+        if (period.is_concurrent && period.start_time !== targetStartTime) {
+          period.start_time = targetStartTime;
+        }
+      }
+    }
+  }
+
+  // Check duration adds up (excluding duplicate time from concurrent periods)
+  const nonConcurrentDuration = plan.periods
+    .filter(p => !p.is_concurrent)
+    .reduce((sum, p) => sum + p.duration_minutes, 0);
+
+  // Get unique start_times for concurrent periods and max duration at each
+  const concurrentGroups = new Map<number, number>();
+  for (const period of plan.periods.filter(p => p.is_concurrent)) {
+    const st = period.start_time ?? 0;
+    concurrentGroups.set(st, Math.max(concurrentGroups.get(st) ?? 0, period.duration_minutes));
+  }
+  const concurrentDuration = Array.from(concurrentGroups.values()).reduce((sum, d) => sum + d, 0);
+
+  const totalDuration = nonConcurrentDuration + concurrentDuration;
+  if (Math.abs(totalDuration - expectedDuration) > 5) {
+    console.warn(`Plan duration mismatch: expected ${expectedDuration}, got ${totalDuration}`);
   }
 }
 
