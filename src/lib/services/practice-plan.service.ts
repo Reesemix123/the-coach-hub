@@ -318,7 +318,7 @@ export async function addPracticeDrill(
   const { data, error } = await supabase
     .from('practice_drills')
     .insert({
-      period_id,
+      period_id: periodId,
       drill_order: drill.drill_order ?? nextOrder,
       ...drill
     })
@@ -406,7 +406,7 @@ export async function getPracticePlanSummary(
 
   const uniquePlayCodes = new Set<string>();
   drills?.forEach(drill => {
-    drill.play_codes?.forEach(code => uniquePlayCodes.add(code));
+    drill.play_codes?.forEach((code: string) => uniquePlayCodes.add(code));
   });
 
   return {
@@ -549,8 +549,35 @@ export async function createFromAIGenerated(
   // Create periods with drills
   const periodsWithDrills = [];
 
+  // Helper to check if a string is a valid UUID (for coach assignment)
+  const isValidUUID = (str: string | undefined): boolean => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  // Group concurrent periods by start_time to auto-assign coaches
+  const concurrentGroups = new Map<number, number>(); // start_time -> coach index counter
+
   for (let i = 0; i < aiPlan.periods.length; i++) {
     const periodData = aiPlan.periods[i];
+
+    // Auto-assign coach to concurrent periods
+    let assignedCoachId: string | null = null;
+    if (periodData.is_concurrent && coaches && coaches.length > 0) {
+      const startTime = periodData.start_time ?? 0;
+      const coachIndex = concurrentGroups.get(startTime) ?? 0;
+
+      // Get the coach at this index (cycle through if more periods than coaches)
+      const coach = coaches[coachIndex % coaches.length];
+      // Only assign if it's a valid UUID (not guest coaches like "guest-123")
+      if (isValidUUID(coach?.id)) {
+        assignedCoachId = coach.id;
+      }
+
+      // Increment counter for next concurrent period at this start time
+      concurrentGroups.set(startTime, coachIndex + 1);
+    }
 
     // Create period
     const { data: period, error: periodError } = await supabase
@@ -564,6 +591,7 @@ export async function createFromAIGenerated(
         is_concurrent: periodData.is_concurrent || false,
         start_time: periodData.start_time,
         notes: periodData.notes,
+        assigned_coach_id: assignedCoachId,
       })
       .select()
       .single();

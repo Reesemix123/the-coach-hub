@@ -1453,6 +1453,7 @@ export interface PracticePeriod {
   notes?: string;
   start_time?: number; // Minutes from practice start (0 = beginning). NULL means sequential.
   is_concurrent?: boolean; // TRUE if runs at same time as other periods
+  assigned_coach_id?: string; // Coach responsible for this period (mainly for concurrent periods)
   created_at: string;
 }
 

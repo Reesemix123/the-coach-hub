@@ -233,7 +233,15 @@ export default function PracticePlanDetailPage({
         {practice.periods.length > 0 && (
           <div className="mb-8">
             <PracticeTimeline
-              periods={practice.periods}
+              periods={practice.periods.map(p => ({
+                id: p.id,
+                name: p.name,
+                duration_minutes: p.duration_minutes,
+                start_time: p.start_time ?? null,
+                is_concurrent: p.is_concurrent,
+                period_type: p.period_type,
+                assigned_coach_id: p.assigned_coach_id,
+              }))}
               totalDuration={practice.duration_minutes}
               coaches={coaches}
             />
@@ -260,6 +268,13 @@ export default function PracticePlanDetailPage({
                       <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                         <span>⏱️ {period.duration_minutes} min</span>
                         <span className="capitalize">{period.period_type.replace('_', ' ')}</span>
+                        {period.is_concurrent && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 border border-blue-200">
+                            {period.assigned_coach_id
+                              ? coaches.find(c => c.id === period.assigned_coach_id)?.name || 'Assigned Coach'
+                              : 'Concurrent'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
