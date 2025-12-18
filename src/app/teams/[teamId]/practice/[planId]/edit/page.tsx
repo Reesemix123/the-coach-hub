@@ -4,7 +4,7 @@
 import { use, useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import PracticeTimeline from '@/components/PracticeTimeline';
+import PracticeTimeline, { TimelineCoach } from '@/components/PracticeTimeline';
 
 type PeriodType = 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
 
@@ -16,6 +16,7 @@ interface Period {
   notes: string;
   start_time: number | null;
   is_concurrent: boolean;
+  assigned_coach_id?: string;
   drills: Drill[];
 }
 
@@ -43,9 +44,12 @@ export default function EditPracticePlanPage({
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [periods, setPeriods] = useState<Period[]>([]);
+  const [coaches, setCoaches] = useState<TimelineCoach[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [originalDate, setOriginalDate] = useState('');
+  // For triggering timeline's reassign modal from period card
+  const [periodToReassign, setPeriodToReassign] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPracticeData();
@@ -73,6 +77,22 @@ export default function EditPracticePlanPage({
       setLocation(practiceData.location || '');
       setNotes(practiceData.notes || '');
 
+      // Load stored coaches from practice plan, or fallback to team coaches API
+      if (practiceData.selected_coaches && practiceData.selected_coaches.length > 0) {
+        setCoaches(practiceData.selected_coaches);
+      } else {
+        // Fallback: fetch from team membership API for older plans
+        try {
+          const response = await fetch(`/api/teams/${teamId}/coaches`);
+          if (response.ok) {
+            const data = await response.json();
+            setCoaches(data.coaches || []);
+          }
+        } catch (coachError) {
+          console.error('Error fetching coaches:', coachError);
+        }
+      }
+
       // Fetch periods
       const { data: periodsData } = await supabase
         .from('practice_periods')
@@ -98,6 +118,7 @@ export default function EditPracticePlanPage({
             notes: period.notes || '',
             start_time: period.start_time ?? null,
             is_concurrent: period.is_concurrent ?? false,
+            assigned_coach_id: period.assigned_coach_id ?? undefined,
             drills: (drillsData || []).map(d => ({
               id: d.id,
               drill_name: d.drill_name,
@@ -185,6 +206,53 @@ export default function EditPracticePlanPage({
     ));
   };
 
+  const handlePeriodReassign = (periodId: string, newCoachId: string) => {
+    setPeriods(periods.map(p =>
+      p.id === periodId ? { ...p, assigned_coach_id: newCoachId } : p
+    ));
+  };
+
+  const handlePeriodsSwap = (period1Id: string, coach1Id: string, period2Id: string, coach2Id: string) => {
+    // Swap the coach assignments of two periods
+    setPeriods(periods.map(p => {
+      if (p.id === period1Id) {
+        return { ...p, assigned_coach_id: coach1Id };
+      }
+      if (p.id === period2Id) {
+        return { ...p, assigned_coach_id: coach2Id };
+      }
+      return p;
+    }));
+  };
+
+  const handleBatchReassign = (reassignments: Array<{ periodId: string; newCoachId: string }>) => {
+    // Apply all reassignments at once (for multi-coach chain swaps)
+    setPeriods(periods.map(p => {
+      const reassignment = reassignments.find(r => r.periodId === p.id);
+      if (reassignment) {
+        return { ...p, assigned_coach_id: reassignment.newCoachId };
+      }
+      return p;
+    }));
+  };
+
+  // Handle opening reassign modal for a period (from period card)
+  const handleOpenReassignModal = (periodId: string) => {
+    setPeriodToReassign(periodId);
+  };
+
+  // Clear the period to reassign after timeline handles it
+  const handleReassignModalClosed = () => {
+    setPeriodToReassign(null);
+  };
+
+  // Helper to check if a string is a valid UUID
+  const isValidUUID = (str: string | undefined): boolean => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       alert('Please enter a practice title');
@@ -218,6 +286,9 @@ export default function EditPracticePlanPage({
       for (let i = 0; i < periods.length; i++) {
         const period = periods[i];
 
+        // Only save assigned_coach_id if it's a valid UUID (not guest coach IDs like "guest-123")
+        const validCoachId = isValidUUID(period.assigned_coach_id) ? period.assigned_coach_id : null;
+
         const { data: periodData, error: periodError } = await supabase
           .from('practice_periods')
           .insert({
@@ -228,7 +299,8 @@ export default function EditPracticePlanPage({
             period_type: period.period_type,
             notes: period.notes || null,
             start_time: period.start_time,
-            is_concurrent: period.is_concurrent
+            is_concurrent: period.is_concurrent,
+            assigned_coach_id: validCoachId
           })
           .select()
           .single();
@@ -286,7 +358,32 @@ export default function EditPracticePlanPage({
     );
   }
 
-  const totalMinutes = periods.reduce((sum, p) => sum + p.duration_minutes, 0);
+  // Calculate actual practice duration (accounting for concurrent activities)
+  const calculateActualDuration = () => {
+    // Group periods by start_time for concurrent periods
+    const nonConcurrent = periods.filter(p => !p.is_concurrent);
+    const concurrent = periods.filter(p => p.is_concurrent);
+
+    // Sum non-concurrent periods normally
+    let total = nonConcurrent.reduce((sum, p) => sum + p.duration_minutes, 0);
+
+    // Group concurrent periods by start_time and only count max duration per group
+    const concurrentGroups = new Map<number, number>();
+    concurrent.forEach(p => {
+      const startTime = p.start_time ?? 0;
+      const currentMax = concurrentGroups.get(startTime) ?? 0;
+      concurrentGroups.set(startTime, Math.max(currentMax, p.duration_minutes));
+    });
+
+    // Add max duration from each concurrent group
+    concurrentGroups.forEach(maxDuration => {
+      total += maxDuration;
+    });
+
+    return total;
+  };
+
+  const totalMinutes = calculateActualDuration();
 
   return (
     <div className="min-h-screen bg-white">
@@ -382,7 +479,17 @@ export default function EditPracticePlanPage({
         {/* Visual Timeline */}
         {periods.length > 0 && (
           <div className="mb-6">
-            <PracticeTimeline periods={periods} totalDuration={duration} />
+            <PracticeTimeline
+              periods={periods}
+              totalDuration={duration}
+              coaches={coaches}
+              editable={true}
+              onPeriodReassign={handlePeriodReassign}
+              onPeriodsSwap={handlePeriodsSwap}
+              onBatchReassign={handleBatchReassign}
+              externalSelectedPeriodId={periodToReassign}
+              onModalClosed={handleReassignModalClosed}
+            />
           </div>
         )}
 
@@ -476,6 +583,30 @@ export default function EditPracticePlanPage({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           <span className="text-sm font-medium text-blue-900">Timeline</span>
+                          {/* Coach display/selector for concurrent periods */}
+                          {period.is_concurrent && coaches.length > 0 && (
+                            <button
+                              onClick={() => handleOpenReassignModal(period.id)}
+                              className="ml-auto px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded border border-blue-300 hover:bg-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-500 flex items-center gap-1"
+                            >
+                              {period.assigned_coach_id
+                                ? coaches.find(c => c.id === period.assigned_coach_id)?.name || 'Unknown Coach'
+                                : 'Select coach...'}
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                            </button>
+                          )}
+                          {period.is_concurrent && coaches.length === 0 && (
+                            <span className="ml-auto px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                              No coaches available
+                            </span>
+                          )}
+                          {!period.is_concurrent && (
+                            <span className="ml-auto px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">
+                              All coaches
+                            </span>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -526,7 +657,7 @@ export default function EditPracticePlanPage({
 
                         {period.drills.map((drill, drillIndex) => (
                           <div key={drill.id} className="bg-gray-50 rounded p-3 mb-2 border border-gray-200">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3 mb-2">
                               <input
                                 type="text"
                                 value={drill.drill_name}
@@ -559,6 +690,14 @@ export default function EditPracticePlanPage({
                                 </button>
                               </div>
                             </div>
+                            {/* Drill Description */}
+                            <textarea
+                              value={drill.description}
+                              onChange={(e) => updateDrill(period.id, drill.id, { description: e.target.value })}
+                              placeholder="Drill description - explain how to execute this drill..."
+                              rows={2}
+                              className="w-full px-3 py-1.5 border border-gray-300 rounded text-gray-900 text-sm"
+                            />
                           </div>
                         ))}
                       </div>

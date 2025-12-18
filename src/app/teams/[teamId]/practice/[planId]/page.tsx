@@ -5,7 +5,7 @@ import { use, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
-import PracticeTimeline from '@/components/PracticeTimeline';
+import PracticeTimeline, { TimelineCoach } from '@/components/PracticeTimeline';
 import type { PracticePlanWithDetails, PracticePeriodWithDrills } from '@/types/football';
 
 interface Team {
@@ -18,6 +18,12 @@ interface Team {
   };
 }
 
+interface Coach {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export default function PracticePlanDetailPage({
   params
 }: {
@@ -26,6 +32,7 @@ export default function PracticePlanDetailPage({
   const { teamId, planId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
   const [practice, setPractice] = useState<PracticePlanWithDetails | null>(null);
+  const [coaches, setCoaches] = useState<TimelineCoach[]>([]);
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
@@ -56,6 +63,22 @@ export default function PracticePlanDetailPage({
       if (!practiceData) {
         setLoading(false);
         return;
+      }
+
+      // Load stored coaches from practice plan, or fallback to team coaches API
+      if (practiceData.selected_coaches && practiceData.selected_coaches.length > 0) {
+        setCoaches(practiceData.selected_coaches);
+      } else {
+        // Fallback: fetch from team membership API for older plans
+        try {
+          const response = await fetch(`/api/teams/${teamId}/coaches`);
+          if (response.ok) {
+            const data = await response.json();
+            setCoaches(data.coaches || []);
+          }
+        } catch (coachError) {
+          console.error('Error fetching coaches:', coachError);
+        }
       }
 
       // Fetch periods
@@ -119,7 +142,33 @@ export default function PracticePlanDetailPage({
     );
   }
 
-  const totalMinutes = practice.periods.reduce((sum, p) => sum + p.duration_minutes, 0);
+  // Calculate actual practice duration (accounting for concurrent activities)
+  const calculateActualDuration = () => {
+    const periods = practice.periods;
+    // Group periods by start_time for concurrent periods
+    const nonConcurrent = periods.filter(p => !p.is_concurrent);
+    const concurrent = periods.filter(p => p.is_concurrent);
+
+    // Sum non-concurrent periods normally
+    let total = nonConcurrent.reduce((sum, p) => sum + p.duration_minutes, 0);
+
+    // Group concurrent periods by start_time and only count max duration per group
+    const concurrentGroups = new Map<number, number>();
+    concurrent.forEach(p => {
+      const startTime = p.start_time ?? 0;
+      const currentMax = concurrentGroups.get(startTime) ?? 0;
+      concurrentGroups.set(startTime, Math.max(currentMax, p.duration_minutes));
+    });
+
+    // Add max duration from each concurrent group
+    concurrentGroups.forEach(maxDuration => {
+      total += maxDuration;
+    });
+
+    return total;
+  };
+
+  const totalMinutes = calculateActualDuration();
 
   return (
     <div className="min-h-screen bg-white">
@@ -186,6 +235,7 @@ export default function PracticePlanDetailPage({
             <PracticeTimeline
               periods={practice.periods}
               totalDuration={practice.duration_minutes}
+              coaches={coaches}
             />
           </div>
         )}

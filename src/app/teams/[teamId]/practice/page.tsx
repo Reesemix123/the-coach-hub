@@ -5,6 +5,7 @@ import { use, useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import TeamNavigation from '@/components/TeamNavigation';
+import { AIPracticeAssistButton } from '@/components/practice';
 import type { PracticePlan } from '@/types/football';
 
 interface Team {
@@ -279,15 +280,23 @@ export default function PracticePlansPage({ params }: { params: Promise<{ teamId
             <p className="text-gray-600 mt-2">Plan and organize your practice sessions</p>
           </div>
           <div className="flex flex-col items-end gap-3">
-            <button
-              onClick={() => router.push(`/teams/${teamId}/practice/new`)}
-              className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
-            >
-              + Create Practice Plan
-            </button>
+            <div className="flex items-center gap-3">
+              <AIPracticeAssistButton
+                teamId={teamId}
+                onPlanCreated={(planId) => {
+                  router.push(`/teams/${teamId}/practice/${planId}/edit`);
+                }}
+              />
+              <button
+                onClick={() => router.push(`/teams/${teamId}/practice/new`)}
+                className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              >
+                + Create Practice Plan
+              </button>
+            </div>
             <button
               onClick={() => router.push(`/teams/${teamId}/practice/new?template=true`)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
               + Create Reusable Template
             </button>

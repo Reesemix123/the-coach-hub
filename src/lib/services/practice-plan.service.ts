@@ -10,6 +10,12 @@ import { SupabaseClient } from '@supabase/supabase-js';
 // Types
 // ============================================================================
 
+export interface SelectedCoach {
+  id: string;
+  name: string;
+  isGuest?: boolean;
+}
+
 export interface PracticePlan {
   id: string;
   team_id: string;
@@ -23,6 +29,8 @@ export interface PracticePlan {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  selected_coaches?: SelectedCoach[];
+  coach_count?: number;
 }
 
 export type PeriodType = 'warmup' | 'drill' | 'team' | 'special_teams' | 'conditioning' | 'other';
@@ -468,4 +476,131 @@ export async function createDefaultPracticePlan(
   });
 
   return plan;
+}
+
+// ============================================================================
+// AI-Generated Practice Plans
+// ============================================================================
+
+/**
+ * Input type for AI-generated practice plans
+ */
+export interface AIGeneratedPlan {
+  title: string;
+  duration_minutes: number;
+  focus_areas: string[];
+  ai_reasoning: string;
+  periods: AIGeneratedPeriod[];
+}
+
+export interface AIGeneratedPeriod {
+  name: string;
+  duration_minutes: number;
+  period_type: PeriodType;
+  is_concurrent?: boolean;
+  start_time?: number;
+  notes?: string;
+  drills: AIGeneratedDrill[];
+}
+
+export interface AIGeneratedDrill {
+  drill_name: string;
+  position_group?: PositionGroup | 'All';
+  description?: string;
+  equipment_needed?: string;
+  play_codes?: string[];
+}
+
+/**
+ * Create a full practice plan from AI-generated data
+ * Creates the plan, all periods, and all drills in a single transaction
+ */
+export async function createFromAIGenerated(
+  teamId: string,
+  aiPlan: AIGeneratedPlan,
+  date: string,
+  location?: string,
+  coaches?: SelectedCoach[]
+): Promise<PracticePlanWithDetails> {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Create the practice plan
+  const { data: plan, error: planError } = await supabase
+    .from('practice_plans')
+    .insert({
+      team_id: teamId,
+      title: aiPlan.title,
+      date,
+      duration_minutes: aiPlan.duration_minutes,
+      location: location || null,
+      notes: `Focus: ${aiPlan.focus_areas.join(', ')}\n\nAI Reasoning: ${aiPlan.ai_reasoning}`,
+      is_template: false,
+      created_by: user?.id,
+      selected_coaches: coaches || null,
+      coach_count: coaches?.length || 1,
+    })
+    .select()
+    .single();
+
+  if (planError) throw planError;
+
+  // Create periods with drills
+  const periodsWithDrills = [];
+
+  for (let i = 0; i < aiPlan.periods.length; i++) {
+    const periodData = aiPlan.periods[i];
+
+    // Create period
+    const { data: period, error: periodError } = await supabase
+      .from('practice_periods')
+      .insert({
+        practice_plan_id: plan.id,
+        period_order: i + 1,
+        name: periodData.name,
+        duration_minutes: periodData.duration_minutes,
+        period_type: periodData.period_type,
+        is_concurrent: periodData.is_concurrent || false,
+        start_time: periodData.start_time,
+        notes: periodData.notes,
+      })
+      .select()
+      .single();
+
+    if (periodError) throw periodError;
+
+    // Create drills for this period
+    const drills = [];
+    for (let j = 0; j < periodData.drills.length; j++) {
+      const drillData = periodData.drills[j];
+
+      const { data: drill, error: drillError } = await supabase
+        .from('practice_drills')
+        .insert({
+          period_id: period.id,
+          drill_order: j + 1,
+          drill_name: drillData.drill_name,
+          position_group: drillData.position_group === 'All' ? null : drillData.position_group,
+          description: drillData.description,
+          equipment_needed: drillData.equipment_needed,
+          play_codes: drillData.play_codes || [],
+        })
+        .select()
+        .single();
+
+      if (drillError) throw drillError;
+      drills.push(drill);
+    }
+
+    periodsWithDrills.push({
+      ...period,
+      drills,
+    });
+  }
+
+  return {
+    ...plan,
+    periods: periodsWithDrills,
+  };
 }
