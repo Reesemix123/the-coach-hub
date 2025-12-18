@@ -478,12 +478,16 @@ export function AIPracticeChat({
 
   function handleFocusConfirm() {
     setState('practice_setup');
+    // Scroll to top of content area
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }
 
   async function handleSetupConfirm() {
     // After setup, go to coach selection
     setState('coach_selection');
     setSelectedCoaches([]);
+    // Scroll to top of content area
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     await fetchTeamCoaches();
   }
 
@@ -1269,7 +1273,10 @@ export function AIPracticeChat({
           {state === 'practice_setup' && (
             <div className="flex gap-3">
               <button
-                onClick={() => setState('focus_selection')}
+                onClick={() => {
+                  setState('focus_selection');
+                  scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+                }}
                 className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
               >
                 Back
@@ -1287,7 +1294,10 @@ export function AIPracticeChat({
           {state === 'coach_selection' && (
             <div className="flex gap-3">
               <button
-                onClick={() => setState('practice_setup')}
+                onClick={() => {
+                  setState('practice_setup');
+                  scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+                }}
                 className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
               >
                 Back
