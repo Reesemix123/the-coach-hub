@@ -275,44 +275,39 @@ export default function PracticeTimeline({
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <h3 className="text-lg font-semibold text-gray-900">Practice Timeline</h3>
-          <span className="text-sm text-gray-600">({actualDuration} min)</span>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Timeline</h3>
+          <span className="text-xs sm:text-sm text-gray-600">({actualDuration} min)</span>
           {editable && onPeriodReassign && (
-            <span className="ml-auto text-xs text-gray-500">Click parallel drills to reassign coaches</span>
+            <span className="hidden sm:inline ml-auto text-xs text-gray-500">Click parallel drills to reassign coaches</span>
           )}
         </div>
 
         {/* Timeline */}
-        <div className="relative">
+        <div className="relative min-w-0">
           {/* Time markers */}
-          <div className="flex justify-between text-xs text-gray-500 mb-2 ml-24">
-            <span>0:00</span>
-            {[25, 50, 75].map(pct => {
-              const time = Math.floor((maxEndTime * pct) / 100);
-              return time > 0 && time < maxEndTime ? (
-                <span key={pct}>{Math.floor(time / 60)}:{String(time % 60).padStart(2, '0')}</span>
-              ) : null;
-            })}
-            <span>{Math.floor(maxEndTime / 60)}:{String(maxEndTime % 60).padStart(2, '0')}</span>
+          <div className="flex justify-between text-xs text-gray-500 mb-2 ml-16 sm:ml-24">
+            <span>0</span>
+            <span className="hidden sm:inline">{Math.floor(maxEndTime / 2)}m</span>
+            <span>{maxEndTime}m</span>
           </div>
 
           {/* Swim lanes */}
           <div className="flex">
             {/* Lane labels */}
-            <div className="w-24 flex-shrink-0">
+            <div className="w-16 sm:w-24 flex-shrink-0">
               {laneLabels.map((lane, i) => (
-                <div key={lane.id} className="h-14 flex items-center justify-end pr-3">
+                <div key={lane.id} className="h-10 sm:h-14 flex items-center justify-end pr-2 sm:pr-3">
                   <div className="text-right">
-                    <span className="text-xs font-medium text-gray-700 block truncate max-w-20">
+                    <span className="text-xs font-medium text-gray-700 block truncate max-w-14 sm:max-w-20">
                       {lane.name}
                     </span>
                     {lane.isGuest && (
-                      <span className="text-xs text-gray-400">(Guest)</span>
+                      <span className="text-xs text-gray-400 hidden sm:inline">(Guest)</span>
                     )}
                   </div>
                 </div>
@@ -324,7 +319,7 @@ export default function PracticeTimeline({
               {laneLabels.map((_, laneIndex) => (
                 <div
                   key={laneIndex}
-                  className={`h-14 bg-gray-50 border-x border-gray-200 ${laneIndex === 0 ? 'border-t rounded-t' : ''} ${laneIndex === numLanes - 1 ? 'border-b rounded-b' : 'border-b border-dashed'}`}
+                  className={`h-10 sm:h-14 bg-gray-50 border-x border-gray-200 ${laneIndex === 0 ? 'border-t rounded-t' : ''} ${laneIndex === numLanes - 1 ? 'border-b rounded-b' : 'border-b border-dashed'}`}
                 />
               ))}
 
@@ -399,29 +394,27 @@ export default function PracticeTimeline({
           </div>
 
           {/* Legend */}
-          <div className="mt-4 flex flex-wrap gap-3 text-xs">
+          <div className="mt-3 sm:mt-4 flex flex-wrap gap-2 sm:gap-3 text-xs">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-yellow-400 border border-yellow-600 rounded"></div>
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-yellow-400 border border-yellow-600 rounded"></div>
               <span className="text-gray-600">Warmup</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-blue-400 border border-blue-600 rounded"></div>
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-400 border border-blue-600 rounded"></div>
               <span className="text-gray-600">Drill</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-purple-400 border border-purple-600 rounded"></div>
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-purple-400 border border-purple-600 rounded"></div>
               <span className="text-gray-600">Team</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-green-400 border border-green-600 rounded"></div>
-              <span className="text-gray-600">Special Teams</span>
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-400 border border-green-600 rounded"></div>
+              <span className="text-gray-600 hidden sm:inline">Special Teams</span>
+              <span className="text-gray-600 sm:hidden">ST</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-red-400 border border-red-600 rounded"></div>
-              <span className="text-gray-600">Conditioning</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-gray-600">Parallel drills show assigned coach</span>
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-red-400 border border-red-600 rounded"></div>
+              <span className="text-gray-600">Cond.</span>
             </div>
           </div>
         </div>
