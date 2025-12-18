@@ -305,49 +305,51 @@ ${focusStr}${gamePrepStr}${opponentStr}${contactStr}${equipWornStr}${equipNeeded
 5. **Team Periods** (remaining time minus conditioning) - Offense vs Defense
 6. **Conditioning** (${options.conditioning?.type === 'none' ? 'SKIP' : `${options.conditioning?.duration || 5} min`})
 
-## IMPORTANT: Coach Count Constraint (${coachCount} coach${coachCount !== 1 ? 'es' : ''})
+## CRITICAL: Coach Count Constraint (${coachCount} coach${coachCount !== 1 ? 'es' : ''})
 
 ${coachCount === 1 ? `With only 1 coach available:
 - DO NOT create concurrent periods
 - All drills must be sequential
 - The whole team works together under the one coach's supervision
-- Consider using buddy drills where players can work in pairs` : `With ${coachCount} coaches available:
-- You can run at most ${Math.min(coachCount, 4)} concurrent drill stations
-- For individual position work, create MULTIPLE periods that run CONCURRENTLY (same start_time)
-- Example: If you have ${coachCount} coaches and 4 position groups, you can run ${Math.min(coachCount, 4)} groups at once
+- Consider using buddy drills where players can work in pairs` : `With ${coachCount} coaches available, you MUST create EXACTLY ${coachCount} concurrent periods during individual/position drill time:
+- Create EXACTLY ${coachCount} periods with "is_concurrent": true
+- ALL ${coachCount} concurrent periods MUST have the SAME "start_time" value
+- Each period should focus on different position groups
+- Example: Coach 1 = OL work, Coach 2 = Skill work${coachCount >= 3 ? `, Coach 3 = Defensive work` : ''}
 
-Example for ${Math.min(coachCount, 3)} concurrent 15-min periods at start_time 17:
+**REQUIRED EXAMPLE for ${coachCount} concurrent periods at start_time 17:**
 \`\`\`json
 {
-  "name": "Individual - OL",
+  "name": "Individual - Offensive Line",
   "duration_minutes": 15,
   "period_type": "drill",
   "is_concurrent": true,
   "start_time": 17,
-  "notes": "Offensive line work",
+  "notes": "Offensive line fundamentals",
   "drills": [...]
-}${coachCount >= 2 ? `,
+},
 {
-  "name": "Individual - Skill",
+  "name": "Individual - Skill Positions",
   "duration_minutes": 15,
   "period_type": "drill",
   "is_concurrent": true,
   "start_time": 17,
-  "notes": "RB/WR/TE work",
+  "notes": "RB/WR/TE route work",
   "drills": [...]
-}` : ''}${coachCount >= 3 ? `,
+}${coachCount >= 3 ? `,
 {
   "name": "Individual - Defense",
   "duration_minutes": 15,
   "period_type": "drill",
   "is_concurrent": true,
   "start_time": 17,
-  "notes": "DL/LB/DB work",
+  "notes": "DL/LB/DB technique work",
   "drills": [...]
 }` : ''}
 \`\`\`
 
-These ${Math.min(coachCount, 3)} periods = 15 minutes total (not ${Math.min(coachCount, 3) * 15}!) because they run concurrently.`}
+**IMPORTANT**: These ${coachCount} concurrent periods = 15 minutes total (NOT ${coachCount * 15}!) because they run at the same time.
+**IMPORTANT**: You MUST create exactly ${coachCount} concurrent periods - one for each coach!`}
 
 The NON-CONCURRENT periods MUST add up to EXACTLY ${duration} minutes total.
 
