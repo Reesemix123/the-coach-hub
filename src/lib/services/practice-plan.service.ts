@@ -526,6 +526,86 @@ export async function createFromAIGenerated(
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Helper to check if a string is a valid UUID (for coach assignment)
+  const isValidUUID = (str: string | undefined): boolean => {
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  // CRITICAL: Ensure we have enough concurrent periods for all coaches
+  // This is a backup fix in case the AI didn't generate enough
+  const coachCount = coaches?.length || 1;
+  const periodsToSave = [...aiPlan.periods]; // Make a copy to modify
+
+  if (coachCount > 1) {
+    const concurrentPeriods = periodsToSave.filter(p => p.is_concurrent);
+    console.log(`[createFromAIGenerated] Coach count: ${coachCount}, Concurrent periods: ${concurrentPeriods.length}`);
+
+    if (concurrentPeriods.length < coachCount) {
+      console.log(`[createFromAIGenerated] FIXING: Adding ${coachCount - concurrentPeriods.length} missing concurrent periods`);
+
+      // Find the start_time and duration from existing concurrent periods
+      let startTime = 15; // Default: after warmup
+      let duration = 15; // Default duration
+      if (concurrentPeriods.length > 0) {
+        startTime = concurrentPeriods[0].start_time ?? 15;
+        duration = concurrentPeriods[0].duration_minutes;
+      } else {
+        // Calculate start time from warmup/coach talk
+        let runningTime = 0;
+        for (const period of periodsToSave) {
+          if (!period.is_concurrent && (period.period_type === 'warmup' || period.period_type === 'other')) {
+            runningTime += period.duration_minutes;
+          } else if (period.period_type === 'drill') {
+            break;
+          }
+        }
+        startTime = runningTime;
+      }
+
+      // Position group templates for new concurrent periods
+      const templates = [
+        { name: 'Individual - Skill Positions', group: 'WR' as PositionGroup, notes: 'RB/WR/TE route work and ball handling' },
+        { name: 'Individual - Offensive Line', group: 'OL' as PositionGroup, notes: 'Offensive line fundamentals' },
+        { name: 'Individual - Defense', group: 'DL' as PositionGroup, notes: 'DL/LB/DB technique work' },
+        { name: 'Individual - Special Teams', group: 'All' as PositionGroup, notes: 'Kicking game specialists' },
+      ];
+
+      // Determine which templates are already used
+      const usedNames = concurrentPeriods.map(p => p.name);
+
+      // Add missing concurrent periods
+      const periodsToAdd = coachCount - concurrentPeriods.length;
+      const insertIndex = concurrentPeriods.length > 0
+        ? periodsToSave.findIndex(p => p === concurrentPeriods[concurrentPeriods.length - 1]) + 1
+        : periodsToSave.findIndex(p => p.period_type === 'drill');
+
+      for (let i = 0; i < periodsToAdd; i++) {
+        const template = templates.find(t => !usedNames.includes(t.name)) || templates[i % templates.length];
+        usedNames.push(template.name);
+
+        const newPeriod: AIGeneratedPeriod = {
+          name: template.name,
+          duration_minutes: duration,
+          period_type: 'drill',
+          is_concurrent: true,
+          start_time: startTime,
+          notes: template.notes,
+          drills: [{
+            drill_name: 'Position Fundamentals',
+            position_group: template.group,
+            description: `Focus on ${template.group} fundamentals and technique work.`,
+          }],
+        };
+
+        // Insert at the right position
+        periodsToSave.splice(insertIndex + i, 0, newPeriod);
+        console.log(`[createFromAIGenerated] Added: ${newPeriod.name} at start_time ${startTime}`);
+      }
+    }
+  }
+
   // Create the practice plan
   const { data: plan, error: planError } = await supabase
     .from('practice_plans')
@@ -539,7 +619,7 @@ export async function createFromAIGenerated(
       is_template: false,
       created_by: user?.id,
       selected_coaches: coaches || null,
-      coach_count: coaches?.length || 1,
+      coach_count: coachCount,
     })
     .select()
     .single();
@@ -549,18 +629,11 @@ export async function createFromAIGenerated(
   // Create periods with drills
   const periodsWithDrills = [];
 
-  // Helper to check if a string is a valid UUID (for coach assignment)
-  const isValidUUID = (str: string | undefined): boolean => {
-    if (!str) return false;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(str);
-  };
-
   // Group concurrent periods by start_time to auto-assign coaches
   const concurrentGroups = new Map<number, number>(); // start_time -> coach index counter
 
-  for (let i = 0; i < aiPlan.periods.length; i++) {
-    const periodData = aiPlan.periods[i];
+  for (let i = 0; i < periodsToSave.length; i++) {
+    const periodData = periodsToSave[i];
 
     // Auto-assign coach to concurrent periods
     let assignedCoachId: string | null = null;
