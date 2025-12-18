@@ -34,9 +34,19 @@ export default function PracticePlanDetailPage({
   const [practice, setPractice] = useState<PracticePlanWithDetails | null>(null);
   const [coaches, setCoaches] = useState<TimelineCoach[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playNameMap, setPlayNameMap] = useState<Record<string, string>>({});
 
   const router = useRouter();
   const supabase = createClient();
+
+  // Replace play codes (P-001, R-011, etc.) with actual play names
+  function replacePlayCodesWithNames(text: string): string {
+    if (!text || Object.keys(playNameMap).length === 0) return text;
+    return text.replace(/[A-Z]-\d{3}/g, (match) => {
+      const name = playNameMap[match];
+      return name ? name : match;
+    });
+  }
 
   useEffect(() => {
     fetchData();
@@ -110,6 +120,22 @@ export default function PracticePlanDetailPage({
         ...practiceData,
         periods: periodsWithDrills
       });
+
+      // Fetch playbook plays to build play code -> play name map
+      const { data: playbookPlays } = await supabase
+        .from('playbook_plays')
+        .select('play_code, play_name')
+        .eq('team_id', teamId);
+
+      if (playbookPlays) {
+        const nameMap: Record<string, string> = {};
+        playbookPlays.forEach(play => {
+          if (play.play_code && play.play_name) {
+            nameMap[play.play_code] = play.play_name;
+          }
+        });
+        setPlayNameMap(nameMap);
+      }
 
     } catch (error) {
       console.error('Error fetching practice plan:', error);
@@ -225,7 +251,7 @@ export default function PracticePlanDetailPage({
             <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">
               Practice Notes
             </h2>
-            <p className="text-gray-900">{practice.notes}</p>
+            <p className="text-gray-900">{replacePlayCodesWithNames(practice.notes)}</p>
           </div>
         )}
 
@@ -283,7 +309,7 @@ export default function PracticePlanDetailPage({
                 {/* Period Notes */}
                 {period.notes && (
                   <div className="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
-                    <p className="text-sm text-gray-700">{period.notes}</p>
+                    <p className="text-sm text-gray-700">{replacePlayCodesWithNames(period.notes)}</p>
                   </div>
                 )}
 
@@ -313,17 +339,18 @@ export default function PracticePlanDetailPage({
                                 )}
                               </div>
                               {drill.description && (
-                                <p className="text-sm text-gray-600 mb-2">{drill.description}</p>
+                                <p className="text-sm text-gray-600 mb-2">{replacePlayCodesWithNames(drill.description)}</p>
                               )}
                               {drill.play_codes && drill.play_codes.length > 0 && (
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs text-gray-500">Play Codes:</span>
+                                  <span className="text-xs text-gray-500">Plays:</span>
                                   {drill.play_codes.map((code, i) => (
                                     <span
                                       key={i}
-                                      className="px-2 py-0.5 text-xs font-mono rounded bg-gray-200 text-gray-700"
+                                      className="px-2 py-0.5 text-xs font-medium rounded bg-gray-200 text-gray-700"
+                                      title={code}
                                     >
-                                      {code}
+                                      {playNameMap[code] || code}
                                     </span>
                                   ))}
                                 </div>
