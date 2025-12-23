@@ -121,7 +121,7 @@ export function getPasswordResetEmail(options: {
 
         <p>To log in:</p>
         <ol style="padding-left: 20px;">
-          <li>Go to <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login" style="color: #000;">Youth Coach Hub</a></li>
+          <li>Go to <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/login" style="color: #000;">Youth Coach Hub</a></li>
           <li>Enter your email and the temporary password above</li>
           <li>Go to your account settings and change your password</li>
         </ol>
@@ -150,7 +150,7 @@ Temporary Password: ${temporaryPassword}
 IMPORTANT: Please change your password immediately after logging in.
 
 To log in:
-1. Go to ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login
+1. Go to ${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/login
 2. Enter your email and the temporary password above
 3. Go to your account settings and change your password
 
@@ -255,7 +255,7 @@ export function getNewFeedbackEmail(options: {
 
   const typeLabel = typeLabels[feedbackType] || feedbackType;
   const shortId = feedbackId.substring(0, 8).toUpperCase();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
 
   const subject = `New Feedback: ${typeLabel} (#${shortId})`;
 
@@ -347,7 +347,7 @@ export function getUserReactivatedEmail(options: {
         <p>You can now log in and access all your data and team memberships as before.</p>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login" style="display: inline-block; background: #000; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500;">Log In Now</a>
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/login" style="display: inline-block; background: #000; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500;">Log In Now</a>
         </div>
 
         <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
@@ -371,7 +371,7 @@ Great news! Your Youth Coach Hub account has been reactivated by a platform admi
 
 You can now log in and access all your data and team memberships as before.
 
-Log in at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com'}/auth/login
+Log in at: ${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/login
 
 If you have any questions or need assistance, please don't hesitate to contact our support team.
 
