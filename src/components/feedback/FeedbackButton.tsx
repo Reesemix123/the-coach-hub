@@ -1,11 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MessageSquarePlus } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 import { FeedbackModal } from './FeedbackModal';
 
 export function FeedbackButton() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Check initial auth state
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAuthenticated(!!user);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session?.user);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Don't render for unauthenticated users
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <>
