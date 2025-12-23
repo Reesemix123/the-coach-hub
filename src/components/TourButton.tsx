@@ -16,6 +16,11 @@ export default function TourButton() {
     return null;
   }
 
+  // Hide if user has already completed or skipped the tour
+  if (onboarding.state.tourCompleted || onboarding.state.tourSkipped) {
+    return null;
+  }
+
   return (
     <button
       onClick={onboarding.startTour}
