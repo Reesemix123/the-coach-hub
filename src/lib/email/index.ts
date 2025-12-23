@@ -236,6 +236,86 @@ This email was sent by Youth Coach Hub.
   return { subject, html, text };
 }
 
+export function getNewFeedbackEmail(options: {
+  feedbackType: string;
+  description: string;
+  pageUrl?: string;
+  feedbackId: string;
+}): { subject: string; html: string; text: string } {
+  const { feedbackType, description, pageUrl, feedbackId } = options;
+
+  const typeLabels: Record<string, string> = {
+    bug: "Bug Report",
+    confusing: "Something Confusing",
+    missing: "Something Missing",
+    suggestion: "Suggestion",
+    feature_request: "Feature Request",
+    praise: "Positive Feedback",
+  };
+
+  const typeLabel = typeLabels[feedbackType] || feedbackType;
+  const shortId = feedbackId.substring(0, 8).toUpperCase();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.youthcoachhub.com';
+
+  const subject = `New Feedback: ${typeLabel} (#${shortId})`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>New Feedback</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
+        <h2 style="margin-top: 0; color: #111;">New Feedback Received</h2>
+
+        <div style="background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Type:</strong> ${typeLabel}</p>
+          <p style="margin: 0 0 10px 0;"><strong>ID:</strong> #${shortId}</p>
+          ${pageUrl ? `<p style="margin: 0 0 10px 0;"><strong>Page:</strong> <a href="${pageUrl}" style="color: #000;">${pageUrl}</a></p>` : ''}
+          <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 15px 0;">
+          <p style="margin: 0; white-space: pre-wrap;">${description}</p>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${appUrl}/admin/feedback" style="display: inline-block; background: #000; color: #fff; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 500;">View in Admin Panel</a>
+        </div>
+
+        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
+
+        <p style="font-size: 12px; color: #666; margin-bottom: 0;">
+          This is an automated notification from Youth Coach Hub.
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+New Feedback Received - Youth Coach Hub
+
+Type: ${typeLabel}
+ID: #${shortId}
+${pageUrl ? `Page: ${pageUrl}` : ''}
+
+---
+${description}
+---
+
+View in Admin Panel: ${appUrl}/admin/feedback
+
+This is an automated notification from Youth Coach Hub.
+  `.trim();
+
+  return { subject, html, text };
+}
+
 export function getUserReactivatedEmail(options: {
   userName: string;
   adminName: string;

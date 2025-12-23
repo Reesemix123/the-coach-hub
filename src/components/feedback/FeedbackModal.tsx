@@ -159,7 +159,7 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       };
 
       // Submit feedback
-      const { error: insertError } = await supabase
+      const { data: feedbackData, error: insertError } = await supabase
         .from('feedback_reports')
         .insert({
           user_id: user.id,
@@ -170,12 +170,56 @@ export function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
           screenshot_url: screenshotUrl,
           browser_info: browserInfo,
           status: 'new',
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error('Feedback submission error:', insertError);
         setError('Failed to submit feedback. Please try again.');
         return;
+      }
+
+      // Notify platform admins via UI notification
+      if (feedbackData?.id) {
+        try {
+          // Get all platform admins
+          const { data: admins } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('is_platform_admin', true);
+
+          if (admins && admins.length > 0) {
+            const typeLabel = feedbackTypes.find(t => t.value === selectedType)?.label || selectedType;
+            const preview = description.trim().substring(0, 50) + (description.length > 50 ? '...' : '');
+
+            // Create notification for each admin
+            const notifications = admins.map(admin => ({
+              user_id: admin.id,
+              type: 'feedback_update' as const,
+              reference_id: feedbackData.id,
+              title: `New Feedback: ${typeLabel}`,
+              body: preview,
+            }));
+
+            await supabase.from('notifications').insert(notifications);
+          }
+
+          // Also send email notification to admins
+          fetch('/api/admin/feedback-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              feedbackId: feedbackData.id,
+              type: selectedType,
+              description: description.trim(),
+              pageUrl: window.location.href,
+            }),
+          }).catch(err => console.error('Email notification failed:', err));
+        } catch (notifyError) {
+          // Don't fail submission if notifications fail
+          console.error('Failed to notify admins:', notifyError);
+        }
       }
 
       setSubmitted(true);
