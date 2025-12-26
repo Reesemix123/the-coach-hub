@@ -835,90 +835,61 @@ Enables:
 - Play list: Optional "Tagged by: Coach Smith" badge
 - Analytics: Filter by tagger
 
-### Analytics Tier System
+### Tier System Overview
 
-**Configuration per Team:**
-```sql
-CREATE TABLE team_analytics_config (
-  team_id UUID PRIMARY KEY REFERENCES teams(id),
-  tier TEXT CHECK (tier IN ('little_league', 'hs_basic', 'hs_advanced', 'ai_powered')),
-  updated_at TIMESTAMPTZ
-);
-```
+Youth Coach Hub has **two distinct tier concepts**:
 
-**Tier 1: Little League**
-**Focus:** Participation tracking, fairness, parent communication
-
-**Data captured:**
-- Basic context (quarter, time, score)
-- Player involvement (ball carrier only)
-- Simple outcome (yards gained, touchdown Y/N)
-
-**Analytics shown:**
-- Playing time per player (snap counts)
-- Touches distribution (did everyone get carries?)
-- Simple success rate (did we gain yards?)
-- Basic player stats (carries, yards, TDs)
-
-**UI:** Simplified 6-field tagging form, no advanced metrics
+1. **Subscription Tiers** (`basic`, `plus`, `premium`) - Controls billing and capacity limits
+2. **Tagging Tiers** (`quick`, `standard`, `comprehensive`) - Controls play tagging depth per game
 
 ---
 
-**Tier 2: High School Basic**
-**Focus:** Game planning, play concept evaluation, drive efficiency
+### Subscription Tiers (Billing)
 
-**Data captured (adds to Tier 1):**
-- QB, target (pass plays)
-- Drive linkage
-- Formation from playbook
-- Play type (run/pass)
+Stored in `subscriptions.tier`. Controls capacity limits, not feature access.
 
-**Analytics shown:**
-- **Drive analytics:** Points Per Drive, 3-and-outs, red zone TD%
-- **Play concepts:** Success rate and YPP by play concept
-- **Situational:** Performance by down/distance, field position
-- **Explosive plays:** 10+ yard runs, 15+ yard passes
-- **Player stats:** Rushing, receiving, QB stats with success rates
+| Tier | Games/Month | Storage | Retention | Cameras | Coaches |
+|------|-------------|---------|-----------|---------|---------|
+| **Basic** | 2 | 5GB | 30 days | 1 | 1 |
+| **Plus** | 6 | 25GB | 90 days | 3 | 3 |
+| **Premium** | Unlimited | 100GB | 1 year | 5 | 10 |
 
-**UI:** 12-field form with drive builder tool
+**All features are available on all subscription tiers.** Tiers only differ by capacity.
 
 ---
 
-**Tier 3: High School Advanced**
-**Focus:** Position-specific evaluation, opponent scouting, situational mastery
+### Tagging Tiers (Per-Game)
 
-**Data captured (adds to Tier 2):**
-- **Offensive line:** 5 positions (LT/LG/C/RG/RT) with block win/loss
-- **Defensive players:** Tacklers (primary + assists), missed tackles, pressures, coverage
-- **Situational flags:** Motion, play action, blitz, box count
-- **QB grading:** Decision quality (0-2 scale)
-- **Defensive events:** TFL, sacks, forced fumbles, PBU
+Stored in `games.tagging_tier`. Controls which fields are shown when tagging plays.
 
-**Analytics shown:**
-- **OL performance:** Block win rate by position and player
-- **Defensive stats:** Tackles, TFL, pressures, sacks, havoc rate
-- **Coverage grades:** Targets allowed, completions, success rate
-- **Situational splits:** Motion vs no motion, play action effectiveness
-- **Concept mastery:** Success rate by concept + situation
-- **QB development:** Decision grade distribution, pressure response
+**Quick Tag**
+- **Focus:** Track the game, remember the season
+- **Time:** 15-20 sec/play
+- **Fields:** Play type, direction, result, yards, scoring
+- **Analytics:** Game record, season stats, big play highlights
 
-**UI:** Full tagging form with progressive disclosure (tabs), 40+ fields
+**Standard Tag**
+- **Focus:** Understand what's working, prepare for next week
+- **Time:** 30-45 sec/play
+- **Fields:** Quick fields + formation, personnel, hash, down/distance, player attribution
+- **Analytics:** Play effectiveness, situational tendencies, opponent prep
+
+**Comprehensive Tag**
+- **Focus:** Evaluate and develop every player
+- **Time:** 2-3 min/play
+- **Fields:** Standard fields + OL tracking (5 positions), defensive tracking, situational flags
+- **Analytics:** Player grades, position group analysis, development tracking
 
 ---
 
-**Tier 4: AI-Powered (Future)**
-**Focus:** Automated tagging, coach review workflow
+### AI-Assisted Tagging
 
-**Data captured:**
-- All Tier 3 fields, auto-populated by AI from video
-- Coaches review and correct errors
+AI analysis level maps directly to the game's tagging tier:
+- `quick` → Gemini Flash (fast, basic fields)
+- `standard` → Gemini Pro (detailed analysis)
+- `comprehensive` → Gemini Pro (full analysis)
 
-**Analytics shown:**
-- Everything from Tier 3
-- AI confidence scores
-- Auto-generated insights ("You run 65% from 12 personnel on 1st down")
-
-**UI:** Review mode (AI suggestions, accept/reject/edit)
+AI pre-fills fields with confidence scores. Coaches confirm or correct. Corrections are captured as training data.
 
 ---
 
@@ -961,20 +932,20 @@ CREATE TABLE drives (
 
 **Play Instances Additions:**
 ```sql
--- Context (Tier 2+)
+-- Context (Standard+)
 ALTER TABLE play_instances
   ADD COLUMN quarter INTEGER,
   ADD COLUMN time_remaining INTEGER, -- seconds
   ADD COLUMN score_differential INTEGER,
   ADD COLUMN drive_id UUID REFERENCES drives(id);
 
--- Player attribution (Tier 2+)
+-- Player attribution (Standard+)
 ALTER TABLE play_instances
   ADD COLUMN qb_id UUID REFERENCES players(id),
   ADD COLUMN ball_carrier_id UUID REFERENCES players(id),
   ADD COLUMN target_id UUID REFERENCES players(id);
 
--- Offensive line (Tier 3)
+-- Offensive line (Comprehensive)
 ALTER TABLE play_instances
   ADD COLUMN lt_id UUID, ADD COLUMN lt_block_result TEXT,
   ADD COLUMN lg_id UUID, ADD COLUMN lg_block_result TEXT,
@@ -982,7 +953,7 @@ ALTER TABLE play_instances
   ADD COLUMN rg_id UUID, ADD COLUMN rg_block_result TEXT,
   ADD COLUMN rt_id UUID, ADD COLUMN rt_block_result TEXT;
 
--- Defensive tracking (Tier 3)
+-- Defensive tracking (Comprehensive)
 ALTER TABLE play_instances
   ADD COLUMN tackler_ids UUID[], -- Array of player IDs
   ADD COLUMN missed_tackle_ids UUID[],
@@ -991,7 +962,7 @@ ALTER TABLE play_instances
   ADD COLUMN coverage_player_id UUID,
   ADD COLUMN coverage_result TEXT; -- 'win', 'loss', 'neutral'
 
--- Situational (Tier 3)
+-- Situational (Comprehensive)
 ALTER TABLE play_instances
   ADD COLUMN has_motion BOOLEAN,
   ADD COLUMN is_play_action BOOLEAN,
@@ -1027,9 +998,9 @@ ALTER TABLE play_instances
 - getDriveList(gameId): All drives with stats
 
 // Player analytics
-- getPlayerStats(playerId, tier): Stats based on tier
-- getOLBlockWinRates(teamId): Tier 3 only
-- getDefensivePlayerStats(playerId): Tier 3 only
+- getPlayerStats(playerId, tier): Stats based on tagging tier
+- getOLBlockWinRates(teamId): Comprehensive tagging only
+- getDefensivePlayerStats(playerId): Comprehensive tagging only
 
 // Situational analytics
 - getSituationalSplits(teamId): Motion, PA, blitz effectiveness
@@ -1076,16 +1047,16 @@ ALTER TABLE play_instances
 **Enhanced:**
 
 **`/src/app/film/[gameId]/page.tsx`:**
-- Tier-based tagging form (progressive disclosure)
-- Tabs: Context, Players, OL (Tier 3), Defense (Tier 3), Notes
+- Tagging form with progressive disclosure based on game's tagging tier
+- Tabs: Context, Players, OL (Comprehensive), Defense (Comprehensive), Notes
 - Smart defaults (auto-populate OL from depth chart)
 - "Tagged by: [Coach Name]" display
 
 **`/src/app/teams/[teamId]/analytics/page.tsx`:**
-- Tier-based dashboard
-- Tier 1: Playing time, touches, basic success
-- Tier 2: + Drive efficiency, play concepts, explosive plays
-- Tier 3: + OL grades, defensive stats, situational splits
+- Analytics dashboard based on tagging depth
+- Quick: Playing time, touches, basic success
+- Standard: + Drive efficiency, play concepts, explosive plays
+- Comprehensive: + OL grades, defensive stats, situational splits
 - Filter by: Game, date range, tagger (coach)
 
 ### Key Algorithms
@@ -1099,14 +1070,14 @@ function calculateSuccess(down: number, distance: number, gain: number): boolean
 }
 ```
 
-**Explosive Play Detection (Tier 2+):**
+**Explosive Play Detection (Standard+):**
 ```typescript
 function isExplosive(playType: string, gain: number): boolean {
   return playType === 'run' ? gain >= 10 : gain >= 15;
 }
 ```
 
-**Block Win Rate (Tier 3):**
+**Block Win Rate (Comprehensive tagging):**
 ```typescript
 function calculateBlockWinRate(playerId: string): number {
   // Find all plays where player was assigned to OL position
@@ -1124,7 +1095,7 @@ function calculateBlockWinRate(playerId: string): number {
 }
 ```
 
-**Havoc Rate (Tier 3, defensive):**
+**Havoc Rate (Comprehensive, defensive):**
 ```typescript
 function calculateHavocRate(teamId: string): number {
   const defensiveSnaps = plays.filter(p => p.team_id === teamId && p.is_defensive_play);
@@ -1144,7 +1115,7 @@ function calculateHavocRate(teamId: string): number {
 2. `teams.user_id` remains (primary owner)
 3. `team_memberships` is additive (doesn't replace existing access)
 4. Old RLS policies still work via UNION with new membership checks
-5. Analytics tier defaults to 'hs_basic' for existing teams
+5. Tagging tier defaults to 'standard' for new games
 
 **Rollout Plan:**
 1. Deploy migrations (no breaking changes)
@@ -1164,7 +1135,7 @@ CREATE INDEX idx_play_instances_tagged_by ON play_instances(tagged_by_user_id);
 CREATE INDEX idx_play_instances_drive ON play_instances(drive_id);
 ```
 
-**Materialized Views (for Tier 3):**
+**Materialized Views (for Comprehensive tagging):**
 ```sql
 -- Pre-calculate expensive aggregates
 CREATE MATERIALIZED VIEW player_season_stats AS
@@ -1190,11 +1161,11 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY player_season_stats;
 - Owner removes Coach, verify access revoked
 - Test RLS: Coach A cannot see Coach B's team
 
-**Analytics Tier Testing:**
-- Create team with Tier 1, verify simple UI
-- Upgrade to Tier 2, verify drive analytics appear
-- Upgrade to Tier 3, verify OL/defensive fields appear
-- Downgrade, verify advanced fields hidden (data preserved)
+**Tagging Tier Testing:**
+- Create game with Quick tagging, verify simple form
+- Create game with Standard tagging, verify drive/player fields appear
+- Create game with Comprehensive tagging, verify OL/defensive fields appear
+- Change tagging tier mid-game, verify fields update (data preserved)
 - Tag 10 plays per tier, verify calculations correct
 
 **Integration Testing:**
