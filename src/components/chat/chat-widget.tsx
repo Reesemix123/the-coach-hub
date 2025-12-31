@@ -25,8 +25,8 @@ interface Position {
   y: number;
 }
 
-const STORAGE_KEY = 'ych-chat-widget-position';
-const DEFAULT_POSITION = { x: 24, y: 96 }; // right: 24px, top: 96px
+const STORAGE_KEY = 'ych-chat-widget-position-v2'; // v2: changed from top to bottom positioning
+const DEFAULT_POSITION = { x: 24, y: 24 }; // right: 24px, bottom: 24px
 
 export function ChatWidget() {
   const router = useRouter();
@@ -120,6 +120,24 @@ export function ChatWidget() {
     };
   }, []);
 
+  // Listen for practice-builder-open event to hide chat widget
+  const [isPracticeBuilderOpen, setIsPracticeBuilderOpen] = useState(false);
+  useEffect(() => {
+    const handlePracticeBuilderOpen = () => {
+      setIsPracticeBuilderOpen(true);
+      setIsOpen(false); // Close chat if open
+    };
+    const handlePracticeBuilderClose = () => {
+      setIsPracticeBuilderOpen(false);
+    };
+    window.addEventListener('practice-builder-open', handlePracticeBuilderOpen);
+    window.addEventListener('practice-builder-close', handlePracticeBuilderClose);
+    return () => {
+      window.removeEventListener('practice-builder-open', handlePracticeBuilderOpen);
+      window.removeEventListener('practice-builder-close', handlePracticeBuilderClose);
+    };
+  }, []);
+
   // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -136,9 +154,9 @@ export function ChatWidget() {
     if (!isDragging || !dragStartRef.current) return;
 
     const deltaX = dragStartRef.current.x - e.clientX;
-    const deltaY = e.clientY - dragStartRef.current.y;
+    const deltaY = dragStartRef.current.y - e.clientY; // Inverted for bottom positioning
 
-    // Calculate new position (right-based for x)
+    // Calculate new position (right-based for x, bottom-based for y)
     const newX = Math.max(0, Math.min(window.innerWidth - 150, dragStartRef.current.posX + deltaX));
     const newY = Math.max(0, Math.min(window.innerHeight - 50, dragStartRef.current.posY + deltaY));
 
@@ -180,7 +198,7 @@ export function ChatWidget() {
 
     const touch = e.touches[0];
     const deltaX = dragStartRef.current.x - touch.clientX;
-    const deltaY = touch.clientY - dragStartRef.current.y;
+    const deltaY = dragStartRef.current.y - touch.clientY; // Inverted for bottom positioning
 
     const newX = Math.max(0, Math.min(window.innerWidth - 150, dragStartRef.current.posX + deltaX));
     const newY = Math.max(0, Math.min(window.innerHeight - 50, dragStartRef.current.posY + deltaY));
@@ -230,12 +248,12 @@ export function ChatWidget() {
         onClick={handleClick}
         style={{
           right: position.x,
-          top: position.y,
+          bottom: position.y,
         }}
         className={`fixed z-[60] flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-300 ${
           isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab hover:scale-105'
         } ${
-          isVisible && !isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+          isVisible && !isOpen && !isPracticeBuilderOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
         } bg-white ring-2 ring-gray-200 hover:ring-gray-400 hover:shadow-xl`}
         aria-label="Open AI Assistant"
       >
@@ -260,12 +278,12 @@ export function ChatWidget() {
       <div
         style={{
           right: position.x,
-          top: position.y + 52, // Position below the button
+          bottom: position.y + 52, // Position above the button
         }}
         className={`fixed z-[60] w-[400px] max-w-[calc(100vw-3rem)] transition-all duration-300 ${
           isOpen
             ? 'opacity-100 translate-y-0 pointer-events-auto'
-            : 'opacity-0 -translate-y-4 pointer-events-none'
+            : 'opacity-0 translate-y-4 pointer-events-none'
         }`}
       >
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[calc(100vh-10rem)]">
