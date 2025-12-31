@@ -58,6 +58,17 @@ export const APP_FEATURES: FeatureCategory[] = [
         guidePath: '/guide/teams/team-settings',
         navigationPath: 'Team > Settings',
       },
+      {
+        name: 'Game Management',
+        description: 'Create games on your schedule and delete them with automatic token refund if no plays have been tagged',
+        guidePath: '/guide/teams/schedule',
+        navigationPath: 'Team > Schedule > Game > Delete',
+        subFeatures: [
+          'Token refund when deleting games with no tagged plays',
+          'Clear confirmation showing refund eligibility',
+          'Cascade deletion of videos and tagged plays',
+        ],
+      },
     ],
   },
   {
@@ -129,7 +140,7 @@ export const APP_FEATURES: FeatureCategory[] = [
   {
     id: 'analytics',
     name: 'Analytics & Reporting',
-    description: 'Track performance with 8 different analytical reports',
+    description: 'Track performance with 9 different analytical reports',
     guidePath: '/guide/analytics',
     features: [
       {
@@ -179,6 +190,18 @@ export const APP_FEATURES: FeatureCategory[] = [
         description: 'Drive-level performance metrics and efficiency',
         guidePath: '/guide/analytics/drive-analysis',
         navigationPath: 'Analytics > Reports > Drive Analysis',
+      },
+      {
+        name: 'Opponent Scouting',
+        description: 'Comprehensive opponent analysis including defensive tendencies, offensive patterns, and special teams insights',
+        guidePath: '/guide/analytics/opponent-scouting',
+        navigationPath: 'Analytics > Reports > Opponent Scouting',
+        subFeatures: [
+          'Defensive tendencies: coverage distribution, blitz rates, run/pass defense',
+          'Offensive tendencies: run/pass splits, formation usage, concept frequencies',
+          'Special teams analysis: kicking, returning, and scoring tendencies',
+          'Game plan recommendations based on opponent patterns',
+        ],
       },
     ],
   },
@@ -297,8 +320,10 @@ export const COMMON_TASKS = [
   { task: 'Tag plays', path: 'While watching film, click "Tag Play"' },
   { task: 'Invite coaches', path: 'Team Settings > Manage Coaches' },
   { task: 'View analytics', path: 'Analytics > Reports' },
+  { task: 'Scout opponent', path: 'Analytics > Reports > Scouting > Opponent Scouting' },
   { task: 'Print wristbands', path: 'Playbook > Print' },
   { task: 'Create game plan', path: 'Game Week > New Game Plan' },
+  { task: 'Delete a game', path: 'Team > Schedule > Click Game > Delete (token refunded if no plays tagged)' },
 ];
 
 /**

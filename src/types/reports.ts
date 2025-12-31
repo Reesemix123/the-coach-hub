@@ -19,9 +19,10 @@ export type ReportType =
   | 'special-teams'
   | 'player'
   | 'situational'
-  | 'drives';
+  | 'drives'
+  | 'opponent-scouting';
 
-export type ReportCategory = 'team' | 'unit' | 'analysis';
+export type ReportCategory = 'team' | 'unit' | 'analysis' | 'scouting';
 
 // ============================================================================
 // Report Configuration
@@ -34,6 +35,7 @@ export interface ReportConfig {
   category: ReportCategory;
   requiresGame?: boolean;      // Does this report need a game selected?
   requiresPlayer?: boolean;    // Does this report need a player selected?
+  requiresOpponent?: boolean;  // Does this report need an opponent selected?
   icon?: string;               // Lucide icon name (optional)
 }
 

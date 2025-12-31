@@ -4,16 +4,13 @@
 import { useEffect, useState, use } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { ChevronUp, ChevronDown, BarChart3, X } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import TeamNavigation from '@/components/TeamNavigation';
 import SelectionBadge from '@/components/SelectionBadge';
 import BulkActionBar from '@/components/BulkActionBar';
-import OpponentTendencies from '@/components/game-plan/OpponentTendencies';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
-import { getOpponentTendencies } from '@/lib/services/opponent-analytics.service';
-import type { OpponentProfile } from '@/types/football';
 import { useTokenBalance } from '@/components/TokenBalanceCard';
 import { Upload, AlertTriangle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
@@ -37,6 +34,7 @@ interface Game {
   team_score?: number | null;
   opponent_score?: number | null;
   game_result?: 'win' | 'loss' | 'tie' | null;
+  film_analysis_status?: 'not_started' | 'in_progress' | 'complete' | null;
   is_opponent_game?: boolean;
   opponent_team_name?: string;
   created_at: string;
@@ -72,9 +70,6 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   const [showOpponentGameModal, setShowOpponentGameModal] = useState(false);
   const [showOwnTeamGameModal, setShowOwnTeamGameModal] = useState(false);
   const [editingGameResult, setEditingGameResult] = useState<Game | null>(null);
-  const [showTendenciesModal, setShowTendenciesModal] = useState(false);
-  const [selectedOpponentProfile, setSelectedOpponentProfile] = useState<OpponentProfile | null>(null);
-  const [loadingTendencies, setLoadingTendencies] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -415,20 +410,6 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
     }
   };
 
-  const handleViewTendencies = async (opponentName: string) => {
-    setLoadingTendencies(true);
-    try {
-      const profile = await getOpponentTendencies(teamId, opponentName);
-      setSelectedOpponentProfile(profile);
-      setShowTendenciesModal(true);
-    } catch (error) {
-      console.error('Error fetching opponent tendencies:', error);
-      alert('Error loading opponent tendencies');
-    } finally {
-      setLoadingTendencies(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -759,26 +740,30 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {game.is_opponent_game && (
-                        <button
-                          onClick={() => handleViewTendencies(game.opponent)}
-                          disabled={loadingTendencies}
-                          className="flex items-center gap-1.5 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                          title="View opponent tendencies"
-                        >
-                          <BarChart3 className="w-5 h-5" />
-                        </button>
-                      )}
-                      {!game.is_opponent_game && (
-                        <button
-                          onClick={() => setEditingGameResult(game)}
-                          className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium"
-                        >
-                          Result
-                        </button>
+                      {game.videos.length > 0 && (
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium ${
+                          game.film_analysis_status === 'complete'
+                            ? 'bg-green-100 text-green-800'
+                            : game.film_analysis_status === 'in_progress'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            game.film_analysis_status === 'complete'
+                              ? 'bg-green-500'
+                              : game.film_analysis_status === 'in_progress'
+                                ? 'bg-yellow-500'
+                                : 'bg-gray-400'
+                          }`} />
+                          {game.film_analysis_status === 'complete'
+                            ? 'Complete'
+                            : game.film_analysis_status === 'in_progress'
+                              ? 'In Progress'
+                              : 'Not Started'}
+                        </span>
                       )}
                       <button
-                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
                         className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                       >
                         {game.videos.length > 0 ? 'View Film' : 'Add Film'}
@@ -793,7 +778,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     <div className="text-center py-8 text-gray-500">
                       <p className="text-sm">No film uploaded for this game yet</p>
                       <button
-                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
                         className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
                       >
                         Upload Film →
@@ -822,7 +807,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
                           <div className="flex-1 min-w-0">
                             <button
-                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
                               className="text-left w-full"
                             >
                               <h4 className="text-sm font-medium text-gray-900 truncate hover:text-blue-600 hover:underline transition-colors">
@@ -840,7 +825,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
                           <div className="flex items-center gap-2 ml-4">
                             <button
-                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                              onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
                               className="px-3 py-1.5 text-xs text-gray-700 border border-gray-200 rounded hover:bg-white transition-colors"
                             >
                               View
@@ -902,6 +887,9 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                       )}
                     </button>
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Tagging Status
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Actions
                   </th>
@@ -911,7 +899,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {/* Add Own Team Game Row - only show when viewing own team */}
                 {gameTypeFilter === 'own-team' && (
                   <tr className="bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
+                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={5}>
                       {tokenBalance && tokenBalance.totalAvailable < 1 ? (
                         <span className="text-amber-700">
                           No tokens available.{' '}
@@ -939,7 +927,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {/* Add Opponent Game Row - only show when viewing opponent scouting */}
                 {gameTypeFilter === 'opponent' && (
                   <tr className="bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={4}>
+                    <td className="px-6 py-4 text-sm text-gray-500" colSpan={5}>
                       {tokenBalance && tokenBalance.totalAvailable < 1 ? (
                         <span className="text-amber-700">
                           No tokens available.{' '}
@@ -993,7 +981,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                       {game.videos.length > 0 ? (
                         <div>
                           <button
-                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
+                            onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
                             className="hover:text-blue-600 hover:underline transition-colors text-left font-medium"
                           >
                             {game.videos[0].name}
@@ -1026,33 +1014,39 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
+                    <td className="px-6 py-4 text-sm">
+                      {game.videos.length > 0 ? (
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+                          game.film_analysis_status === 'complete'
+                            ? 'bg-green-100 text-green-800'
+                            : game.film_analysis_status === 'in_progress'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            game.film_analysis_status === 'complete'
+                              ? 'bg-green-500'
+                              : game.film_analysis_status === 'in_progress'
+                                ? 'bg-yellow-500'
+                                : 'bg-gray-400'
+                          }`} />
+                          {game.film_analysis_status === 'complete'
+                            ? 'Complete'
+                            : game.film_analysis_status === 'in_progress'
+                              ? 'In Progress'
+                              : 'Not Started'}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right text-sm">
-                      <div className="flex items-center justify-end gap-2">
-                        {game.is_opponent_game && (
-                          <button
-                            onClick={() => handleViewTendencies(game.opponent)}
-                            disabled={loadingTendencies}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:text-gray-900 font-medium hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                            title="View opponent tendencies"
-                          >
-                            <BarChart3 className="w-4 h-4" />
-                          </button>
-                        )}
-                        {!game.is_opponent_game && (
-                          <button
-                            onClick={() => setEditingGameResult(game)}
-                            className="px-3 py-1.5 text-gray-600 hover:text-gray-900 font-medium hover:bg-gray-100 rounded-lg transition-colors"
-                          >
-                            Result
-                          </button>
-                        )}
-                        <button
-                          onClick={() => router.push(`/teams/${teamId}/film/${game.id}`)}
-                          className="px-4 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
-                        >
-                          {game.videos.length > 0 ? 'View Film' : 'Add Film'}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => router.push(`/teams/${teamId}/film/${game.id}/tag`)}
+                        className="px-4 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
+                      >
+                        {game.videos.length > 0 ? 'View Film' : 'Add Film'}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1117,37 +1111,6 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           }
           onClose={() => setEditingGameResult(null)}
         />
-      )}
-
-      {/* Opponent Tendencies Modal */}
-      {showTendenciesModal && selectedOpponentProfile && (
-        <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={() => setShowTendenciesModal(false)}
-        >
-          <div
-            className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">
-                {selectedOpponentProfile.teamName} Tendencies
-              </h2>
-              <button
-                onClick={() => setShowTendenciesModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="p-4">
-              <OpponentTendencies
-                opponentProfile={selectedOpponentProfile}
-                opponentName={selectedOpponentProfile.teamName}
-              />
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

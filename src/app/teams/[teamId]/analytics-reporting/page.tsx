@@ -28,6 +28,7 @@ import PlayerReport from './components/reports/PlayerReport';
 import SituationalReport from './components/reports/SituationalReport';
 import DriveAnalysisReport from './components/reports/DriveAnalysisReport';
 import GameReport from './components/reports/GameReport';
+import OpponentScoutingReport from './components/reports/OpponentScoutingReport';
 import { UpgradeBanner, FeatureGate } from '@/components/FeatureGate';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
@@ -358,6 +359,16 @@ export default function AnalyticsReportingPage({
                         filters={filters}
                       />
                     </FeatureGate>
+                  )}
+                </div>
+
+                {/* Opponent Scouting Report */}
+                <div style={{ display: selectedReport === 'opponent-scouting' ? 'block' : 'none' }}>
+                  {(selectedReport === 'opponent-scouting' || visitedReports.has('opponent-scouting')) && (
+                    <OpponentScoutingReport
+                      teamId={teamId}
+                      filters={filters}
+                    />
                   )}
                 </div>
               </div>

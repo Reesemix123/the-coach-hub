@@ -78,6 +78,7 @@ export const docsNavigation: DocSection[] = [
       { title: "Drive Analysis", slug: "drive-analysis" },
       { title: "Special Teams", slug: "special-teams-report" },
       { title: "Player Report", slug: "player-report" },
+      { title: "Opponent Scouting", slug: "opponent-scouting" },
     ],
   },
   {
@@ -112,11 +113,11 @@ export const docsNavigation: DocSection[] = [
     ],
   },
   {
-    title: "AI Features",
+    title: "AI Coaching",
     slug: "ai-features",
     icon: "Sparkles",
     children: [
-      { title: "AI Assistant", slug: "ai-assistant", comingSoon: true },
+      { title: "Coaching Chat", slug: "coaching-chat" },
       { title: "AI Film Tagging", slug: "ai-film-tagging", comingSoon: true },
     ],
   },

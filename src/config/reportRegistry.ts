@@ -75,6 +75,16 @@ export const REPORT_REGISTRY: ReportConfig[] = [
     category: 'analysis',
     icon: 'ArrowRight',
   },
+
+  // Scouting Reports
+  {
+    id: 'opponent-scouting',
+    name: 'Opponent Scouting',
+    description: 'Opponent tendencies, coverage patterns, and game plan insights',
+    category: 'scouting',
+    icon: 'Eye',
+    requiresOpponent: true,
+  },
 ];
 
 // ============================================================================
@@ -91,7 +101,7 @@ export function getReportConfig(reportType: ReportType): ReportConfig | undefine
 /**
  * Get all reports in a category
  */
-export function getReportsByCategory(category: 'team' | 'unit' | 'analysis'): ReportConfig[] {
+export function getReportsByCategory(category: 'team' | 'unit' | 'analysis' | 'scouting'): ReportConfig[] {
   return REPORT_REGISTRY.filter(r => r.category === category);
 }
 
@@ -107,7 +117,7 @@ export function getDefaultReport(): ReportConfig {
  */
 export function canDisplayReport(
   report: ReportConfig,
-  filters: { gameId?: string; playerId?: string }
+  filters: { gameId?: string; playerId?: string; opponent?: string }
 ): { valid: boolean; message?: string } {
   if (report.requiresGame && !filters.gameId) {
     return { valid: false, message: 'This report requires a game to be selected' };
@@ -115,6 +125,10 @@ export function canDisplayReport(
 
   if (report.requiresPlayer && !filters.playerId) {
     return { valid: false, message: 'This report requires a player to be selected' };
+  }
+
+  if (report.requiresOpponent && !filters.opponent) {
+    return { valid: false, message: 'This report requires an opponent to be selected' };
   }
 
   return { valid: true };
