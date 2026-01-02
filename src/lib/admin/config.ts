@@ -157,18 +157,6 @@ export async function getMaintenanceMessage(): Promise<string | null> {
   return config?.message || null;
 }
 
-// ============================================================================
-// AI Credits Helpers
-// ============================================================================
-
-/**
- * Get the AI credits limit for a specific tier.
- */
-export async function getAICreditsForTier(tier: SubscriptionTier): Promise<number> {
-  const configs = await getTierConfigs();
-  return configs?.[tier]?.ai_credits ?? 0;
-}
-
 /**
  * Get the monthly price for a specific tier (in cents).
  */

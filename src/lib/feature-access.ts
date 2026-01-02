@@ -22,10 +22,9 @@ export type Feature =
   | 'defensive_player_tracking'
   | 'advanced_situational'
   | 'opponent_scouting'
-  // AI features (available on premium, but placeholders for future)
+  // AI features (available on all tiers)
   | 'ai_play_recognition'
-  | 'ai_insights'
-  | 'ai_credits_enabled';
+  | 'ai_insights';
 
 export interface FeatureAccess {
   playbook_builder: boolean;
@@ -40,7 +39,6 @@ export interface FeatureAccess {
   opponent_scouting: boolean;
   ai_play_recognition: boolean;
   ai_insights: boolean;
-  ai_credits_enabled: boolean;
 }
 
 export interface SubscriptionInfo {
@@ -83,10 +81,9 @@ export const FEATURE_MIN_TIERS: Record<Feature, SubscriptionTier> = {
   advanced_situational: 'basic',
   opponent_scouting: 'basic',
 
-  // AI features - available on all tiers (placeholders for future)
+  // AI features - available on all tiers
   ai_play_recognition: 'basic',
-  ai_insights: 'basic',
-  ai_credits_enabled: 'basic'
+  ai_insights: 'basic'
 };
 
 // Feature display names for UI
@@ -102,8 +99,7 @@ export const FEATURE_DISPLAY_NAMES: Record<Feature, string> = {
   advanced_situational: 'Advanced Situational Analysis',
   opponent_scouting: 'Opponent Scouting Reports',
   ai_play_recognition: 'AI Play Recognition',
-  ai_insights: 'AI-Generated Insights',
-  ai_credits_enabled: 'AI Credits'
+  ai_insights: 'AI-Generated Insights'
 };
 
 // Feature descriptions for upgrade prompts
@@ -119,8 +115,7 @@ export const FEATURE_DESCRIPTIONS: Record<Feature, string> = {
   advanced_situational: 'Motion effectiveness, play action, and blitz analysis',
   opponent_scouting: 'Generate opponent scouting reports and tendencies',
   ai_play_recognition: 'Automatic play recognition from game film',
-  ai_insights: 'AI-generated coaching insights and recommendations',
-  ai_credits_enabled: 'Access to AI-powered analysis credits'
+  ai_insights: 'AI-generated coaching insights and recommendations'
 };
 
 // ============================================================================
@@ -207,8 +202,7 @@ export function computeFeatureAccess(subscription: SubscriptionInfo): FeatureAcc
     advanced_situational: tierLevel >= 1,
     opponent_scouting: tierLevel >= 1,
     ai_play_recognition: tierLevel >= 1,
-    ai_insights: tierLevel >= 1,
-    ai_credits_enabled: tierLevel >= 1
+    ai_insights: tierLevel >= 1
   };
 }
 

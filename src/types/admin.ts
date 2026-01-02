@@ -68,28 +68,6 @@ export interface SubscriptionWithTeam extends Subscription {
 }
 
 // ============================================================================
-// AI Credits
-// ============================================================================
-
-export interface AICredits {
-  id: string;
-  team_id: string;
-  credits_allowed: number;
-  credits_used: number;
-  period_start: string;
-  period_end: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AICreditsBalance {
-  credits_allowed: number;
-  credits_used: number;
-  credits_remaining: number;
-  period_end: string;
-}
-
-// ============================================================================
 // Platform Config
 // ============================================================================
 
@@ -281,7 +259,6 @@ export interface Team {
 
 export interface TeamWithSubscription extends Team {
   subscription?: Subscription | null;
-  ai_credits?: AICreditsBalance | null;
 }
 
 export interface TeamWithOrganization extends Team {
@@ -350,11 +327,6 @@ export interface WaiveBillingRequest {
   reason: string;
 }
 
-export interface AllocateAICreditsRequest {
-  credits_allowed: number;
-  period_start?: string;
-  period_end?: string;
-}
 
 // ============================================================================
 // Impersonation Sessions
@@ -432,8 +404,6 @@ export interface OrganizationDetail extends Organization {
   teams: TeamWithSubscription[];
   users: ProfileWithAdmin[];
   total_mrr_cents: number;
-  total_ai_credits_used: number;
-  total_ai_credits_allowed: number;
   recent_activity: AuditLog[];
 }
 

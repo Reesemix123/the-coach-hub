@@ -297,17 +297,6 @@ export default function OrganizationDetailPage() {
           </div>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-lg">
-              <Zap className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-semibold text-gray-900">
-                {org.total_ai_credits_used}/{org.total_ai_credits_allowed}
-              </p>
-              <p className="text-sm text-gray-500">AI Credits</p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -469,7 +458,6 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
   const [trialForm, setTrialForm] = useState({
     tier: 'plus',
     duration_days: 14,
-    ai_credits_limit: 25,
     additional_days: 7,
     new_status: 'expired' as 'expired' | 'canceled' | 'active'
   });
@@ -501,8 +489,7 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             tier: trialForm.tier,
-            duration_days: trialForm.duration_days,
-            ai_credits_limit: trialForm.ai_credits_limit
+            duration_days: trialForm.duration_days
           })
         });
       } else if (trialModal.mode === 'extend') {
@@ -554,14 +541,13 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tier</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trial Info</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">AI Credits</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {teams.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                   No teams yet
                 </td>
               </tr>
@@ -606,13 +592,6 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
                         </div>
                       ) : (
                         <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {team.ai_credits ? (
-                        `${team.ai_credits.credits_used}/${team.ai_credits.credits_allowed}`
-                      ) : (
-                        '-'
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -688,16 +667,6 @@ function TeamsTab({ teams, onRefresh }: { teams: TeamWithSubscription[]; onRefre
                     onChange={(e) => setTrialForm({ ...trialForm, duration_days: parseInt(e.target.value) || 14 })}
                     min={1}
                     max={90}
-                    className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">AI Credits Limit</label>
-                  <input
-                    type="number"
-                    value={trialForm.ai_credits_limit}
-                    onChange={(e) => setTrialForm({ ...trialForm, ai_credits_limit: parseInt(e.target.value) || 25 })}
-                    min={0}
                     className="w-full px-3 py-2 text-sm text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900"
                   />
                 </div>

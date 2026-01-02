@@ -10,7 +10,6 @@ import {
   Users,
   Trophy,
   Film,
-  Zap,
   AlertCircle,
   Plus,
   Settings,
@@ -36,11 +35,6 @@ interface TeamData {
   members_count: number;
   games_count: number;
   plays_count: number;
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
-  };
   upload_tokens: {
     available: number;
     used_this_period: number;
@@ -184,35 +178,6 @@ export default function ConsoleTeamsPage() {
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
         {status || 'None'}
       </span>
-    );
-  }
-
-  function getAICreditsIndicator(ai_credits: TeamData['ai_credits']) {
-    const { used, allowed, percentage } = ai_credits;
-
-    if (allowed === 0) {
-      return (
-        <span className="text-sm text-gray-500">No AI credits</span>
-      );
-    }
-
-    let colorClass = 'bg-green-500';
-    if (percentage >= 80) {
-      colorClass = 'bg-red-500';
-    } else if (percentage >= 50) {
-      colorClass = 'bg-amber-500';
-    }
-
-    return (
-      <div className="flex items-center gap-2">
-        <div className="w-16 bg-gray-200 rounded-full h-1.5">
-          <div
-            className={`h-1.5 rounded-full ${colorClass}`}
-            style={{ width: `${Math.min(percentage, 100)}%` }}
-          />
-        </div>
-        <span className="text-xs text-gray-600">{used}/{allowed}</span>
-      </div>
     );
   }
 
@@ -453,17 +418,12 @@ export default function ConsoleTeamsPage() {
                         </span>
                       </div>
 
-                      {/* Row 3: Film Uploads & AI Credits */}
+                      {/* Row 3: Film Uploads */}
                       <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
                           <Upload className="w-4 h-4 text-gray-400" />
                           <span className="text-sm text-gray-600">Film Uploads:</span>
                           {getTokensIndicator(team.upload_tokens)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Zap className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">AI Credits:</span>
-                          {getAICreditsIndicator(team.ai_credits)}
                         </div>
                       </div>
                     </div>

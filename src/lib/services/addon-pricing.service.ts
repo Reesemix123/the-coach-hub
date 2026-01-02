@@ -1,5 +1,5 @@
 // Add-on Pricing Service
-// Handles volume-discounted pricing for team add-ons (coaches, AI credits, storage)
+// Handles volume-discounted pricing for team add-ons (coaches, storage)
 
 import { createClient } from '@/utils/supabase/server';
 
@@ -12,13 +12,12 @@ export interface PricingTier {
 
 export interface AddonConfig {
   unit_name: string;
-  unit_value?: number; // For ai_credits (100) and storage (10GB)
+  unit_value?: number; // For storage (10GB)
   tiers: PricingTier[];
 }
 
 export interface AddonPricing {
   coaches: AddonConfig;
-  ai_credits: AddonConfig;
   storage: AddonConfig;
 }
 
@@ -26,7 +25,6 @@ export interface TeamAddons {
   id: string;
   team_id: string;
   additional_coaches: number;
-  additional_ai_credits: number;
   additional_storage_gb: number;
   stripe_subscription_item_id: string | null;
   monthly_cost_cents: number;
@@ -44,7 +42,6 @@ export interface AddonCostResult {
 
 export interface EffectiveLimits {
   max_coaches: number;
-  ai_credits: number;
   storage_gb: number;
   addon_cost_cents: number;
   addons: TeamAddons | null;
@@ -58,15 +55,6 @@ const DEFAULT_ADDON_PRICING: AddonPricing = {
       { min: 1, max: 4, price_cents: 500 },
       { min: 5, max: 9, price_cents: 400 },
       { min: 10, max: null, price_cents: 300 }
-    ]
-  },
-  ai_credits: {
-    unit_name: '100 credits',
-    unit_value: 100,
-    tiers: [
-      { min: 1, max: 4, price_cents: 1000 },
-      { min: 5, max: 9, price_cents: 800 },
-      { min: 10, max: null, price_cents: 600 }
     ]
   },
   storage: {
@@ -172,11 +160,10 @@ export function calculateAddonCost(
  */
 export async function calculateTotalAddonCost(
   additionalCoaches: number,
-  additionalAiCredits: number,
+  additionalAiCredits: number, // Legacy parameter, ignored
   additionalStorageGb: number
 ): Promise<{
   coaches: AddonCostResult;
-  ai_credits: AddonCostResult;
   storage: AddonCostResult;
   totalMonthly: number;
 }> {
@@ -185,18 +172,13 @@ export async function calculateTotalAddonCost(
   // Convert storage GB to units (10GB each)
   const storageUnits = Math.ceil(additionalStorageGb / (pricing.storage.unit_value || 10));
 
-  // Convert AI credits to units (100 each)
-  const aiCreditUnits = Math.ceil(additionalAiCredits / (pricing.ai_credits.unit_value || 100));
-
   const coaches = calculateAddonCost(pricing.coaches, additionalCoaches);
-  const ai_credits = calculateAddonCost(pricing.ai_credits, aiCreditUnits);
   const storage = calculateAddonCost(pricing.storage, storageUnits);
 
   return {
     coaches,
-    ai_credits,
     storage,
-    totalMonthly: coaches.totalPrice + ai_credits.totalPrice + storage.totalPrice
+    totalMonthly: coaches.totalPrice + storage.totalPrice
   };
 }
 
@@ -248,15 +230,14 @@ export async function getEffectiveLimits(teamId: string): Promise<EffectiveLimit
 
   const tierConfigs = tierConfigData?.value as Record<string, {
     max_coaches?: number;
-    ai_credits?: number;
     storage_gb?: number;
   }> | null;
 
   // Default tier limits
-  const defaultLimits: Record<string, { max_coaches: number; ai_credits: number; storage_gb: number }> = {
-    basic: { max_coaches: 3, ai_credits: 0, storage_gb: 10 },
-    plus: { max_coaches: 5, ai_credits: 100, storage_gb: 50 },
-    premium: { max_coaches: 10, ai_credits: 500, storage_gb: 200 },
+  const defaultLimits: Record<string, { max_coaches: number; storage_gb: number }> = {
+    basic: { max_coaches: 3, storage_gb: 10 },
+    plus: { max_coaches: 5, storage_gb: 50 },
+    premium: { max_coaches: 10, storage_gb: 200 },
   };
 
   const tierConfig = tierConfigs?.[tier] || defaultLimits[tier] || defaultLimits.basic;
@@ -266,13 +247,11 @@ export async function getEffectiveLimits(teamId: string): Promise<EffectiveLimit
 
   const baseLimits = {
     max_coaches: tierConfig.max_coaches || defaultLimits[tier]?.max_coaches || 3,
-    ai_credits: tierConfig.ai_credits || defaultLimits[tier]?.ai_credits || 0,
     storage_gb: tierConfig.storage_gb || defaultLimits[tier]?.storage_gb || 10
   };
 
   return {
     max_coaches: baseLimits.max_coaches + (addons?.additional_coaches || 0),
-    ai_credits: baseLimits.ai_credits + (addons?.additional_ai_credits || 0),
     storage_gb: baseLimits.storage_gb + (addons?.additional_storage_gb || 0),
     addon_cost_cents: addons?.monthly_cost_cents || 0,
     addons
@@ -285,7 +264,7 @@ export async function getEffectiveLimits(teamId: string): Promise<EffectiveLimit
 export async function updateTeamAddons(
   teamId: string,
   additionalCoaches: number,
-  additionalAiCredits: number,
+  additionalAiCredits: number, // Legacy parameter, ignored
   additionalStorageGb: number
 ): Promise<{ success: boolean; error?: string; addons?: TeamAddons }> {
   try {
@@ -294,7 +273,7 @@ export async function updateTeamAddons(
     // Calculate new monthly cost
     const cost = await calculateTotalAddonCost(
       additionalCoaches,
-      additionalAiCredits,
+      0, // AI credits no longer used
       additionalStorageGb
     );
 
@@ -304,7 +283,6 @@ export async function updateTeamAddons(
       .upsert({
         team_id: teamId,
         additional_coaches: additionalCoaches,
-        additional_ai_credits: additionalAiCredits,
         additional_storage_gb: additionalStorageGb,
         monthly_cost_cents: cost.totalMonthly
       }, {
@@ -330,7 +308,7 @@ export async function updateTeamAddons(
  * Used when a limit is hit to determine what message/action to show
  */
 export function getLimitReachedResponse(
-  limitType: 'coaches' | 'ai_credits' | 'storage',
+  limitType: 'coaches' | 'storage',
   userRole: string,
   ownerName: string,
   teamId: string
@@ -342,7 +320,6 @@ export function getLimitReachedResponse(
 } {
   const limitLabels: Record<string, string> = {
     coaches: 'coach',
-    ai_credits: 'AI credits',
     storage: 'storage'
   };
 

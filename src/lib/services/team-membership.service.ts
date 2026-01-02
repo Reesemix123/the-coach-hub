@@ -34,7 +34,7 @@ export interface InviteCoachResult {
   success: boolean;
   message: string;
   action?: 'purchase_addon' | 'contact_owner';
-  addon_type?: 'coaches' | 'ai_credits' | 'storage';
+  addon_type?: 'coaches' | 'storage';
   owner_name?: string;
   buttonText?: string | null;
   buttonUrl?: string | null;

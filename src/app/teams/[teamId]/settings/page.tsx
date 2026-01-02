@@ -8,9 +8,8 @@ import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamMembership, TeamAnalyticsConfig } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
-import { Play, RefreshCw, Sparkles } from 'lucide-react';
+import { Play, RefreshCw } from 'lucide-react';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
-import AICreditsUsage from '@/components/AICreditsUsage';
 import TokenBalanceCard from '@/components/TokenBalanceCard';
 
 interface TeamMemberWithUser {
@@ -35,7 +34,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'coach' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [settingsTab, setSettingsTab] = useState<'team' | 'members' | 'usage_tokens' | 'ai_credits' | 'onboarding'>('team');
+  const [settingsTab, setSettingsTab] = useState<'team' | 'members' | 'usage_tokens' | 'onboarding'>('team');
   const [primaryColor, setPrimaryColor] = useState('#000000');
   const [secondaryColor, setSecondaryColor] = useState('#FFFFFF');
   const [savingColors, setSavingColors] = useState(false);
@@ -233,20 +232,6 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               >
                 Usage & Tokens
                 {settingsTab === 'usage_tokens' && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-                )}
-              </button>
-              <button
-                onClick={() => setSettingsTab('ai_credits')}
-                className={`pb-2 px-1 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
-                  settingsTab === 'ai_credits'
-                    ? 'text-gray-900'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Sparkles className="h-4 w-4" />
-                AI Credits
-                {settingsTab === 'ai_credits' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
               </button>
@@ -517,10 +502,6 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               </div>
             </div>
           </div>
-        )}
-
-        {settingsTab === 'ai_credits' && (
-          <AICreditsUsage teamId={teamId} isOwner={userRole === 'owner'} />
         )}
 
         {settingsTab === 'onboarding' && (

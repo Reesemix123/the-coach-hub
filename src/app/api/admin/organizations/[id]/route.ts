@@ -95,31 +95,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       `)
       .eq('organization_id', id);
 
-    // Fetch AI credits for teams
-    const teamIds = teamsData?.map(t => t.id) || [];
-    const { data: aiCreditsData } = await supabase
-      .from('ai_credits')
-      .select('team_id, credits_allowed, credits_used, period_end')
-      .in('team_id', teamIds)
-      .gte('period_end', new Date().toISOString());
-
-    // Map AI credits by team
-    const aiCreditsByTeam = new Map<string, {
-      credits_allowed: number;
-      credits_used: number;
-      credits_remaining: number;
-      period_end: string;
-    }>();
-
-    aiCreditsData?.forEach(credit => {
-      aiCreditsByTeam.set(credit.team_id, {
-        credits_allowed: credit.credits_allowed,
-        credits_used: credit.credits_used,
-        credits_remaining: credit.credits_allowed - credit.credits_used,
-        period_end: credit.period_end
-      });
-    });
-
     // Build teams with subscription data
     const teams: TeamWithSubscription[] = (teamsData || []).map(team => ({
       id: team.id,
@@ -130,9 +105,27 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       organization_id: team.organization_id,
       created_at: team.created_at,
       subscription: Array.isArray(team.subscriptions) && team.subscriptions.length > 0
-        ? team.subscriptions[0]
-        : null,
-      ai_credits: aiCreditsByTeam.get(team.id) || null
+        ? {
+            id: team.subscriptions[0].id,
+            team_id: team.id,
+            user_id: null,
+            tier: team.subscriptions[0].tier,
+            status: team.subscriptions[0].status,
+            billing_waived: team.subscriptions[0].billing_waived,
+            billing_waived_reason: team.subscriptions[0].billing_waived_reason,
+            billing_waived_by: null,
+            billing_waived_at: null,
+            stripe_subscription_id: null,
+            stripe_price_id: null,
+            current_period_start: null,
+            current_period_end: team.subscriptions[0].current_period_end,
+            trial_ends_at: team.subscriptions[0].trial_ends_at,
+            cancel_at_period_end: team.subscriptions[0].cancel_at_period_end,
+            canceled_at: null,
+            created_at: team.created_at,
+            updated_at: team.created_at
+          }
+        : null
     }));
 
     // Fetch users in this organization
@@ -148,8 +141,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Calculate totals
     let totalMRR = 0;
-    let totalAICreditsUsed = 0;
-    let totalAICreditsAllowed = 0;
     const subscriptionStatuses: SubscriptionStatus[] = [];
 
     teams.forEach(team => {
@@ -162,11 +153,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             totalMRR += tierConfig.price_monthly * 100; // cents
           }
         }
-      }
-
-      if (team.ai_credits) {
-        totalAICreditsUsed += team.ai_credits.credits_used;
-        totalAICreditsAllowed += team.ai_credits.credits_allowed;
       }
     });
 
@@ -206,8 +192,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       teams,
       users,
       total_mrr_cents: totalMRR,
-      total_ai_credits_used: totalAICreditsUsed,
-      total_ai_credits_allowed: totalAICreditsAllowed,
       recent_activity: recentActivity
     };
 

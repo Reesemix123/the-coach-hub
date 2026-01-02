@@ -299,9 +299,6 @@ async function handleSubscriptionUpdated(
   // Initialize upload tokens for new subscriptions
   await initializeUploadTokens(supabase, teamId, tier, subscription);
 
-  // Allocate AI credits for this billing period (legacy, will be replaced in Phase 10)
-  await allocateAICredits(supabase, teamId, tier, subscription);
-
   // Log audit event
   await supabase.from('audit_logs').insert({
     action: 'subscription.updated',
@@ -549,65 +546,3 @@ async function handleSubscriptionRenewal(
   console.log(`Refreshed upload tokens for team ${subscription.team_id}`);
 }
 
-// ============================================================================
-// AI Credits (Legacy - will be replaced in Phase 10)
-// ============================================================================
-
-async function allocateAICredits(
-  supabase: ReturnType<typeof createClient>,
-  teamId: string,
-  tier: string,
-  subscription: Stripe.Subscription
-) {
-  const periodStart = new Date(subscription.current_period_start * 1000).toISOString();
-  const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
-
-  // Use database function to allocate credits based on tier
-  // This handles all the tier-specific logic (video minutes, text actions, priority)
-  const { error } = await supabase.rpc('allocate_subscription_credits', {
-    p_team_id: teamId,
-    p_tier: tier,
-    p_period_start: periodStart,
-    p_period_end: periodEnd
-  });
-
-  if (error) {
-    console.error('Failed to allocate AI credits via RPC:', error);
-
-    // Fallback: direct insert if RPC fails (e.g., function not yet deployed)
-    // Tier-based allocations (ai_powered removed - not in new tier system)
-    const tierAllocations: Record<string, { videoMinutes: number; textActions: number; priority: boolean }> = {
-      basic: { videoMinutes: 0, textActions: 0, priority: false },
-      plus: { videoMinutes: 30, textActions: 100, priority: false },
-      premium: { videoMinutes: 120, textActions: -1, priority: false } // -1 = unlimited
-    };
-
-    const allocation = tierAllocations[tier] || tierAllocations.basic;
-
-    const { error: fallbackError } = await supabase
-      .from('ai_credits')
-      .upsert({
-        team_id: teamId,
-        video_minutes_monthly: allocation.videoMinutes,
-        text_actions_monthly: allocation.textActions,
-        video_minutes_remaining: allocation.videoMinutes,
-        text_actions_remaining: allocation.textActions,
-        priority_processing: allocation.priority,
-        current_period_start: periodStart,
-        current_period_end: periodEnd,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'team_id'
-      });
-
-    if (fallbackError) {
-      console.error('Failed to allocate AI credits via fallback:', fallbackError);
-      return;
-    }
-
-    console.log(`Allocated AI credits for team ${teamId} via fallback: ${allocation.videoMinutes} video minutes, ${allocation.textActions === -1 ? 'unlimited' : allocation.textActions} text actions`);
-    return;
-  }
-
-  console.log(`Allocated AI credits for team ${teamId} via RPC`);
-}
