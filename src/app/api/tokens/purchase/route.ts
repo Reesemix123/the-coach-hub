@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Fallback to environment variable if not in database
     const tokenPriceId = tokenPriceConfig?.value as string
-      || process.env.STRIPE_TOKEN_PRICE_ID;
+      || process.env.STRIPE_PRICE_TOKEN_SINGLE;
 
     if (!tokenPriceId) {
       return NextResponse.json(
