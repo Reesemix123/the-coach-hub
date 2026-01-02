@@ -32,6 +32,7 @@ export default function PricingCard({
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
 
   const isFree = tier.price_monthly === 0;
+  const isPopular = tier.id === 'plus'; // Highlight the Plus tier
 
   const displayPrice = billingCycle === 'monthly' ? tier.price_monthly : tier.price_annual;
   const priceLabel = billingCycle === 'monthly' ? '/month' : '/year';
@@ -138,25 +139,37 @@ export default function PricingCard({
 
   return (
     <div
-      className="group relative flex flex-col rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-200 hover:shadow-xl hover:border-gray-900"
+      className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-200 ${
+        isPopular
+          ? 'border-2 border-brand-green/50 bg-brand-surface shadow-lg shadow-brand-green/10'
+          : 'border border-gray-800 bg-brand-surface hover:border-brand-green/30'
+      }`}
     >
+      {/* Popular badge */}
+      {isPopular && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="px-3 py-1 bg-brand-green text-brand-dark text-xs font-semibold rounded-full">
+            Most Popular
+          </span>
+        </div>
+      )}
 
       {/* Tier name and description */}
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-900">{tier.name}</h3>
-        <p className="mt-2 text-sm text-gray-600">{tier.description}</p>
+        <h3 className="text-xl font-semibold text-white">{tier.name}</h3>
+        <p className="mt-2 text-sm text-gray-400">{tier.description}</p>
       </div>
 
       {/* Price */}
       <div className="mb-6">
         <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-bold text-gray-900">
+          <span className="text-4xl font-bold text-white">
             ${displayPrice}
           </span>
-          <span className="text-gray-600">{priceLabel}</span>
+          <span className="text-gray-400">{priceLabel}</span>
         </div>
         {billingCycle === 'annual' && tier.annual_savings > 0 && (
-          <p className="mt-1 text-sm text-green-600 font-medium">
+          <p className="mt-1 text-sm text-brand-green font-medium">
             Save ${tier.annual_savings}/year
           </p>
         )}
@@ -168,14 +181,14 @@ export default function PricingCard({
       </div>
 
       {/* Key stats - New metrics */}
-      <div className="mb-6 space-y-3 rounded-lg bg-gray-50 p-4">
+      <div className="mb-6 space-y-3 rounded-xl bg-brand-elevated p-4">
         <div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-gray-500" />
-              <span className="text-sm text-gray-600">Games per Month</span>
+              <Upload className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-300">Games per Month</span>
             </div>
-            <span className="text-lg font-semibold text-gray-900">{tier.monthly_upload_tokens}</span>
+            <span className="text-lg font-semibold text-white">{tier.monthly_upload_tokens}</span>
           </div>
           <p className="text-xs text-gray-500 mt-1 ml-6">
             {gamesPerType} team + {gamesPerType} opponent
@@ -183,17 +196,17 @@ export default function PricingCard({
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Camera className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-600">Cameras per Game</span>
+            <Camera className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-300">Cameras per Game</span>
           </div>
-          <span className="text-lg font-semibold text-gray-900">{tier.max_cameras_per_game}</span>
+          <span className="text-lg font-semibold text-white">{tier.max_cameras_per_game}</span>
         </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <span className="text-sm text-gray-600">Game Retention</span>
+            <Calendar className="h-4 w-4 text-gray-400" />
+            <span className="text-sm text-gray-300">Game Retention</span>
           </div>
-          <span className="text-lg font-semibold text-gray-900">{formatRetention(tier.retention_days)}</span>
+          <span className="text-lg font-semibold text-white">{formatRetention(tier.retention_days)}</span>
         </div>
       </div>
 
@@ -201,8 +214,8 @@ export default function PricingCard({
       <ul className="mb-8 flex-grow space-y-3">
         {tier.features.map((feature, index) => (
           <li key={index} className="flex items-start gap-3">
-            <Check className="h-5 w-5 flex-shrink-0 text-green-600 mt-0.5" />
-            <span className="text-sm text-gray-700">{feature}</span>
+            <Check className="h-5 w-5 flex-shrink-0 text-brand-green mt-0.5" />
+            <span className="text-sm text-gray-300">{feature}</span>
           </li>
         ))}
       </ul>
@@ -211,7 +224,11 @@ export default function PricingCard({
       <button
         onClick={handleCheckout}
         disabled={isLoading}
-        className="block w-full rounded-lg px-6 py-3 text-center font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-2 border-gray-900 text-gray-900 bg-white group-hover:bg-gray-900 group-hover:text-white"
+        className={`block w-full rounded-xl px-6 py-4 text-center font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+          isPopular
+            ? 'bg-brand-green text-brand-dark hover:bg-brand-green-light'
+            : 'border border-gray-700 text-white hover:bg-brand-elevated'
+        }`}
       >
         {isLoading ? (
           <span className="flex items-center justify-center gap-2">

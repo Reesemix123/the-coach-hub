@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface ScrollingNavbarProps {
   children: ReactNode;
@@ -9,8 +10,15 @@ interface ScrollingNavbarProps {
 export default function ScrollingNavbar({ children }: ScrollingNavbarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const pathname = usePathname();
+
+  // Marketing pages have their own navigation - hide the app navbar
+  const marketingPages = ['/', '/pricing', '/about', '/auth/signup', '/auth/login'];
+  const isMarketingPage = marketingPages.includes(pathname);
 
   useEffect(() => {
+    // Don't add scroll listener on marketing pages
+    if (isMarketingPage) return;
     let ticking = false;
 
     const handleScroll = () => {
@@ -48,7 +56,12 @@ export default function ScrollingNavbar({ children }: ScrollingNavbarProps) {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [lastScrollY]);
+  }, [lastScrollY, isMarketingPage]);
+
+  // Hide navbar on marketing pages - they have their own navigation
+  if (isMarketingPage) {
+    return null;
+  }
 
   return (
     <nav

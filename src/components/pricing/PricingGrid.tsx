@@ -30,13 +30,13 @@ export default function PricingGrid({
     <div>
       {/* Billing Toggle */}
       <div className="flex justify-center items-center gap-3 mb-10">
-        <div className="relative bg-gray-100 rounded-full p-1 flex">
+        <div className="relative bg-brand-surface rounded-full p-1 flex border border-gray-800">
           <button
             onClick={() => setBillingCycle('monthly')}
             className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-colors ${
               billingCycle === 'monthly'
-                ? 'text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-brand-dark'
+                : 'text-gray-400 hover:text-white'
             }`}
           >
             Monthly
@@ -45,21 +45,21 @@ export default function PricingGrid({
             onClick={() => setBillingCycle('annual')}
             className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-colors ${
               billingCycle === 'annual'
-                ? 'text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-brand-dark'
+                : 'text-gray-400 hover:text-white'
             }`}
           >
             Annual
           </button>
           {/* Sliding background */}
           <div
-            className={`absolute inset-y-1 w-[calc(50%-4px)] bg-gray-900 rounded-full transition-transform duration-200 ${
+            className={`absolute inset-y-1 w-[calc(50%-4px)] bg-brand-green rounded-full transition-transform duration-200 ${
               billingCycle === 'annual' ? 'translate-x-full' : 'translate-x-0'
             }`}
             style={{ left: '4px' }}
           />
         </div>
-        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+        <span className="inline-flex items-center rounded-full bg-brand-green/10 border border-brand-green/20 px-2.5 py-1 text-xs font-medium text-brand-green">
           Save 17%
         </span>
       </div>

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -5,11 +6,89 @@
   --foreground: #171717;
 }
 
+/* Homepage Animations */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  15%, 85% { opacity: 1; }
+}
+
+@keyframes drawRoute {
+  0% { stroke-dashoffset: 100; }
+  50%, 100% { stroke-dashoffset: 0; }
+}
+
+@keyframes draw-route {
+  0% { stroke-dashoffset: 300; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Route draw animations */
+.route-draw-1, .route-draw-2, .route-draw-3,
+.route-draw-4, .route-draw-5, .route-draw-6, .route-draw-7 {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+
+.formation-1 .route-draw-1 { animation: drawRoute 12s ease-in-out infinite; }
+.formation-1 .route-draw-2 { animation: drawRoute 12s ease-in-out infinite 0.3s; }
+.formation-1 .route-draw-3 { animation: drawRoute 12s ease-in-out infinite 0.6s; }
+
+.formation-2 .route-draw-4 { animation: drawRoute 12s ease-in-out infinite 4s; }
+.formation-2 .route-draw-5 { animation: drawRoute 12s ease-in-out infinite 4.3s; }
+
+.formation-3 .route-draw-6 { animation: drawRoute 12s ease-in-out infinite 8s; }
+.formation-3 .route-draw-7 { animation: drawRoute 12s ease-in-out infinite 8.3s; }
+
+/* Bokeh animation classes */
+.bokeh-1 { animation: pulse-slow 4s ease-in-out infinite; }
+.bokeh-2 { animation: pulse-slow 5s ease-in-out infinite 1s; }
+.bokeh-3 { animation: pulse-slow 3s ease-in-out infinite 0.5s; }
+.bokeh-4 { animation: pulse-slow 6s ease-in-out infinite 2s; }
+.bokeh-5 { animation: pulse-slow 4.5s ease-in-out infinite 1.5s; }
+
+.route-animate {
+  stroke-dasharray: 300;
+  animation: draw-route 3s ease-out forwards;
+}
+
+.fade-in {
+  animation: fadeIn 1s ease-out forwards;
+}
+
+.fade-in-delay-1 { animation-delay: 0.3s; opacity: 0; }
+.fade-in-delay-2 { animation-delay: 0.5s; opacity: 0; }
+.fade-in-delay-3 { animation-delay: 0.7s; opacity: 0; }
+
+.btn-glow {
+  box-shadow: 0 0 30px rgba(163, 230, 53, 0.3);
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 40px rgba(163, 230, 53, 0.5);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Brand Colors - Design System v1.0 */
+  --color-brand-dark: #0d1117;
+  --color-brand-surface: #161b22;
+  --color-brand-elevated: #1e2a3a;
+  --color-brand-green: #a3e635;
+  --color-brand-green-light: #bef264;
 }
 
 body {

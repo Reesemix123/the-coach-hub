@@ -49,7 +49,7 @@ Do NOT update `src/content/features.ts` without user confirmation.
 
 **Code Quality:**
 - Maintain TypeScript strict mode compliance
-- Follow the established Apple-like aesthetic (black/white/gray, minimal design)
+- Follow the Design System (see `DESIGN_SYSTEM.md` for marketing pages)
 - Test database operations thoroughly, especially RLS policies
 - Document complex business logic (especially in footballConfig.ts)
 - Use meaningful variable and function names
@@ -1219,13 +1219,27 @@ const { data } = await supabase
 
 ### Design System
 
-**Apple-like Aesthetic:**
-- Clean, minimal design
-- Black, white, and gray color palette
-- High contrast for readability
-- Generous whitespace
+**IMPORTANT:** This application uses TWO design approaches during the transition period:
 
-### Form Input Standards
+1. **Marketing Pages (Dark Theme)** - Homepage, pricing, signup, login, about, etc.
+   - See `DESIGN_SYSTEM.md` for full documentation
+   - Dark background (`#0d1117`), lime green accent (`#a3e635`)
+   - Reference implementation: `src/components/home/HomePage.tsx`
+
+2. **App/Dashboard Pages (Light Theme)** - Team dashboards, playbook, film, settings, etc.
+   - White backgrounds, black/gray text
+   - Will be migrated to dark theme gradually
+
+**Brand Colors (available via Tailwind):**
+```
+bg-brand-dark      (#0d1117) - Page backgrounds
+bg-brand-surface   (#161b22) - Cards, elevated surfaces
+bg-brand-elevated  (#1e2a3a) - Hover states, tertiary surfaces
+bg-brand-green     (#a3e635) - Primary CTAs, accents
+bg-brand-green-light (#bef264) - Button hover states
+```
+
+### Form Input Standards (App Pages - Light Theme)
 
 **CRITICAL: Text Input Visibility**
 Always ensure typed text in form inputs is dark and readable:
@@ -1265,32 +1279,33 @@ className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none
 
 ### Button Patterns
 
-**Primary Actions:**
+**App Pages (Light Theme):**
 ```typescript
+// Primary
 className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
+// Secondary
+className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
 ```
 
-**Secondary Actions:**
+**Marketing Pages (Dark Theme):**
 ```typescript
-className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+// Primary CTA
+className="px-8 py-4 bg-brand-green text-brand-dark font-semibold rounded-xl hover:bg-brand-green-light transition-all"
+// Secondary
+className="px-8 py-4 bg-white/10 text-white font-semibold rounded-xl hover:bg-white/20 border border-white/20"
 ```
 
 ### Typography
 
-**Headings:**
-- Page titles: `text-4xl font-semibold text-gray-900 tracking-tight`
-- Section titles: `text-2xl font-semibold text-gray-900`
-- Subsections: `text-lg font-semibold text-gray-900`
+**App Pages (Light Theme):**
+- Headings: `text-gray-900`
+- Body: `text-gray-600` / `text-gray-500`
+- Labels: `text-sm font-medium text-gray-700`
 
-**Body Text:**
-- Primary: `text-gray-900`
-- Secondary: `text-gray-600`
-- Muted: `text-gray-500`
-- Disabled: `text-gray-400`
-
-**Labels:**
-- Form labels: `text-sm font-medium text-gray-700`
-- Table headers: `text-xs font-semibold text-gray-700 uppercase tracking-wider`
+**Marketing Pages (Dark Theme):**
+- Headings: `text-white`
+- Body: `text-gray-300` / `text-gray-400`
+- Labels: `text-sm font-medium text-gray-300`
 
 ---
 
@@ -1310,5 +1325,6 @@ For questions about this codebase, refer to:
 
 ---
 
-*Last Updated: 2025-12-02*
-*Version: feature/analytics-reporting branch*
+*Last Updated: 2025-01-02*
+*Version: main branch*
+*Design System: v1.0 (see DESIGN_SYSTEM.md)*
