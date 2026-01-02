@@ -1,5 +1,5 @@
 // /api/console/overview - Athletic Director Console Overview API
-// Returns organization summary, stats, AI credits, billing status, and alerts
+// Returns organization summary, stats, billing status, and alerts
 
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
@@ -28,11 +28,6 @@ interface OverviewResponse {
     total: number;
     new_this_week: number;
     new_this_month: number;
-  };
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
   };
   upload_tokens: {
     used: number;
@@ -173,22 +168,6 @@ export async function GET() {
     .select('id', { count: 'exact', head: true })
     .gte('created_at', oneMonthAgo.toISOString());
 
-  // Get AI credits across all teams
-  let aiCreditsUsed = 0;
-  let aiCreditsAllowed = 0;
-  if (teamIds.length > 0) {
-    const { data: credits } = await supabase
-      .from('ai_credits')
-      .select('credits_used, credits_allowed')
-      .in('team_id', teamIds)
-      .gte('period_end', new Date().toISOString()); // Current period only
-
-    credits?.forEach(c => {
-      aiCreditsUsed += c.credits_used || 0;
-      aiCreditsAllowed += c.credits_allowed || 0;
-    });
-  }
-
   // Get upload tokens across all teams
   let tokensUsed = 0;
   let tokensAvailable = 0;
@@ -285,30 +264,6 @@ export async function GET() {
     }
   }
 
-  // Check for AI credit warnings (teams at >80% usage)
-  if (teamIds.length > 0) {
-    const { data: highUsageCredits } = await supabase
-      .from('ai_credits')
-      .select('team_id, credits_used, credits_allowed')
-      .in('team_id', teamIds)
-      .gte('period_end', new Date().toISOString());
-
-    highUsageCredits?.forEach(credit => {
-      if (credit.credits_allowed > 0) {
-        const percentage = (credit.credits_used / credit.credits_allowed) * 100;
-        if (percentage >= 80) {
-          const team = teams.find(t => t.id === credit.team_id);
-          alerts.push({
-            type: 'ai_limit_warning',
-            message: `${team?.name || 'A team'} at ${Math.round(percentage)}% AI credit usage`,
-            team_id: credit.team_id,
-            action_url: `/console/teams/${credit.team_id}`
-          });
-        }
-      }
-    });
-  }
-
   // Check for low upload tokens (teams with <=1 token remaining)
   if (teamIds.length > 0) {
     const { data: lowTokenTeams } = await supabase
@@ -342,11 +297,6 @@ export async function GET() {
       total: totalUsersCount || 0,
       new_this_week: newUsersThisWeek || 0,
       new_this_month: newUsersThisMonth || 0
-    },
-    ai_credits: {
-      used: aiCreditsUsed,
-      allowed: aiCreditsAllowed,
-      percentage: aiCreditsAllowed > 0 ? Math.round((aiCreditsUsed / aiCreditsAllowed) * 100) : 0
     },
     upload_tokens: {
       used: tokensUsed,

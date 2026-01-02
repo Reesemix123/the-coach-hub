@@ -10,7 +10,6 @@ import {
   Users,
   Trophy,
   Film,
-  Zap,
   AlertCircle,
   ChevronRight,
   Plus,
@@ -39,11 +38,6 @@ interface OverviewData {
     total: number;
     new_this_week: number;
     new_this_month: number;
-  };
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
   };
   upload_tokens: {
     used: number;
@@ -474,9 +468,9 @@ export default function ConsolePage() {
             </div>
           )}
 
-          {/* Film Uploads, AI Credits & Billing Row */}
+          {/* Film Uploads & Billing Row */}
           {overview && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
               {/* Film Uploads Card */}
               <div className="bg-white border border-gray-200 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -508,40 +502,6 @@ export default function ConsolePage() {
                 </div>
                 <p className="text-sm text-gray-600">
                   {overview.upload_tokens?.used || 0} of {overview.upload_tokens?.total_allocation || 0} used this period
-                </p>
-              </div>
-
-              {/* AI Credits Card */}
-              <div className="bg-white border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">AI Credits</h3>
-                  <Zap className="w-5 h-5 text-gray-400" />
-                </div>
-                <div className="mb-4">
-                  <div className="flex items-end gap-2 mb-2">
-                    <span className="text-3xl font-semibold text-gray-900">
-                      {overview.ai_credits.used}
-                    </span>
-                    <span className="text-gray-500 mb-1">
-                      / {overview.ai_credits.allowed} used
-                    </span>
-                  </div>
-                  {/* Progress bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${
-                        overview.ai_credits.percentage >= 80
-                          ? 'bg-amber-500'
-                          : overview.ai_credits.percentage >= 50
-                          ? 'bg-blue-500'
-                          : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min(overview.ai_credits.percentage, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600">
-                  {overview.ai_credits.allowed - overview.ai_credits.used} credits remaining this period
                 </p>
               </div>
 

@@ -34,11 +34,6 @@ interface TeamDetailResponse {
     used_this_period: number;
     allocation: number;
   };
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
-  };
   recent_games: Array<{
     id: string;
     name: string;
@@ -134,15 +129,6 @@ export async function GET(
     'premium': 8,
   };
 
-  // Get AI credits
-  const now = new Date().toISOString();
-  const { data: aiCredits } = await supabase
-    .from('ai_credits')
-    .select('credits_used, credits_allowed')
-    .eq('team_id', teamId)
-    .gte('period_end', now)
-    .single();
-
   // Get usage counts
   const [gamesResult, playsResult, playersResult, membersResult] = await Promise.all([
     supabase.from('games').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
@@ -179,11 +165,6 @@ export async function GET(
   if (subscription && !subscription.billing_waived && subscription.status === 'active') {
     monthlyCostCents = tierConfig?.price_monthly || 0;
   }
-
-  // AI credits percentage
-  const creditsUsed = aiCredits?.credits_used || 0;
-  const creditsAllowed = aiCredits?.credits_allowed || tierConfig?.ai_credits || 0;
-  const creditsPercentage = creditsAllowed > 0 ? Math.round((creditsUsed / creditsAllowed) * 100) : 0;
 
   // Token calculations
   const tokensAvailable = (tokenBalance?.subscription_tokens_available || 0) + (tokenBalance?.purchased_tokens_available || 0);
@@ -224,11 +205,6 @@ export async function GET(
       available: tokensAvailable,
       used_this_period: tokensUsed,
       allocation: tokenAllocation
-    },
-    ai_credits: {
-      used: creditsUsed,
-      allowed: creditsAllowed,
-      percentage: creditsPercentage
     },
     recent_games: gamesWithPlays
   };

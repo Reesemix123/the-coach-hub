@@ -10,7 +10,6 @@ import {
   Trophy,
   Film,
   Users,
-  Zap,
   Upload
 } from 'lucide-react';
 import ConsoleNav from '@/components/console/ConsoleNav';
@@ -35,7 +34,6 @@ interface TeamUsage {
   games: number;
   plays: number;
   tokens_used: number;
-  ai_credits_used: number;
   active_users: number;
 }
 
@@ -46,14 +44,12 @@ interface UsageData {
     plays: TimeSeriesPoint[];
     tokens: TimeSeriesPoint[];
     active_users: TimeSeriesPoint[];
-    ai_credits: TimeSeriesPoint[];
   };
   by_team: TeamUsage[];
   totals: {
     games: number;
     plays: number;
     tokens_used: number;
-    ai_credits_used: number;
     active_users: number;
   };
 }
@@ -207,7 +203,7 @@ export default function ConsoleUsagePage() {
 
         <div className="max-w-7xl mx-auto px-6 py-8">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-white border border-gray-200 rounded-xl p-5">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-gray-100 rounded-lg">
@@ -253,18 +249,6 @@ export default function ConsoleUsagePage() {
               </div>
               <div className="text-2xl font-semibold text-gray-900">
                 {usageData?.totals.active_users || 0}
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <Zap className="w-4 h-4 text-gray-600" />
-                </div>
-                <span className="text-sm text-gray-600">AI Credits</span>
-              </div>
-              <div className="text-2xl font-semibold text-gray-900">
-                {usageData?.totals.ai_credits_used || 0}
               </div>
             </div>
           </div>
@@ -463,53 +447,6 @@ export default function ConsoleUsagePage() {
               </div>
             </div>
 
-            {/* AI Credits Chart */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">AI Credits Used</h3>
-              <div className="h-48">
-                {usageData?.time_series.ai_credits && usageData.time_series.ai_credits.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={usageData.time_series.ai_credits}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
-                      <XAxis
-                        dataKey="date"
-                        tickFormatter={formatDate}
-                        stroke="#86868B"
-                        fontSize={12}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        stroke="#86868B"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <Tooltip
-                        labelFormatter={(value) => formatDate(value as string)}
-                        contentStyle={{
-                          backgroundColor: '#fff',
-                          border: '1px solid #E5E5E5',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="count"
-                        stroke="#FF9500"
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 4, fill: '#FF9500' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-gray-400">
-                    No data for this period
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Usage by Team */}
@@ -524,7 +461,6 @@ export default function ConsoleUsagePage() {
                       <th className="pb-3 font-medium text-right">Games</th>
                       <th className="pb-3 font-medium text-right">Plays</th>
                       <th className="pb-3 font-medium text-right">Film Uploads</th>
-                      <th className="pb-3 font-medium text-right">AI Credits</th>
                       <th className="pb-3 font-medium text-right">Active Users</th>
                     </tr>
                   </thead>
@@ -542,7 +478,6 @@ export default function ConsoleUsagePage() {
                         <td className="py-4 text-right text-gray-900">{team.games}</td>
                         <td className="py-4 text-right text-gray-900">{team.plays.toLocaleString()}</td>
                         <td className="py-4 text-right text-gray-900">{team.tokens_used}</td>
-                        <td className="py-4 text-right text-gray-900">{team.ai_credits_used}</td>
                         <td className="py-4 text-right text-gray-900">{team.active_users}</td>
                       </tr>
                     ))}
@@ -553,7 +488,6 @@ export default function ConsoleUsagePage() {
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.games}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.plays.toLocaleString()}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.tokens_used}</td>
-                      <td className="pt-4 text-right text-gray-900">{usageData.totals.ai_credits_used}</td>
                       <td className="pt-4 text-right text-gray-900">{usageData.totals.active_users}</td>
                     </tr>
                   </tfoot>

@@ -1,5 +1,5 @@
 // Add-on Pricing Service - Client-side version
-// Handles volume-discounted pricing for team add-ons (coaches, AI credits, storage)
+// Handles volume-discounted pricing for team add-ons (coaches, storage)
 // This version accepts a supabase client as a parameter for use in client components
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -19,7 +19,6 @@ export interface AddonConfig {
 
 export interface AddonPricing {
   coaches: AddonConfig;
-  ai_credits: AddonConfig;
   storage: AddonConfig;
 }
 
@@ -27,7 +26,6 @@ export interface TeamAddons {
   id: string;
   team_id: string;
   additional_coaches: number;
-  additional_ai_credits: number;
   additional_storage_gb: number;
   stripe_subscription_item_id: string | null;
   monthly_cost_cents: number;
@@ -37,17 +35,16 @@ export interface TeamAddons {
 
 export interface EffectiveLimits {
   max_coaches: number;
-  ai_credits: number;
   storage_gb: number;
   addon_cost_cents: number;
   addons: TeamAddons | null;
 }
 
 // Default tier limits
-const DEFAULT_TIER_LIMITS: Record<string, { max_coaches: number; ai_credits: number; storage_gb: number }> = {
-  basic: { max_coaches: 3, ai_credits: 0, storage_gb: 10 },
-  plus: { max_coaches: 5, ai_credits: 100, storage_gb: 50 },
-  premium: { max_coaches: 10, ai_credits: 500, storage_gb: 200 },
+const DEFAULT_TIER_LIMITS: Record<string, { max_coaches: number; storage_gb: number }> = {
+  basic: { max_coaches: 3, storage_gb: 10 },
+  plus: { max_coaches: 5, storage_gb: 50 },
+  premium: { max_coaches: 10, storage_gb: 200 },
 };
 
 /**
@@ -100,7 +97,6 @@ export async function getEffectiveLimitsClient(
 
   const tierConfigs = tierConfigData?.value as Record<string, {
     max_coaches?: number;
-    ai_credits?: number;
     storage_gb?: number;
   }> | null;
 
@@ -111,13 +107,11 @@ export async function getEffectiveLimitsClient(
 
   const baseLimits = {
     max_coaches: tierConfig.max_coaches || DEFAULT_TIER_LIMITS[tier]?.max_coaches || 3,
-    ai_credits: tierConfig.ai_credits || DEFAULT_TIER_LIMITS[tier]?.ai_credits || 0,
     storage_gb: tierConfig.storage_gb || DEFAULT_TIER_LIMITS[tier]?.storage_gb || 10
   };
 
   return {
     max_coaches: baseLimits.max_coaches + (addons?.additional_coaches || 0),
-    ai_credits: baseLimits.ai_credits + (addons?.additional_ai_credits || 0),
     storage_gb: baseLimits.storage_gb + (addons?.additional_storage_gb || 0),
     addon_cost_cents: addons?.monthly_cost_cents || 0,
     addons

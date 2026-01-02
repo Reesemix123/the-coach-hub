@@ -1,5 +1,5 @@
 // /api/console/usage - Usage analytics for athletic director console
-// Returns time series data for games, plays, active users, and AI credits
+// Returns time series data for games, plays, active users, and film uploads
 
 import { createClient } from '@/utils/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +15,6 @@ interface TeamUsage {
   games: number;
   plays: number;
   tokens_used: number;
-  ai_credits_used: number;
   active_users: number;
 }
 
@@ -26,14 +25,12 @@ interface UsageResponse {
     plays: TimeSeriesPoint[];
     tokens: TimeSeriesPoint[];
     active_users: TimeSeriesPoint[];
-    ai_credits: TimeSeriesPoint[];
   };
   by_team: TeamUsage[];
   totals: {
     games: number;
     plays: number;
     tokens_used: number;
-    ai_credits_used: number;
     active_users: number;
   };
 }
@@ -154,11 +151,10 @@ export async function GET(request: NextRequest) {
         games: [],
         plays: [],
         tokens: [],
-        active_users: [],
-        ai_credits: []
+        active_users: []
       },
       by_team: [],
-      totals: { games: 0, plays: 0, tokens_used: 0, ai_credits_used: 0, active_users: 0 }
+      totals: { games: 0, plays: 0, tokens_used: 0, active_users: 0 }
     });
   }
 
@@ -186,20 +182,6 @@ export async function GET(request: NextRequest) {
   const { data: plays } = await supabase
     .from('play_instances')
     .select('id, team_id, created_at')
-    .in('team_id', teamIds)
-    .gte('created_at', startDateStr);
-
-  // Fetch AI credits (current period totals per team)
-  const { data: aiCredits } = await supabase
-    .from('ai_credits')
-    .select('team_id, credits_used, credits_allowed, period_start, period_end')
-    .in('team_id', teamIds)
-    .gte('period_end', new Date().toISOString());
-
-  // Fetch AI usage logs for time series (granular tracking)
-  const { data: aiUsageLogs } = await supabase
-    .from('ai_usage_logs')
-    .select('team_id, user_id, feature, credits_used, created_at')
     .in('team_id', teamIds)
     .gte('created_at', startDateStr);
 
@@ -258,26 +240,6 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  // AI credits time series (using ai_usage_logs for granular data)
-  const aiCreditsBuckets = initializeBuckets();
-  let totalAiCreditsUsed = 0;
-
-  if (aiUsageLogs && aiUsageLogs.length > 0) {
-    // Use granular logs for time series
-    aiUsageLogs.forEach(log => {
-      const bucket = bucketDate(log.created_at, bucketSize, startDate);
-      aiCreditsBuckets.set(bucket, (aiCreditsBuckets.get(bucket) || 0) + (log.credits_used || 1));
-      totalAiCreditsUsed += log.credits_used || 1;
-    });
-  } else {
-    // Fallback to ai_credits table totals if no logs exist yet
-    totalAiCreditsUsed = aiCredits?.reduce((sum, c) => sum + (c.credits_used || 0), 0) || 0;
-    const currentBucket = dateBuckets[dateBuckets.length - 1];
-    if (currentBucket && totalAiCreditsUsed > 0) {
-      aiCreditsBuckets.set(currentBucket, totalAiCreditsUsed);
-    }
-  }
-
   // Token consumption time series
   const tokensBuckets = initializeBuckets();
   let totalTokensUsed = 0;
@@ -300,7 +262,6 @@ export async function GET(request: NextRequest) {
   const teamGames: Record<string, number> = {};
   const teamPlays: Record<string, number> = {};
   const teamTokens: Record<string, number> = {};
-  const teamCredits: Record<string, number> = {};
   const teamUsers: Record<string, Set<string>> = {};
 
   // Initialize
@@ -308,7 +269,6 @@ export async function GET(request: NextRequest) {
     teamGames[id] = 0;
     teamPlays[id] = 0;
     teamTokens[id] = 0;
-    teamCredits[id] = 0;
     teamUsers[id] = new Set();
   });
 
@@ -321,19 +281,6 @@ export async function GET(request: NextRequest) {
   plays?.forEach(p => {
     if (p.team_id) teamPlays[p.team_id] = (teamPlays[p.team_id] || 0) + 1;
   });
-
-  // AI credits per team (from usage logs if available, otherwise from ai_credits)
-  if (aiUsageLogs && aiUsageLogs.length > 0) {
-    aiUsageLogs.forEach(log => {
-      if (log.team_id) {
-        teamCredits[log.team_id] = (teamCredits[log.team_id] || 0) + (log.credits_used || 1);
-      }
-    });
-  } else {
-    aiCredits?.forEach(c => {
-      teamCredits[c.team_id] = c.credits_used || 0;
-    });
-  }
 
   // Tokens consumed per team
   tokenTransactions?.forEach(tx => {
@@ -366,7 +313,6 @@ export async function GET(request: NextRequest) {
     games: teamGames[id] || 0,
     plays: teamPlays[id] || 0,
     tokens_used: teamTokens[id] || 0,
-    ai_credits_used: teamCredits[id] || 0,
     active_users: teamUsers[id]?.size || 0
   })).sort((a, b) => b.plays - a.plays); // Sort by most active
 
@@ -375,7 +321,6 @@ export async function GET(request: NextRequest) {
     games: games?.length || 0,
     plays: plays?.length || 0,
     tokens_used: totalTokensUsed,
-    ai_credits_used: totalAiCreditsUsed,
     active_users: activeUsersInPeriod.size
   };
 
@@ -385,8 +330,7 @@ export async function GET(request: NextRequest) {
       games: convertToTimeSeries(gamesBuckets),
       plays: convertToTimeSeries(playsBuckets),
       tokens: convertToTimeSeries(tokensBuckets),
-      active_users: convertToTimeSeries(activeUsersBuckets),
-      ai_credits: convertToTimeSeries(aiCreditsBuckets)
+      active_users: convertToTimeSeries(activeUsersBuckets)
     },
     by_team: byTeam,
     totals

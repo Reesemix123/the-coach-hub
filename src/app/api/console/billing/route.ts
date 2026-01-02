@@ -1,5 +1,5 @@
 // /api/console/billing - Billing management for athletic director console
-// Returns billing overview: teams with subscriptions, AI credits, payment methods
+// Returns billing overview: teams with subscriptions, payment methods
 
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
@@ -17,8 +17,6 @@ interface TeamBilling {
   current_period_end: string | null;
   trial_ends_at: string | null;
   monthly_cost_cents: number;
-  ai_credits_used: number;
-  ai_credits_allowed: number;
   upload_tokens: {
     available: number;
     allocation: number;
@@ -111,14 +109,6 @@ export async function GET() {
     .select('*')
     .in('team_id', teamIds);
 
-  // Fetch current AI credits for all teams
-  const now = new Date().toISOString();
-  const { data: aiCredits } = await supabase
-    .from('ai_credits')
-    .select('*')
-    .in('team_id', teamIds)
-    .gte('period_end', now);
-
   // Fetch token balances for all teams
   const { data: tokenBalances } = await supabase
     .from('token_balance')
@@ -131,11 +121,6 @@ export async function GET() {
   // Build subscription map
   const subscriptionMap = new Map(
     (subscriptions || []).map(s => [s.team_id, s])
-  );
-
-  // Build AI credits map
-  const creditsMap = new Map(
-    (aiCredits || []).map(c => [c.team_id, c])
   );
 
   // Build token balance map
@@ -153,7 +138,6 @@ export async function GET() {
   // Build team billing data
   const teamBillings: TeamBilling[] = teamIds.map(teamId => {
     const subscription = subscriptionMap.get(teamId);
-    const credits = creditsMap.get(teamId);
     const tokens = tokenMap.get(teamId);
     const tier = (subscription?.tier || 'plus') as SubscriptionTier;
     const tierConfig = tierConfigs?.[tier];
@@ -178,8 +162,6 @@ export async function GET() {
       current_period_end: subscription?.current_period_end || null,
       trial_ends_at: subscription?.trial_ends_at || null,
       monthly_cost_cents: monthlyCostCents,
-      ai_credits_used: credits?.credits_used || 0,
-      ai_credits_allowed: credits?.credits_allowed || tierConfig?.ai_credits || 0,
       upload_tokens: {
         available: tokensAvailable,
         allocation: tokenAllocation

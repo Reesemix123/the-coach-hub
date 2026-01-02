@@ -20,11 +20,6 @@ interface TeamResponse {
   members_count: number;
   games_count: number;
   plays_count: number;
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
-  };
   upload_tokens: {
     available: number;
     used_this_period: number;
@@ -95,13 +90,6 @@ export async function GET() {
     .select('team_id, tier')
     .in('team_id', teamIds);
 
-  // Fetch AI credits for all teams (current period only)
-  const { data: aiCredits } = await supabase
-    .from('ai_credits')
-    .select('team_id, credits_used, credits_allowed')
-    .in('team_id', teamIds)
-    .gte('period_end', new Date().toISOString());
-
   // Fetch token balances for all teams
   const { data: tokenBalances } = await supabase
     .from('token_balance')
@@ -141,7 +129,6 @@ export async function GET() {
   // Build lookup maps
   const subscriptionMap = new Map(subscriptions?.map(s => [s.team_id, s]) || []);
   const analyticsMap = new Map(analyticsConfigs?.map(a => [a.team_id, a]) || []);
-  const creditsMap = new Map(aiCredits?.map(c => [c.team_id, c]) || []);
   const tokenMap = new Map(tokenBalances?.map(t => [t.team_id, t]) || []);
 
   // Tier token allocation mapping
@@ -166,7 +153,6 @@ export async function GET() {
   const formattedTeams: TeamResponse[] = teams.map(team => {
     const subscription = subscriptionMap.get(team.id);
     const analyticsConfig = analyticsMap.get(team.id);
-    const credits = creditsMap.get(team.id);
     const tokens = tokenMap.get(team.id);
 
     // Get tier from subscription first, then analytics config, then default
@@ -181,9 +167,6 @@ export async function GET() {
       const diffMs = trialEnd.getTime() - now.getTime();
       trialDaysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     }
-
-    const creditsUsed = credits?.credits_used || 0;
-    const creditsAllowed = credits?.credits_allowed || 0;
 
     // Token calculations
     const tokensAvailable = (tokens?.subscription_tokens_available || 0) + (tokens?.purchased_tokens_available || 0);
@@ -205,11 +188,6 @@ export async function GET() {
       members_count: memberCounts[team.id]?.size || 1,
       games_count: gameCounts[team.id] || 0,
       plays_count: playCounts[team.id] || 0,
-      ai_credits: {
-        used: creditsUsed,
-        allowed: creditsAllowed,
-        percentage: creditsAllowed > 0 ? Math.round((creditsUsed / creditsAllowed) * 100) : 0
-      },
       upload_tokens: {
         available: tokensAvailable,
         used_this_period: tokensUsedThisPeriod,

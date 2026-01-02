@@ -29,8 +29,6 @@ interface TeamBilling {
   current_period_end: string | null;
   trial_ends_at: string | null;
   monthly_cost_cents: number;
-  ai_credits_used: number;
-  ai_credits_allowed: number;
   upload_tokens: {
     available: number;
     allocation: number;
@@ -48,7 +46,6 @@ interface BillingSummary {
 interface TierConfigValue {
   name: string;
   description: string;
-  ai_credits: number;
   price_monthly: number;
   features: string[];
 }
@@ -186,11 +183,6 @@ export default function ConsoleBillingPage() {
           </span>
         );
     }
-  }
-
-  function getCreditsPercentage(used: number, allowed: number): number {
-    if (allowed === 0) return 0;
-    return Math.min(100, Math.round((used / allowed) * 100));
   }
 
   if (loading) {
@@ -375,18 +367,12 @@ export default function ConsoleBillingPage() {
                     <th className="px-6 py-3 font-medium">Status</th>
                     <th className="px-6 py-3 font-medium">Monthly Cost</th>
                     <th className="px-6 py-3 font-medium">Film Uploads</th>
-                    <th className="px-6 py-3 font-medium">AI Credits</th>
                     <th className="px-6 py-3 font-medium">Renews</th>
                     <th className="px-6 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {billingData?.teams.map((team) => {
-                    const creditsPercent = getCreditsPercentage(
-                      team.ai_credits_used,
-                      team.ai_credits_allowed
-                    );
-
                     return (
                       <tr key={team.team_id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -438,27 +424,6 @@ export default function ConsoleBillingPage() {
                             </div>
                             <span className="text-sm text-gray-600 whitespace-nowrap">
                               {team.upload_tokens?.available || 0} / {team.upload_tokens?.allocation || 0}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 min-w-[100px]">
-                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${
-                                    creditsPercent >= 90
-                                      ? 'bg-red-500'
-                                      : creditsPercent >= 70
-                                      ? 'bg-amber-500'
-                                      : 'bg-green-500'
-                                  }`}
-                                  style={{ width: `${creditsPercent}%` }}
-                                />
-                              </div>
-                            </div>
-                            <span className="text-sm text-gray-600 whitespace-nowrap">
-                              {team.ai_credits_used} / {team.ai_credits_allowed}
                             </span>
                           </div>
                         </td>

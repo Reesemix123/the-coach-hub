@@ -66,17 +66,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Get AI credits for this team
-    const now = new Date().toISOString();
-    const { data: aiCredits } = await supabase
-      .from('ai_credits')
-      .select('credits_used, credits_allowed')
-      .eq('team_id', teamId)
-      .gte('period_end', now)
-      .order('period_start', { ascending: false })
-      .limit(1)
-      .single();
-
     // Calculate days remaining
     const trialEnd = new Date(subscription.trial_ends_at);
     const nowDate = new Date();
@@ -86,9 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       is_trialing: true,
       trial_ends_at: subscription.trial_ends_at,
       days_remaining: daysRemaining,
-      tier: subscription.tier,
-      ai_credits_used: aiCredits?.credits_used || 0,
-      ai_credits_limit: aiCredits?.credits_allowed || 0
+      tier: subscription.tier
     });
 
   } catch (error) {

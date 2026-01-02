@@ -11,7 +11,6 @@ import {
   Users,
   Trophy,
   Film,
-  Zap,
   AlertCircle,
   ChevronLeft,
   Settings,
@@ -21,7 +20,8 @@ import {
   Calendar,
   ExternalLink,
   XCircle,
-  CheckCircle
+  CheckCircle,
+  Zap
 } from 'lucide-react';
 
 interface TeamDetailData {
@@ -53,11 +53,6 @@ interface TeamDetailData {
     used_this_period: number;
     allocation: number;
   };
-  ai_credits: {
-    used: number;
-    allowed: number;
-    percentage: number;
-  };
   recent_games: Array<{
     id: string;
     name: string;
@@ -71,7 +66,6 @@ interface TeamDetailData {
 interface TierConfigValue {
   name: string;
   description: string;
-  ai_credits: number;
   price_monthly: number;
   features: string[];
 }
@@ -403,7 +397,7 @@ export default function ConsoleTeamDetailPage() {
           </div>
 
           {/* Resources Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="mb-8">
             {/* Film Uploads Card */}
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
@@ -434,39 +428,6 @@ export default function ConsoleTeamDetailPage() {
               </div>
               <p className="text-sm text-gray-600">
                 {teamData.upload_tokens.used_this_period} used this period
-              </p>
-            </div>
-
-            {/* AI Credits Card */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">AI Credits</h3>
-                <Zap className="w-5 h-5 text-gray-400" />
-              </div>
-              <div className="mb-4">
-                <div className="flex items-end gap-2 mb-2">
-                  <span className="text-3xl font-semibold text-gray-900">
-                    {teamData.ai_credits.used}
-                  </span>
-                  <span className="text-gray-500 mb-1">
-                    / {teamData.ai_credits.allowed} used
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${
-                      teamData.ai_credits.percentage >= 90
-                        ? 'bg-red-500'
-                        : teamData.ai_credits.percentage >= 70
-                        ? 'bg-amber-500'
-                        : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(teamData.ai_credits.percentage, 100)}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">
-                {teamData.ai_credits.allowed - teamData.ai_credits.used} credits remaining
               </p>
             </div>
           </div>
@@ -635,10 +596,6 @@ export default function ConsoleTeamDetailPage() {
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                               <Upload className="w-4 h-4 text-purple-500" />
                               {tierTokens[tierId] || 4} film uploads/month
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <Zap className="w-4 h-4 text-amber-500" />
-                              {config.ai_credits} AI credits/month
                             </div>
                           </div>
 
