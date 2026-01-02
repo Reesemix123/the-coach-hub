@@ -104,9 +104,9 @@ export function FilmAnalysisStatusPanel({
   const getStatusLabel = (status: FilmAnalysisStatus) => {
     switch (status) {
       case 'complete':
-        return 'Complete';
+        return 'Tagging Complete';
       case 'in_progress':
-        return 'In Progress';
+        return 'Tagging In Progress';
       default:
         return 'Not Started';
     }
@@ -140,7 +140,7 @@ export function FilmAnalysisStatusPanel({
         <div className="flex items-center gap-3">
           {getStatusIcon(status)}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Film Analysis</h4>
+            <h4 className="text-sm font-semibold text-gray-900">Film Tagging Status</h4>
             <p className="text-sm text-gray-600">{getStatusLabel(status)}</p>
           </div>
         </div>
@@ -166,7 +166,7 @@ export function FilmAnalysisStatusPanel({
             {isUpdating ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Mark Complete'
+              'Mark Tagging Complete'
             )}
           </button>
         )}
@@ -190,7 +190,7 @@ export function FilmAnalysisStatusPanel({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {confirmAction === 'complete' ? 'Mark Analysis Complete?' : 'Resume Editing?'}
+              {confirmAction === 'complete' ? 'Mark Film Tagging Complete?' : 'Resume Editing?'}
             </h3>
 
             {confirmAction === 'complete' && warnings.length > 0 && (
@@ -211,8 +211,8 @@ export function FilmAnalysisStatusPanel({
 
             <p className="text-sm text-gray-600 mb-4">
               {confirmAction === 'complete'
-                ? 'This will calculate final scores from your tagged plays. You can always edit later.'
-                : 'This will allow you to continue editing the film analysis.'}
+                ? 'By marking tagging complete, you are confirming this game is ready for analytics. Game analytics and season totals will only include completed games. You can edit later if needed.'
+                : 'This will allow you to continue tagging plays. While editing, analytics for this game will be hidden until you mark it complete again.'}
             </p>
 
             <div className="flex gap-3 justify-end">
@@ -230,7 +230,7 @@ export function FilmAnalysisStatusPanel({
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
               >
-                {confirmAction === 'complete' ? 'Mark Complete' : 'Resume Editing'}
+                {confirmAction === 'complete' ? 'Mark Tagging Complete' : 'Resume Editing'}
               </button>
             </div>
           </div>

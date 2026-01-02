@@ -20,4 +20,5 @@ export * from './types';
 export * from './providers';
 export * from './context';
 export * from './semantic';
+export * from './router';
 export { ChatService, chatService } from './chat-service';

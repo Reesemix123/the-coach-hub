@@ -66,11 +66,13 @@ Use clear, consistent names for your videos:
 
 Storage limits depend on your subscription plan:
 
-| Plan | Storage |
-|------|---------|
-| Free | 5 GB |
-| Pro | 50 GB |
-| Team | 200 GB |
+| Plan | Team Storage | Per-Game Limit |
+|------|--------------|----------------|
+| Basic | 10 GB | 5 GB |
+| Plus | 50 GB | 15 GB |
+| Premium | 200 GB | 25 GB |
+
+When uploading, you'll see warnings if your file will bring you close to either your team or game storage limit. If you exceed the limit, you'll need to delete existing videos or upgrade your plan.
 
 > **Note:** Older games can be archived to free up storage while preserving your play-by-play data and analytics.
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Play, Check, Clock, Settings2, X, GripVertical, Link2 } from 'lucide-react';
+import { Plus, Play, Check, Clock, Settings2, X, GripVertical, Link2, Edit2 } from 'lucide-react';
 import { SyncModal } from './SyncModal';
 
 interface Camera {
@@ -24,6 +24,7 @@ interface CameraRowProps {
   onAddCamera: () => void;
   onSyncCamera: (cameraId: string, offsetSeconds: number) => void;
   onReorderCameras?: (cameraIds: string[]) => void;
+  onRenameCamera?: (cameraId: string, newLabel: string) => void;
   cameraLimit: number;
   currentCameraCount: number;
   isUploading?: boolean;
@@ -37,13 +38,43 @@ export function CameraRow({
   onAddCamera,
   onSyncCamera,
   onReorderCameras,
+  onRenameCamera,
   cameraLimit,
   currentCameraCount,
   isUploading = false,
   uploadProgress = 0,
 }: CameraRowProps) {
   const [showSyncModal, setShowSyncModal] = useState(false);
+  const [editingCameraId, setEditingCameraId] = useState<string | null>(null);
+  const [editLabelValue, setEditLabelValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (editingCameraId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingCameraId]);
+
+  const startEditing = (camera: Camera) => {
+    setEditingCameraId(camera.id);
+    setEditLabelValue(camera.camera_label || `Camera ${camera.camera_order}`);
+  };
+
+  const handleLabelSubmit = () => {
+    if (editingCameraId && editLabelValue.trim() && onRenameCamera) {
+      onRenameCamera(editingCameraId, editLabelValue.trim());
+    }
+    setEditingCameraId(null);
+    setEditLabelValue('');
+  };
+
+  const handleLabelCancel = () => {
+    setEditingCameraId(null);
+    setEditLabelValue('');
+  };
 
   // Sort cameras by camera_order
   const sortedCameras = [...cameras].sort((a, b) => a.camera_order - b.camera_order);
@@ -189,9 +220,52 @@ export function CameraRow({
 
               {/* Camera info */}
               <div className="p-2 bg-white">
-                <div className="text-xs font-medium text-gray-900 truncate">
-                  {camera.camera_label || `Camera ${camera.camera_order}`}
-                </div>
+                {editingCameraId === camera.id ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      value={editLabelValue}
+                      onChange={(e) => setEditLabelValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleLabelSubmit();
+                        if (e.key === 'Escape') handleLabelCancel();
+                      }}
+                      onBlur={handleLabelSubmit}
+                      className="flex-1 text-xs px-1 py-0.5 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900 min-w-0"
+                    />
+                    <button
+                      onClick={handleLabelSubmit}
+                      className="p-0.5 text-green-600 hover:bg-green-50 rounded"
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      onClick={handleLabelCancel}
+                      className="p-0.5 text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 group">
+                    <div className="text-xs font-medium text-gray-900 truncate flex-1">
+                      {camera.camera_label || `Camera ${camera.camera_order}`}
+                    </div>
+                    {onRenameCamera && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditing(camera);
+                        }}
+                        className="p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Rename camera"
+                      >
+                        <Edit2 size={10} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-[10px] text-gray-500">
                     {formatDuration(camera.duration_seconds)}

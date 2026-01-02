@@ -93,6 +93,33 @@ export class AnalyticsService {
   private supabase = createClient();
 
   /**
+   * Get video IDs from games that have completed film tagging
+   * Used to filter analytics to only include completed games
+   */
+  private async getCompletedGameVideoIds(teamId: string): Promise<string[]> {
+    // First get all games for this team that are marked as complete
+    const { data: completedGames } = await this.supabase
+      .from('games')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('film_analysis_status', 'complete');
+
+    if (!completedGames || completedGames.length === 0) {
+      return [];
+    }
+
+    const gameIds = completedGames.map(g => g.id);
+
+    // Then get all video IDs for those games
+    const { data: videos } = await this.supabase
+      .from('videos')
+      .select('id')
+      .in('game_id', gameIds);
+
+    return videos?.map(v => v.id) || [];
+  }
+
+  /**
    * Calculate if a play was successful based on down and distance
    */
   private isPlaySuccessful(
@@ -120,14 +147,24 @@ export class AnalyticsService {
 
   /**
    * Get comprehensive team analytics
+   * Only includes plays from games marked as tagging complete
    */
   async getTeamAnalytics(teamId: string): Promise<TeamAnalytics> {
-    // Fetch all play instances for this team (exclude opponent plays)
+    // Get video IDs from completed games only
+    const completedVideoIds = await this.getCompletedGameVideoIds(teamId);
+
+    // If no completed games, return empty analytics
+    if (completedVideoIds.length === 0) {
+      return this.getEmptyTeamAnalytics();
+    }
+
+    // Fetch play instances only from completed games
     const { data: plays, error } = await this.supabase
       .from('play_instances')
       .select('*')
       .eq('team_id', teamId)
-      .eq('is_opponent_play', false);
+      .eq('is_opponent_play', false)
+      .in('video_id', completedVideoIds);
 
     if (error || !plays) {
       throw new Error('Failed to fetch play instances');
@@ -268,7 +305,31 @@ export class AnalyticsService {
   }
 
   /**
+   * Return empty team analytics for when no completed games exist
+   */
+  private getEmptyTeamAnalytics(): TeamAnalytics {
+    return {
+      totalPlays: 0,
+      totalYards: 0,
+      avgYardsPerPlay: 0,
+      successRate: 0,
+      firstDowns: 0,
+      turnovers: 0,
+      firstDownStats: { plays: 0, success: 0, successRate: 0 },
+      secondDownStats: { plays: 0, success: 0, successRate: 0 },
+      thirdDownStats: { plays: 0, success: 0, successRate: 0, conversions: 0 },
+      fourthDownStats: { plays: 0, success: 0, successRate: 0 },
+      redZoneAttempts: 0,
+      redZoneTouchdowns: 0,
+      redZoneSuccessRate: 0,
+      topPlays: [],
+      bottomPlays: []
+    };
+  }
+
+  /**
    * Get comprehensive player statistics
+   * Only includes plays from games marked as tagging complete
    */
   async getPlayerStats(playerId: string, teamId: string): Promise<PlayerStats> {
     // Fetch player info
@@ -280,13 +341,23 @@ export class AnalyticsService {
 
     if (!player) throw new Error('Player not found');
 
+    // Get video IDs from completed games only
+    const completedVideoIds = await this.getCompletedGameVideoIds(teamId);
+
+    // If no completed games, return empty player stats
+    if (completedVideoIds.length === 0) {
+      return this.getEmptyPlayerStats(player);
+    }
+
     // Fetch all plays by this player (check all player attribution columns)
+    // Only from completed games
     const { data: plays } = await this.supabase
       .from('play_instances')
       .select('*')
       .or(`ball_carrier_id.eq.${playerId},qb_id.eq.${playerId},target_id.eq.${playerId}`)
       .eq('team_id', teamId)
-      .eq('is_opponent_play', false);
+      .eq('is_opponent_play', false)
+      .in('video_id', completedVideoIds);
 
     if (!plays || plays.length === 0) {
       return this.getEmptyPlayerStats(player);

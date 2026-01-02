@@ -1,11 +1,22 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { Edit2, Plus, Check, X } from 'lucide-react';
+import { Edit2, Check, X, Plus } from 'lucide-react';
 import { TimelineClipBlock } from './TimelineClipBlock';
 import type { CameraLane, TimelineClip } from '@/types/timeline';
-import { timeToPixels, SUGGESTED_LANE_LABELS } from '@/types/timeline';
+import { timeToPixels, SUGGESTED_LANE_LABELS, formatTimeMs } from '@/types/timeline';
+
+// Type for available videos passed from parent
+interface AvailableVideo {
+  id: string;
+  name: string;
+  url: string;
+  thumbnailUrl: string | null;
+  durationMs: number;
+  cameraOrder: number;
+  cameraLabel: string | null;
+}
 
 interface SwimLaneProps {
   lane: CameraLane;
@@ -16,6 +27,7 @@ interface SwimLaneProps {
   onLabelChange: (label: string) => void;
   onAddClip: (videoId: string) => void;
   totalDurationMs: number;
+  availableVideos?: AvailableVideo[]; // Videos for this camera that can be added
 }
 
 export function SwimLane({
@@ -27,15 +39,35 @@ export function SwimLane({
   onLabelChange,
   onAddClip,
   totalDurationMs,
+  availableVideos = [],
 }: SwimLaneProps) {
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [labelValue, setLabelValue] = useState(lane.label);
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
+  const [showVideoPicker, setShowVideoPicker] = useState(false);
+  const videoPickerRef = useRef<HTMLDivElement>(null);
 
   // Make the lane a drop target
   const { setNodeRef, isOver } = useDroppable({
     id: lane.lane.toString(),
   });
+
+  // Close video picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (videoPickerRef.current && !videoPickerRef.current.contains(event.target as Node)) {
+        setShowVideoPicker(false);
+      }
+    };
+
+    if (showVideoPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVideoPicker]);
 
   const handleLabelSubmit = useCallback(() => {
     if (labelValue.trim()) {
@@ -57,6 +89,16 @@ export function SwimLane({
     setIsEditingLabel(false);
     setShowLabelDropdown(false);
   }, [onLabelChange]);
+
+  const handleAddVideo = useCallback((videoId: string) => {
+    onAddClip(videoId);
+    setShowVideoPicker(false);
+  }, [onAddClip]);
+
+  // Filter to only videos not already in this lane
+  const unplacedVideos = availableVideos.filter(
+    v => !lane.clips.some(c => c.videoId === v.id)
+  );
 
   const laneWidth = timeToPixels(totalDurationMs, zoomLevel);
 
@@ -109,7 +151,7 @@ export function SwimLane({
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <span className="text-sm font-medium text-gray-700 truncate flex-1">
               {lane.label}
             </span>
@@ -120,6 +162,63 @@ export function SwimLane({
             >
               <Edit2 size={12} />
             </button>
+            {/* Add video button */}
+            <div className="relative" ref={videoPickerRef}>
+              <button
+                onClick={() => setShowVideoPicker(!showVideoPicker)}
+                className={`p-1 rounded transition-colors ${
+                  showVideoPicker
+                    ? 'text-blue-600 bg-blue-100'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Add video to this lane"
+              >
+                <Plus size={12} />
+              </button>
+
+              {/* Video picker dropdown */}
+              {showVideoPicker && (
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-30 w-56">
+                  {unplacedVideos.length > 0 ? (
+                    <div className="max-h-48 overflow-y-auto">
+                      {unplacedVideos.map(video => (
+                        <button
+                          key={video.id}
+                          onClick={() => handleAddVideo(video.id)}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 border-b border-gray-100 last:border-b-0"
+                        >
+                          {video.thumbnailUrl ? (
+                            <img
+                              src={video.thumbnailUrl}
+                              alt=""
+                              className="w-10 h-7 object-cover rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-7 bg-gray-200 rounded flex-shrink-0 flex items-center justify-center text-gray-400 text-xs">
+                              No img
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">
+                              {video.cameraLabel || video.name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {formatTimeMs(video.durationMs)}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                      {availableVideos.length === 0
+                        ? 'No videos for this camera'
+                        : 'All videos have been added'}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
         <span className="text-xs text-gray-500 mt-1">
@@ -150,17 +249,11 @@ export function SwimLane({
         {/* Empty state */}
         {lane.clips.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-            <span>Drop video here or click</span>
-            <button
-              onClick={() => {
-                // This would typically open a video picker modal
-                // For now, we'll just show a placeholder
-                console.log('Add clip to lane', lane.lane);
-              }}
-              className="ml-2 p-1 hover:bg-gray-100 rounded"
-            >
-              <Plus size={16} />
-            </button>
+            <span>
+              {unplacedVideos.length > 0
+                ? 'Click + to add a video, or drag clips here'
+                : 'Upload videos from Camera View first'}
+            </span>
           </div>
         )}
 

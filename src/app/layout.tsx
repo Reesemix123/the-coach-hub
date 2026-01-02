@@ -15,6 +15,7 @@ import { GuideProvider } from "@/contexts/GuideContext";
 import { GuideSlideOver } from "@/components/guide";
 import { ChatWidget } from "@/components/chat";
 import { Toaster } from "react-hot-toast";
+import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
 
 export const metadata: Metadata = {
   title: "Youth Coach Hub",
@@ -85,9 +86,11 @@ export default function RootLayout({
           <PaymentWarningBanner />
         </div>
 
+        <SessionTimeoutProvider>
         <main className="pt-24">
           {children}
         </main>
+        </SessionTimeoutProvider>
         <Toaster
           position="top-right"
           toastOptions={{

@@ -17,22 +17,20 @@ Your plan determines how much total film storage your team can use across all ga
 | Plan | Total Storage |
 |------|---------------|
 | Basic | 10 GB |
-| Plus | ~240 GB |
-| Premium | ~2.4 TB |
+| Plus | 50 GB |
+| Premium | 200 GB |
 
 This is the combined size of all video files uploaded to your team, across all games.
 
 ### Per-Game Limits
 
-Each individual game has a storage limit:
+Each individual game has a storage limit to prevent any single game from consuming too much of your total quota:
 
-| Plan | Max Storage Per Game |
-|------|---------------------|
-| Basic | 5 GB |
-| Plus | 10 GB |
-| Premium | 25 GB |
-
-These limits prevent any single game from consuming too much of your total storage.
+| Plan | Max Storage Per Game | Max Duration Per Game |
+|------|---------------------|----------------------|
+| Basic | 5 GB | 3 hours |
+| Plus | 15 GB | 9 hours |
+| Premium | 25 GB | 15 hours |
 
 ### Per-Camera Limits
 
@@ -149,8 +147,8 @@ The only way to get more storage or longer retention is to upgrade your subscrip
 
 | Upgrade | Storage Increase | Per-Game Storage | Additional Benefits |
 |---------|-----------------|------------------|---------------------|
-| Basic to Plus | 10 GB → ~240 GB | 5 GB → 10 GB | 3 cameras, 180-day retention |
-| Plus to Premium | ~240 GB → ~2.4 TB | 10 GB → 25 GB | 5 cameras, 365-day retention |
+| Basic to Plus | 10 GB → 50 GB | 5 GB → 15 GB | 3 cameras, 180-day retention |
+| Plus to Premium | 50 GB → 200 GB | 15 GB → 25 GB | 5 cameras, 365-day retention |
 
 There are no add-on options for extra storage or extended retention.
 

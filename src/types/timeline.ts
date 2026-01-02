@@ -139,18 +139,17 @@ export const DEFAULT_LANE_LABELS: Record<number, string> = {
 
 /**
  * Suggested lane labels (for dropdown)
+ * These represent common camera positions/angles at youth football games
  */
 export const SUGGESTED_LANE_LABELS = [
   'Sideline',
   'End Zone',
   'Press Box',
+  'Aerial',
   'All-22',
-  'Coaches Film',
+  'Parent/Fan',
   'Game Broadcast',
-  'First Half',
-  'Second Half',
-  'Offense',
-  'Defense',
+  'Coaches Film',
 ];
 
 /**
@@ -158,11 +157,11 @@ export const SUGGESTED_LANE_LABELS = [
  */
 export const TIMELINE_CONSTANTS = {
   MAX_LANES: 5,
-  MIN_CLIP_WIDTH_PX: 40,        // Minimum visual width for a clip
+  MIN_CLIP_WIDTH_PX: 30,        // Minimum visual width for a clip (smaller = more accurate)
   SNAP_GRID_MS: 1000,           // Snap to 1 second grid
-  ZOOM_LEVELS: [0.5, 1, 2, 4, 8],
-  DEFAULT_ZOOM: 1,
-  PIXELS_PER_SECOND_BASE: 10,   // Base pixels per second at zoom 1
+  ZOOM_LEVELS: [1, 2, 4, 8, 16], // Zoom levels (1x = fit 60min game in ~900px)
+  DEFAULT_ZOOM: 1,              // Default zoom
+  PIXELS_PER_SECOND_BASE: 0.25, // 60min game = ~900px at 1x zoom (fits single screen)
 };
 
 /**
@@ -212,4 +211,69 @@ export function timeToPixels(timeMs: number, zoomLevel: number): number {
  */
 export function pixelsToTime(pixels: number, zoomLevel: number): number {
   return (pixels / (TIMELINE_CONSTANTS.PIXELS_PER_SECOND_BASE * zoomLevel)) * 1000;
+}
+
+/**
+ * Find which clip (if any) covers a given game timeline position on a specific lane.
+ * Used for automatic clip switching when user drags timeline or video ends.
+ */
+export function findActiveClipForTime(
+  lanes: CameraLane[],
+  laneNumber: number,
+  gameTimeMs: number
+): ActiveClipInfo {
+  const lane = lanes.find(l => l.lane === laneNumber);
+
+  if (!lane || lane.clips.length === 0) {
+    return {
+      clip: null,
+      clipTimeMs: 0,
+      isInGap: true,
+      nextClipStartMs: null,
+    };
+  }
+
+  // Sort clips by position to ensure correct ordering
+  const sortedClips = [...lane.clips].sort((a, b) => a.lanePositionMs - b.lanePositionMs);
+
+  // Find clip that covers the target time
+  for (const clip of sortedClips) {
+    const clipStart = clip.lanePositionMs;
+    const clipEnd = clip.lanePositionMs + clip.durationMs;
+
+    if (gameTimeMs >= clipStart && gameTimeMs < clipEnd) {
+      return {
+        clip,
+        clipTimeMs: gameTimeMs - clipStart, // Position within clip
+        isInGap: false,
+        nextClipStartMs: null,
+      };
+    }
+  }
+
+  // Not in any clip - find next clip start (if any)
+  const futureClips = sortedClips.filter(c => c.lanePositionMs > gameTimeMs);
+  const nextClipStartMs = futureClips.length > 0 ? futureClips[0].lanePositionMs : null;
+
+  return {
+    clip: null,
+    clipTimeMs: 0,
+    isInGap: true,
+    nextClipStartMs,
+  };
+}
+
+/**
+ * Find the lane number that contains a specific video
+ */
+export function findLaneForVideo(
+  lanes: CameraLane[],
+  videoId: string
+): number | null {
+  for (const lane of lanes) {
+    if (lane.clips.some(c => c.videoId === videoId)) {
+      return lane.lane;
+    }
+  }
+  return null;
 }

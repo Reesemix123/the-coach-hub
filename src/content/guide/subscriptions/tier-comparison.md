@@ -120,7 +120,7 @@ How long your uploaded film remains accessible:
 
 Each game has a storage limit for all camera angles combined:
 - Basic: 5 GB total across all cameras
-- Plus: 10 GB total across all cameras
+- Plus: 15 GB total across all cameras
 - Premium: 25 GB total across all cameras
 
 ### Cameras Per Game

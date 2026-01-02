@@ -126,6 +126,33 @@ export class AdvancedAnalyticsService {
   private supabase = createClient();
 
   /**
+   * Get video IDs from games that have completed film tagging
+   * Used to filter analytics to only include completed games
+   */
+  private async getCompletedGameVideoIds(teamId: string): Promise<string[]> {
+    // First get all games for this team that are marked as complete
+    const { data: completedGames } = await this.supabase
+      .from('games')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('film_analysis_status', 'complete');
+
+    if (!completedGames || completedGames.length === 0) {
+      return [];
+    }
+
+    const gameIds = completedGames.map(g => g.id);
+
+    // Then get all video IDs for those games
+    const { data: videos } = await this.supabase
+      .from('videos')
+      .select('id')
+      .in('game_id', gameIds);
+
+    return videos?.map(v => v.id) || [];
+  }
+
+  /**
    * Get team's analytics tier configuration
    */
   async getTeamTier(teamId: string): Promise<TeamAnalyticsConfig> {
@@ -257,24 +284,43 @@ export class AdvancedAnalyticsService {
       throw new Error('Player attribution not enabled for this team tier');
     }
 
-    // Fetch all play instances with player attribution
-    let query = this.supabase
-      .from('play_instances')
-      .select('*')
-      .eq('team_id', teamId)
-      .eq('is_opponent_play', false);
+    // Determine video IDs to query
+    let videoIds: string[] = [];
 
     if (gameId) {
+      // For specific game, check if it's complete
+      const { data: game } = await this.supabase
+        .from('games')
+        .select('film_analysis_status')
+        .eq('id', gameId)
+        .single();
+
+      if (game?.film_analysis_status !== 'complete') {
+        return []; // Game not complete, return empty stats
+      }
+
       const { data: videos } = await this.supabase
         .from('videos')
         .select('id')
         .eq('game_id', gameId);
 
-      if (videos && videos.length > 0) {
-        const videoIds = videos.map(v => v.id);
-        query = query.in('video_id', videoIds);
-      }
+      videoIds = videos?.map(v => v.id) || [];
+    } else {
+      // For all games, only include completed ones
+      videoIds = await this.getCompletedGameVideoIds(teamId);
     }
+
+    if (videoIds.length === 0) {
+      return []; // No completed games
+    }
+
+    // Fetch all play instances with player attribution
+    let query = this.supabase
+      .from('play_instances')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('is_opponent_play', false)
+      .in('video_id', videoIds);
 
     const { data: plays, error } = await query;
 
@@ -1670,23 +1716,42 @@ export class AdvancedAnalyticsService {
    * Shows opponent performance by down and distance
    */
   async getDefensiveDownBreakdown(teamId: string, gameId?: string) {
-    // Build query for opponent plays
-    let query = this.supabase
-      .from('play_instances')
-      .select('*')
-      .eq('team_id', teamId)
-      .eq('is_opponent_play', true);
+    // Determine video IDs to query (only from completed games)
+    let videoIds: string[] = [];
 
     if (gameId) {
+      // For specific game, check if it's complete
+      const { data: game } = await this.supabase
+        .from('games')
+        .select('film_analysis_status')
+        .eq('id', gameId)
+        .single();
+
+      if (game?.film_analysis_status !== 'complete') {
+        return { firstDown: { plays: 0, avgYards: 0, successRate: 0 }, secondDown: { plays: 0, avgYards: 0, successRate: 0 }, thirdDown: { plays: 0, avgYards: 0, successRate: 0, conversionRate: 0 }, fourthDown: { plays: 0, avgYards: 0, successRate: 0 } };
+      }
+
       const { data: videos } = await this.supabase
         .from('videos')
         .select('id')
         .eq('game_id', gameId);
 
-      if (videos && videos.length > 0) {
-        query = query.in('video_id', videos.map(v => v.id));
-      }
+      videoIds = videos?.map(v => v.id) || [];
+    } else {
+      videoIds = await this.getCompletedGameVideoIds(teamId);
     }
+
+    if (videoIds.length === 0) {
+      return { firstDown: { plays: 0, avgYards: 0, successRate: 0 }, secondDown: { plays: 0, avgYards: 0, successRate: 0 }, thirdDown: { plays: 0, avgYards: 0, successRate: 0, conversionRate: 0 }, fourthDown: { plays: 0, avgYards: 0, successRate: 0 } };
+    }
+
+    // Build query for opponent plays
+    let query = this.supabase
+      .from('play_instances')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('is_opponent_play', true)
+      .in('video_id', videoIds);
 
     const { data: plays, error } = await query;
 

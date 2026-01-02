@@ -59,11 +59,11 @@ export async function GET(request: NextRequest) {
         moderation_notes,
         flagged_reason,
         game_id,
-        games!inner (
+        games!videos_game_id_fkey (
           id,
           name,
           team_id,
-          teams!inner (
+          teams!games_team_id_fkey (
             id,
             name
           )

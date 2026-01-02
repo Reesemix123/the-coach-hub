@@ -12,7 +12,8 @@ import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { bulkDelete, confirmBulkOperation } from '@/utils/bulkOperations';
 import { useTokenBalance } from '@/components/TokenBalanceCard';
-import { Upload, AlertTriangle, ArrowRight } from 'lucide-react';
+import { TokenLimitMessage } from '@/components/TokenLimitMessage';
+import { Upload, AlertTriangle, ArrowRight, Users, Target } from 'lucide-react';
 import Link from 'next/link';
 
 interface Team {
@@ -271,9 +272,10 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   };
 
   const handleCreateOpponentGame = async (formData: any) => {
-    // Check token availability first
-    if (!tokenBalance || tokenBalance.totalAvailable < 1) {
-      setTokenError('No upload tokens available. Purchase additional tokens or wait for your next billing cycle.');
+    // Check opponent token availability first
+    const opponentTokens = tokenBalance?.opponentAvailable ?? 0;
+    if (!tokenBalance || opponentTokens < 1) {
+      setTokenError('No opponent scouting tokens available. Purchase additional tokens or wait for your next billing cycle.');
       return;
     }
 
@@ -298,13 +300,14 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
       if (error) throw error;
 
-      // Consume a token for this game
+      // Consume an opponent token for this game
       const consumeResponse = await fetch('/api/tokens/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           team_id: teamId,
-          game_id: gameData.id
+          game_id: gameData.id,
+          game_type: 'opponent'
         })
       });
 
@@ -329,9 +332,10 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
   };
 
   const handleCreateOwnTeamGame = async (formData: any) => {
-    // Check token availability first
-    if (!tokenBalance || tokenBalance.totalAvailable < 1) {
-      setTokenError('No upload tokens available. Purchase additional tokens or wait for your next billing cycle.');
+    // Check team token availability first
+    const teamTokens = tokenBalance?.teamAvailable ?? 0;
+    if (!tokenBalance || teamTokens < 1) {
+      setTokenError('No team film tokens available. Purchase additional tokens or wait for your next billing cycle.');
       return;
     }
 
@@ -356,13 +360,14 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
 
       if (error) throw error;
 
-      // Consume a token for this game
+      // Consume a team token for this game
       const consumeResponse = await fetch('/api/tokens/consume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           team_id: teamId,
-          game_id: gameData.id
+          game_id: gameData.id,
+          game_type: 'team'
         })
       });
 
@@ -477,27 +482,33 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
           <div className="max-w-7xl mx-auto px-6 py-3">
             <div
               className={`rounded-lg px-4 py-3 ${
-                tokenBalance.totalAvailable <= 1
+                tokenBalance.totalAvailable <= 1 ||
+                (tokenBalance.teamAvailable ?? 0) === 0 ||
+                (tokenBalance.opponentAvailable ?? 0) === 0
                   ? 'bg-amber-50 border border-amber-200'
                   : 'bg-gray-50 border border-gray-200'
               }`}
             >
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   {tokenBalance.totalAvailable <= 1 ? (
                     <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
                   ) : (
                     <Upload className="h-4 w-4 text-gray-500 flex-shrink-0" />
                   )}
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className={tokenBalance.totalAvailable <= 1 ? 'text-amber-800 font-medium' : 'text-gray-700'}>
-                      Film Uploads: <span className="font-semibold">{tokenBalance.totalAvailable}</span> remaining
+                  {/* Team tokens */}
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Users className="h-3.5 w-3.5 text-blue-600" />
+                    <span className={(tokenBalance.teamAvailable ?? 0) <= 1 ? 'text-amber-800 font-medium' : 'text-gray-700'}>
+                      <span className="font-semibold">{tokenBalance.teamAvailable ?? 0}</span> team
                     </span>
-                    {tokenBalance.totalAvailable > 0 && (
-                      <span className="text-gray-500">
-                        ({Math.floor(tokenBalance.totalAvailable / 2)} team + {Math.floor(tokenBalance.totalAvailable / 2) + (tokenBalance.totalAvailable % 2)} opponent)
-                      </span>
-                    )}
+                  </div>
+                  {/* Opponent tokens */}
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Target className="h-3.5 w-3.5 text-orange-600" />
+                    <span className={(tokenBalance.opponentAvailable ?? 0) <= 1 ? 'text-amber-800 font-medium' : 'text-gray-700'}>
+                      <span className="font-semibold">{tokenBalance.opponentAvailable ?? 0}</span> opponent
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm">
@@ -510,7 +521,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     href={`/teams/${teamId}/settings/addons`}
                     className="text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium"
                   >
-                    Purchase more
+                    Get more
                     <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -900,13 +911,18 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {gameTypeFilter === 'own-team' && (
                   <tr className="bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500" colSpan={5}>
-                      {tokenBalance && tokenBalance.totalAvailable < 1 ? (
+                      {tokenBalance && (tokenBalance.teamAvailable ?? 0) < 1 ? (
                         <span className="text-amber-700">
-                          No tokens available.{' '}
+                          No team film tokens available.{' '}
                           <Link href={`/teams/${teamId}/settings/addons`} className="underline hover:no-underline">
                             Purchase more
                           </Link>{' '}
                           to add games.
+                          {(tokenBalance.opponentAvailable ?? 0) > 0 && (
+                            <span className="text-gray-600 ml-2">
+                              (You have {tokenBalance.opponentAvailable} opponent scouting token{tokenBalance.opponentAvailable !== 1 ? 's' : ''})
+                            </span>
+                          )}
                         </span>
                       ) : (
                         `Add a new game to upload ${team.name} film`
@@ -915,7 +931,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     <td className="px-6 py-4 text-right text-sm">
                       <button
                         onClick={() => setShowOwnTeamGameModal(true)}
-                        disabled={!tokenBalance || tokenBalance.totalAvailable < 1}
+                        disabled={!tokenBalance || (tokenBalance.teamAvailable ?? 0) < 1}
                         className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         Add Game
@@ -928,13 +944,18 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                 {gameTypeFilter === 'opponent' && (
                   <tr className="bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500" colSpan={5}>
-                      {tokenBalance && tokenBalance.totalAvailable < 1 ? (
+                      {tokenBalance && (tokenBalance.opponentAvailable ?? 0) < 1 ? (
                         <span className="text-amber-700">
-                          No tokens available.{' '}
+                          No opponent scouting tokens available.{' '}
                           <Link href={`/teams/${teamId}/settings/addons`} className="underline hover:no-underline">
                             Purchase more
                           </Link>{' '}
                           to add games.
+                          {(tokenBalance.teamAvailable ?? 0) > 0 && (
+                            <span className="text-gray-600 ml-2">
+                              (You have {tokenBalance.teamAvailable} team film token{tokenBalance.teamAvailable !== 1 ? 's' : ''})
+                            </span>
+                          )}
                         </span>
                       ) : (
                         'Add a new opponent game to upload scouting film'
@@ -943,7 +964,7 @@ export default function TeamFilmPage({ params }: { params: Promise<{ teamId: str
                     <td className="px-6 py-4 text-right text-sm">
                       <button
                         onClick={() => setShowOpponentGameModal(true)}
-                        disabled={!tokenBalance || tokenBalance.totalAvailable < 1}
+                        disabled={!tokenBalance || (tokenBalance.opponentAvailable ?? 0) < 1}
                         className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         Add Game

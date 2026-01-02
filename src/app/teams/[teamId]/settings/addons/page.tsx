@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Minus, Upload, Camera, Calendar, Loader2, AlertCircle, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Minus, Upload, Camera, Calendar, Loader2, AlertCircle, Check, Users, Target, ShoppingCart } from 'lucide-react';
 
 interface PricingTier {
   min: number;
@@ -31,10 +31,16 @@ interface TeamAddons {
 }
 
 interface EffectiveLimits {
-  upload_tokens: number;
-  cameras_per_game: number;
-  retention_days: number;
+  max_coaches: number;
+  ai_credits: number;
+  storage_gb: number;
   addon_cost_cents: number;
+}
+
+interface TierLimits {
+  monthlyTeamTokens: number;
+  monthlyOpponentTokens: number;
+  videoRetentionDays: number;
 }
 
 interface AddonData {
@@ -43,6 +49,7 @@ interface AddonData {
   limits: EffectiveLimits;
   tier: string;
   isOwner: boolean;
+  tierLimits?: TierLimits;
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -66,6 +73,22 @@ export default function AddonsPage() {
   const [tokens, setTokens] = useState(0);
   const [cameras, setCameras] = useState(0);
   const [retentionDays, setRetentionDays] = useState(0);
+
+  // Token purchase state
+  const [teamTokensToPurchase, setTeamTokensToPurchase] = useState(0);
+  const [opponentTokensToPurchase, setOpponentTokensToPurchase] = useState(0);
+  const [purchasingTokens, setPurchasingTokens] = useState(false);
+  const [tokenPurchaseSuccess, setTokenPurchaseSuccess] = useState<string | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<{
+    teamAvailable: number;
+    opponentAvailable: number;
+  } | null>(null);
+
+  // Token pricing (cents)
+  const TOKEN_PRICING = {
+    team: 1200,      // $12.00 per team token
+    opponent: 1200,  // $12.00 per opponent token
+  };
 
   // Fetch current add-ons data
   useEffect(() => {
@@ -101,6 +124,78 @@ export default function AddonsPage() {
     fetchData();
   }, [teamId]);
 
+  // Fetch token balance
+  useEffect(() => {
+    async function fetchTokenBalance() {
+      try {
+        const response = await fetch(`/api/tokens?team_id=${teamId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setTokenBalance({
+            teamAvailable: data.balance?.teamAvailable ?? 0,
+            opponentAvailable: data.balance?.opponentAvailable ?? 0,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching token balance:', err);
+      }
+    }
+
+    fetchTokenBalance();
+  }, [teamId]);
+
+  // Handle token purchase
+  const handleTokenPurchase = async (tokenType: 'team' | 'opponent') => {
+    const quantity = tokenType === 'team' ? teamTokensToPurchase : opponentTokensToPurchase;
+    if (quantity < 1) return;
+
+    setPurchasingTokens(true);
+    setError(null);
+    setTokenPurchaseSuccess(null);
+
+    try {
+      const response = await fetch(`/api/teams/${teamId}/tokens/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token_type: tokenType,
+          quantity
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to purchase tokens');
+      }
+
+      const result = await response.json();
+
+      // Update local token balance
+      if (result.balance) {
+        setTokenBalance({
+          teamAvailable: result.balance.teamAvailable,
+          opponentAvailable: result.balance.opponentAvailable,
+        });
+      }
+
+      // Reset quantity and show success
+      if (tokenType === 'team') {
+        setTeamTokensToPurchase(0);
+      } else {
+        setOpponentTokensToPurchase(0);
+      }
+
+      const tokenLabel = tokenType === 'team' ? 'team film' : 'opponent scouting';
+      setTokenPurchaseSuccess(`Successfully purchased ${quantity} ${tokenLabel} token${quantity !== 1 ? 's' : ''}!`);
+      setTimeout(() => setTokenPurchaseSuccess(null), 5000);
+    } catch (err) {
+      console.error('Error purchasing tokens:', err);
+      setError(err instanceof Error ? err.message : 'Failed to purchase tokens');
+    } finally {
+      setPurchasingTokens(false);
+    }
+  };
+
   // Calculate price for a given quantity and config
   const calculatePrice = useCallback((config: AddonConfig, quantity: number): { unitPrice: number; totalPrice: number; tierLabel: string } => {
     if (quantity <= 0) {
@@ -129,12 +224,19 @@ export default function AddonsPage() {
   const calculateTotal = useCallback(() => {
     if (!data?.pricing) return 0;
 
-    const tokenCost = calculatePrice(data.pricing.tokens, tokens).totalPrice;
-    const cameraCost = calculatePrice(data.pricing.cameras, cameras).totalPrice;
+    // Handle different pricing structures - the API may return different keys
+    const tokenPricing = (data.pricing as Record<string, AddonConfig>).tokens;
+    const cameraPricing = (data.pricing as Record<string, AddonConfig>).cameras;
+    const retentionPricing = (data.pricing as Record<string, AddonConfig>).retention;
+
+    const tokenCost = tokenPricing ? calculatePrice(tokenPricing, tokens).totalPrice : 0;
+    const cameraCost = cameraPricing ? calculatePrice(cameraPricing, cameras).totalPrice : 0;
 
     // Convert retention days to 30-day increments
-    const retentionUnits = Math.ceil(retentionDays / (data.pricing.retention.unit_value || 30));
-    const retentionCost = calculatePrice(data.pricing.retention, retentionUnits).totalPrice;
+    const retentionUnits = retentionPricing
+      ? Math.ceil(retentionDays / (retentionPricing.unit_value || 30))
+      : 0;
+    const retentionCost = retentionPricing ? calculatePrice(retentionPricing, retentionUnits).totalPrice : 0;
 
     return tokenCost + cameraCost + retentionCost;
   }, [data?.pricing, tokens, cameras, retentionDays, calculatePrice]);
@@ -269,6 +371,12 @@ export default function AddonsPage() {
             <p className="text-green-800">Add-ons updated successfully!</p>
           </div>
         )}
+        {tokenPurchaseSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+            <Check className="w-5 h-5 text-green-600" />
+            <p className="text-green-800">{tokenPurchaseSuccess}</p>
+          </div>
+        )}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-600" />
@@ -276,30 +384,178 @@ export default function AddonsPage() {
           </div>
         )}
 
+        {/* Current Token Balance */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Token Balance</h2>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <p className="text-sm font-medium text-gray-700">Team Film Tokens</p>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{tokenBalance?.teamAvailable ?? 0}</p>
+              <p className="text-xs text-gray-500 mt-1">For uploading your team&apos;s game film</p>
+            </div>
+            <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-4 h-4 text-orange-600" />
+                <p className="text-sm font-medium text-gray-700">Opponent Scouting Tokens</p>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{tokenBalance?.opponentAvailable ?? 0}</p>
+              <p className="text-xs text-gray-500 mt-1">For uploading opponent scouting film</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Purchase Film Tokens */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <ShoppingCart className="w-5 h-5 text-gray-700" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Purchase Film Upload Tokens</h2>
+              <p className="text-sm text-gray-500">Buy additional tokens to upload more games</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            {/* Team Tokens Purchase */}
+            <div className="p-4 border border-blue-200 rounded-lg bg-blue-50/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-5 h-5 text-blue-600" />
+                <h3 className="font-medium text-gray-900">Team Film Tokens</h3>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                ${(TOKEN_PRICING.team / 100).toFixed(2)} per token
+              </p>
+
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={() => setTeamTokensToPurchase(Math.max(0, teamTokensToPurchase - 1))}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50"
+                  disabled={teamTokensToPurchase === 0}
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <div className="w-16 text-center">
+                  <span className="text-2xl font-bold text-gray-900">{teamTokensToPurchase}</span>
+                </div>
+                <button
+                  onClick={() => setTeamTokensToPurchase(teamTokensToPurchase + 1)}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-white"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {teamTokensToPurchase > 0 && (
+                <div className="mb-4 p-2 bg-white rounded border border-blue-200">
+                  <p className="text-sm font-medium text-gray-900">
+                    Total: ${((TOKEN_PRICING.team * teamTokensToPurchase) / 100).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => handleTokenPurchase('team')}
+                disabled={teamTokensToPurchase < 1 || purchasingTokens}
+                className="w-full py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {purchasingTokens ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>Purchase Team Tokens</>
+                )}
+              </button>
+            </div>
+
+            {/* Opponent Tokens Purchase */}
+            <div className="p-4 border border-orange-200 rounded-lg bg-orange-50/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-5 h-5 text-orange-600" />
+                <h3 className="font-medium text-gray-900">Opponent Scouting Tokens</h3>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                ${(TOKEN_PRICING.opponent / 100).toFixed(2)} per token
+              </p>
+
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={() => setOpponentTokensToPurchase(Math.max(0, opponentTokensToPurchase - 1))}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50"
+                  disabled={opponentTokensToPurchase === 0}
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <div className="w-16 text-center">
+                  <span className="text-2xl font-bold text-gray-900">{opponentTokensToPurchase}</span>
+                </div>
+                <button
+                  onClick={() => setOpponentTokensToPurchase(opponentTokensToPurchase + 1)}
+                  className="p-2 border border-gray-300 rounded-lg hover:bg-white"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {opponentTokensToPurchase > 0 && (
+                <div className="mb-4 p-2 bg-white rounded border border-orange-200">
+                  <p className="text-sm font-medium text-gray-900">
+                    Total: ${((TOKEN_PRICING.opponent * opponentTokensToPurchase) / 100).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              <button
+                onClick={() => handleTokenPurchase('opponent')}
+                disabled={opponentTokensToPurchase < 1 || purchasingTokens}
+                className="w-full py-2 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {purchasingTokens ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>Purchase Opponent Tokens</>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-gray-500 text-center">
+            Purchased tokens never expire and are available immediately after purchase.
+          </p>
+        </div>
+
         {/* Current Plan Info */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Current Plan Limits</h2>
           <div className="grid grid-cols-3 gap-6">
             <div>
-              <p className="text-sm text-gray-500">Upload Tokens</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.upload_tokens}/mo</p>
+              <p className="text-sm text-gray-500">Monthly Tokens</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {(data.tierLimits?.monthlyTeamTokens ?? 0) + (data.tierLimits?.monthlyOpponentTokens ?? 0)}/mo
+              </p>
+              <p className="text-xs text-gray-400">
+                {data.tierLimits?.monthlyTeamTokens ?? 0} team + {data.tierLimits?.monthlyOpponentTokens ?? 0} opponent
+              </p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Cameras per Game</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.cameras_per_game}</p>
+              <p className="text-sm text-gray-500">Video Retention</p>
+              <p className="text-2xl font-bold text-gray-900">{data.tierLimits?.videoRetentionDays ?? 30} days</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Retention</p>
-              <p className="text-2xl font-bold text-gray-900">{data.limits.retention_days} days</p>
+              <p className="text-sm text-gray-500">Storage</p>
+              <p className="text-2xl font-bold text-gray-900">{data.limits?.storage_gb ?? '-'} GB</p>
             </div>
           </div>
         </div>
 
-        {/* Add-ons Configuration */}
+        {/* Other Add-ons Configuration - Only show if legacy pricing exists */}
+        {data.pricing && (data.pricing as Record<string, AddonConfig>).tokens && (data.pricing as Record<string, AddonConfig>).cameras && (data.pricing as Record<string, AddonConfig>).retention && (
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Purchase Add-ons</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Other Add-ons</h2>
 
-          {/* Upload Tokens */}
+          {/* Additional Upload Tokens (Legacy - Monthly Recurring) */}
           <div className="mb-8 pb-8 border-b border-gray-100">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -307,8 +563,8 @@ export default function AddonsPage() {
                   <Upload className="w-5 h-5 text-gray-700" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">Additional Upload Tokens</h3>
-                  <p className="text-sm text-gray-500">Extra tokens for uploading more games each month</p>
+                  <h3 className="font-medium text-gray-900">Monthly Token Boost</h3>
+                  <p className="text-sm text-gray-500">Extra tokens added to your monthly allocation</p>
                 </div>
               </div>
               <div className="text-right">
@@ -450,8 +706,10 @@ export default function AddonsPage() {
             </div>
           </div>
         </div>
+        )}
 
-        {/* Summary and Save */}
+        {/* Summary and Save - Only show if legacy pricing exists */}
+        {data.pricing && (data.pricing as Record<string, AddonConfig>).tokens && (
         <div className="bg-white border border-gray-200 rounded-lg p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -491,6 +749,7 @@ export default function AddonsPage() {
             Changes will be reflected on your next billing cycle. You can adjust add-ons at any time.
           </p>
         </div>
+        )}
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 // /api/tokens/consume - Consume a token when creating a game
 // POST: Consumes one token from the team's balance
+//
+// Supports designated tokens: pass game_type ('team' or 'opponent') to consume
+// from the appropriate pool. If not provided, determines from game record.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { TokenService } from '@/lib/entitlements/token-service';
+import { TokenService, GameType } from '@/lib/entitlements/token-service';
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -19,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { team_id, game_id } = body;
+  const { team_id, game_id, game_type } = body;
 
   if (!team_id) {
     return NextResponse.json(
@@ -31,6 +34,14 @@ export async function POST(request: NextRequest) {
   if (!game_id) {
     return NextResponse.json(
       { error: 'game_id is required' },
+      { status: 400 }
+    );
+  }
+
+  // Validate game_type if provided
+  if (game_type && !['team', 'opponent'].includes(game_type)) {
+    return NextResponse.json(
+      { error: 'game_type must be "team" or "opponent"' },
       { status: 400 }
     );
   }
@@ -67,7 +78,28 @@ export async function POST(request: NextRequest) {
 
   try {
     const tokenService = new TokenService(supabase);
-    const result = await tokenService.consumeToken(team_id, game_id, user.id);
+
+    // Determine game type from request or game record
+    let resolvedGameType: GameType = game_type;
+
+    if (!resolvedGameType) {
+      // Look up game record to determine type
+      const { data: game } = await supabase
+        .from('games')
+        .select('is_opponent_game')
+        .eq('id', game_id)
+        .single();
+
+      resolvedGameType = game?.is_opponent_game ? 'opponent' : 'team';
+    }
+
+    // Use designated token consumption
+    const result = await tokenService.consumeDesignatedToken(
+      team_id,
+      game_id,
+      resolvedGameType,
+      user.id
+    );
 
     if (!result.success) {
       return NextResponse.json(
@@ -78,7 +110,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      remainingTotal: result.remainingTotal
+      source: result.source,
+      remainingTotal: result.remainingTotal,
+      remainingTeam: result.remainingTeam,
+      remainingOpponent: result.remainingOpponent
     });
 
   } catch (error) {

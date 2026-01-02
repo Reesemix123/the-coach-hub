@@ -29,6 +29,20 @@ export function GuideProvider({ children }: { children: React.ReactNode }) {
   });
 
   const openGuide = useCallback(async (path: string[]) => {
+    // If empty path (root view), just open without fetching content
+    if (path.length === 0) {
+      setState(prev => ({
+        ...prev,
+        isOpen: true,
+        currentPath: path,
+        isLoading: false,
+        content: null,
+        title: 'User Guide',
+        description: 'Choose a section to get started.',
+      }));
+      return;
+    }
+
     setState(prev => ({
       ...prev,
       isOpen: true,

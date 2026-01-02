@@ -1,27 +1,33 @@
 // /api/admin/costs/overview - Costs Overview API
 // Returns AI costs, revenue, margins, and trends
+// Includes both AI Film Tagging (new) and AI Chat costs
 // Requires platform admin authentication
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/admin/auth';
-import { getTierConfigs } from '@/lib/admin/config';
-import { SubscriptionTier } from '@/types/admin';
+import { getAllTierConfigsFromTable } from '@/lib/admin/config';
+import { AI_CHAT_COST } from '@/lib/admin/ai-costs';
 
-// Cost per AI video minute (adjust based on actual costs)
-// This represents the cost to process 1 minute of video through AI
-const COST_PER_VIDEO_MINUTE = 0.10; // $0.10 per video minute
-const COST_PER_TEXT_ACTION = 0.01; // $0.01 per text action
+// Use centralized cost constant
+const COST_PER_TEXT_ACTION = AI_CHAT_COST.COST_PER_ACTION;
 
 interface CostTrendItem {
   date: string;
   cost: number;
+  film_tagging_cost: number;
+  chat_cost: number;
 }
 
 interface CostsOverviewResponse {
   current_month: {
-    video_minutes_used: number;
-    text_actions_used: number;
-    ai_cost: number;
+    // AI Film Tagging metrics (from ai_tag_predictions table)
+    plays_analyzed: number;
+    film_tagging_cost: number;
+    // AI Chat metrics (from ai_usage table)
+    chat_actions_used: number;
+    chat_cost: number;
+    // Combined
+    total_ai_cost: number;
     revenue: number;
     margin: number;
     margin_percentage: number;
@@ -31,6 +37,12 @@ interface CostsOverviewResponse {
     ai_cost: number;
     margin: number;
     margin_percentage: number;
+  };
+  // Breakdown by tagging tier
+  tagging_breakdown: {
+    quick: { count: number; cost: number };
+    standard: { count: number; cost: number };
+    comprehensive: { count: number; cost: number };
   };
 }
 
@@ -52,19 +64,20 @@ export async function GET(request: NextRequest) {
   const period = searchParams.get('period') || '30d';
 
   try {
-    // Get tier config from database (single source of truth)
-    const tierConfigs = await getTierConfigs();
-    if (!tierConfigs) {
+    // Get tier config from tier_config TABLE (single source of truth)
+    const tierConfigsArray = await getAllTierConfigsFromTable();
+    if (!tierConfigsArray || tierConfigsArray.length === 0) {
       return NextResponse.json(
         { error: 'Tier configuration not found' },
         { status: 500 }
       );
     }
 
-    // Build tier prices from database config (price_monthly is in dollars, convert to cents)
+    // Build tier prices from database config
+    // tier_config table uses price_monthly_cents (already in cents)
     const tierPrices: Record<string, number> = {};
-    for (const [tierId, config] of Object.entries(tierConfigs)) {
-      tierPrices[tierId] = (config.price_monthly || 0) * 100;
+    for (const config of tierConfigsArray) {
+      tierPrices[config.tier_key] = config.price_monthly_cents || 0;
     }
 
     const now = new Date();
@@ -72,30 +85,57 @@ export async function GET(request: NextRequest) {
     const dayOfMonth = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
-    // Get AI usage from the new ai_usage table (migration 071)
-    const { data: monthUsage, error: usageError } = await supabase
-      .from('ai_usage')
-      .select('usage_type, units_consumed')
-      .gte('created_at', monthStart.toISOString());
+    // ============================================
+    // AI Film Tagging Costs (from ai_tag_predictions)
+    // ============================================
+    const { data: filmTaggingData, error: filmError } = await supabase
+      .from('ai_tag_predictions')
+      .select('tagging_tier, cost_usd, status')
+      .gte('created_at', monthStart.toISOString())
+      .eq('status', 'completed');
 
-    if (usageError) throw usageError;
+    if (filmError) throw filmError;
 
-    // Calculate video minutes and text actions separately
-    let videoMinutesUsed = 0;
-    let textActionsUsed = 0;
+    // Calculate film tagging metrics
+    let playsAnalyzed = 0;
+    let filmTaggingCost = 0;
+    const tierCounts = { quick: 0, standard: 0, comprehensive: 0 };
+    const tierCosts = { quick: 0, standard: 0, comprehensive: 0 };
 
-    for (const row of monthUsage || []) {
-      if (row.usage_type === 'video_analysis') {
-        videoMinutesUsed += Number(row.units_consumed) || 0;
-      } else if (row.usage_type === 'text_action') {
-        textActionsUsed += 1;
+    for (const row of filmTaggingData || []) {
+      playsAnalyzed++;
+      const cost = Number(row.cost_usd) || 0;
+      filmTaggingCost += cost;
+
+      const tier = row.tagging_tier as keyof typeof tierCounts;
+      if (tier in tierCounts) {
+        tierCounts[tier]++;
+        tierCosts[tier] += cost;
       }
     }
 
-    // Calculate total AI cost
-    const aiCost = (videoMinutesUsed * COST_PER_VIDEO_MINUTE) + (textActionsUsed * COST_PER_TEXT_ACTION);
+    // ============================================
+    // AI Chat Costs (from ai_usage table)
+    // ============================================
+    const { data: chatUsage, error: chatError } = await supabase
+      .from('ai_usage')
+      .select('usage_type, units_consumed')
+      .gte('created_at', monthStart.toISOString())
+      .eq('usage_type', 'text_action');
 
-    // Get current MRR (revenue) from active subscriptions
+    if (chatError) throw chatError;
+
+    const chatActionsUsed = chatUsage?.length || 0;
+    const chatCost = chatActionsUsed * COST_PER_TEXT_ACTION;
+
+    // ============================================
+    // Total AI Cost
+    // ============================================
+    const totalAiCost = filmTaggingCost + chatCost;
+
+    // ============================================
+    // Revenue from subscriptions
+    // ============================================
     const { data: subscriptions, error: subError } = await supabase
       .from('subscriptions')
       .select('tier, status, billing_waived')
@@ -106,33 +146,50 @@ export async function GET(request: NextRequest) {
     let currentMRR = 0;
     for (const sub of subscriptions || []) {
       if (!sub.billing_waived) {
-        const tierPrice = tierPrices[sub.tier as SubscriptionTier] || 0;
+        const tierPrice = tierPrices[sub.tier] || 0;
         currentMRR += tierPrice;
       }
     }
     const revenue = Math.round(currentMRR / 100); // Convert cents to dollars
 
     // Calculate margin
-    const margin = revenue - aiCost;
+    const margin = revenue - totalAiCost;
     const marginPercentage = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
 
-    // Calculate cost trend (weekly buckets based on period)
+    // ============================================
+    // Cost Trend (weekly buckets)
+    // ============================================
     const periodStart = getPeriodStartDate(period);
-    const { data: trendData, error: trendError } = await supabase
-      .from('ai_usage')
-      .select('usage_type, units_consumed, created_at')
+
+    // Get film tagging trend
+    const { data: filmTrendData, error: filmTrendError } = await supabase
+      .from('ai_tag_predictions')
+      .select('cost_usd, created_at')
       .gte('created_at', periodStart.toISOString())
+      .eq('status', 'completed')
       .order('created_at', { ascending: true });
 
-    if (trendError) throw trendError;
+    if (filmTrendError) throw filmTrendError;
 
-    // Group by week with proper cost calculation
-    const costTrend = groupByWeek(trendData || []);
+    // Get chat usage trend
+    const { data: chatTrendData, error: chatTrendError } = await supabase
+      .from('ai_usage')
+      .select('created_at')
+      .gte('created_at', periodStart.toISOString())
+      .eq('usage_type', 'text_action')
+      .order('created_at', { ascending: true });
 
-    // Project to month end
+    if (chatTrendError) throw chatTrendError;
+
+    // Group by week
+    const costTrend = groupByWeek(filmTrendData || [], chatTrendData || []);
+
+    // ============================================
+    // Projections
+    // ============================================
     const projectedCost = dayOfMonth > 0
-      ? (aiCost / dayOfMonth) * daysInMonth
-      : aiCost;
+      ? (totalAiCost / dayOfMonth) * daysInMonth
+      : totalAiCost;
     const projectedMargin = revenue - projectedCost;
     const projectedMarginPercentage = revenue > 0
       ? Math.round((projectedMargin / revenue) * 100)
@@ -140,9 +197,11 @@ export async function GET(request: NextRequest) {
 
     const response: CostsOverviewResponse = {
       current_month: {
-        video_minutes_used: Math.round(videoMinutesUsed * 100) / 100,
-        text_actions_used: textActionsUsed,
-        ai_cost: Math.round(aiCost * 100) / 100,
+        plays_analyzed: playsAnalyzed,
+        film_tagging_cost: Math.round(filmTaggingCost * 1000) / 1000,
+        chat_actions_used: chatActionsUsed,
+        chat_cost: Math.round(chatCost * 100) / 100,
+        total_ai_cost: Math.round(totalAiCost * 100) / 100,
         revenue,
         margin: Math.round(margin * 100) / 100,
         margin_percentage: marginPercentage
@@ -152,6 +211,11 @@ export async function GET(request: NextRequest) {
         ai_cost: Math.round(projectedCost * 100) / 100,
         margin: Math.round(projectedMargin * 100) / 100,
         margin_percentage: projectedMarginPercentage
+      },
+      tagging_breakdown: {
+        quick: { count: tierCounts.quick, cost: Math.round(tierCosts.quick * 1000) / 1000 },
+        standard: { count: tierCounts.standard, cost: Math.round(tierCosts.standard * 1000) / 1000 },
+        comprehensive: { count: tierCounts.comprehensive, cost: Math.round(tierCosts.comprehensive * 1000) / 1000 }
       }
     };
 
@@ -180,33 +244,48 @@ function getPeriodStartDate(period: string): Date {
 }
 
 function groupByWeek(
-  data: { usage_type: string; units_consumed: number; created_at: string }[]
+  filmData: { cost_usd: number; created_at: string }[],
+  chatData: { created_at: string }[]
 ): CostTrendItem[] {
-  const weeklyData: Record<string, number> = {};
+  const weeklyData: Record<string, { film: number; chat: number }> = {};
 
-  for (const row of data) {
+  // Process film tagging costs
+  for (const row of filmData) {
     const date = new Date(row.created_at);
-    // Get Monday of the week
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(date.setDate(diff));
-    const weekKey = monday.toISOString().slice(0, 10);
+    const weekKey = getWeekKey(date);
 
-    // Calculate cost based on usage type
-    let cost = 0;
-    if (row.usage_type === 'video_analysis') {
-      cost = Number(row.units_consumed) * COST_PER_VIDEO_MINUTE;
-    } else if (row.usage_type === 'text_action') {
-      cost = COST_PER_TEXT_ACTION;
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = { film: 0, chat: 0 };
     }
+    weeklyData[weekKey].film += Number(row.cost_usd) || 0;
+  }
 
-    weeklyData[weekKey] = (weeklyData[weekKey] || 0) + cost;
+  // Process chat costs
+  for (const row of chatData) {
+    const date = new Date(row.created_at);
+    const weekKey = getWeekKey(date);
+
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = { film: 0, chat: 0 };
+    }
+    weeklyData[weekKey].chat += COST_PER_TEXT_ACTION;
   }
 
   return Object.entries(weeklyData)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, cost]) => ({
+    .map(([date, costs]) => ({
       date,
-      cost: Math.round(cost * 100) / 100
+      cost: Math.round((costs.film + costs.chat) * 100) / 100,
+      film_tagging_cost: Math.round(costs.film * 1000) / 1000,
+      chat_cost: Math.round(costs.chat * 100) / 100
     }));
+}
+
+function getWeekKey(date: Date): string {
+  // Get Monday of the week
+  const day = date.getDay();
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(date);
+  monday.setDate(diff);
+  return monday.toISOString().slice(0, 10);
 }

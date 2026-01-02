@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageCircle, HelpCircle } from 'lucide-react';
+import { MessageCircle, HelpCircle, BarChart3 } from 'lucide-react';
 import { ChatMessages } from './chat-messages';
 import { ChatInput } from './chat-input';
 import type { ChatMessage } from '@/lib/ai/types';
@@ -97,24 +97,24 @@ function WelcomeScreen({ compact = false }: { compact?: boolean }) {
           How can I help?
         </h3>
         <p className="text-gray-500 text-center text-sm mb-4">
-          Ask about any Youth Coach Hub feature
+          Ask about your team or the app
         </p>
 
         {/* Compact suggested prompts */}
         <div className="grid gap-2 w-full">
           <SuggestedPrompt
-            icon={<HelpCircle className="w-3.5 h-3.5" />}
-            text="How do I upload game film?"
+            icon={<BarChart3 className="w-3.5 h-3.5" />}
+            text="How is my run game?"
+            compact
+          />
+          <SuggestedPrompt
+            icon={<BarChart3 className="w-3.5 h-3.5" />}
+            text="Who's my leading tackler?"
             compact
           />
           <SuggestedPrompt
             icon={<HelpCircle className="w-3.5 h-3.5" />}
-            text="How do I create a play?"
-            compact
-          />
-          <SuggestedPrompt
-            icon={<HelpCircle className="w-3.5 h-3.5" />}
-            text="How do I invite coaches?"
+            text="How do I tag plays?"
             compact
           />
         </div>
@@ -132,27 +132,27 @@ function WelcomeScreen({ compact = false }: { compact?: boolean }) {
         How can I help?
       </h2>
       <p className="text-gray-500 text-center max-w-md mb-8">
-        Ask me anything about using Youth Coach Hub. I can help with playbooks,
-        film analysis, practice planning, and more.
+        Ask about your team's performance or how to use the app. I can analyze
+        your stats, answer coaching questions, and help you get started.
       </p>
 
       {/* Suggested prompts */}
       <div className="grid gap-3 max-w-lg w-full">
         <SuggestedPrompt
-          icon={<HelpCircle className="w-4 h-4" />}
-          text="How do I upload game film?"
+          icon={<BarChart3 className="w-4 h-4" />}
+          text="How is my run game?"
+        />
+        <SuggestedPrompt
+          icon={<BarChart3 className="w-4 h-4" />}
+          text="Who's my leading tackler?"
+        />
+        <SuggestedPrompt
+          icon={<BarChart3 className="w-4 h-4" />}
+          text="What's our field goal percentage?"
         />
         <SuggestedPrompt
           icon={<HelpCircle className="w-4 h-4" />}
-          text="How do I create a practice plan?"
-        />
-        <SuggestedPrompt
-          icon={<HelpCircle className="w-4 h-4" />}
-          text="What analytics are available?"
-        />
-        <SuggestedPrompt
-          icon={<HelpCircle className="w-4 h-4" />}
-          text="How do I invite assistant coaches?"
+          text="How do I tag plays?"
         />
       </div>
     </div>

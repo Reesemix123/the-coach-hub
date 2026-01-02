@@ -51,6 +51,17 @@ const ALLOWED_MIME_TYPES = [
 const ALLOWED_EXTENSIONS = ['.mp4', '.mov', '.webm', '.avi', '.m4v', '.mpeg', '.mpg'];
 
 /**
+ * Format bytes to human-readable string
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+/**
  * Verify file is a video by checking magic bytes
  */
 async function verifyVideoMagicBytes(file: File): Promise<boolean> {
@@ -214,9 +225,11 @@ export async function POST(
     }
 
     // Check upload allowed (quota, rate limits) - if RPC exists
-    let checkResult: { allowed: boolean; reason?: string; message?: string; used_bytes?: number; quota_bytes?: number; remaining_bytes?: number; uploads_this_hour?: number; max_uploads_per_hour?: number } = { allowed: true };
+    let teamCheckResult: { allowed: boolean; reason?: string; message?: string; used_bytes?: number; quota_bytes?: number; remaining_bytes?: number; uploads_this_hour?: number; max_uploads_per_hour?: number } = { allowed: true };
+    let gameCheckResult: { allowed: boolean; reason?: string; message?: string; current_bytes?: number; file_bytes?: number; max_bytes?: number } = { allowed: true };
     let logId: string | null = null;
 
+    // Check team-level quota
     try {
       const { data, error: checkError } = await supabase.rpc('check_upload_allowed', {
         p_team_id: teamId,
@@ -226,38 +239,69 @@ export async function POST(
       });
 
       if (!checkError && data) {
-        checkResult = data;
+        teamCheckResult = data;
       }
-      // If RPC doesn't exist, we just skip the check and allow the upload
     } catch (e) {
-      // RPC doesn't exist, skip quota check
-      console.log('check_upload_allowed RPC not available, skipping quota check');
+      console.log('check_upload_allowed RPC not available, skipping team quota check');
     }
 
-    if (!checkResult.allowed) {
+    if (!teamCheckResult.allowed) {
       return NextResponse.json(
         {
-          error: checkResult.reason,
-          message: checkResult.message,
-          details: checkResult,
+          allowed: false,
+          error: teamCheckResult.reason,
+          message: teamCheckResult.message,
+          details: `Team storage: ${formatBytes(teamCheckResult.used_bytes || 0)} / ${formatBytes(teamCheckResult.quota_bytes || 0)}`,
         },
-        { status: 429 } // Too Many Requests for rate limit, but works for quota too
+        { status: 429 }
       );
     }
 
-    // Record upload start (for rate limiting) - if RPC exists
-    try {
-      const { data } = await supabase.rpc('record_upload_start', {
-        p_team_id: teamId,
-        p_user_id: user.id,
-        p_file_name: fileName,
-        p_file_size_bytes: fileSize,
-        p_mime_type: mimeType || null,
-      });
-      logId = data;
-    } catch (e) {
-      // RPC doesn't exist, skip logging
-      console.log('record_upload_start RPC not available, skipping upload logging');
+    // Check per-game storage limit (if gameId provided)
+    if (gameId) {
+      try {
+        const { data, error: gameCheckError } = await supabase.rpc('check_game_upload_allowed', {
+          p_game_id: gameId,
+          p_file_size_bytes: fileSize,
+        });
+
+        if (!gameCheckError && data) {
+          gameCheckResult = data;
+        }
+      } catch (e) {
+        console.log('check_game_upload_allowed RPC not available, skipping game storage check');
+      }
+
+      if (!gameCheckResult.allowed) {
+        return NextResponse.json(
+          {
+            allowed: false,
+            error: gameCheckResult.reason,
+            message: gameCheckResult.message,
+            details: `Game storage: ${formatBytes(gameCheckResult.current_bytes || 0)} / ${formatBytes(gameCheckResult.max_bytes || 0)}`,
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    // If checkOnly=true, just return validation results without starting upload
+    const checkOnly = body.checkOnly === true;
+
+    if (!checkOnly) {
+      // Record upload start (for rate limiting) - if RPC exists
+      try {
+        const { data } = await supabase.rpc('record_upload_start', {
+          p_team_id: teamId,
+          p_user_id: user.id,
+          p_file_name: fileName,
+          p_file_size_bytes: fileSize,
+          p_mime_type: mimeType || null,
+        });
+        logId = data;
+      } catch (e) {
+        console.log('record_upload_start RPC not available, skipping upload logging');
+      }
     }
 
     // Generate storage path
@@ -267,18 +311,29 @@ export async function POST(
       ? `${gameId}/${timestamp}_${sanitizedName}`
       : `${teamId}/${timestamp}_${sanitizedName}`;
 
+    // Calculate storage after upload for warnings
+    const teamStorageAfter = (teamCheckResult.used_bytes || 0) + fileSize;
+    const teamStorageQuota = teamCheckResult.quota_bytes || 0;
+    const gameStorageAfter = (gameCheckResult.current_bytes || 0) + fileSize;
+    const gameStorageLimit = gameCheckResult.max_bytes || 0;
+
     return NextResponse.json({
       allowed: true,
       uploadId: logId,
       storagePath,
+      // Storage info for warnings
+      teamStorageAfter,
+      teamStorageQuota,
+      gameStorageAfter,
+      gameStorageLimit,
       quota: {
-        used: checkResult.used_bytes,
-        total: checkResult.quota_bytes,
-        remaining: checkResult.remaining_bytes,
+        used: teamCheckResult.used_bytes,
+        total: teamCheckResult.quota_bytes,
+        remaining: teamCheckResult.remaining_bytes,
       },
       rateLimit: {
-        uploadsThisHour: checkResult.uploads_this_hour,
-        maxPerHour: checkResult.max_uploads_per_hour,
+        uploadsThisHour: teamCheckResult.uploads_this_hour,
+        maxPerHour: teamCheckResult.max_uploads_per_hour,
       },
     });
   } catch (error) {

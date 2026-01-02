@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Upload, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Upload, AlertTriangle, ArrowRight, Users, Target } from 'lucide-react';
 
 interface TokenBalanceSummary {
   subscriptionAvailable: number;
@@ -14,6 +14,13 @@ interface TokenBalanceSummary {
   periodStart: string | null;
   periodEnd: string | null;
   hasActiveSubscription: boolean;
+  // Designated token fields
+  teamAvailable: number;
+  teamUsedThisPeriod: number;
+  opponentAvailable: number;
+  opponentUsedThisPeriod: number;
+  monthlyTeamAllocation: number;
+  monthlyOpponentAllocation: number;
 }
 
 interface TokenBalanceCardProps {
@@ -66,18 +73,21 @@ export default function TokenBalanceCard({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Calculate team/opponent breakdown (tokens split evenly)
-  const getBreakdown = (total: number): string => {
-    const perType = Math.floor(total / 2);
-    const remainder = total % 2;
-    if (remainder > 0) {
-      return `${perType + 1} team + ${perType} opponent`;
-    }
-    return `${perType} team + ${perType} opponent`;
+  // Get breakdown using actual designated token values
+  const getBreakdown = (): string => {
+    if (!balance) return '';
+    const team = balance.teamAvailable ?? 0;
+    const opponent = balance.opponentAvailable ?? 0;
+    return `${team} team + ${opponent} opponent`;
   };
 
-  // Determine if low on tokens
-  const isLowTokens = balance && balance.totalAvailable <= 1;
+  // Determine if low on tokens (either type)
+  const isLowTokens = balance && (balance.totalAvailable <= 1 ||
+    (balance.teamAvailable ?? 0) === 0 ||
+    (balance.opponentAvailable ?? 0) === 0);
+
+  const isLowTeamTokens = balance && (balance.teamAvailable ?? 0) <= 1;
+  const isLowOpponentTokens = balance && (balance.opponentAvailable ?? 0) <= 1;
 
   if (loading) {
     if (variant === 'compact') {
@@ -100,8 +110,11 @@ export default function TokenBalanceCard({
     return null; // Silently fail - don't break the UI
   }
 
-  // Compact variant - single line banner
+  // Compact variant - single line banner with designated token breakdown
   if (variant === 'compact') {
+    const teamTokens = balance.teamAvailable ?? 0;
+    const opponentTokens = balance.opponentAvailable ?? 0;
+
     return (
       <div
         className={`rounded-lg px-4 py-3 ${
@@ -111,21 +124,25 @@ export default function TokenBalanceCard({
         } ${className}`}
       >
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {isLowTokens ? (
               <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
             ) : (
               <Upload className="h-4 w-4 text-gray-500 flex-shrink-0" />
             )}
-            <div className="flex items-center gap-2 text-sm">
-              <span className={isLowTokens ? 'text-amber-800 font-medium' : 'text-gray-700'}>
-                Film Uploads: <span className="font-semibold">{balance.totalAvailable}</span> remaining
+            {/* Team tokens */}
+            <div className="flex items-center gap-1.5 text-sm">
+              <Users className="h-3.5 w-3.5 text-blue-600" />
+              <span className={isLowTeamTokens ? 'text-amber-800 font-medium' : 'text-gray-700'}>
+                <span className="font-semibold">{teamTokens}</span> team
               </span>
-              {balance.totalAvailable > 0 && (
-                <span className="text-gray-500">
-                  ({getBreakdown(balance.totalAvailable)})
-                </span>
-              )}
+            </div>
+            {/* Opponent tokens */}
+            <div className="flex items-center gap-1.5 text-sm">
+              <Target className="h-3.5 w-3.5 text-orange-600" />
+              <span className={isLowOpponentTokens ? 'text-amber-800 font-medium' : 'text-gray-700'}>
+                <span className="font-semibold">{opponentTokens}</span> opponent
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-4 text-sm">
@@ -138,7 +155,7 @@ export default function TokenBalanceCard({
               href={`/teams/${teamId}/settings/addons`}
               className="text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium"
             >
-              Purchase more
+              Get more
               <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
@@ -147,11 +164,14 @@ export default function TokenBalanceCard({
     );
   }
 
-  // Full variant - detailed card for settings
+  // Full variant - detailed card for settings with designated token breakdown
+  const teamTokens = balance.teamAvailable ?? 0;
+  const opponentTokens = balance.opponentAvailable ?? 0;
+
   return (
     <div className={`bg-white rounded-lg border border-gray-200 p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Upload Tokens</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Film Upload Tokens</h3>
         {isLowTokens && (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
             <AlertTriangle className="h-3 w-3" />
@@ -160,39 +180,45 @@ export default function TokenBalanceCard({
         )}
       </div>
 
-      {/* Main balance display */}
-      <div className="mb-6">
-        <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-bold text-gray-900">
-            {balance.totalAvailable}
-          </span>
-          <span className="text-gray-600">games available</span>
-        </div>
-        {balance.totalAvailable > 0 && (
-          <p className="mt-1 text-sm text-gray-500">
-            {getBreakdown(balance.totalAvailable)}
-          </p>
-        )}
-      </div>
-
-      {/* Balance breakdown */}
-      <div className="space-y-3 mb-6">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">From subscription</span>
-          <span className="font-medium text-gray-900">{balance.subscriptionAvailable}</span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Purchased tokens</span>
-          <span className="font-medium text-gray-900">{balance.purchasedAvailable}</span>
-        </div>
-        {balance.monthlyAllocation > 0 && (
-          <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
-            <span className="text-gray-600">Used this period</span>
-            <span className="font-medium text-gray-900">
-              {balance.usedThisPeriod} of {balance.monthlyAllocation}
-            </span>
+      {/* Designated token display */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* Team tokens */}
+        <div className={`p-4 rounded-lg ${isLowTeamTokens ? 'bg-amber-50 border border-amber-200' : 'bg-blue-50 border border-blue-100'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-gray-700">Team Film</span>
           </div>
-        )}
+          <div className="flex items-baseline gap-1">
+            <span className={`text-3xl font-bold ${isLowTeamTokens ? 'text-amber-700' : 'text-gray-900'}`}>
+              {teamTokens}
+            </span>
+            <span className="text-sm text-gray-500">available</span>
+          </div>
+          {(balance.monthlyTeamAllocation ?? 0) > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              {balance.teamUsedThisPeriod ?? 0} of {balance.monthlyTeamAllocation} used
+            </p>
+          )}
+        </div>
+
+        {/* Opponent tokens */}
+        <div className={`p-4 rounded-lg ${isLowOpponentTokens ? 'bg-amber-50 border border-amber-200' : 'bg-orange-50 border border-orange-100'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="h-4 w-4 text-orange-600" />
+            <span className="text-sm font-medium text-gray-700">Opponent Scouting</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className={`text-3xl font-bold ${isLowOpponentTokens ? 'text-amber-700' : 'text-gray-900'}`}>
+              {opponentTokens}
+            </span>
+            <span className="text-sm text-gray-500">available</span>
+          </div>
+          {(balance.monthlyOpponentAllocation ?? 0) > 0 && (
+            <p className="text-xs text-gray-500 mt-1">
+              {balance.opponentUsedThisPeriod ?? 0} of {balance.monthlyOpponentAllocation} used
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Period info */}
@@ -211,10 +237,18 @@ export default function TokenBalanceCard({
         </div>
       )}
 
+      {/* What are tokens explanation */}
+      <div className="p-3 bg-blue-50 rounded-lg mb-6 border border-blue-100">
+        <p className="text-sm text-blue-800">
+          <strong>Team tokens</strong> are used when uploading your team&apos;s game film.{' '}
+          <strong>Opponent tokens</strong> are used for scouting upcoming opponents.
+        </p>
+      </div>
+
       {/* Action button */}
       <Link
         href={`/teams/${teamId}/settings/addons`}
-        className="block w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+        className="block w-full text-center px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
       >
         Purchase additional tokens
       </Link>

@@ -69,12 +69,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .eq('team_id', teamId)
       .single();
 
+    const tier = subscription?.tier || 'basic';
+
+    // Get tier config for token and retention limits
+    const { data: tierConfig } = await supabase
+      .from('tier_config')
+      .select('monthly_team_tokens, monthly_opponent_tokens, video_retention_days')
+      .eq('tier_key', tier)
+      .single();
+
     return NextResponse.json({
       pricing,
       addons,
       limits,
-      tier: subscription?.tier || 'basic',
-      isOwner
+      tier,
+      isOwner,
+      tierLimits: {
+        monthlyTeamTokens: tierConfig?.monthly_team_tokens ?? 0,
+        monthlyOpponentTokens: tierConfig?.monthly_opponent_tokens ?? 0,
+        videoRetentionDays: tierConfig?.video_retention_days ?? 30
+      }
     });
   } catch (error) {
     console.error('Error fetching add-ons:', error);

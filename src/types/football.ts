@@ -269,12 +269,13 @@ export interface Video {
   name: string;
   file_path?: string;
   url?: string;
-  game_id: string;
+  game_id?: string;
   created_at: string;
 
   // Camera identification
-  camera_label?: string;  // Display name (End Zone, Sideline, Press Box, etc.)
+  camera_label?: string | null;  // Display name (End Zone, Sideline, Press Box, etc.)
   camera_order?: number;  // Order for display (1 = primary)
+  sync_offset_seconds?: number;  // Camera sync offset in seconds
 
   // File metadata
   file_size_bytes?: number;

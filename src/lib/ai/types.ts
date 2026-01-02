@@ -54,3 +54,27 @@ export const RATE_LIMITS = {
 } as const;
 
 export type SubscriptionTier = keyof typeof RATE_LIMITS;
+
+// Intent classification types
+export type Intent = 'help' | 'coaching' | 'general';
+
+export interface ClassificationEntities {
+  topic?: string;
+  timeframe?: 'recent' | 'season' | 'all_time' | 'game_specific';
+  situation?: {
+    down?: number;
+    distance?: string;
+    fieldZone?: 'red_zone' | 'scoring_position' | 'midfield' | 'own_territory';
+  };
+  formation?: string;
+  playType?: 'run' | 'pass' | 'all';
+  player?: string;
+  comparison?: string;
+}
+
+export interface ClassificationResult {
+  intent: Intent;
+  confidence: number;
+  entities: ClassificationEntities;
+  reasoning?: string;
+}

@@ -2,41 +2,47 @@
 
 ## Overview
 
-Automated end-to-end tests for the Strategy Assistant feature using Playwright.
+Comprehensive end-to-end tests for Youth Coach Hub using Playwright. Tests cover all major features including team management, playbook, film analysis, practice planning, and more.
 
 ## Setup
 
-### 1. Install Dependencies (Already Done)
+### 1. Install Dependencies
 ```bash
 npm install
+npx playwright install chromium
 ```
 
-### 2. Create Test Environment File
-```bash
-cp .env.test.example .env.test
-```
+### 2. Configure Test Credentials
 
-### 3. Configure Test Credentials
-Edit `.env.test` and add your test account:
+Add these variables to your `.env.local`:
 
 ```bash
-# Use a dedicated test account (not your production account!)
-TEST_USER_EMAIL=test@yourapp.com
-TEST_USER_PASSWORD=testpassword123
+# Required: Owner account credentials
+TEST_OWNER_EMAIL=your-email@example.com
+TEST_OWNER_PASSWORD=your-password
+
+# Optional: Coach account for role-based testing
+TEST_COACH_EMAIL=
+TEST_COACH_PASSWORD=
 
 # Optional: Specific IDs (auto-detected if not provided)
 TEST_TEAM_ID=
 TEST_GAME_ID=
+
+# Optional: Service role key for test data seeding
+TEST_SUPABASE_SERVICE_KEY=your-service-role-key
 ```
 
-**IMPORTANT:** Use a dedicated test account, not your real coach account!
+### 3. Test Data Requirements
 
-### 4. Prepare Test Data
-For best results, your test account should have:
+For comprehensive testing, your test account should have:
 - ✅ At least one team
-- ✅ At least one upcoming game scheduled
-- ✅ Some tagged plays (for richer insights)
-- ✅ Some playbook plays
+- ✅ Several players on the roster
+- ✅ Some playbook plays (offense, defense, special teams)
+- ✅ At least one game with film
+- ✅ Some tagged plays (for analytics)
+- ✅ Practice plans and templates
+- ✅ Schedule events
 
 ---
 

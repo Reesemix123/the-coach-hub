@@ -79,42 +79,45 @@ export async function GET() {
       ),
     };
 
-    // Get storage usage statistics
-    // Note: is_retained column may not exist yet, so we select without it first
-    const { data: videos, error: videosError } = await auth.serviceClient
+    // Get ALL videos first (to count total)
+    const { data: allVideos, error: allVideosError } = await auth.serviceClient
       .from('videos')
-      .select('id, file_size, created_at, game_id')
-      .not('file_size', 'is', null);
+      .select('id, file_size_bytes, created_at, game_id, is_virtual')
+      .eq('is_virtual', false);
 
-    if (videosError) {
-      console.error('Get videos error:', videosError);
+    if (allVideosError) {
+      console.error('Get all videos error:', allVideosError);
     }
 
     // Calculate storage usage analytics
-    // For now, all videos are considered "visible" since is_retained hasn't been implemented
+    const totalVideoCount = allVideos?.length || 0;
+    const videosWithSize = allVideos?.filter(v => v.file_size_bytes != null) || [];
+    const videosWithoutSize = totalVideoCount - videosWithSize.length;
+
     let storageUsage = {
-      total_videos: 0,
+      total_videos: totalVideoCount,
       total_storage_bytes: 0,
       total_storage_formatted: '0 B',
-      visible_videos: 0, // Videos visible to customers
+      visible_videos: totalVideoCount, // All visible for now
       visible_storage_bytes: 0,
       visible_storage_formatted: '0 B',
-      retained_videos: 0, // Videos kept for model training (not visible to customer)
+      retained_videos: 0, // None retained yet
       retained_storage_bytes: 0,
       retained_storage_formatted: '0 B',
       avg_video_size_bytes: 0,
       avg_video_size_formatted: '0 B',
-      avg_visible_age_days: 0, // Average age of visible videos
-      avg_total_age_days: 0, // Average age of all videos (including retained)
+      avg_visible_age_days: 0,
+      avg_total_age_days: 0,
+      videos_missing_size_data: videosWithoutSize, // How many videos don't have size tracked
     };
 
-    if (videos && videos.length > 0) {
+    if (allVideos && allVideos.length > 0) {
       const now = new Date();
       let totalSize = 0;
       let totalAgeDays = 0;
 
-      for (const video of videos) {
-        const fileSize = Number(video.file_size) || 0;
+      for (const video of allVideos) {
+        const fileSize = Number(video.file_size_bytes) || 0;
         const createdAt = new Date(video.created_at);
         const ageDays = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -122,21 +125,25 @@ export async function GET() {
         totalAgeDays += ageDays;
       }
 
-      // Currently all videos are visible (is_retained feature not yet implemented)
+      const avgSize = videosWithSize.length > 0
+        ? Math.round(totalSize / videosWithSize.length)
+        : 0;
+
       storageUsage = {
-        total_videos: videos.length,
+        total_videos: totalVideoCount,
         total_storage_bytes: totalSize,
         total_storage_formatted: formatBytes(totalSize),
-        visible_videos: videos.length, // All visible for now
+        visible_videos: totalVideoCount,
         visible_storage_bytes: totalSize,
         visible_storage_formatted: formatBytes(totalSize),
-        retained_videos: 0, // None retained yet
+        retained_videos: 0,
         retained_storage_bytes: 0,
         retained_storage_formatted: '0 B',
-        avg_video_size_bytes: Math.round(totalSize / videos.length),
-        avg_video_size_formatted: formatBytes(Math.round(totalSize / videos.length)),
-        avg_visible_age_days: Math.round(totalAgeDays / videos.length),
-        avg_total_age_days: Math.round(totalAgeDays / videos.length),
+        avg_video_size_bytes: avgSize,
+        avg_video_size_formatted: formatBytes(avgSize),
+        avg_visible_age_days: Math.round(totalAgeDays / totalVideoCount),
+        avg_total_age_days: Math.round(totalAgeDays / totalVideoCount),
+        videos_missing_size_data: videosWithoutSize,
       };
     }
 

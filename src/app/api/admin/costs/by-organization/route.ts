@@ -1,22 +1,27 @@
 // /api/admin/costs/by-organization - Costs by Organization API
 // Returns AI costs and margins broken down by organization
+// Includes AI Film Tagging and AI Chat costs
 // Requires platform admin authentication
 
 import { NextResponse } from 'next/server';
 import { requirePlatformAdmin } from '@/lib/admin/auth';
-import { getTierConfigs } from '@/lib/admin/config';
-import { SubscriptionTier } from '@/types/admin';
+import { getAllTierConfigsFromTable } from '@/lib/admin/config';
+import { AI_CHAT_COST } from '@/lib/admin/ai-costs';
 
-// Cost per AI action (matches costs/overview/route.ts)
-const COST_PER_VIDEO_MINUTE = 0.10; // $0.10 per video minute
-const COST_PER_TEXT_ACTION = 0.01; // $0.01 per text action
+// Use centralized cost constant
+const COST_PER_TEXT_ACTION = AI_CHAT_COST.COST_PER_ACTION;
 
 interface OrganizationCost {
   id: string;
   name: string;
-  video_minutes_used: number;
-  text_actions_used: number;
-  ai_cost: number;
+  // AI Film Tagging
+  plays_analyzed: number;
+  film_tagging_cost: number;
+  // AI Chat
+  chat_actions: number;
+  chat_cost: number;
+  // Combined
+  total_ai_cost: number;
   revenue: number;
   margin: number;
   margin_percentage: number;
@@ -39,19 +44,20 @@ export async function GET() {
   const supabase = auth.serviceClient;
 
   try {
-    // Get tier config from database (single source of truth)
-    const tierConfigs = await getTierConfigs();
-    if (!tierConfigs) {
+    // Get tier config from tier_config TABLE (single source of truth)
+    const tierConfigsArray = await getAllTierConfigsFromTable();
+    if (!tierConfigsArray || tierConfigsArray.length === 0) {
       return NextResponse.json(
         { error: 'Tier configuration not found' },
         { status: 500 }
       );
     }
 
-    // Build tier prices from database config (price_monthly is in dollars, convert to cents)
+    // Build tier prices from database config
+    // tier_config table uses price_monthly_cents (already in cents)
     const tierPrices: Record<string, number> = {};
-    for (const [tierId, config] of Object.entries(tierConfigs)) {
-      tierPrices[tierId] = (config.price_monthly || 0) * 100;
+    for (const config of tierConfigsArray) {
+      tierPrices[config.tier_key] = config.price_monthly_cents || 0;
     }
 
     const monthStart = new Date();
@@ -81,14 +87,6 @@ export async function GET() {
 
     if (subError) throw subError;
 
-    // Get AI usage this month from ai_usage table (migration 071)
-    const { data: aiUsage, error: usageError } = await supabase
-      .from('ai_usage')
-      .select('team_id, usage_type, units_consumed')
-      .gte('created_at', monthStart.toISOString());
-
-    if (usageError) throw usageError;
-
     // Build team -> organization mapping
     const teamToOrg: Record<string, string> = {};
     for (const team of teams || []) {
@@ -97,17 +95,47 @@ export async function GET() {
       }
     }
 
-    // Calculate AI usage per organization (video minutes and text actions separately)
-    const orgVideoMinutes: Record<string, number> = {};
-    const orgTextActions: Record<string, number> = {};
-    for (const usage of aiUsage || []) {
-      const orgId = teamToOrg[usage.team_id];
+    // ============================================
+    // AI Film Tagging costs (from ai_tag_predictions)
+    // ============================================
+    const { data: filmTaggingData, error: filmError } = await supabase
+      .from('ai_tag_predictions')
+      .select('team_id, cost_usd')
+      .gte('created_at', monthStart.toISOString())
+      .eq('status', 'completed');
+
+    if (filmError) throw filmError;
+
+    // Calculate film tagging by organization
+    const orgFilmCosts: Record<string, { plays: number; cost: number }> = {};
+    for (const row of filmTaggingData || []) {
+      const orgId = teamToOrg[row.team_id];
       if (orgId) {
-        if (usage.usage_type === 'video_analysis') {
-          orgVideoMinutes[orgId] = (orgVideoMinutes[orgId] || 0) + (Number(usage.units_consumed) || 0);
-        } else if (usage.usage_type === 'text_action') {
-          orgTextActions[orgId] = (orgTextActions[orgId] || 0) + 1;
+        if (!orgFilmCosts[orgId]) {
+          orgFilmCosts[orgId] = { plays: 0, cost: 0 };
         }
+        orgFilmCosts[orgId].plays++;
+        orgFilmCosts[orgId].cost += Number(row.cost_usd) || 0;
+      }
+    }
+
+    // ============================================
+    // AI Chat costs (from ai_usage table)
+    // ============================================
+    const { data: chatUsage, error: chatError } = await supabase
+      .from('ai_usage')
+      .select('team_id')
+      .gte('created_at', monthStart.toISOString())
+      .eq('usage_type', 'text_action');
+
+    if (chatError) throw chatError;
+
+    // Calculate chat costs by organization
+    const orgChatCounts: Record<string, number> = {};
+    for (const row of chatUsage || []) {
+      const orgId = teamToOrg[row.team_id];
+      if (orgId) {
+        orgChatCounts[orgId] = (orgChatCounts[orgId] || 0) + 1;
       }
     }
 
@@ -117,7 +145,7 @@ export async function GET() {
       if (sub.billing_waived) continue;
       const orgId = teamToOrg[sub.team_id];
       if (orgId) {
-        const tierPrice = tierPrices[sub.tier as SubscriptionTier] || 0;
+        const tierPrice = tierPrices[sub.tier] || 0;
         orgRevenue[orgId] = (orgRevenue[orgId] || 0) + tierPrice;
       }
     }
@@ -125,19 +153,22 @@ export async function GET() {
     // Build results
     const results: OrganizationCost[] = [];
     for (const org of organizations || []) {
-      const videoMinutes = orgVideoMinutes[org.id] || 0;
-      const textActions = orgTextActions[org.id] || 0;
-      const aiCost = (videoMinutes * COST_PER_VIDEO_MINUTE) + (textActions * COST_PER_TEXT_ACTION);
+      const filmData = orgFilmCosts[org.id] || { plays: 0, cost: 0 };
+      const chatCount = orgChatCounts[org.id] || 0;
+      const chatCost = chatCount * COST_PER_TEXT_ACTION;
+      const totalAiCost = filmData.cost + chatCost;
       const revenue = Math.round((orgRevenue[org.id] || 0) / 100); // Convert cents to dollars
-      const margin = revenue - aiCost;
+      const margin = revenue - totalAiCost;
       const marginPercentage = revenue > 0 ? Math.round((margin / revenue) * 100) : 0;
 
       results.push({
         id: org.id,
         name: org.name,
-        video_minutes_used: Math.round(videoMinutes * 100) / 100,
-        text_actions_used: textActions,
-        ai_cost: Math.round(aiCost * 100) / 100,
+        plays_analyzed: filmData.plays,
+        film_tagging_cost: Math.round(filmData.cost * 1000) / 1000,
+        chat_actions: chatCount,
+        chat_cost: Math.round(chatCost * 100) / 100,
+        total_ai_cost: Math.round(totalAiCost * 100) / 100,
         revenue,
         margin: Math.round(margin * 100) / 100,
         margin_percentage: marginPercentage
@@ -145,7 +176,7 @@ export async function GET() {
     }
 
     // Sort by AI cost descending (top users first)
-    results.sort((a, b) => b.ai_cost - a.ai_cost);
+    results.sort((a, b) => b.total_ai_cost - a.total_ai_cost);
 
     const response: CostsByOrganizationResponse = {
       organizations: results

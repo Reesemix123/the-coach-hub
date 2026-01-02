@@ -38,7 +38,7 @@ export class FilmSessionService {
       .rpc('save_tagging_position', {
         p_game_id: gameId,
         p_video_id: videoId,
-        p_position_ms: positionMs
+        p_position_ms: Math.round(positionMs) // Round to integer for database
       });
 
     if (error) {
@@ -275,6 +275,41 @@ export class FilmSessionService {
     }
 
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Update the game's final score
+   */
+  async updateGameScore(
+    gameId: string,
+    teamScore: number | null,
+    opponentScore: number | null
+  ): Promise<void> {
+    // Determine game result based on scores
+    let gameResult: 'win' | 'loss' | 'tie' | null = null;
+    if (teamScore !== null && opponentScore !== null) {
+      if (teamScore > opponentScore) {
+        gameResult = 'win';
+      } else if (teamScore < opponentScore) {
+        gameResult = 'loss';
+      } else {
+        gameResult = 'tie';
+      }
+    }
+
+    const { error } = await this.supabase
+      .from('games')
+      .update({
+        team_score: teamScore,
+        opponent_score: opponentScore,
+        game_result: gameResult
+      })
+      .eq('id', gameId);
+
+    if (error) {
+      console.error('Error updating game score:', error);
+      throw new Error(`Failed to update score: ${error.message}`);
+    }
   }
 
   /**

@@ -19,8 +19,8 @@ export class GeminiFlashProvider implements AIProvider {
   id = 'gemini-flash';
   name = 'Gemini 2.0 Flash';
 
-  // Use gemini-2.0-flash-exp (current available model)
-  private model = googleAI('gemini-2.0-flash-exp');
+  // Use gemini-2.5-flash for help/general queries (fast)
+  private model = googleAI('gemini-2.5-flash');
 
   async generateResponse(
     messages: Message[],

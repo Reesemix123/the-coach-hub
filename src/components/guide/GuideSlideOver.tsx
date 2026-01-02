@@ -2,10 +2,41 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
-import { X, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
+import {
+  X,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+  BookOpen,
+  Rocket,
+  Users,
+  ClipboardList,
+  Video,
+  BarChart3,
+  Calendar,
+  Shield,
+  CreditCard,
+  Sparkles,
+  HelpCircle
+} from 'lucide-react';
 import { useGuide } from '@/contexts/GuideContext';
 import { docsNavigation, findSectionByPath } from '@/config/docs-navigation';
 import { DocRenderer } from '@/components/docs';
+
+// Map icon names to components
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Rocket,
+  Users,
+  BookOpen,
+  ClipboardList,
+  Video,
+  BarChart3,
+  Calendar,
+  Shield,
+  CreditCard,
+  Sparkles,
+  HelpCircle,
+};
 
 export function GuideSlideOver() {
   const { isOpen, currentPath, content, title, description, isLoading, closeGuide, openGuide } = useGuide();
@@ -46,6 +77,9 @@ export function GuideSlideOver() {
   // Check if we're viewing a section overview (no child selected)
   const isViewingSection = currentPath && currentPath.length === 1 && currentSection?.children;
 
+  // Check if we're at the root (showing all sections)
+  const isViewingRoot = !currentPath || currentPath.length === 0;
+
   return (
     <>
       {/* Backdrop */}
@@ -68,8 +102,8 @@ export function GuideSlideOver() {
             {/* Breadcrumb */}
             <nav className="flex items-center gap-1.5 text-sm">
               <button
-                onClick={() => openGuide(['getting-started'])}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={() => openGuide([])}
+                className={isViewingRoot ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}
               >
                 User Guide
               </button>
@@ -121,6 +155,43 @@ export function GuideSlideOver() {
             {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
+            ) : isViewingRoot ? (
+              // Root view - show all main sections (matching dropdown style)
+              <div>
+                <div className="space-y-0.5">
+                  {docsNavigation.map((section) => {
+                    const Icon = section.icon ? iconMap[section.icon] : BookOpen;
+                    return (
+                      <button
+                        key={section.slug}
+                        onClick={() => openGuide([section.slug])}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 rounded-lg transition-colors group"
+                      >
+                        <span className="flex items-center gap-3">
+                          <Icon className="h-5 w-5 text-gray-400" />
+                          <span className="text-gray-700 group-hover:text-gray-900">
+                            {section.title}
+                          </span>
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Divider */}
+                <div className="my-4 border-t border-gray-100" />
+
+                {/* View Full User Guide Link */}
+                <Link
+                  href="/guide"
+                  onClick={closeGuide}
+                  className="flex items-center gap-3 px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                  <span>View Full User Guide</span>
+                </Link>
               </div>
             ) : isViewingSection && currentSection?.children ? (
               // Section overview with topic list

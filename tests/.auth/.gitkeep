@@ -1,0 +1,2 @@
+# This directory stores authenticated session state for Playwright tests.
+# The actual auth files (owner.json, coach.json) are gitignored.

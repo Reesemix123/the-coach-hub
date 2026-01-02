@@ -471,6 +471,57 @@ export class EntitlementsService {
     };
   }
 
+  /**
+   * Check if a game is eligible for token refund on deletion
+   * Refund is only allowed if no play tagging work has been done
+   */
+  async canRefundGame(teamId: string, gameId: string): Promise<{
+    eligible: boolean;
+    reason?: string;
+    tagCount: number;
+  }> {
+    // Get video IDs for this game
+    const { data: videos, error: videosError } = await this.supabase
+      .from('videos')
+      .select('id')
+      .eq('game_id', gameId);
+
+    if (videosError) {
+      console.error('[EntitlementsService] Error fetching videos:', videosError);
+      return { eligible: false, reason: 'Error checking game status', tagCount: 0 };
+    }
+
+    const videoIds = videos?.map(v => v.id) || [];
+
+    // If no videos, definitely eligible for refund
+    if (videoIds.length === 0) {
+      return { eligible: true, tagCount: 0 };
+    }
+
+    // Count play_instances (tags) for these videos
+    const { count, error: countError } = await this.supabase
+      .from('play_instances')
+      .select('id', { count: 'exact', head: true })
+      .in('video_id', videoIds);
+
+    if (countError) {
+      console.error('[EntitlementsService] Error counting tags:', countError);
+      return { eligible: false, reason: 'Error checking game status', tagCount: 0 };
+    }
+
+    const tagCount = count || 0;
+
+    if (tagCount > 0) {
+      return {
+        eligible: false,
+        reason: `Cannot refund - ${tagCount} play${tagCount === 1 ? '' : 's'} have been tagged`,
+        tagCount
+      };
+    }
+
+    return { eligible: true, tagCount: 0 };
+  }
+
   // ============================================================================
   // Limit Queries
   // ============================================================================

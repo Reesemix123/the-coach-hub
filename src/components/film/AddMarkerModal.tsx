@@ -18,39 +18,32 @@ export default function AddMarkerModal({
   onAdd,
   currentTimestamp
 }: AddMarkerModalProps) {
-  const [markerType, setMarkerType] = useState<MarkerType>('custom');
+  const [markerType, setMarkerType] = useState<MarkerType>('big_play');
   const [customLabel, setCustomLabel] = useState('');
-  const [quarter, setQuarter] = useState<number | undefined>(undefined);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const label = customLabel || MARKER_LABELS[markerType];
-    onAdd(markerType, label, quarter);
+    onAdd(markerType, label);
 
     // Reset form
-    setMarkerType('custom');
+    setMarkerType('big_play');
     setCustomLabel('');
-    setQuarter(undefined);
     onClose();
   };
 
+  // Period markers (quarter_start, quarter_end, halftime, overtime) are handled by "Mark Period" button
   const markerTypeOptions: { value: MarkerType; label: string }[] = [
-    { value: 'quarter_start', label: 'Quarter Start' },
-    { value: 'quarter_end', label: 'Quarter End' },
-    { value: 'halftime', label: 'Halftime' },
-    { value: 'overtime', label: 'Overtime' },
     { value: 'big_play', label: 'Big Play' },
     { value: 'turnover', label: 'Turnover' },
     { value: 'timeout', label: 'Timeout' },
     { value: 'custom', label: 'Custom' }
   ];
 
-  const needsQuarter = markerType === 'quarter_start' || markerType === 'quarter_end';
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -88,28 +81,6 @@ export default function AddMarkerModal({
               ))}
             </select>
           </div>
-
-          {/* Quarter (conditional) */}
-          {needsQuarter && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quarter
-              </label>
-              <select
-                value={quarter || ''}
-                onChange={(e) => setQuarter(e.target.value ? parseInt(e.target.value) : undefined)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
-                required
-              >
-                <option value="">Select Quarter</option>
-                <option value="1">Q1</option>
-                <option value="2">Q2</option>
-                <option value="3">Q3</option>
-                <option value="4">Q4</option>
-                <option value="5">OT</option>
-              </select>
-            </div>
-          )}
 
           {/* Custom Label */}
           <div>

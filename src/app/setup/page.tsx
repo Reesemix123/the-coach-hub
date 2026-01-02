@@ -15,6 +15,7 @@ interface Team {
   level: string;
   colors: Record<string, string>;
   created_at: string;
+  default_tier?: string;
 }
 
 interface TierOption {
@@ -33,14 +34,14 @@ const TIER_OPTIONS: TierOption[] = [
     name: 'Basic',
     price: 0,
     description: 'Get started with film review basics',
-    features: ['2 game uploads/month', '1 camera angle', '30-day video storage']
+    features: ['1 team + 1 opponent game/month', '1 camera angle', '30-day video storage']
   },
   {
     id: 'plus',
     name: 'Plus',
     price: 29,
     description: 'Full analytics for serious coaches',
-    features: ['4 game uploads/month', '3 camera angles', '180-day video storage', 'Play tagging & stats'],
+    features: ['2 team + 2 opponent games/month', '3 camera angles', '180-day video storage', 'Play tagging & stats'],
     popular: true
   },
   {
@@ -48,9 +49,16 @@ const TIER_OPTIONS: TierOption[] = [
     name: 'Premium',
     price: 79,
     description: 'Complete coaching toolkit',
-    features: ['8 game uploads/month', '5 camera angles', '1-year video storage', 'Advanced analytics', 'AI play detection']
+    features: ['4 team + 4 opponent games/month', '5 camera angles', '1-year video storage', 'Advanced analytics', 'AI play detection']
   }
 ];
+
+// Token education content for each tier
+const TOKEN_INFO: Record<SubscriptionTier, { team: number; opponent: number }> = {
+  basic: { team: 1, opponent: 1 },
+  plus: { team: 2, opponent: 2 },
+  premium: { team: 4, opponent: 4 }
+};
 
 function SetupForm() {
   const [user, setUser] = useState<User | null>(null);
@@ -130,7 +138,8 @@ function SetupForm() {
         name: teamName.trim(),
         level: teamLevel.trim() || 'High School',
         colors: { primary: 'Blue', secondary: 'White' },
-        user_id: user?.id
+        user_id: user?.id,
+        default_tier: selectedTier || 'basic'  // Pass selected tier for subscription/token initialization
       }])
       .select()
       .single();
@@ -418,6 +427,37 @@ function SetupForm() {
                   <p className="text-xs text-gray-500 mt-3">
                     You&apos;ll be redirected to complete payment after creating your team.
                   </p>
+                )}
+
+                {/* Token Education - shows when a tier is selected */}
+                {selectedTier && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-2 text-sm">How Film Uploads Work</h4>
+                    <ul className="text-sm text-blue-800 space-y-1.5">
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">&#8226;</span>
+                        <span>Each game you create uses one upload token</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">&#8226;</span>
+                        <span>
+                          <strong>{TOKEN_INFO[selectedTier].team} team</strong> game{TOKEN_INFO[selectedTier].team !== 1 ? 's' : ''} + <strong>{TOKEN_INFO[selectedTier].opponent} opponent</strong> scouting game{TOKEN_INFO[selectedTier].opponent !== 1 ? 's' : ''} per month
+                        </span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">&#8226;</span>
+                        <span>Team tokens upload your team&apos;s games</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">&#8226;</span>
+                        <span>Opponent tokens scout upcoming matchups</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">&#8226;</span>
+                        <span>Need more? Purchase additional tokens anytime</span>
+                      </li>
+                    </ul>
+                  </div>
                 )}
               </div>
 

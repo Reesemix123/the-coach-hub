@@ -34,16 +34,29 @@ export class TimelineService {
    */
   async getOrCreateTimeline(gameId: string, teamId: string): Promise<GameTimeline> {
     // First, check if a timeline exists for this game
-    const { data: existingGroup } = await this.supabase
+    console.log('[TimelineService] getOrCreateTimeline:', { gameId, teamId });
+
+    // Use limit(1) to get the first matching timeline (handles duplicates gracefully)
+    const { data: existingGroups, error: groupError } = await this.supabase
       .from('video_groups')
       .select('*')
       .eq('game_id', gameId)
       .eq('is_timeline_mode', true)
-      .single();
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (groupError) {
+      console.error('[TimelineService] video_groups query error:', groupError);
+    }
+
+    const existingGroup = existingGroups?.[0];
 
     if (existingGroup) {
+      console.log('[TimelineService] Found existing timeline group:', existingGroup.id);
       return this.loadTimeline(existingGroup.id, gameId);
     }
+
+    console.log('[TimelineService] No existing timeline found, creating new one...');
 
     // Create a new timeline
     const { data: newGroup, error } = await this.supabase
@@ -62,6 +75,33 @@ export class TimelineService {
       throw new Error(`Failed to create timeline: ${error.message}`);
     }
 
+    // Auto-populate with existing videos for this game
+    const { data: existingVideos } = await this.supabase
+      .from('videos')
+      .select('id, name, duration_seconds, camera_label, camera_order, url')
+      .eq('game_id', gameId)
+      .order('camera_order', { ascending: true });
+
+    if (existingVideos && existingVideos.length > 0) {
+      // Create video_group_members for each existing video
+      const members = existingVideos.map((video, index) => ({
+        video_group_id: newGroup.id,
+        video_id: video.id,
+        camera_lane: video.camera_order || index + 1,
+        camera_label: video.camera_label || video.name || `Camera ${index + 1}`,
+        lane_position_ms: 0,
+        start_offset_ms: 0,
+        end_offset_ms: (video.duration_seconds || 0) * 1000,
+      }));
+
+      await this.supabase
+        .from('video_group_members')
+        .insert(members);
+
+      // Return the populated timeline
+      return this.loadTimeline(newGroup.id, gameId);
+    }
+
     return {
       gameId,
       videoGroupId: newGroup.id,
@@ -75,9 +115,13 @@ export class TimelineService {
    * Load an existing timeline with all its clips
    */
   async loadTimeline(videoGroupId: string, gameId: string): Promise<GameTimeline> {
+    console.log('[TimelineService] loadTimeline called:', { videoGroupId, gameId });
+
     // Fetch all clips using the helper function
     const { data: clips, error } = await this.supabase
       .rpc('get_timeline_clips', { p_video_group_id: videoGroupId });
+
+    console.log('[TimelineService] RPC result:', { clipsCount: clips?.length, error: error?.message });
 
     if (error) {
       console.error('Error loading timeline clips:', error);
@@ -125,6 +169,14 @@ export class TimelineService {
 
     // Calculate total duration
     const totalDurationMs = this.calculateTotalDuration(lanes);
+
+    console.log('[TimelineService] loadTimeline returning:', {
+      gameId,
+      videoGroupId,
+      totalDurationMs,
+      lanesCount: lanes.length,
+      lanes: lanes.map(l => ({ lane: l.lane, label: l.label, clipsCount: l.clips.length })),
+    });
 
     return {
       gameId,
@@ -318,6 +370,8 @@ export class TimelineService {
    * Move a clip to a new position or lane
    */
   async moveClip(data: MoveClipData, gameId?: string, validateLimits: boolean = true): Promise<void> {
+    console.log('[TimelineService] moveClip called:', data);
+
     // If moving to a different lane, validate per-camera limits
     if (validateLimits && gameId && data.originalLane !== undefined && data.originalLane !== data.newLane) {
       // Get the video ID for this clip
@@ -342,6 +396,12 @@ export class TimelineService {
       }
     }
 
+    console.log('[TimelineService] Updating video_group_members:', {
+      clipId: data.clipId,
+      camera_lane: data.newLane,
+      lane_position_ms: data.newPositionMs,
+    });
+
     const { error } = await this.supabase
       .from('video_group_members')
       .update({
@@ -351,14 +411,32 @@ export class TimelineService {
       .eq('id', data.clipId);
 
     if (error) {
+      console.error('[TimelineService] moveClip update error:', error);
       throw new Error(`Failed to move clip: ${error.message}`);
     }
+
+    console.log('[TimelineService] moveClip update succeeded');
   }
 
   /**
    * Remove a clip from the timeline
+   * Also deletes the underlying video and storage file
    */
   async removeClip(clipId: string): Promise<void> {
+    // Get the video_id from this clip before we delete it
+    const { data: clip, error: clipError } = await this.supabase
+      .from('video_group_members')
+      .select('video_id')
+      .eq('id', clipId)
+      .single();
+
+    if (clipError) {
+      throw new Error(`Failed to find clip: ${clipError.message}`);
+    }
+
+    const videoId = clip.video_id;
+
+    // Delete the video_group_member (clip reference)
     const { error } = await this.supabase
       .from('video_group_members')
       .delete()
@@ -366,6 +444,26 @@ export class TimelineService {
 
     if (error) {
       throw new Error(`Failed to remove clip: ${error.message}`);
+    }
+
+    // Delete the video and storage file
+    if (videoId) {
+      console.log('[TimelineService] Deleting video and storage:', videoId);
+
+      try {
+        const response = await fetch(`/api/videos/${videoId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('[TimelineService] Video deletion failed:', errorData);
+        } else {
+          console.log('[TimelineService] Video fully deleted:', videoId);
+        }
+      } catch (err) {
+        console.error('[TimelineService] Error calling video deletion API:', err);
+      }
     }
   }
 
@@ -387,13 +485,25 @@ export class TimelineService {
   }
 
   /**
-   * Update lane label
+   * Update lane label - syncs both video_group_members and videos tables
    */
   async updateLaneLabel(
     videoGroupId: string,
     lane: number,
     label: string
   ): Promise<void> {
+    // First, get the video IDs for this lane so we can sync the videos table
+    const { data: members, error: fetchError } = await this.supabase
+      .from('video_group_members')
+      .select('video_id')
+      .eq('video_group_id', videoGroupId)
+      .eq('camera_lane', lane);
+
+    if (fetchError) {
+      console.error('Failed to fetch lane members:', fetchError);
+    }
+
+    // Update video_group_members
     const { error } = await this.supabase
       .from('video_group_members')
       .update({ camera_label: label })
@@ -403,10 +513,25 @@ export class TimelineService {
     if (error) {
       throw new Error(`Failed to update lane label: ${error.message}`);
     }
+
+    // Also update the videos table for each video in this lane (sync Camera View)
+    if (members && members.length > 0) {
+      const videoIds = members.map(m => m.video_id);
+      const { error: videoError } = await this.supabase
+        .from('videos')
+        .update({ camera_label: label })
+        .in('id', videoIds);
+
+      if (videoError) {
+        console.error('Failed to sync video labels:', videoError);
+        // Don't throw - the primary update succeeded
+      }
+    }
   }
 
   /**
    * Get available videos for a game that can be added to the timeline
+   * Includes camera_order and camera_label for grouping by camera lane
    */
   async getAvailableVideos(gameId: string): Promise<Array<{
     id: string;
@@ -414,13 +539,15 @@ export class TimelineService {
     url: string;
     thumbnailUrl: string | null;
     durationMs: number;
+    cameraOrder: number;
+    cameraLabel: string | null;
   }>> {
     const { data: videos, error } = await this.supabase
       .from('videos')
-      .select('id, name, url, thumbnail_url, duration_seconds')
+      .select('id, name, url, thumbnail_url, duration_seconds, camera_order, camera_label')
       .eq('game_id', gameId)
       .eq('is_virtual', false)
-      .order('created_at', { ascending: false });
+      .order('camera_order', { ascending: true });
 
     if (error) {
       throw new Error(`Failed to fetch videos: ${error.message}`);
@@ -432,6 +559,8 @@ export class TimelineService {
       url: v.url,
       thumbnailUrl: v.thumbnail_url,
       durationMs: (v.duration_seconds || 0) * 1000,
+      cameraOrder: v.camera_order || 1,
+      cameraLabel: v.camera_label,
     }));
   }
 

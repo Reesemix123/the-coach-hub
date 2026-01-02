@@ -2,8 +2,10 @@
  * Semantic Layer
  *
  * Exports for the semantic understanding system.
- * Phase 2 feature - stubs only in MVP.
+ * Provides coaching intelligence through structured data queries.
  */
 
 export * from './types';
-export { METRICS } from './metrics';
+export { METRICS, calculateAggregatedStats, formatStats } from './metrics';
+export * from './data-fetcher';
+export * from './concepts';

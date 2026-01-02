@@ -545,7 +545,7 @@ export default function ConsoleTeamDetailPage() {
                 {teamData.recent_games.map((game) => (
                   <Link
                     key={game.id}
-                    href={`/teams/${teamId}/film/${game.id}`}
+                    href={`/teams/${teamId}/film/${game.id}/tag`}
                     className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-colors"
                   >
                     <div className="flex items-center gap-4">

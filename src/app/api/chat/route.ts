@@ -3,7 +3,10 @@
  *
  * POST /api/chat
  * Handles AI chat messages with rate limiting based on subscription tier.
- * Uses Gemini 2.0 Flash for AI responses with streaming.
+ * Uses smart routing to direct queries to the appropriate AI provider:
+ * - Help questions → Gemini Flash + static context
+ * - Coaching questions → Gemini Pro + team data context
+ * - General questions → Gemini Flash + minimal context
  *
  * Rate limits:
  * - Basic: 20 messages/day
@@ -13,7 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { chatService, type Message, RATE_LIMITS } from '@/lib/ai';
+import { type Message, RATE_LIMITS, generateRoutedResponse } from '@/lib/ai';
 import type { SubscriptionTier } from '@/types/admin';
 
 // Rate limits by tier (messages per day)
@@ -150,9 +153,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate streaming response
+    // Generate streaming response using smart router
     try {
-      const stream = await chatService.generateResponse(messages, user.id);
+      const { stream, classification } = await generateRoutedResponse(
+        messages,
+        user.id,
+        supabase
+      );
+
+      // Log classification for debugging (optional)
+      console.log(`[Chat] Intent: ${classification.intent}, Confidence: ${classification.confidence}`);
 
       // Return streaming response
       return new Response(stream, {
@@ -160,6 +170,7 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'no-cache',
           Connection: 'keep-alive',
+          'X-Intent': classification.intent,
         },
       });
     } catch (aiError) {

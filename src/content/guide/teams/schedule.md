@@ -109,6 +109,46 @@ You can add opponent games for scouting purposes:
 3. This game will be flagged for scouting analysis
 4. Upload opponent film to this game for defensive preparation
 
+## Deleting Games
+
+You can delete games from your schedule if needed. Depending on whether you've started tagging plays, you may receive a token refund.
+
+### How to Delete a Game
+
+1. Click on the game in the calendar
+2. Click **Delete**
+3. A confirmation dialog will show your refund eligibility
+4. Confirm the deletion
+
+### Token Refund Eligibility
+
+When you delete a game, the system checks if any play tagging work has been done:
+
+| Situation | Token Refund |
+|-----------|--------------|
+| No plays tagged (even if videos uploaded) | **1 token refunded** |
+| 1 or more plays tagged | No refund |
+
+> **Why this policy?** Tokens represent game uploads. If you've uploaded the wrong video or created a game by mistake, you can undo it and get your token back. However, once you've started tagging plays (the actual analysis work), the token is considered used.
+
+### What Gets Deleted
+
+When you delete a game, the following are permanently removed:
+
+- The game record
+- All uploaded videos and storage files
+- All tagged plays (play instances)
+- Any timeline configurations
+
+### Refund Confirmation
+
+The delete confirmation dialog clearly shows:
+
+- **Green message** if you'll receive a refund: "You will receive 1 token back"
+- **Amber warning** if no refund: Shows how many plays have been tagged
+
+> **Tip:** If you uploaded the wrong video but haven't tagged any plays yet, delete the game and recreate it. You'll get your token back automatically.
+
 ## Linking to Film
 
 Games you create appear in your Film section. When you upload game video:

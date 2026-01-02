@@ -78,6 +78,23 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
   const [editingGame, setEditingGame] = useState<Game | null>(null);
   const [newEventDate, setNewEventDate] = useState<string>('');
 
+  // Delete confirmation modal state
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    show: boolean;
+    gameId: string | null;
+    gameName: string;
+    refundEligible: boolean;
+    tagCount: number;
+    loading: boolean;
+  }>({
+    show: false,
+    gameId: null,
+    gameName: '',
+    refundEligible: false,
+    tagCount: 0,
+    loading: false,
+  });
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -442,21 +459,94 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
     }
   };
 
+  // Open delete confirmation modal and check refund eligibility
   const handleDeleteGame = async (gameId: string) => {
-    if (!confirm('Are you sure you want to delete this game?')) return;
+    // Find the game to get its name
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+
+    // Set loading state while checking eligibility
+    setDeleteConfirmation({
+      show: true,
+      gameId,
+      gameName: game.opponent ? `vs ${game.opponent}` : game.name || 'this game',
+      refundEligible: false,
+      tagCount: 0,
+      loading: true,
+    });
 
     try {
-      const { error } = await supabase
-        .from('games')
-        .delete()
-        .eq('id', gameId);
+      // Check refund eligibility via API
+      const response = await fetch(`/api/teams/${teamId}/games/${gameId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDeleteConfirmation(prev => ({
+          ...prev,
+          refundEligible: data.refundEligibility?.eligible ?? false,
+          tagCount: data.refundEligibility?.tagCount ?? 0,
+          loading: false,
+        }));
+      } else {
+        setDeleteConfirmation(prev => ({ ...prev, loading: false }));
+      }
+    } catch (error) {
+      console.error('Error checking refund eligibility:', error);
+      setDeleteConfirmation(prev => ({ ...prev, loading: false }));
+    }
+  };
 
-      if (error) throw error;
-      await fetchData();
+  // Actually delete the game via API
+  const confirmDeleteGame = async () => {
+    if (!deleteConfirmation.gameId) return;
+
+    setDeleteConfirmation(prev => ({ ...prev, loading: true }));
+
+    try {
+      const response = await fetch(
+        `/api/teams/${teamId}/games/${deleteConfirmation.gameId}`,
+        { method: 'DELETE' }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Close modal and refresh data
+        setDeleteConfirmation({
+          show: false,
+          gameId: null,
+          gameName: '',
+          refundEligible: false,
+          tagCount: 0,
+          loading: false,
+        });
+
+        // Show success message
+        if (data.refunded) {
+          alert('Game deleted successfully. 1 token has been refunded to your account.');
+        }
+
+        await fetchData();
+      } else {
+        alert(data.error || 'Error deleting game');
+        setDeleteConfirmation(prev => ({ ...prev, loading: false }));
+      }
     } catch (error) {
       console.error('Error deleting game:', error);
       alert('Error deleting game');
+      setDeleteConfirmation(prev => ({ ...prev, loading: false }));
     }
+  };
+
+  // Close delete confirmation modal
+  const cancelDeleteGame = () => {
+    setDeleteConfirmation({
+      show: false,
+      gameId: null,
+      gameName: '',
+      refundEligible: false,
+      tagCount: 0,
+      loading: false,
+    });
   };
 
   if (loading) {
@@ -603,7 +693,7 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
                                 setShowGameModal(true);
                               }}
                               onDelete={handleDeleteGame}
-                              onViewFilm={() => router.push(`/teams/${teamId}/film/${item.id}`)}
+                              onViewFilm={() => router.push(`/teams/${teamId}/film/${item.id}/tag`)}
                             />
                           ) : (
                             <EventDetailCard
@@ -666,6 +756,89 @@ export default function TeamSchedulePage({ params }: { params: Promise<{ teamId:
             setNewEventDate('');
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmation.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Game?
+            </h3>
+
+            {deleteConfirmation.loading ? (
+              <div className="py-8 text-center">
+                <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-gray-900 rounded-full mx-auto mb-3"></div>
+                <p className="text-sm text-gray-500">Checking eligibility...</p>
+              </div>
+            ) : deleteConfirmation.refundEligible ? (
+              // Eligible for refund
+              <div className="mb-6">
+                <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                  <div className="text-green-600 text-xl">✓</div>
+                  <div>
+                    <p className="text-sm font-medium text-green-800">
+                      Token refund available
+                    </p>
+                    <p className="text-sm text-green-700 mt-1">
+                      You will receive <strong>1 token back</strong> since no plays have been tagged for this game.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Are you sure you want to delete <strong>{deleteConfirmation.gameName}</strong>?
+                  All uploaded videos will also be removed.
+                </p>
+              </div>
+            ) : (
+              // NOT eligible for refund - has tags
+              <div className="mb-6">
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                  <div className="text-amber-600 text-xl">⚠️</div>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">
+                      No token refund available
+                    </p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      This game has <strong>{deleteConfirmation.tagCount} tagged play{deleteConfirmation.tagCount === 1 ? '' : 's'}</strong>.
+                      Because tagging work has been done, your upload token will <strong>NOT</strong> be refunded.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Are you sure you want to delete <strong>{deleteConfirmation.gameName}</strong>?
+                  All videos and tagged plays will be <strong>permanently deleted</strong>.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={cancelDeleteGame}
+                disabled={deleteConfirmation.loading}
+                className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteGame}
+                disabled={deleteConfirmation.loading}
+                className={`px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 ${
+                  deleteConfirmation.refundEligible
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {deleteConfirmation.loading
+                  ? 'Deleting...'
+                  : deleteConfirmation.refundEligible
+                    ? 'Delete & Refund Token'
+                    : 'Delete Without Refund'
+                }
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

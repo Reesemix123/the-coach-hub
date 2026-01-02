@@ -33,6 +33,17 @@ import {
   pixelsToTime,
 } from '@/types/timeline';
 
+// Type for available videos from the service
+interface AvailableVideo {
+  id: string;
+  name: string;
+  url: string;
+  thumbnailUrl: string | null;
+  durationMs: number;
+  cameraOrder: number;
+  cameraLabel: string | null;
+}
+
 interface TimelineEditorProps {
   gameId: string;
   teamId: string;
@@ -68,6 +79,9 @@ export function TimelineEditor({
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
   const [draggedClip, setDraggedClip] = useState<TimelineClip | null>(null);
 
+  // Available videos grouped by camera lane
+  const [videosByCamera, setVideosByCamera] = useState<Map<number, AvailableVideo[]>>(new Map());
+
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -85,6 +99,28 @@ export function TimelineEditor({
   useEffect(() => {
     loadTimeline();
   }, [gameId, teamId]);
+
+  // Load available videos grouped by camera
+  useEffect(() => {
+    const loadAvailableVideos = async () => {
+      try {
+        const videos = await timelineService.getAvailableVideos(gameId);
+        // Group by camera_order (which maps to lane number)
+        const grouped = new Map<number, AvailableVideo[]>();
+        for (const video of videos) {
+          const cameraLane = video.cameraOrder || 1;
+          if (!grouped.has(cameraLane)) {
+            grouped.set(cameraLane, []);
+          }
+          grouped.get(cameraLane)!.push(video);
+        }
+        setVideosByCamera(grouped);
+      } catch (err) {
+        console.error('Failed to load available videos:', err);
+      }
+    };
+    loadAvailableVideos();
+  }, [gameId, timeline]); // Reload when timeline changes (after adding/removing clips)
 
   const loadTimeline = async () => {
     try {
@@ -190,7 +226,7 @@ export function TimelineEditor({
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
+    const { active, over, delta } = event;
     setActiveClipId(null);
     setDraggedClip(null);
 
@@ -201,22 +237,40 @@ export function TimelineEditor({
 
     if (isNaN(targetLane)) return;
 
-    // Calculate new position based on drop location
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
+    // Calculate new position from drag delta (horizontal movement)
+    const deltaPx = delta.x;
+    const deltaMs = pixelsToTime(deltaPx, playbackState.zoomLevel);
+    let newPositionMs = snapToGrid(Math.max(0, draggedClip.lanePositionMs + deltaMs));
 
-    // For now, place at the end of the lane
-    const lane = timeline.lanes.find(l => l.lane === targetLane);
-    const newPositionMs = lane
-      ? timelineService.findNextAvailablePosition(lane)
-      : 0;
+    // Track source lane to detect cross-lane moves
+    const sourceLane = draggedClip.cameraLane;
+
+    // If moving to a different lane, check for overlap
+    if (targetLane !== sourceLane) {
+      const hasOverlap = await timelineService.checkOverlap(
+        timeline.videoGroupId,
+        targetLane,
+        newPositionMs,
+        draggedClip.durationMs,
+        clipId
+      );
+
+      if (hasOverlap) {
+        // Fall back to end of lane if overlap detected
+        const lane = timeline.lanes.find(l => l.lane === targetLane);
+        newPositionMs = lane
+          ? timelineService.findNextAvailablePosition(lane)
+          : 0;
+      }
+    }
 
     try {
       await timelineService.moveClip({
         clipId,
         newLane: targetLane,
         newPositionMs: snapToGrid(newPositionMs),
-      });
+        originalLane: sourceLane,
+      }, gameId);
       await loadTimeline();
     } catch (err) {
       console.error('Failed to move clip:', err);
@@ -311,6 +365,10 @@ export function TimelineEditor({
 
   const activeClipInfo = getActiveClipInfo();
 
+  // Check if timeline is effectively empty (no clips on any lane)
+  const isEmptyTimeline = !timeline || timeline.lanes.every(l => l.clips.length === 0);
+  const hasAvailableVideos = videosByCamera.size > 0;
+
   if (loading) {
     return (
       <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
@@ -333,9 +391,10 @@ export function TimelineEditor({
     );
   }
 
-  const timelineWidth = timeline
-    ? timeToPixels(timeline.totalDurationMs || 3600000, playbackState.zoomLevel)
-    : 1000;
+  // Use a reasonable default width when timeline is empty (5 minutes = 300000ms)
+  // instead of 1 hour which is misleading
+  const effectiveDurationMs = timeline?.totalDurationMs || (isEmptyTimeline ? 300000 : 3600000);
+  const timelineWidth = timeToPixels(effectiveDurationMs, playbackState.zoomLevel);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -418,11 +477,34 @@ export function TimelineEditor({
         >
           {/* Time Ruler */}
           <TimelineRuler
-            totalDurationMs={timeline?.totalDurationMs || 3600000}
+            totalDurationMs={effectiveDurationMs}
             zoomLevel={playbackState.zoomLevel}
             playheadPositionMs={playbackState.playheadPositionMs}
             onSeek={seekTo}
           />
+
+          {/* Empty State Banner */}
+          {isEmptyTimeline && (
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-blue-600">
+                  <Plus size={20} />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-blue-900">
+                    {hasAvailableVideos
+                      ? 'Add videos to your timeline'
+                      : 'No videos uploaded yet'}
+                  </div>
+                  <div className="text-xs text-blue-700">
+                    {hasAvailableVideos
+                      ? 'Click the + button on each lane to add videos from that camera'
+                      : 'Upload videos in Camera View first, then add them here'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Swim Lanes */}
           <div className="relative" style={{ width: Math.max(timelineWidth, 800) }}>
@@ -445,6 +527,7 @@ export function TimelineEditor({
                 onLabelChange={(label) => handleLaneLabelChange(lane.lane, label)}
                 onAddClip={(videoId) => handleAddClip(videoId, lane.lane)}
                 totalDurationMs={timeline?.totalDurationMs || 0}
+                availableVideos={videosByCamera.get(lane.lane) || []}
               />
             ))}
 
