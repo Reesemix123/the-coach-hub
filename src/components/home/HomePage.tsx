@@ -363,7 +363,7 @@ function HomeContent() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="relative py-16 px-8 bg-[#0d1117]">
+      <section id="features" className="relative py-24 px-8 bg-[#0d1117]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-[#a3e635] font-medium tracking-widest uppercase text-sm mb-4">Your Co-Pilot Capabilities</p>
@@ -464,7 +464,7 @@ function HomeContent() {
       </section>
 
       {/* Co-Pilot Deep Dive Section */}
-      <section className="relative py-16 px-8 bg-[#161b22]">
+      <section className="relative py-24 px-8 bg-[#161b22]">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left: Content */}
@@ -551,7 +551,7 @@ function HomeContent() {
       </section>
 
       {/* Pricing Teaser Section */}
-      <section className="relative py-16 px-8 bg-[#0d1117]">
+      <section className="relative py-24 px-8 bg-[#0d1117]">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-[#a3e635] font-medium tracking-widest uppercase text-sm mb-4">Pricing That Makes Sense</p>
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">

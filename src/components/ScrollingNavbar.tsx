@@ -13,7 +13,7 @@ export default function ScrollingNavbar({ children }: ScrollingNavbarProps) {
   const pathname = usePathname();
 
   // Marketing pages have their own navigation - hide the app navbar
-  const marketingPages = ['/', '/pricing', '/about', '/auth/signup', '/auth/login'];
+  const marketingPages = ['/', '/pricing', '/about', '/contact', '/auth/signup', '/auth/login'];
   const isMarketingPage = marketingPages.includes(pathname);
 
   useEffect(() => {
