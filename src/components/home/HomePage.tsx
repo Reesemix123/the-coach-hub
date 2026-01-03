@@ -265,7 +265,7 @@ function HomeContent() {
           <h2 className="text-2xl md:text-4xl font-black text-[#F9FAFB] mb-6 leading-tight" style={{ letterSpacing: '-0.6px' }}>
             College and Pro Teams Have Entire Staff Rooms.
             <br />
-            <span style={{ color: 'rgba(249,250,251,.72)' }}>You Have Saturday Mornings on the Sideline.</span>
+            <span style={{ color: 'rgba(249,250,251,.72)' }}>You Have Tuesday Nights After Work.</span>
           </h2>
           <p className="text-base max-w-2xl mx-auto leading-relaxed font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>
             Youth and high school coaches deserve the same powerful tools—without the price tag designed for college programs.
