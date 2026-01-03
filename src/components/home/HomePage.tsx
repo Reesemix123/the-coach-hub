@@ -433,26 +433,26 @@ function HomeContent() {
       <section className="relative py-20 px-8">
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <div className="grid md:grid-cols-3 gap-5 mb-6">
-            <div className="p-6 rounded-2xl relative" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
+            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
               <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Basic</p>
               <p className="text-3xl font-black text-[#F9FAFB]">Free</p>
               <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Get started</p>
-            </div>
+            </Link>
 
-            <div className="p-6 rounded-2xl relative" style={{ background: 'rgba(32,26,22,.78)', border: '2px solid rgba(184,202,110,.38)', boxShadow: '0 18px 42px rgba(0,0,0,.35)' }}>
+            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '2px solid rgba(184,202,110,.38)', boxShadow: '0 18px 42px rgba(0,0,0,.35)' }}>
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#B8CA6E] text-[#1a1410] text-xs font-black rounded-full" style={{ boxShadow: '0 14px 32px rgba(184,202,110,.16)' }}>
                 Most Popular
               </div>
               <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Plus</p>
               <p className="text-3xl font-black text-[#F9FAFB]">$29<span className="text-base font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>/mo</span></p>
               <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Full AI coaching assist</p>
-            </div>
+            </Link>
 
-            <div className="p-6 rounded-2xl relative" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
+            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
               <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Premium</p>
               <p className="text-3xl font-black text-[#F9FAFB]">$79<span className="text-base font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>/mo</span></p>
               <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Full AI + max film storage</p>
-            </div>
+            </Link>
           </div>
         </div>
       </section>
