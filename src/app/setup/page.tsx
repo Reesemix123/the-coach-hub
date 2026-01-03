@@ -361,7 +361,6 @@ function SetupForm() {
                 >
                   <option value="">Select level...</option>
                   <option value="Youth">Youth</option>
-                  <option value="Middle School">Middle School</option>
                   <option value="JV">JV</option>
                   <option value="Varsity">Varsity</option>
                   <option value="College">College</option>
