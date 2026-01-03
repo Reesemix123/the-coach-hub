@@ -254,6 +254,7 @@ async function handleSubscriptionUpdated(
     team_id: teamId,
     tier,
     status,
+    billing_waived: false, // Payment confirmed via Stripe - billing is not waived
     stripe_subscription_id: subscription.id,
     stripe_price_id: stripePrice,
     current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
