@@ -146,9 +146,19 @@ export default function ConsoleTeamsPage() {
     }
   }
 
-  function getSubscriptionBadge(subscription: TeamData['subscription']) {
+  function getSubscriptionBadge(subscription: TeamData['subscription'], tier: string) {
     const { status, billing_waived } = subscription;
 
+    // Show "Free" for basic tier instead of "Waived"
+    if ((billing_waived || status === 'waived') && tier === 'basic') {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Free
+        </span>
+      );
+    }
+
+    // Show "Waived" for admin-granted waivers on paid tiers
     if (billing_waived || status === 'waived') {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -398,7 +408,7 @@ export default function ConsoleTeamsPage() {
                         <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">
                           {team.level}
                         </span>
-                        {getSubscriptionBadge(team.subscription)}
+                        {getSubscriptionBadge(team.subscription, team.tier)}
                       </div>
 
                       {/* Row 2: Tier, Stats */}

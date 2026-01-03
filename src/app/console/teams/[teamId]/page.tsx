@@ -191,6 +191,16 @@ export default function ConsoleTeamDetailPage() {
 
     const { status, billing_waived, trial_days_remaining } = teamData.subscription;
 
+    // Show "Free" for basic tier instead of "Waived"
+    if ((billing_waived || status === 'waived') && teamData.tier === 'basic') {
+      return (
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+          Free Plan
+        </span>
+      );
+    }
+
+    // Show "Waived" for admin-granted waivers on paid tiers
     if (billing_waived || status === 'waived') {
       return (
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
@@ -455,7 +465,9 @@ export default function ConsoleTeamDetailPage() {
               <div>
                 <p className="text-sm text-gray-500 mb-1">Status</p>
                 <p className="font-medium text-gray-900 capitalize">
-                  {teamData.subscription.billing_waived ? 'Waived' : teamData.subscription.status}
+                  {teamData.subscription.billing_waived
+                    ? (teamData.tier === 'basic' ? 'Free' : 'Waived')
+                    : teamData.subscription.status}
                 </p>
               </div>
               <div>
@@ -473,7 +485,7 @@ export default function ConsoleTeamDetailPage() {
                 <p className="text-sm text-gray-500 mb-1">Monthly Cost</p>
                 <p className="font-medium text-gray-900">
                   {teamData.subscription.billing_waived
-                    ? '$0.00 (waived)'
+                    ? (teamData.tier === 'basic' ? '$0.00 (free)' : '$0.00 (waived)')
                     : formatCurrency(teamData.subscription.monthly_cost_cents)
                   }
                 </p>

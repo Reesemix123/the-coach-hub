@@ -12,14 +12,15 @@ CREATE TABLE IF NOT EXISTS contact_submissions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add index for efficient querying
-CREATE INDEX idx_contact_submissions_status ON contact_submissions(status);
-CREATE INDEX idx_contact_submissions_created ON contact_submissions(created_at DESC);
+-- Add index for efficient querying (use IF NOT EXISTS to prevent errors on re-run)
+CREATE INDEX IF NOT EXISTS idx_contact_submissions_status ON contact_submissions(status);
+CREATE INDEX IF NOT EXISTS idx_contact_submissions_created ON contact_submissions(created_at DESC);
 
 -- Enable RLS
 ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Allow anyone to insert (public form)
+DROP POLICY IF EXISTS "Anyone can submit contact form" ON contact_submissions;
 CREATE POLICY "Anyone can submit contact form"
   ON contact_submissions
   FOR INSERT
@@ -28,6 +29,7 @@ CREATE POLICY "Anyone can submit contact form"
 
 -- Only authenticated users can view (for admin purposes later)
 -- For now, allow all authenticated users - can restrict to admin later
+DROP POLICY IF EXISTS "Authenticated users can view submissions" ON contact_submissions;
 CREATE POLICY "Authenticated users can view submissions"
   ON contact_submissions
   FOR SELECT
@@ -35,6 +37,7 @@ CREATE POLICY "Authenticated users can view submissions"
   USING (true);
 
 -- Only authenticated users can update status
+DROP POLICY IF EXISTS "Authenticated users can update submissions" ON contact_submissions;
 CREATE POLICY "Authenticated users can update submissions"
   ON contact_submissions
   FOR UPDATE
@@ -43,6 +46,7 @@ CREATE POLICY "Authenticated users can update submissions"
   WITH CHECK (true);
 
 -- Add updated_at trigger
+DROP TRIGGER IF EXISTS update_contact_submissions_updated_at ON contact_submissions;
 CREATE TRIGGER update_contact_submissions_updated_at
   BEFORE UPDATE ON contact_submissions
   FOR EACH ROW

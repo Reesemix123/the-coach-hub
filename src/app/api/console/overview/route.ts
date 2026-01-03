@@ -36,7 +36,7 @@ interface OverviewResponse {
     percentage: number;
   };
   billing: {
-    status: 'current' | 'past_due' | 'no_payment_method' | 'trial' | 'waived' | 'none';
+    status: 'current' | 'past_due' | 'no_payment_method' | 'trial' | 'waived' | 'free' | 'none';
     next_billing_date: string | null;
     monthly_total: number;
   };
@@ -214,7 +214,9 @@ export async function GET() {
 
     if (subscriptions && subscriptions.length > 0) {
       // Determine overall billing status
-      const hasWaived = subscriptions.some(s => s.billing_waived || s.status === 'waived');
+      // Distinguish between "free" (basic tier) and "waived" (admin-granted on paid tiers)
+      const hasFreeBasic = subscriptions.some(s => (s.billing_waived || s.status === 'waived') && s.tier === 'basic');
+      const hasAdminWaived = subscriptions.some(s => (s.billing_waived || s.status === 'waived') && s.tier !== 'basic');
       const hasPastDue = subscriptions.some(s => s.status === 'past_due');
       const hasTrialing = subscriptions.some(s => s.status === 'trialing');
       const hasActive = subscriptions.some(s => s.status === 'active');
@@ -223,10 +225,12 @@ export async function GET() {
         billingStatus = 'past_due';
       } else if (hasTrialing) {
         billingStatus = 'trial';
-      } else if (hasWaived) {
+      } else if (hasAdminWaived) {
         billingStatus = 'waived';
       } else if (hasActive) {
         billingStatus = 'current';
+      } else if (hasFreeBasic) {
+        billingStatus = 'free';
       }
 
       // Calculate monthly total (placeholder - would come from tier config)

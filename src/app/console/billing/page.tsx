@@ -144,7 +144,18 @@ export default function ConsoleBillingPage() {
     return names[tier] || tier;
   }
 
-  function getStatusBadge(status: string, waived: boolean) {
+  function getStatusBadge(status: string, waived: boolean, tier: string) {
+    // Show "Free" for basic tier instead of "Waived"
+    if (waived && tier === 'basic') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <CheckCircle className="w-3 h-3" />
+          Free
+        </span>
+      );
+    }
+
+    // Show "Waived" for admin-granted waivers on paid tiers
     if (waived) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -390,7 +401,7 @@ export default function ConsoleBillingPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          {getStatusBadge(team.status, team.billing_waived)}
+                          {getStatusBadge(team.status, team.billing_waived, team.tier)}
                           {team.billing_waived && team.billing_waived_reason && (
                             <p className="text-xs text-gray-500 mt-1">
                               {team.billing_waived_reason}

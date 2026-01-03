@@ -518,22 +518,28 @@ export default function ConsolePage() {
                 </div>
                 <div className="mb-2">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    overview.billing.status === 'current' || overview.billing.status === 'waived'
+                    overview.billing.status === 'current' || overview.billing.status === 'waived' || overview.billing.status === 'free'
                       ? 'bg-green-100 text-green-800'
                       : overview.billing.status === 'past_due'
                       ? 'bg-red-100 text-red-800'
                       : 'bg-gray-100 text-gray-800'
                   }`}>
                     {overview.billing.status === 'current' && 'Current'}
+                    {overview.billing.status === 'free' && 'Free Plan'}
                     {overview.billing.status === 'waived' && 'Waived'}
                     {overview.billing.status === 'past_due' && 'Past Due'}
                     {overview.billing.status === 'none' && 'No Subscription'}
                     {overview.billing.status === 'no_payment_method' && 'No Payment Method'}
                   </span>
                 </div>
-                {overview.billing.next_billing_date && (
+                {overview.billing.next_billing_date && overview.billing.status !== 'free' && (
                   <p className="text-sm text-gray-600">
                     Next billing: {new Date(overview.billing.next_billing_date).toLocaleDateString()}
+                  </p>
+                )}
+                {overview.billing.status === 'free' && (
+                  <p className="text-sm text-gray-600">
+                    You&apos;re on the free Basic plan
                   </p>
                 )}
                 {overview.billing.status === 'waived' && (
