@@ -99,6 +99,90 @@ async function handleCheckoutCompleted(
   const teamId = session.metadata?.team_id;
   const userId = session.metadata?.user_id;
   const isSignupFlow = session.metadata?.signup_flow === 'true';
+  const purchaseType = session.metadata?.purchase_type;
+
+  // Handle token purchase checkout
+  if (purchaseType === 'token' && teamId) {
+    const tokenType = session.metadata?.token_type as 'team' | 'opponent';
+    const quantity = parseInt(session.metadata?.quantity || '0', 10);
+
+    if (!tokenType || quantity < 1) {
+      console.error('Token purchase checkout missing token_type or quantity');
+      return;
+    }
+
+    console.log(`Token purchase completed for team ${teamId}: ${quantity} ${tokenType} tokens`);
+
+    // Credit the purchased tokens
+    const columnToUpdate = tokenType === 'team'
+      ? 'team_purchased_tokens_available'
+      : 'opponent_purchased_tokens_available';
+
+    // Get current balance
+    const { data: currentBalance } = await supabase
+      .from('token_balance')
+      .select('*')
+      .eq('team_id', teamId)
+      .single();
+
+    if (currentBalance) {
+      const currentValue = tokenType === 'team'
+        ? currentBalance.team_purchased_tokens_available || 0
+        : currentBalance.opponent_purchased_tokens_available || 0;
+
+      const currentLegacy = currentBalance.purchased_tokens_available || 0;
+
+      await supabase
+        .from('token_balance')
+        .update({
+          [columnToUpdate]: currentValue + quantity,
+          purchased_tokens_available: currentLegacy + quantity
+        })
+        .eq('team_id', teamId);
+    } else {
+      // Create new token_balance record
+      await supabase
+        .from('token_balance')
+        .insert({
+          team_id: teamId,
+          subscription_tokens_available: 0,
+          subscription_tokens_used_this_period: 0,
+          purchased_tokens_available: quantity,
+          team_subscription_tokens_available: 0,
+          team_subscription_tokens_used_this_period: 0,
+          team_purchased_tokens_available: tokenType === 'team' ? quantity : 0,
+          opponent_subscription_tokens_available: 0,
+          opponent_subscription_tokens_used_this_period: 0,
+          opponent_purchased_tokens_available: tokenType === 'opponent' ? quantity : 0,
+        });
+    }
+
+    // Log the transaction
+    await supabase.from('token_transactions').insert({
+      team_id: teamId,
+      transaction_type: 'purchase',
+      amount: quantity,
+      source: `${tokenType}_purchased`,
+      game_type: tokenType,
+      notes: `Purchased ${quantity} ${tokenType} token${quantity !== 1 ? 's' : ''} via Stripe`
+    });
+
+    // Log audit event
+    await supabase.from('audit_logs').insert({
+      action: 'tokens.purchased_via_stripe',
+      target_type: 'team',
+      target_id: teamId,
+      metadata: {
+        session_id: session.id,
+        token_type: tokenType,
+        quantity,
+        payment_intent: session.payment_intent
+      }
+    });
+
+    console.log(`Credited ${quantity} ${tokenType} tokens to team ${teamId}`);
+    return;
+  }
 
   // Handle signup flow (user pays before creating team)
   if (isSignupFlow && userId) {

@@ -3,6 +3,103 @@ import { NextResponse } from 'next/server'
 import { logAuthEvent, getClientIp, getUserAgent } from '@/lib/services/logging.service'
 
 /**
+ * Processes a team invitation after successful authentication.
+ * Adds the user to the team and marks the invite as accepted.
+ */
+async function processTeamInvite(userId: string, inviteToken: string): Promise<{ success: boolean; teamId?: string }> {
+  try {
+    const serviceClient = createServiceClient();
+
+    // Get the pending invite
+    const { data: invite, error: inviteError } = await serviceClient
+      .from('team_invites')
+      .select('*')
+      .eq('token', inviteToken)
+      .eq('status', 'pending')
+      .single();
+
+    if (inviteError || !invite) {
+      console.log('Invite not found or already used:', inviteToken);
+      return { success: false };
+    }
+
+    // Check if expired
+    if (new Date(invite.expires_at) < new Date()) {
+      await serviceClient
+        .from('team_invites')
+        .update({ status: 'expired' })
+        .eq('id', invite.id);
+      console.log('Invite expired:', inviteToken);
+      return { success: false };
+    }
+
+    // Check if already a member
+    const { data: existingMembership } = await serviceClient
+      .from('team_memberships')
+      .select('id, is_active')
+      .eq('team_id', invite.team_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingMembership?.is_active) {
+      // Already a member, just mark invite as accepted
+      await serviceClient
+        .from('team_invites')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', invite.id);
+      return { success: true, teamId: invite.team_id };
+    }
+
+    // Create or reactivate membership
+    if (existingMembership) {
+      const { error: updateError } = await serviceClient
+        .from('team_memberships')
+        .update({
+          is_active: true,
+          role: invite.role,
+          joined_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingMembership.id);
+
+      if (updateError) {
+        console.error('Failed to reactivate membership:', updateError);
+        return { success: false };
+      }
+    } else {
+      const { error: insertError } = await serviceClient
+        .from('team_memberships')
+        .insert({
+          team_id: invite.team_id,
+          user_id: userId,
+          role: invite.role,
+          invited_by: invite.invited_by,
+          invited_at: invite.invited_at,
+          joined_at: new Date().toISOString(),
+          is_active: true
+        });
+
+      if (insertError) {
+        console.error('Failed to create membership:', insertError);
+        return { success: false };
+      }
+    }
+
+    // Mark invite as accepted
+    await serviceClient
+      .from('team_invites')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', invite.id);
+
+    console.log('Successfully processed invite for user:', userId, 'to team:', invite.team_id);
+    return { success: true, teamId: invite.team_id };
+  } catch (error) {
+    console.error('Error processing team invite:', error);
+    return { success: false };
+  }
+}
+
+/**
  * Ensures a profile exists for the user and updates last_active_at.
  * Also updates user_status for login tracking.
  * This is a fallback in case the database trigger fails.
@@ -161,9 +258,41 @@ export async function GET(request: Request) {
       },
     });
 
-    // If there's an explicit next URL, use it
+    // Check for invite code in user metadata or next URL
+    const inviteCode = user?.user_metadata?.invite_code;
+    let inviteRedirectTeamId: string | undefined;
+
+    if (inviteCode && user?.id) {
+      console.log('Processing invite code:', inviteCode);
+      const inviteResult = await processTeamInvite(user.id, inviteCode);
+      if (inviteResult.success && inviteResult.teamId) {
+        inviteRedirectTeamId = inviteResult.teamId;
+      }
+    }
+
+    // If there's an explicit next URL, check if it contains invite param
     if (next) {
+      // Check if next URL has an invite param
+      const nextUrl = new URL(next, origin);
+      const nextInvite = nextUrl.searchParams.get('invite');
+      if (nextInvite && user?.id && !inviteCode) {
+        const inviteResult = await processTeamInvite(user.id, nextInvite);
+        if (inviteResult.success && inviteResult.teamId) {
+          inviteRedirectTeamId = inviteResult.teamId;
+        }
+      }
+
+      // If invite was processed, redirect to team page instead of next URL
+      if (inviteRedirectTeamId) {
+        return NextResponse.redirect(`${origin}/teams/${inviteRedirectTeamId}?welcome=invited`)
+      }
+
       return NextResponse.redirect(`${origin}${next}`)
+    }
+
+    // If invite was processed, redirect to team page
+    if (inviteRedirectTeamId) {
+      return NextResponse.redirect(`${origin}/teams/${inviteRedirectTeamId}?welcome=invited`)
     }
 
     // Route based on selected tier

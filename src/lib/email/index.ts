@@ -316,6 +316,88 @@ This is an automated notification from Youth Coach Hub.
   return { subject, html, text };
 }
 
+export function getTeamInviteEmail(options: {
+  inviteeEmail: string;
+  teamName: string;
+  inviterName: string;
+  inviteLink: string;
+  role: string;
+}): { subject: string; html: string; text: string } {
+  const { teamName, inviterName, inviteLink, role } = options;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
+
+  const subject = `You've been invited to join ${teamName} on Youth Coach Hub`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Team Invitation</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
+        <h2 style="margin-top: 0; color: #111;">You're Invited!</h2>
+
+        <p><strong>${inviterName}</strong> has invited you to join <strong>${teamName}</strong> as a <strong>${role}</strong> on Youth Coach Hub.</p>
+
+        <p>Youth Coach Hub is a comprehensive platform for football coaches to:</p>
+        <ul style="padding-left: 20px;">
+          <li>Build and organize your digital playbook</li>
+          <li>Upload and analyze game film</li>
+          <li>Track player performance and statistics</li>
+          <li>Collaborate with your coaching staff</li>
+        </ul>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteLink}" style="display: inline-block; background: #000; color: #fff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Accept Invitation</a>
+        </div>
+
+        <p style="color: #666; font-size: 14px;">This invitation will expire in 7 days. Click the button above to create your account and join the team.</p>
+
+        <p style="color: #666; font-size: 14px;">If you're having trouble with the button, copy and paste this link into your browser:</p>
+        <p style="color: #000; font-size: 12px; word-break: break-all; background: #fff; padding: 10px; border-radius: 4px;">${inviteLink}</p>
+
+        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
+
+        <p style="font-size: 12px; color: #666; margin-bottom: 0;">
+          If you didn't expect this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+You're Invited to Youth Coach Hub!
+
+${inviterName} has invited you to join ${teamName} as a ${role} on Youth Coach Hub.
+
+Youth Coach Hub is a comprehensive platform for football coaches to:
+- Build and organize your digital playbook
+- Upload and analyze game film
+- Track player performance and statistics
+- Collaborate with your coaching staff
+
+Accept your invitation: ${inviteLink}
+
+This invitation will expire in 7 days.
+
+If you didn't expect this invitation, you can safely ignore this email.
+
+---
+Youth Coach Hub
+${appUrl}
+  `.trim();
+
+  return { subject, html, text };
+}
+
 export function getUserReactivatedEmail(options: {
   userName: string;
   adminName: string;

@@ -6,7 +6,7 @@ order: 3
 
 ## Overview
 
-Youth Coach Hub allows you to invite other coaches to collaborate on your team. Each team member can have different access levels based on their role, making it easy to delegate film review and analysis tasks.
+Youth Coach Hub allows you to invite other coaches to collaborate on your team. You can invite anyone by email - even if they don't have an account yet. Each team member can have different access levels based on their role, making it easy to delegate film review and analysis tasks.
 
 ## Who Can Invite Coaches?
 
@@ -23,87 +23,85 @@ When inviting a coach, you'll assign them one of these roles:
 
 ## How to Invite a Coach
 
-### Step 1: Open the Console
+### Step 1: Open Team Settings
 
-1. Click on your profile or organization name in the navigation
-2. Select **Console** from the dropdown menu
-3. This opens your organization management dashboard
+1. Navigate to your team dashboard
+2. Click **Settings** in the team navigation
+3. Select the **Members** tab
 
-### Step 2: Navigate to People
+### Step 2: Start the Invitation
 
-1. In the Console navigation, click **People**
-2. You'll see a list of all current team members
-
-### Step 3: Add a New Coach
-
-1. Click the **Add Coach** or **Invite** button
+1. Click the **Invite Coach** button
 2. Enter the coach's email address
-3. Select their role
-4. Click **Send Invitation**
+3. Select their role (Coach or Owner)
+4. Click **Send Invite**
 
-### Step 4: Coach Receives Invitation
+### Step 3: Invitation is Sent
 
-The invited coach will receive an email with:
+The invited coach will receive an email containing:
 
-- An invitation to join your team
-- A link to create their account (if they're new to Youth Coach Hub)
+- Your team name
+- Their assigned role
+- A secure invitation link
 - Instructions to get started
 
 ## What Happens Next?
 
-### For New Users
+### For New Users (No Account)
 
 If the invited coach doesn't have a Youth Coach Hub account:
 
 1. They click the invitation link in their email
-2. They create an account using the signup form
-3. After verifying their email, they're automatically added to your team
+2. They're taken to the signup page
+3. They create an account using the signup form
+4. After verifying their email, they're **automatically added to your team**
+
+The invite link "remembers" them, so they don't need to do anything extra after signing up.
 
 ### For Existing Users
 
 If the invited coach already has an account:
 
-1. They click the invitation link
-2. They log in to their existing account
+1. They click the invitation link in their email
+2. They log in to their existing account (if not already logged in)
 3. Your team is added to their team list
+4. They can immediately access your team
 
-## Managing Team Members
+## Managing Pending Invitations
 
-### View Team Members
+Pending invitations are shown in the Members tab under a separate "Pending Invites" section.
 
-From the Console > People page, you can see:
+### Available Actions
 
-- All current team members
-- Their assigned roles
-- Their status (Active, Pending, or Deactivated)
-- When they joined the team
+| Action | Description |
+|--------|-------------|
+| **Copy Link** | Copy the invite URL to share directly (via text, chat, etc.) |
+| **Resend** | Send another email invitation |
+| **Cancel** | Revoke the invitation (link becomes invalid) |
 
-### Resend an Invitation
+### Sharing the Link Directly
 
-If a coach didn't receive their invitation:
+If email isn't working well, you can:
 
-1. Find them in the People list (they'll show as "Pending")
-2. Click the **More** menu (three dots)
-3. Select **Resend Invitation**
+1. Click **Copy Link** on the pending invite
+2. Share the link directly via text message, Slack, etc.
+3. The coach clicks the link and follows the same flow
 
-### Change a Coach's Role
+### Invitation Expiration
 
-To update a team member's permissions:
+Invitations expire after **7 days**. If an invitation expires:
 
-1. Find them in the People list
-2. Click the **More** menu
-3. Select **Change Role**
-4. Choose the new role
+1. The pending invite will still show in your list
+2. Click **Resend** to send a fresh invitation
+3. A new 7-day expiration period begins
 
-### Remove a Coach
+## After a Coach Joins
 
-If you need to remove someone from your team:
+Once a coach accepts their invitation:
 
-1. Find them in the People list
-2. Click the **More** menu
-3. Select **Deactivate**
-
-Deactivated members can no longer access the team but their tagging contributions are preserved.
+- They appear in your Members list as "Active"
+- They can immediately access all team features based on their role
+- Their contributions (tagged plays, etc.) are tracked
 
 ## Best Practices
 
@@ -136,22 +134,39 @@ If a coach says they didn't receive the invitation:
 
 1. Check that you entered the correct email address
 2. Ask them to check their spam/junk folder
-3. Resend the invitation from the Console
+3. Use **Resend** to send another email
+4. Or use **Copy Link** to share directly
 
 ### Coach Can't Access the Team
 
 If a coach created an account but can't see the team:
 
-1. Verify their status is "Active" in the People list
+1. Verify their status is "Active" in the Members tab
 2. Make sure they're logged in with the correct email
 3. Have them refresh their browser or log out and back in
+
+### Wrong Email Invited
+
+If you invited the wrong email:
+
+1. Find the pending invitation
+2. Click **Cancel** to revoke it
+3. Send a new invitation to the correct email
 
 ### Reached Coach Limit
 
 Some plans have limits on the number of coaches:
 
-- Check your plan's coach limit in Console > Billing
-- Upgrade to a higher tier for more coach seats
+| Plan | Coach Limit |
+|------|-------------|
+| Basic | 3 coaches |
+| Plus | 10 coaches |
+| Premium | Unlimited |
+
+If you've reached your limit:
+
+- Upgrade your plan for more coach seats (Team Settings > Subscription)
+- Remove inactive coaches to free up space
 
 ## Next Steps
 
@@ -159,4 +174,4 @@ Once your coaches are set up:
 
 - [Upload game film](/guide/film/uploading-film) for your team to review
 - [Learn about tagging plays](/guide/film/tagging-plays) so everyone uses consistent methods
-- Review analytics together to improve your game planning
+- [Review team settings](/guide/teams/team-settings) to understand all management options

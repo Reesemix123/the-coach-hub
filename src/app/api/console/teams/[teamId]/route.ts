@@ -61,21 +61,38 @@ export async function GET(
     );
   }
 
-  // Get user's profile with organization
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, organization_id')
-    .eq('id', user.id)
-    .single();
+  // Fetch profile, team, tier configs, subscription, and token balance in parallel
+  const [
+    profileResult,
+    teamResult,
+    tierConfigs,
+    subscriptionResult,
+    tokenBalanceResult,
+    gamesResult,
+    playsResult,
+    playersResult,
+    membersResult,
+    recentGamesResult
+  ] = await Promise.all([
+    supabase.from('profiles').select('id, organization_id').eq('id', user.id).single(),
+    supabase.from('teams').select('id, name, level, created_at, user_id, organization_id').eq('id', teamId).single(),
+    getTierConfigs(),
+    supabase.from('subscriptions').select('*').eq('team_id', teamId).single(),
+    supabase.from('token_balance').select('subscription_tokens_available, subscription_tokens_used_this_period, purchased_tokens_available').eq('team_id', teamId).single(),
+    supabase.from('games').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
+    supabase.from('play_instances').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
+    supabase.from('players').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
+    supabase.from('team_memberships').select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('is_active', true),
+    supabase.from('games').select('id, name, opponent, date, created_at').eq('team_id', teamId).order('created_at', { ascending: false }).limit(5)
+  ]);
 
-  // Get the team and verify access
-  const { data: team, error: teamError } = await supabase
-    .from('teams')
-    .select('id, name, level, created_at, user_id, organization_id')
-    .eq('id', teamId)
-    .single();
+  const profile = profileResult.data;
+  const team = teamResult.data;
+  const subscription = subscriptionResult.data;
+  const tokenBalance = tokenBalanceResult.data;
+  const recentGames = recentGamesResult.data;
 
-  if (teamError || !team) {
+  if (teamResult.error || !team) {
     return NextResponse.json(
       { error: 'Team not found' },
       { status: 404 }
@@ -94,16 +111,6 @@ export async function GET(
     );
   }
 
-  // Get tier configs for pricing and limits
-  const tierConfigs = await getTierConfigs();
-
-  // Get subscription for this team
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('team_id', teamId)
-    .single();
-
   const tier = subscription?.tier || 'plus';
   const tierConfig = tierConfigs?.[tier];
 
@@ -115,13 +122,6 @@ export async function GET(
     trialDaysRemaining = Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   }
 
-  // Get token balance
-  const { data: tokenBalance } = await supabase
-    .from('token_balance')
-    .select('subscription_tokens_available, subscription_tokens_used_this_period, purchased_tokens_available')
-    .eq('team_id', teamId)
-    .single();
-
   // Tier token allocation
   const tierTokens: Record<string, number> = {
     'basic': 2,
@@ -129,36 +129,18 @@ export async function GET(
     'premium': 8,
   };
 
-  // Get usage counts
-  const [gamesResult, playsResult, playersResult, membersResult] = await Promise.all([
-    supabase.from('games').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
-    supabase.from('play_instances').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
-    supabase.from('players').select('id', { count: 'exact', head: true }).eq('team_id', teamId),
-    supabase.from('team_memberships').select('id', { count: 'exact', head: true }).eq('team_id', teamId).eq('is_active', true)
-  ]);
-
-  // Get recent games with play counts
-  const { data: recentGames } = await supabase
-    .from('games')
-    .select('id, name, opponent, date, created_at')
-    .eq('team_id', teamId)
-    .order('created_at', { ascending: false })
-    .limit(5);
-
-  // Get play counts for each game
-  const gamesWithPlays = await Promise.all(
-    (recentGames || []).map(async (game) => {
-      const { count } = await supabase
-        .from('play_instances')
-        .select('id', { count: 'exact', head: true })
-        .eq('video_id', game.id);
-
-      return {
-        ...game,
-        plays_count: count || 0
-      };
-    })
-  );
+  // Get play counts for recent games (still need individual queries but now in parallel)
+  const gamesWithPlays = recentGames && recentGames.length > 0
+    ? await Promise.all(
+        recentGames.map(async (game) => {
+          const { count } = await supabase
+            .from('play_instances')
+            .select('id', { count: 'exact', head: true })
+            .eq('video_id', game.id);
+          return { ...game, plays_count: count || 0 };
+        })
+      )
+    : [];
 
   // Calculate monthly cost
   let monthlyCostCents = 0;

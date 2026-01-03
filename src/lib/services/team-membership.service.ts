@@ -38,6 +38,20 @@ export interface InviteCoachResult {
   owner_name?: string;
   buttonText?: string | null;
   buttonUrl?: string | null;
+  inviteLink?: string;
+  inviteToken?: string;
+}
+
+export interface PendingInvite {
+  id: string;
+  team_id: string;
+  email: string;
+  role: string;
+  token: string;
+  invited_by: string;
+  invited_at: string;
+  expires_at: string;
+  status: 'pending' | 'accepted' | 'expired' | 'cancelled';
 }
 
 export class TeamMembershipService {
@@ -239,25 +253,20 @@ export class TeamMembershipService {
       };
     }
 
-    // Look up user by email
-    // Note: This requires a custom function or admin API
-    // For now, we'll implement a simple email storage approach
-    // In production, you'd send an email with an invite link
-
-    // Check if user with this email already exists
-    const { data: existingUser } = await this.supabase
-      .from('auth.users')
+    // Check if user with this email already exists via profiles table
+    const { data: existingProfile } = await this.supabase
+      .from('profiles')
       .select('id')
       .eq('email', email)
-      .single();
+      .maybeSingle();
 
-    if (existingUser) {
+    if (existingProfile) {
       // Check if already a member
       const { data: existingMembership } = await this.supabase
         .from('team_memberships')
         .select('id, is_active')
         .eq('team_id', teamId)
-        .eq('user_id', existingUser.id)
+        .eq('user_id', existingProfile.id)
         .maybeSingle();
 
       if (existingMembership?.is_active) {
@@ -289,12 +298,12 @@ export class TeamMembershipService {
         };
       }
 
-      // Create new membership
+      // Create new membership for existing user
       const { error: insertError } = await this.supabase
         .from('team_memberships')
         .insert({
           team_id: teamId,
-          user_id: existingUser.id,
+          user_id: existingProfile.id,
           role,
           invited_by: user.id,
           invited_at: new Date().toISOString(),
@@ -306,16 +315,60 @@ export class TeamMembershipService {
 
       return {
         success: true,
-        message: 'Coach invited successfully'
+        message: 'Coach added to team successfully'
       };
     }
 
-    // User doesn't exist yet - store pending invite
-    // This would be implemented with an invites table
-    // For MVP, we'll return a message that they need to sign up first
+    // User doesn't exist yet - check for existing pending invite
+    const { data: existingInvite } = await this.supabase
+      .from('team_invites')
+      .select('id, token, expires_at')
+      .eq('team_id', teamId)
+      .eq('email', email)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingInvite) {
+      // Check if expired
+      if (new Date(existingInvite.expires_at) < new Date()) {
+        // Update to expired and create new one
+        await this.supabase
+          .from('team_invites')
+          .update({ status: 'expired' })
+          .eq('id', existingInvite.id);
+      } else {
+        // Return existing invite link
+        const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/signup?invite=${existingInvite.token}`;
+        return {
+          success: true,
+          message: `Invitation already sent to ${email}. Share this link with them to join.`,
+          inviteLink,
+          inviteToken: existingInvite.token
+        };
+      }
+    }
+
+    // Create new pending invite
+    const { data: newInvite, error: inviteError } = await this.supabase
+      .from('team_invites')
+      .insert({
+        team_id: teamId,
+        email,
+        role,
+        invited_by: user.id,
+      })
+      .select('token')
+      .single();
+
+    if (inviteError) throw new Error(`Failed to create invitation: ${inviteError.message}`);
+
+    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/signup?invite=${newInvite.token}`;
+
     return {
-      success: false,
-      message: 'User must create an account first. Send them the invite link to sign up.'
+      success: true,
+      message: `Invitation created! Share this link with ${email} to join your team.`,
+      inviteLink,
+      inviteToken: newInvite.token
     };
   }
 
@@ -498,5 +551,232 @@ export class TeamMembershipService {
     // Role hierarchy: owner > coach
     const roleHierarchy = { owner: 2, coach: 1 };
     return roleHierarchy[userRole] >= roleHierarchy[minRole];
+  }
+
+  /**
+   * Get pending invites for a team
+   */
+  async getPendingInvites(teamId: string): Promise<PendingInvite[]> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const hasAccess = await this.verifyTeamAccess(teamId, user.id);
+    if (!hasAccess) throw new Error('Access denied to team');
+
+    const { data: invites, error } = await this.supabase
+      .from('team_invites')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('status', 'pending')
+      .order('invited_at', { ascending: false });
+
+    if (error) throw new Error(`Failed to fetch pending invites: ${error.message}`);
+
+    return invites || [];
+  }
+
+  /**
+   * Cancel a pending invite
+   */
+  async cancelInvite(inviteId: string): Promise<void> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Get the invite to verify ownership
+    const { data: invite } = await this.supabase
+      .from('team_invites')
+      .select('team_id')
+      .eq('id', inviteId)
+      .single();
+
+    if (!invite) throw new Error('Invite not found');
+
+    // Check if user is owner of the team
+    const { data: team } = await this.supabase
+      .from('teams')
+      .select('user_id')
+      .eq('id', invite.team_id)
+      .single();
+
+    const isTeamOwner = team?.user_id === user.id;
+    if (!isTeamOwner) {
+      const { data: membership } = await this.supabase
+        .from('team_memberships')
+        .select('role')
+        .eq('team_id', invite.team_id)
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .single();
+
+      if (membership?.role !== 'owner') {
+        throw new Error('Only owners can cancel invites');
+      }
+    }
+
+    const { error } = await this.supabase
+      .from('team_invites')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', inviteId);
+
+    if (error) throw new Error(`Failed to cancel invite: ${error.message}`);
+  }
+
+  /**
+   * Get invite details by token (for signup flow)
+   */
+  async getInviteByToken(token: string): Promise<{ invite: PendingInvite; teamName: string } | null> {
+    const { data: invite, error } = await this.supabase
+      .from('team_invites')
+      .select('*, teams(name)')
+      .eq('token', token)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (error || !invite) return null;
+
+    // Check if expired
+    if (new Date(invite.expires_at) < new Date()) {
+      return null;
+    }
+
+    return {
+      invite: {
+        id: invite.id,
+        team_id: invite.team_id,
+        email: invite.email,
+        role: invite.role,
+        token: invite.token,
+        invited_by: invite.invited_by,
+        invited_at: invite.invited_at,
+        expires_at: invite.expires_at,
+        status: invite.status
+      },
+      teamName: invite.teams?.name || 'Unknown Team'
+    };
+  }
+
+  /**
+   * Accept an invite after user signs up
+   * Called when a new user completes signup with an invite token
+   */
+  async acceptInvite(token: string, userId: string): Promise<{ success: boolean; teamId?: string; message: string }> {
+    // Get the invite
+    const { data: invite, error: inviteError } = await this.supabase
+      .from('team_invites')
+      .select('*')
+      .eq('token', token)
+      .eq('status', 'pending')
+      .single();
+
+    if (inviteError || !invite) {
+      return { success: false, message: 'Invalid or expired invitation' };
+    }
+
+    // Check if expired
+    if (new Date(invite.expires_at) < new Date()) {
+      await this.supabase
+        .from('team_invites')
+        .update({ status: 'expired' })
+        .eq('id', invite.id);
+      return { success: false, message: 'This invitation has expired' };
+    }
+
+    // Check if user is already a member
+    const { data: existingMembership } = await this.supabase
+      .from('team_memberships')
+      .select('id, is_active')
+      .eq('team_id', invite.team_id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existingMembership?.is_active) {
+      // Mark invite as accepted anyway
+      await this.supabase
+        .from('team_invites')
+        .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+        .eq('id', invite.id);
+      return { success: true, teamId: invite.team_id, message: 'You are already a member of this team' };
+    }
+
+    // Create or reactivate membership
+    if (existingMembership) {
+      const { error: updateError } = await this.supabase
+        .from('team_memberships')
+        .update({
+          is_active: true,
+          role: invite.role,
+          joined_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingMembership.id);
+
+      if (updateError) {
+        return { success: false, message: 'Failed to join team' };
+      }
+    } else {
+      const { error: insertError } = await this.supabase
+        .from('team_memberships')
+        .insert({
+          team_id: invite.team_id,
+          user_id: userId,
+          role: invite.role,
+          invited_by: invite.invited_by,
+          invited_at: invite.invited_at,
+          joined_at: new Date().toISOString(),
+          is_active: true
+        });
+
+      if (insertError) {
+        return { success: false, message: 'Failed to join team' };
+      }
+    }
+
+    // Mark invite as accepted
+    await this.supabase
+      .from('team_invites')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', invite.id);
+
+    return { success: true, teamId: invite.team_id, message: 'Successfully joined team!' };
+  }
+
+  /**
+   * Resend an invite (regenerate token and extend expiry)
+   */
+  async resendInvite(inviteId: string): Promise<{ inviteLink: string; token: string }> {
+    const { data: { user } } = await this.supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    // Get the invite
+    const { data: invite, error: getError } = await this.supabase
+      .from('team_invites')
+      .select('team_id, email')
+      .eq('id', inviteId)
+      .single();
+
+    if (getError || !invite) throw new Error('Invite not found');
+
+    // Verify access
+    const hasAccess = await this.verifyTeamAccess(invite.team_id, user.id);
+    if (!hasAccess) throw new Error('Access denied');
+
+    // Generate new token and extend expiry
+    const newToken = crypto.randomUUID();
+    const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { error: updateError } = await this.supabase
+      .from('team_invites')
+      .update({
+        token: newToken,
+        expires_at: newExpiry,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', inviteId);
+
+    if (updateError) throw new Error(`Failed to resend invite: ${updateError.message}`);
+
+    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/signup?invite=${newToken}`;
+
+    return { inviteLink, token: newToken };
   }
 }

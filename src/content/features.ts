@@ -48,15 +48,21 @@ export const APP_FEATURES: FeatureCategory[] = [
       },
       {
         name: 'Coaching Staff',
-        description: 'Invite and manage assistant coaches with appropriate permissions',
+        description: 'Invite coaches via email (even without an existing account) and manage their roles',
         guidePath: '/guide/getting-started/inviting-coaches',
-        navigationPath: 'Team Settings > Manage Coaches',
+        navigationPath: 'Team Settings > Members > Invite Coach',
       },
       {
         name: 'Team Settings',
-        description: 'Configure notifications, display preferences, and team details',
+        description: 'Configure team details, manage subscription, track usage, and invite coaches - all from one place',
         guidePath: '/guide/teams/team-settings',
         navigationPath: 'Team > Settings',
+        subFeatures: [
+          'Team tab: name, level, and team colors',
+          'Subscription tab: view plan, change tier, manage billing via Stripe',
+          'Usage tab: token balance with team/opponent breakdown, purchase additional tokens',
+          'Members tab: invite coaches, manage roles, view and manage pending invites',
+        ],
       },
       {
         name: 'Game Management',
@@ -272,9 +278,14 @@ export const APP_FEATURES: FeatureCategory[] = [
       },
       {
         name: 'Team Invites',
-        description: 'Invite coaches via email and manage their roles',
+        description: 'Invite coaches via email (sends signup link for new users) and manage pending invitations',
         guidePath: '/guide/roles-permissions/managing-team-members',
-        navigationPath: 'Team Settings > Manage Coaches > Invite',
+        navigationPath: 'Team Settings > Members > Invite Coach',
+        subFeatures: [
+          'Email invitations for coaches without accounts',
+          'Pending invites section with copy link, resend, and cancel options',
+          'Automatic team join after signup via invite link',
+        ],
       },
     ],
   },
@@ -301,9 +312,15 @@ export const APP_FEATURES: FeatureCategory[] = [
       },
       {
         name: 'Upgrade & Billing',
-        description: 'Manage your subscription and billing information',
+        description: 'Change your plan, manage payment methods, and view billing from Team Settings',
         guidePath: '/guide/subscriptions/upgrading',
-        navigationPath: 'Team Settings > Subscription',
+        navigationPath: 'Team Settings > Subscription > Change Plan',
+      },
+      {
+        name: 'Purchase Tokens',
+        description: 'Buy additional film upload tokens ($12 each) that never expire',
+        guidePath: '/guide/subscriptions/billing',
+        navigationPath: 'Team Settings > Usage > Purchase',
       },
     ],
   },
@@ -318,12 +335,16 @@ export const COMMON_TASKS = [
   { task: 'Create a play', path: 'Playbook > New Play' },
   { task: 'Upload film', path: 'Film > Select Game > Upload Video' },
   { task: 'Tag plays', path: 'While watching film, click "Tag Play"' },
-  { task: 'Invite coaches', path: 'Team Settings > Manage Coaches' },
+  { task: 'Invite coaches', path: 'Team Settings > Members > Invite Coach' },
   { task: 'View analytics', path: 'Analytics > Reports' },
   { task: 'Scout opponent', path: 'Analytics > Reports > Scouting > Opponent Scouting' },
   { task: 'Print wristbands', path: 'Playbook > Print' },
   { task: 'Create game plan', path: 'Game Week > New Game Plan' },
   { task: 'Delete a game', path: 'Team > Schedule > Click Game > Delete (token refunded if no plays tagged)' },
+  { task: 'Change plan', path: 'Team Settings > Subscription > Change Plan' },
+  { task: 'View token balance', path: 'Team Settings > Usage' },
+  { task: 'Purchase tokens', path: 'Team Settings > Usage > Purchase' },
+  { task: 'Manage billing', path: 'Team Settings > Subscription > Manage Payment Method' },
 ];
 
 /**

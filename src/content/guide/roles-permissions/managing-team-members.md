@@ -6,44 +6,44 @@ order: 3
 
 ## Overview
 
-As a team owner, you can invite coaches and staff to collaborate on your team. This guide covers the complete workflow for managing team members—from invitation to removal.
+As a team owner, you can invite coaches and staff to collaborate on your team. This guide covers the complete workflow for managing team members - from invitation to removal.
 
 ## Accessing Member Management
 
-### Navigate to the Console
+### Navigate to Team Settings
 
-1. Click your profile icon in the navigation
-2. Select **Console**
-3. Click **People** in the Console navigation
+1. Go to your team dashboard
+2. Click **Settings** in the team navigation
+3. Select the **Members** tab
 
-### People Dashboard
+### Members Dashboard
 
-The People page shows:
+The Members tab shows:
 
 - All current team members
 - Their assigned roles
-- Status (Active, Pending, Deactivated)
-- Join date
+- Status (Active or the date they joined)
+- Pending invitations in a separate section
 
 ## Inviting New Members
 
 ### Step 1: Start the Invitation
 
-1. Go to **Console > People**
-2. Click **Add Coach** or **Invite**
+1. Go to **Team Settings > Members**
+2. Click **Invite Coach**
 
 ### Step 2: Enter Details
 
 1. Enter the person's email address
 2. Select their role:
    - **Owner** - Full team control and billing access
-   - **Coach** - Full coaching access
+   - **Coach** - Full coaching access (plays, film, roster, analytics)
 
 ### Step 3: Send the Invitation
 
 1. Review the details
-2. Click **Send Invitation**
-3. The invitee receives an email
+2. Click **Send Invite**
+3. An email is sent to the invitee
 
 ### What the Invitee Receives
 
@@ -51,46 +51,43 @@ The invitation email includes:
 
 - Your team name
 - Their assigned role
-- A link to accept the invitation
+- A secure link to accept the invitation
 - Instructions for next steps
 
-## Invitation Status
+### Inviting Users Without Accounts
 
-### Pending Invitations
+You can invite anyone - they don't need an existing account:
 
-Invitations that haven't been accepted show as "Pending":
-
-- The email was sent
-- The person hasn't clicked the link yet
-- The invitation is still valid
-
-### Accepted Invitations
-
-Once accepted, the member shows as "Active":
-
-- They can access the team
-- Their role permissions are in effect
-- They appear in the team member list
+1. Enter their email and send the invite
+2. They receive an email with a signup link
+3. After creating their account, they're automatically added to your team
+4. No extra steps required on their part
 
 ## Managing Pending Invitations
 
-### Resending an Invitation
+Pending invitations appear in a separate section below your active members.
 
-If someone didn't receive or can't find the email:
+### Available Actions
 
-1. Find them in the People list (status: Pending)
-2. Click the **More** menu (three dots)
-3. Select **Resend Invitation**
-4. A new email is sent
+| Action | What It Does |
+|--------|--------------|
+| **Copy Link** | Copy the invite URL to share directly |
+| **Resend** | Send another email with the invitation |
+| **Cancel** | Revoke the invitation (link becomes invalid) |
 
-### Canceling an Invitation
+### Using Copy Link
 
-To revoke an invitation before it's accepted:
+If the email isn't getting through:
 
-1. Find the pending invitation
-2. Click the **More** menu
-3. Select **Cancel Invitation**
-4. The link becomes invalid
+1. Click **Copy Link** on the pending invite
+2. Share the link via text, Slack, or other messaging
+3. The coach can use the link just like clicking from email
+
+### Invitation Expiration
+
+- Invitations expire after **7 days**
+- Use **Resend** to send a fresh invitation
+- Canceled invitations cannot be reactivated (send a new one)
 
 ## Changing Member Roles
 
@@ -104,11 +101,10 @@ You might change a role when:
 
 ### How to Change a Role
 
-1. Find the member in the People list
-2. Click the **More** menu
-3. Select **Change Role**
-4. Choose the new role
-5. Confirm the change
+1. Find the member in the Members list
+2. Click the dropdown next to their current role
+3. Select the new role
+4. Changes take effect immediately
 
 ### Role Changes Are Immediate
 
@@ -129,40 +125,16 @@ Remove members when:
 
 ### How to Remove a Member
 
-1. Find the member in the People list
-2. Click the **More** menu
-3. Select **Deactivate** or **Remove**
-4. Confirm the action
+1. Find the member in the Members list
+2. Click **Remove**
+3. Confirm the removal
 
 ### What Happens When Removed
 
-- Immediate loss of access
-- Cannot see team content
+- **Immediate** loss of access
+- Cannot see team content anymore
 - Their contributions remain (tagged plays, etc.)
 - They can be re-invited later if needed
-
-### Deactivated vs. Deleted
-
-- **Deactivated** - No access, but record preserved
-- **Deleted** - Permanently removed (if available)
-
-## Viewing Member Activity
-
-### Team Contributions
-
-See what each member has contributed:
-
-- Plays they created
-- Film they tagged
-- Games they uploaded
-
-### Tagged By Attribution
-
-When viewing tagged plays:
-
-- See who tagged each play
-- Filter plays by tagger
-- Useful for quality control
 
 ## Best Practices
 
@@ -182,7 +154,7 @@ When viewing tagged plays:
 
 When inviting new members:
 
-- Tell them to expect an email
+- Tell them to expect an email (or share the link directly)
 - Explain their role and expectations
 - Point them to relevant documentation
 
@@ -196,15 +168,15 @@ When inviting new members:
 
 ### Coach Left Mid-Season
 
-1. Deactivate their access immediately
+1. Remove their access immediately
 2. Their tagging work is preserved
-3. Reassign their responsibilities
+3. Reassign their responsibilities to other coaches
 
 ### New Assistant Coach Starting
 
 1. Invite as Coach role
 2. Provide onboarding information
-3. Introduce to existing workflows
+3. Introduce them to existing workflows
 
 ### Volunteer Helping with Film
 
@@ -218,33 +190,34 @@ When inviting new members:
 
 1. Check spam/junk folder
 2. Verify email address is correct
-3. Resend the invitation
-4. Try a different email address
+3. Use **Resend** to send another email
+4. Use **Copy Link** to share directly
 
 ### Can't Access After Accepting
 
-1. Verify their status is "Active"
+1. Verify their status is "Active" in Members
 2. Make sure they're logging in with the invited email
 3. Have them try logging out and back in
 4. Check if the correct team is selected
 
 ### Wrong Role Assigned
 
-1. Go to Console > People
-2. Change their role
-3. Changes take effect immediately
+1. Go to Team Settings > Members
+2. Click the role dropdown
+3. Select the correct role
+4. Changes take effect immediately
 
 ### Need to Re-Invite Someone
 
-1. If they were deactivated, you may need to send a new invitation
+If someone was removed and needs access again:
+
+1. Send a new invitation
 2. Use the same or different email
 3. They'll go through the acceptance flow again
 
 ## Limits and Restrictions
 
 ### Coach Limits by Plan
-
-Some plans limit the number of team members:
 
 | Plan | Coach Limit |
 |------|-------------|
@@ -256,12 +229,11 @@ Some plans limit the number of team members:
 
 If you've reached your plan's limit:
 
-- Upgrade your plan for more seats
+- Upgrade your plan for more seats (Team Settings > Subscription)
 - Remove inactive members to free up space
-- Contact support for options
 
 ## Next Steps
 
 - [Understand subscription plans](/guide/subscriptions/tier-comparison)
-- [Set up team workflows](/guide/getting-started/inviting-coaches)
+- [Learn about inviting coaches](/guide/getting-started/inviting-coaches)
 - [Review role permissions](/guide/roles-permissions/owner-head-coach)

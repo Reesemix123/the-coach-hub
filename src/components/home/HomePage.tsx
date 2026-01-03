@@ -3,9 +3,18 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
-import { Gift } from 'lucide-react';
+import { Gift, Users, Shield, ChevronRight } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useGlobalOnboardingSafe } from '@/components/onboarding';
+import type { SubscriptionTier } from '@/types/admin';
+
+interface UserTeam {
+  id: string;
+  name: string;
+  tier: SubscriptionTier;
+  tier_display_name: string;
+  role: 'owner' | 'coach';
+}
 
 // Component that uses searchParams - must be wrapped in Suspense
 function HomeContent() {
@@ -13,6 +22,8 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const onboarding = useGlobalOnboardingSafe();
   const [loading, setLoading] = useState(true);
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [trialsEnabled, setTrialsEnabled] = useState(false);
   const [showTrialModal, setShowTrialModal] = useState(false);
   const [trialSubmitting, setTrialSubmitting] = useState(false);
@@ -109,29 +120,84 @@ function HomeContent() {
         return;
       }
 
+      // Fetch all owned teams with subscription info
       const { data: ownedTeams } = await supabase
         .from('teams')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
+        .select(`
+          id,
+          name,
+          subscriptions(tier)
+        `)
+        .eq('user_id', user.id);
 
-      if (ownedTeams && ownedTeams.length > 0) {
-        router.push(`/teams/${ownedTeams[0].id}`);
-        return;
-      }
-
+      // Fetch all teams where user is a member
       const { data: memberTeams } = await supabase
         .from('team_memberships')
-        .select('team_id')
-        .eq('user_id', user.id)
-        .limit(1);
+        .select(`
+          team:teams(
+            id,
+            name,
+            subscriptions(tier)
+          )
+        `)
+        .eq('user_id', user.id);
 
-      if (memberTeams && memberTeams.length > 0) {
-        router.push(`/teams/${memberTeams[0].team_id}`);
+      // Build combined list of user's teams
+      const allTeams: UserTeam[] = [];
+
+      // Add owned teams
+      if (ownedTeams) {
+        for (const team of ownedTeams) {
+          const subscription = team.subscriptions as { tier: SubscriptionTier }[] | null;
+          const tier = subscription?.[0]?.tier || 'basic';
+          allTeams.push({
+            id: team.id,
+            name: team.name,
+            tier,
+            tier_display_name: tier === 'basic' ? 'Basic' : tier === 'plus' ? 'Plus' : 'Premium',
+            role: 'owner',
+          });
+        }
+      }
+
+      // Add member teams (avoiding duplicates if somehow both owner and member)
+      if (memberTeams) {
+        for (const membership of memberTeams) {
+          // Team might be an array or single object depending on Supabase version
+          const teamData = membership.team;
+          const team = Array.isArray(teamData) ? teamData[0] : teamData;
+          if (team && !allTeams.find(t => t.id === team.id)) {
+            const subscriptions = team.subscriptions as { tier: SubscriptionTier }[] | null;
+            const tier = subscriptions?.[0]?.tier || 'basic';
+            allTeams.push({
+              id: team.id,
+              name: team.name,
+              tier,
+              tier_display_name: tier === 'basic' ? 'Basic' : tier === 'plus' ? 'Plus' : 'Premium',
+              role: 'coach',
+            });
+          }
+        }
+      }
+
+      // Decision tree:
+      // 0 teams → setup
+      // 1 team → redirect directly
+      // 2+ teams → show team selector
+      if (allTeams.length === 0) {
+        router.push('/setup');
         return;
       }
 
-      router.push('/setup');
+      if (allTeams.length === 1) {
+        router.push(`/teams/${allTeams[0].id}`);
+        return;
+      }
+
+      // Multiple teams - show selector
+      setUserTeams(allTeams);
+      setShowTeamSelector(true);
+      setLoading(false);
     } catch (error) {
       console.error('Error checking teams:', error);
       setLoading(false);
@@ -142,6 +208,81 @@ function HomeContent() {
     return (
       <main className="bg-[#1a1410] min-h-screen flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
+      </main>
+    );
+  }
+
+  // Team selector for users with multiple teams
+  if (showTeamSelector && userTeams.length > 0) {
+    const getTierBadgeStyle = (tier: SubscriptionTier) => {
+      switch (tier) {
+        case 'premium':
+          return 'bg-purple-100 text-purple-800 border-purple-200';
+        case 'plus':
+          return 'bg-amber-100 text-amber-800 border-amber-200';
+        default:
+          return 'bg-gray-100 text-gray-700 border-gray-200';
+      }
+    };
+
+    return (
+      <main className="min-h-screen bg-gray-50 -mt-24 pt-24">
+        <div className="max-w-2xl mx-auto px-4 py-12">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Select a Team</h1>
+            <p className="text-gray-600">Choose which team you want to work with</p>
+          </div>
+
+          <div className="space-y-4">
+            {userTeams.map((team) => (
+              <button
+                key={team.id}
+                onClick={() => router.push(`/teams/${team.id}`)}
+                className="w-full p-5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-md transition-all text-left group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center text-xl font-semibold">
+                      {team.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-lg font-semibold text-gray-900">{team.name}</h2>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getTierBadgeStyle(team.tier)}`}>
+                          {team.tier_display_name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        {team.role === 'owner' ? (
+                          <>
+                            <Shield className="h-4 w-4" />
+                            <span>Owner</span>
+                          </>
+                        ) : (
+                          <>
+                            <Users className="h-4 w-4" />
+                            <span>Coach</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/setup"
+              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span>Create a new team</span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -196,8 +337,8 @@ function HomeContent() {
             </p>
 
             <div className="fade-in fade-in-delay-2 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth/signup" className="h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
-                Start Free Trial
+              <Link href="/pricing" className="h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
+                Get Started Today
               </Link>
               <button
                 onClick={() => onboarding?.startDemoTour()}
@@ -465,10 +606,9 @@ function HomeContent() {
           <p className="text-lg mb-8 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>
             Join coaches who are leveling up their game—without breaking their budget.
           </p>
-          <Link href="/auth/signup" className="inline-flex items-center justify-center h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.14)' }}>
-            Start Your Free Trial
+          <Link href="/pricing" className="inline-flex items-center justify-center h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.14)' }}>
+            Get Started Today
           </Link>
-          <p className="mt-4 text-sm font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>No credit card required</p>
         </div>
       </section>
 

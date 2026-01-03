@@ -6,23 +6,22 @@ order: 3
 
 ## Overview
 
-All billing and payment management happens in the Console. As the team owner, you have access to payment methods, invoices, and subscription details.
+All billing and payment management is available in Team Settings. As the team owner, you have access to payment methods, invoices, and subscription details.
 
 ## Accessing Billing
 
-1. Click your profile icon in the navigation
-2. Select **Console**
-3. Click **Billing** in the Console navigation
+1. Go to your team dashboard
+2. Click **Settings** in the navigation
+3. Select the **Subscription** tab
 
 ## Billing Dashboard
 
-The billing page shows:
+The Subscription tab shows:
 
-- **Current Plan** - Your active subscription
-- **Billing Cycle** - Monthly or annual
-- **Next Payment** - Date and amount
-- **Payment Method** - Card on file
-- **Usage** - Tokens and credits used
+- **Current Plan** - Your active subscription tier
+- **Status** - Active, Trial, or Past Due
+- **Renewal Date** - Next billing date
+- **Plan Limits** - Uploads, cameras, retention
 
 ## Payment Methods
 
@@ -30,7 +29,7 @@ Payment methods are securely managed through Stripe, our payment processor. We n
 
 ### Managing Your Payment Method
 
-1. Go to **Console > Billing**
+1. Go to **Team Settings > Subscription**
 2. Click **Manage Payment Method**
 3. You'll be redirected to Stripe's secure billing portal
 4. Add, update, or remove payment methods there
@@ -44,11 +43,31 @@ Payment methods are securely managed through Stripe, our payment processor. We n
 
 When your card expires or changes:
 
-1. Go to **Console > Billing**
+1. Go to **Team Settings > Subscription**
 2. Click **Manage Payment Method**
 3. In the Stripe portal, add your new card and set it as default
 
 > **Note:** You must have at least one valid payment method for active subscriptions.
+
+## Purchasing Additional Tokens
+
+Need more film uploads? You can purchase additional tokens that never expire.
+
+### How to Purchase Tokens
+
+1. Go to **Team Settings > Usage**
+2. Find the **Purchase Additional Tokens** section
+3. Select quantity using +/- buttons
+4. Each token costs **$12.00**
+5. Click **Purchase**
+6. Complete Stripe checkout
+
+### Token Details
+
+- Purchased tokens **never expire**
+- Used after your subscription tokens run out
+- Can be used for either team or opponent film
+- Charged immediately to your payment method
 
 ## Billing Cycles
 
@@ -64,20 +83,11 @@ When your card expires or changes:
 - 20% savings over monthly
 - Renews on subscription anniversary
 
-### Changing Your Billing Cycle
-
-To switch from monthly to annual (or vice versa):
-
-1. Go to **Console > Billing**
-2. Click **Change Billing Cycle**
-3. Select your preferred cycle
-4. Confirm the change
-
 ## Invoices and Receipts
 
 ### Viewing Invoices
 
-1. Go to **Console > Billing**
+1. Go to **Team Settings > Subscription**
 2. Click **Manage Payment Method**
 3. In the Stripe portal, view your billing history and invoices
 
@@ -117,8 +127,16 @@ Your plan price, charged each cycle:
 | Plan | Monthly | Annual |
 |------|---------|--------|
 | Basic | Free | Free |
-| Plus | $29.99 | $299.90 |
-| Premium | $79.99 | $799.90 |
+| Plus | $29 | $290 |
+| Premium | $49 | $490 |
+
+### Token Purchases
+
+One-time charges for additional uploads:
+
+- $12.00 per token
+- Appears as separate line item
+- Charged immediately
 
 ### Prorated Charges
 
@@ -179,7 +197,7 @@ If the grace period expires without successful payment:
 
 To restore access:
 
-1. Go to **Console > Billing**
+1. Go to **Team Settings > Subscription**
 2. Click **Manage Payment Method**
 3. Update your card in Stripe's secure portal
 4. Payment will be retried automatically
@@ -198,7 +216,7 @@ To prevent failed payments:
 
 ### Refund Policy
 
-When you cancel your subscription, you keep full access until the end of your current billing period. No prorated refunds are issued.
+When you downgrade your subscription, you keep full access until the end of your current billing period. No prorated refunds are issued.
 
 - **Monthly subscriptions:** Access continues until end of current month
 - **Annual subscriptions:** Access continues until end of current year
@@ -230,14 +248,6 @@ If your organization is tax-exempt:
 3. We'll update your account
 4. Future charges won't include tax
 
-### Updating Billing Address
-
-Your billing address affects tax calculations:
-
-1. Go to **Console > Billing**
-2. Update your billing address
-3. Future invoices reflect the new address
-
 ## Multiple Teams
 
 ### Separate Subscriptions
@@ -246,19 +256,15 @@ Each team has its own subscription:
 
 - Billed independently
 - Can have different plans
-- Managed separately in the Console
+- Managed separately in each team's Settings
 
-### Viewing All Subscriptions
+### Viewing All Your Teams
 
-If you own multiple teams:
+If you own or coach multiple teams:
 
-1. Go to **Console > Billing**
-2. Switch between teams
-3. Each team shows its own billing
-
-### Organization-Wide Billing
-
-For large organizations with multiple teams, each team maintains its own separate subscription.
+1. Go to your team list
+2. Select each team
+3. Access Settings > Subscription for each
 
 ## Security
 
@@ -283,11 +289,11 @@ We monitor for suspicious activity:
 
 ### When will I be charged?
 
-On your billing date each month (or year for annual). Check billing for your specific date.
+On your billing date each month (or year for annual). Check Team Settings > Subscription for your specific date.
 
 ### Can I get a receipt for each payment?
 
-Yes, invoices are available in your billing history immediately after each charge.
+Yes, invoices are available in your billing history immediately after each charge via the Stripe portal.
 
 ### How do I update my billing email?
 
@@ -325,7 +331,7 @@ If you're having trouble updating your payment method in Stripe:
 ### Wrong Amount Charged
 
 - Check for prorated charges from plan changes
-- Review add-on purchases
+- Review token purchases
 - Check tax charges
 - Contact support if it still seems wrong
 
@@ -333,4 +339,5 @@ If you're having trouble updating your payment method in Stripe:
 
 - [Compare plans](/guide/subscriptions/tier-comparison) for upgrade options
 - [Change your plan](/guide/subscriptions/upgrading)
+- [View team settings](/guide/teams/team-settings)
 - [Contact support](/guide/support/providing-feedback) with billing questions

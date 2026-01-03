@@ -105,7 +105,7 @@ export async function POST() {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${appUrl}/console/billing`
+      return_url: `${appUrl}/`  // Return to homepage which redirects to team dashboard
     });
 
     // Log audit event

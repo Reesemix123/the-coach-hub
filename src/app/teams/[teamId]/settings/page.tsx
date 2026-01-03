@@ -10,7 +10,10 @@ import type { Team, TeamMembership, TeamAnalyticsConfig } from '@/types/football
 import TeamNavigation from '@/components/TeamNavigation';
 import { Play, RefreshCw } from 'lucide-react';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
-import TokenBalanceCard from '@/components/TokenBalanceCard';
+import SubscriptionBanner from '@/components/settings/SubscriptionBanner';
+import SubscriptionTab from '@/components/settings/SubscriptionTab';
+import MembersTab from '@/components/settings/MembersTab';
+import UsageTab from '@/components/settings/UsageTab';
 
 interface TeamMemberWithUser {
   membership: TeamMembership;
@@ -26,6 +29,38 @@ interface Game {
   game_result: 'win' | 'loss' | 'tie' | null;
 }
 
+// Shared data from /api/console/teams/${teamId} - fetched once and passed to child components
+interface TeamDetailData {
+  team: {
+    id: string;
+    name: string;
+    level: string;
+    created_at: string;
+  };
+  subscription: {
+    tier: string;
+    tier_display_name: string;
+    status: string;
+    billing_waived: boolean;
+    billing_waived_reason: string | null;
+    current_period_end: string | null;
+    trial_ends_at: string | null;
+    trial_days_remaining: number | null;
+    monthly_cost_cents: number;
+  };
+  upload_tokens: {
+    available: number;
+    used_this_period: number;
+    allocation: number;
+  };
+  usage: {
+    games_count: number;
+    plays_count: number;
+    players_count: number;
+    members_count: number;
+  };
+}
+
 export default function TeamSettingsPage({ params }: { params: Promise<{ teamId: string }> }) {
   const { teamId } = use(params);
   const [team, setTeam] = useState<Team | null>(null);
@@ -34,10 +69,14 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [config, setConfig] = useState<TeamAnalyticsConfig | null>(null);
   const [userRole, setUserRole] = useState<'owner' | 'coach' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [settingsTab, setSettingsTab] = useState<'team' | 'members' | 'usage_tokens' | 'onboarding'>('team');
+  const [teamDetailData, setTeamDetailData] = useState<TeamDetailData | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'billing' | 'team' | 'members' | 'usage_tokens' | 'onboarding'>('billing');
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#000000');
   const [secondaryColor, setSecondaryColor] = useState('#FFFFFF');
   const [savingColors, setSavingColors] = useState(false);
+  const [teamLevel, setTeamLevel] = useState('');
+  const [savingLevel, setSavingLevel] = useState(false);
   const onboarding = useGlobalOnboardingSafe();
 
   const router = useRouter();
@@ -49,51 +88,56 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     fetchData();
   }, [teamId]);
 
+  // Reset showChangePlanModal after it's been used
+  useEffect(() => {
+    if (showChangePlanModal) {
+      // Reset after a short delay so the modal has time to open
+      const timer = setTimeout(() => setShowChangePlanModal(false), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showChangePlanModal]);
+
   const fetchData = async () => {
     try {
-      // Fetch team
-      const { data: teamData, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', teamId)
-        .single();
+      // Fetch ALL data in parallel for fastest load
+      const [teamResult, analyticsConfig, role, teamDetailResponse, gamesResult, teamMembers] = await Promise.all([
+        supabase.from('teams').select('*').eq('id', teamId).single(),
+        analyticsService.getTeamTier(teamId),
+        membershipService.getUserRole(teamId),
+        fetch(`/api/console/teams/${teamId}`).then(r => r.ok ? r.json() : null),
+        supabase.from('games').select('id, game_result').eq('team_id', teamId),
+        membershipService.getTeamMembers(teamId),
+      ]);
 
-      if (teamError) throw teamError;
+      if (teamResult.error) throw teamResult.error;
+      const teamData = teamResult.data;
+
+      // Only owners and coaches can view settings - check early
+      if (!role || !['owner', 'coach'].includes(role)) {
+        router.push(`/teams/${teamId}`);
+        return;
+      }
+
+      // Set all state at once
       setTeam(teamData);
+      setConfig(analyticsConfig);
+      setUserRole(role);
+      setGames(gamesResult.data || []);
+      setMembers(teamMembers);
+      if (teamDetailResponse) {
+        setTeamDetailData(teamDetailResponse);
+      }
 
-      // Initialize colors from team data
+      // Initialize colors and level from team data
       if (teamData.colors?.primary) {
         setPrimaryColor(teamData.colors.primary.startsWith('#') ? teamData.colors.primary : '#000000');
       }
       if (teamData.colors?.secondary) {
         setSecondaryColor(teamData.colors.secondary.startsWith('#') ? teamData.colors.secondary : '#FFFFFF');
       }
-
-      // Fetch games for record
-      const { data: gamesData } = await supabase
-        .from('games')
-        .select('id, game_result')
-        .eq('team_id', teamId);
-
-      setGames(gamesData || []);
-
-      // Get user's role
-      const role = await membershipService.getUserRole(teamId);
-      setUserRole(role);
-
-      // Only owners and coaches can view settings
-      if (!role || !['owner', 'coach'].includes(role)) {
-        router.push(`/teams/${teamId}`);
-        return;
+      if (teamData.level) {
+        setTeamLevel(teamData.level);
       }
-
-      // Fetch team members
-      const teamMembers = await membershipService.getTeamMembers(teamId);
-      setMembers(teamMembers);
-
-      // Fetch analytics config
-      const analyticsConfig = await analyticsService.getTeamTier(teamId);
-      setConfig(analyticsConfig);
 
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -102,8 +146,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
     }
   };
 
-  // Note: Team member management (invite, remove, update role) is now done from the Console
-  // The settings page is now read-only for members - showing informational view only
+  // Team member management will be handled directly in the Members tab (Phase 3)
 
   if (loading) {
     return (
@@ -155,9 +198,34 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       alert('Team colors saved!');
     } catch (error) {
       console.error('Error saving colors:', error);
-      alert('Error saving team colors');
+      alert('Failed to save colors');
     } finally {
       setSavingColors(false);
+    }
+  };
+
+  const handleSaveLevel = async () => {
+    if (!teamLevel) return;
+    setSavingLevel(true);
+    try {
+      const { error } = await supabase
+        .from('teams')
+        .update({ level: teamLevel })
+        .eq('id', teamId);
+
+      if (error) throw error;
+
+      // Update local team state
+      if (team) {
+        setTeam({ ...team, level: teamLevel });
+      }
+
+      alert('Team level saved!');
+    } catch (error) {
+      console.error('Error saving level:', error);
+      alert('Failed to save team level');
+    } finally {
+      setSavingLevel(false);
     }
   };
 
@@ -190,12 +258,38 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
         ties={record.ties}
       />
 
-      {/* Quick Stats Banner */}
-      <div className="bg-gray-50 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 py-6">
+      {/* Subscription Banner */}
+      <div className="max-w-7xl mx-auto px-6 pt-6">
+        <SubscriptionBanner
+          teamId={teamId}
+          isOwner={userRole === 'owner'}
+          onManagePlan={() => {
+            setSettingsTab('billing');
+            setShowChangePlanModal(true);
+          }}
+          initialData={teamDetailData?.subscription}
+        />
+      </div>
+
+      {/* Settings Header with Tabs */}
+      <div className="border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-gray-900">Team Settings</h2>
-            <div className="flex gap-8">
+            <h2 className="text-2xl font-semibold text-gray-900">Settings</h2>
+            <div className="flex gap-6">
+              <button
+                onClick={() => setSettingsTab('billing')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'billing'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Billing and Subscription
+                {settingsTab === 'billing' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
               <button
                 onClick={() => setSettingsTab('team')}
                 className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
@@ -204,7 +298,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Team Info
+                Team
                 {settingsTab === 'team' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
@@ -217,7 +311,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Team Members
+                Members
                 {settingsTab === 'members' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
@@ -230,7 +324,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Usage & Tokens
+                Usage
                 {settingsTab === 'usage_tokens' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
@@ -255,13 +349,70 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
+        {settingsTab === 'billing' && (
+          <SubscriptionTab
+            teamId={teamId}
+            isOwner={userRole === 'owner'}
+            initialData={teamDetailData}
+            showChangePlanOnMount={showChangePlanModal}
+          />
+        )}
+
         {settingsTab === 'team' && (
           <div>
             <div className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Team Information</h2>
               <p className="text-gray-600">
-                Customize your team's appearance.
+                Update your team's details and appearance.
               </p>
+            </div>
+
+            {/* Team Details */}
+            <div className="border border-gray-200 rounded-lg p-6 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Details</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                {/* Team Name (read-only) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Team Name
+                  </label>
+                  <input
+                    type="text"
+                    value={team?.name || ''}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">Contact support to change team name</p>
+                </div>
+
+                {/* Team Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age / Level
+                  </label>
+                  <select
+                    value={teamLevel}
+                    onChange={(e) => setTeamLevel(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-black"
+                  >
+                    <option value="">Select level...</option>
+                    <option value="Youth">Youth</option>
+                    <option value="JV">JV</option>
+                    <option value="Varsity">Varsity</option>
+                    <option value="College">College</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">The competition level of your team</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveLevel}
+                disabled={savingLevel || !teamLevel}
+                className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 font-medium"
+              >
+                {savingLevel ? 'Saving...' : 'Save Details'}
+              </button>
             </div>
 
             {/* Team Colors */}
@@ -346,162 +497,15 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
         )}
 
         {settingsTab === 'members' && (
-          <div>
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Team Members</h2>
-              <p className="text-gray-600">
-                View team members and their roles.
-              </p>
-            </div>
-
-            {/* Team Owner Card */}
-            {(() => {
-              const owner = members.find(m => m.membership.role === 'owner');
-              return (
-                <div className="border border-gray-200 bg-gray-50 rounded-lg p-6 mb-8">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center text-lg font-semibold">
-                        {owner?.user.full_name?.charAt(0)?.toUpperCase() || owner?.user.email?.charAt(0)?.toUpperCase() || 'O'}
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {owner?.user.full_name || owner?.user.email || 'Team Owner'}
-                        </h3>
-                        <span className="px-2 py-0.5 text-xs font-medium bg-black text-white rounded">
-                          Owner
-                        </span>
-                      </div>
-                      {owner?.user.full_name && (
-                        <p className="text-sm text-gray-500 mb-3">{owner.user.email}</p>
-                      )}
-
-                      {userRole === 'owner' ? (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            You are the owner of this team. Manage coaches and billing from your{' '}
-                            <a
-                              href={`/console/teams/${teamId}`}
-                              className="font-medium underline hover:text-blue-900"
-                            >
-                              Console
-                            </a>.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-gray-100 border border-gray-200 rounded-lg">
-                          <p className="text-sm text-gray-700">
-                            Contact {owner?.user.full_name || 'the team owner'} to add new coaches or manage billing.
-                            Coaches are managed through the owner's Console.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Role Permissions Info */}
-            <div className="border border-gray-200 rounded-lg p-6 mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Role Permissions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 text-xs font-medium bg-black text-white rounded">Owner</span>
-                  </div>
-                  <p className="text-sm text-gray-600">Full control - manage team, billing, and coaches</p>
-                </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="px-2 py-0.5 text-xs font-medium bg-gray-700 text-white rounded">Coach</span>
-                  </div>
-                  <p className="text-sm text-gray-600">Create/edit plays, tag film, manage games and roster</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Current Members List */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Members ({members.length})</h3>
-              <div className="space-y-3">
-                {members.map((member) => (
-                  <div
-                    key={member.membership.id}
-                    className="border border-gray-200 rounded-lg p-4 flex items-center"
-                  >
-                    <div className="flex-shrink-0 mr-4">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
-                        {member.user.full_name?.charAt(0)?.toUpperCase() || member.user.email?.charAt(0)?.toUpperCase() || '?'}
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="text-base font-medium text-gray-900">
-                          {member.user.full_name || member.user.email}
-                        </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${getRoleBadgeColor(member.membership.role)}`}>
-                          {member.membership.role}
-                        </span>
-                      </div>
-                      {member.user.full_name && (
-                        <div className="text-sm text-gray-500 mt-1">{member.user.email}</div>
-                      )}
-                      <div className="text-xs text-gray-400 mt-1">
-                        Joined {new Date(member.membership.joined_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {members.length === 0 && (
-              <div className="text-center py-16 bg-gray-50 rounded-lg">
-                <div className="text-gray-400 mb-4">No team members yet</div>
-                <p className="text-sm text-gray-500">The team owner can add coaches from the Console</p>
-              </div>
-            )}
-          </div>
+          <MembersTab
+            teamId={teamId}
+            isOwner={userRole === 'owner'}
+            onNavigateToSubscription={() => setSettingsTab('billing')}
+          />
         )}
 
         {settingsTab === 'usage_tokens' && (
-          <div>
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Usage & Tokens</h2>
-              <p className="text-gray-600">
-                Track your game upload tokens and manage your usage.
-              </p>
-            </div>
-
-            {/* Token Balance Card */}
-            <div className="max-w-md">
-              <TokenBalanceCard teamId={teamId} variant="full" />
-            </div>
-
-            {/* How Tokens Work */}
-            <div className="mt-8 border border-gray-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">How Tokens Work</h3>
-              <div className="space-y-4 text-sm text-gray-600">
-                <p>
-                  <strong>Upload tokens</strong> are used when you create a new game in the Film section.
-                  Each game you create uses one token, whether it's for your own team's film or opponent scouting film.
-                </p>
-                <p>
-                  Your tokens refresh at the start of each billing period. Unused tokens can roll over
-                  up to a cap based on your plan.
-                </p>
-                <p>
-                  Need more tokens? You can purchase additional token packs from the{' '}
-                  <a href={`/teams/${teamId}/settings/addons`} className="text-gray-900 underline hover:no-underline">
-                    Add-ons page
-                  </a>.
-                </p>
-              </div>
-            </div>
-          </div>
+          <UsageTab teamId={teamId} isOwner={userRole === 'owner'} />
         )}
 
         {settingsTab === 'onboarding' && (

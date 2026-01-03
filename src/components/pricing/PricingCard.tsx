@@ -20,11 +20,15 @@ interface PricingCardProps {
     features: string[];
   };
   billingCycle: 'monthly' | 'annual';
+  isHighlighted?: boolean;
+  onMouseEnter?: () => void;
 }
 
 export default function PricingCard({
   tier,
-  billingCycle
+  billingCycle,
+  isHighlighted = false,
+  onMouseEnter
 }: PricingCardProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +36,6 @@ export default function PricingCard({
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
 
   const isFree = tier.price_monthly === 0;
-  const isPopular = tier.id === 'plus'; // Highlight the Plus tier
 
   const displayPrice = billingCycle === 'monthly' ? tier.price_monthly : tier.price_annual;
   const priceLabel = billingCycle === 'monthly' ? '/month' : '/year';
@@ -139,21 +142,13 @@ export default function PricingCard({
 
   return (
     <div
+      onMouseEnter={onMouseEnter}
       className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-200 backdrop-blur-sm ${
-        isPopular
+        isHighlighted
           ? 'border-2 border-[#B8CA6E]/50 bg-[#201a16]/70 shadow-lg shadow-[#B8CA6E]/10'
-          : 'border border-white/10 bg-[#201a16]/60 hover:border-[#B8CA6E]/30'
+          : 'border border-white/10 bg-[#201a16]/60'
       }`}
     >
-      {/* Popular badge */}
-      {isPopular && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="px-3 py-1 bg-[#B8CA6E] text-[#1a1410] text-xs font-semibold rounded-full">
-            Most Popular
-          </span>
-        </div>
-      )}
-
       {/* Tier name and description */}
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-white">{tier.name}</h3>
@@ -171,11 +166,6 @@ export default function PricingCard({
         {billingCycle === 'annual' && tier.annual_savings > 0 && (
           <p className="mt-1 text-sm text-[#B8CA6E] font-medium">
             Save ${tier.annual_savings}/year
-          </p>
-        )}
-        {isFree && (
-          <p className="mt-1 text-sm text-gray-500">
-            Free forever
           </p>
         )}
       </div>
@@ -225,7 +215,7 @@ export default function PricingCard({
         onClick={handleCheckout}
         disabled={isLoading}
         className={`block w-full rounded-xl px-6 py-4 text-center font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-          isPopular
+          isHighlighted
             ? 'bg-[#B8CA6E] text-[#1a1410] hover:bg-[#c9d88a]'
             : 'border border-white/20 text-white hover:bg-white/10'
         }`}

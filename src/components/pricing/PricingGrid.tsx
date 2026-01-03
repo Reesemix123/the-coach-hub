@@ -25,6 +25,7 @@ export default function PricingGrid({
   tiers
 }: PricingGridProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [highlightedTier, setHighlightedTier] = useState<SubscriptionTier>('plus');
 
   return (
     <div>
@@ -67,12 +68,17 @@ export default function PricingGrid({
       </div>
 
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+      <div
+        className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+        onMouseLeave={() => setHighlightedTier('plus')}
+      >
         {tiers.map((tier) => (
           <PricingCard
             key={tier.id}
             tier={tier}
             billingCycle={billingCycle}
+            isHighlighted={highlightedTier === tier.id}
+            onMouseEnter={() => setHighlightedTier(tier.id)}
           />
         ))}
       </div>

@@ -145,12 +145,12 @@ export class TokenService {
    */
   async getTokenBalanceSummary(teamId: string): Promise<TokenBalanceSummary> {
     // Get token balance
-    const balance = await this.getTokenBalance(teamId);
+    let balance = await this.getTokenBalance(teamId);
 
     // Get subscription and tier info
     const { data: subscription } = await this.supabase
       .from('subscriptions')
-      .select('tier, status')
+      .select('tier, status, current_period_start, current_period_end')
       .eq('team_id', teamId)
       .single();
 
@@ -175,7 +175,30 @@ export class TokenService {
       }
     }
 
-    const hasActiveSubscription = subscription?.status === 'active' || subscription?.status === 'trialing';
+    const hasActiveSubscription = subscription?.status === 'active' || subscription?.status === 'trialing' || subscription?.status === 'waived';
+
+    // Auto-initialize tokens if balance doesn't exist but team has active subscription
+    // OR if balance exists but SUBSCRIPTION tokens are all 0 AND none used this period
+    // (this catches legacy records that need upgrade, but NOT teams that used all their tokens)
+    // Note: We only check subscription tokens, not purchased - purchased tokens are independent
+    const needsInitialization = !balance || (
+      balance &&
+      balance.team_subscription_tokens_available === 0 &&
+      balance.opponent_subscription_tokens_available === 0 &&
+      balance.team_subscription_tokens_used_this_period === 0 &&
+      balance.opponent_subscription_tokens_used_this_period === 0
+    );
+
+    if (needsInitialization && hasActiveSubscription && subscription?.tier) {
+      console.log(`Auto-initializing tokens for team ${teamId} with tier ${subscription.tier}`);
+      const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start) : new Date();
+      const periodEnd = subscription.current_period_end ? new Date(subscription.current_period_end) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      await this.initializeSubscriptionTokens(teamId, subscription.tier, periodStart, periodEnd);
+
+      // Re-fetch the balance after initialization
+      balance = await this.getTokenBalance(teamId);
+    }
 
     if (!balance) {
       return {

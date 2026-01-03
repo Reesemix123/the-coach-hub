@@ -6,7 +6,7 @@ order: 2
 
 ## Overview
 
-You can change your subscription plan at any time. Whether you need more features, additional uploads, or want to scale back, plan changes are simple and take effect immediately.
+You can change your subscription plan at any time from Team Settings. Whether you need more features, additional uploads, or want to scale back, plan changes are simple and take effect immediately for upgrades.
 
 ## Upgrading Your Plan
 
@@ -16,38 +16,41 @@ Consider upgrading when you:
 
 - Need more monthly game uploads
 - Want multiple camera angles per game
-- Need longer video retention (180 days or 1 year)
-- Need more storage per game
+- Need longer video retention (90 days or 1 year)
 - Have more coaches joining your staff
 
 ### How to Upgrade
 
-1. Go to **Console > Billing**
-2. Click **Change Plan** or **Upgrade**
+1. Go to **Team Settings > Subscription**
+2. Click **Change Plan**
 3. Select your new plan
-4. Review the pricing change
-5. Confirm the upgrade
+4. Review the pricing and features
+5. Click **Select** to confirm
+6. Complete Stripe checkout
 
 ### What Happens When You Upgrade
 
 **Immediate Effects:**
+
 - New features are available instantly
 - Additional upload tokens are added
 - Higher limits take effect immediately
 - Storage extension applies to existing videos
 
 **Billing:**
-- You're charged the prorated difference
+
+- You're charged the prorated difference for the remainder of your billing cycle
 - Your next bill reflects the new plan price
-- Billing cycle remains the same
+- Billing cycle date remains the same
 
 ### Prorated Billing Example
 
 If you upgrade mid-cycle:
 
-- **Current:** Plus plan ($29.99/month), 15 days into billing cycle
-- **Upgrading to:** Premium plan ($79.99/month)
-- **Charge:** ~$25 for remaining 15 days at Premium rate
+- **Current:** Basic plan (Free), 15 days into billing cycle
+- **Upgrading to:** Plus plan ($29/month)
+- **Charge:** ~$14.50 for remaining 15 days at Plus rate
+- **Next month:** Full $29 charge
 
 ## Downgrading Your Plan
 
@@ -58,92 +61,85 @@ You might downgrade when:
 - Season is over
 - Budget constraints
 - Fewer coaches on staff
-- Don't need all features
+- Don't need extra capacity
 
 ### How to Downgrade
 
-1. Go to **Console > Billing**
+1. Go to **Team Settings > Subscription**
 2. Click **Change Plan**
 3. Select the lower plan
-4. Review what you'll lose
+4. Review what changes
 5. Confirm the downgrade
 
 ### What Happens When You Downgrade
 
 **At End of Billing Cycle:**
-- New plan takes effect at next billing date
+
+- New plan takes effect at your next billing date
 - You keep current limits until then
 - No prorated refunds
 
 **Capacity Changes:**
+
 - Monthly upload tokens reduce
 - Camera angles per game reduce
-- Storage per game reduces
 - Video retention period shortens
-- Coach limits may be affected
-- All features remain available (only capacity changes)
+
+> **Important:** All features remain available on all plans. Only capacity limits change between tiers.
 
 ### Preserving Your Data
 
 When you downgrade:
 
 - Videos within storage limit are kept
-- Videos beyond new limit may be archived
 - Analytics data is preserved
 - Playbook plays are kept
+- Tagged plays are preserved
 
-> **Warning:** If you have more coaches than your new plan allows, some may lose access.
+## Plan Comparison
 
-## Switching Billing Cycles
-
-### Monthly to Annual
-
-Switch to annual billing to save 20%:
-
-1. Go to **Console > Billing**
-2. Select **Annual Billing**
-3. Pay the annual rate
-4. Enjoy the savings
-
-**What Happens:**
-- You're charged the full annual amount
-- Any remaining monthly credit is applied
-- New annual cycle begins
-
-### Annual to Monthly
-
-If you need to switch to monthly:
-
-1. Wait until your annual term ends
-2. Select monthly billing at renewal
-3. Or contact support for mid-term options
-
-> **Note:** Early termination of annual plans may not include refunds.
+| Feature | Basic (Free) | Plus ($29/mo) | Premium ($49/mo) |
+|---------|--------------|---------------|------------------|
+| Film Uploads | 2/month | 4/month | 8/month |
+| Token Split | 1 team + 1 opponent | 2 team + 2 opponent | 4 team + 4 opponent |
+| Cameras/Game | 1 | 3 | 5 |
+| Video Retention | 30 days | 90 days | 1 year |
+| Coach Limit | 3 | 10 | Unlimited |
 
 ## Managing Upload Tokens
 
 ### Understanding Tokens
 
 - Each plan includes monthly upload tokens
-- 1 token = 1 game upload (any number of camera angles)
-- Tokens reset at each billing cycle
-- Unused tokens don't roll over
+- Tokens are split between **team film** and **opponent scouting**
+- 1 token = 1 game upload (any number of camera angles up to your limit)
+- Subscription tokens reset at each billing cycle
 
 ### Checking Your Token Balance
 
 1. Go to **Team Settings > Usage**
 2. View tokens used and remaining
-3. See reset date
+3. See breakdown: team vs opponent tokens
+4. See reset date
 
 ### Running Low on Tokens
 
 If you're running out of tokens:
 
 **Option 1: Wait for Reset**
+
 - Tokens reset at your billing cycle
 - Upload after the reset date
 
-**Option 2: Upgrade Your Plan**
+**Option 2: Purchase Additional Tokens**
+
+- Go to Team Settings > Usage
+- Buy tokens at $12 each
+- Purchased tokens never expire
+- Used after subscription tokens run out
+
+**Option 3: Upgrade Your Plan**
+
 - Higher plans include more tokens
 - Upgrade takes effect immediately
 
@@ -151,7 +147,7 @@ If you're running out of tokens:
 
 ### Mid-Season Upgrade
 
-Starting with Basic, season is busy:
+Starting with Basic, season gets busy:
 
 1. Upload limit becomes a problem
 2. Upgrade to Plus for more tokens
@@ -162,55 +158,54 @@ Starting with Basic, season is busy:
 
 Season ends, want to save money:
 
-1. Wait until billing cycle end
-2. Downgrade to Basic
-3. Keep access until next billing date
-4. Lower rate applies at renewal
+1. Downgrade to Basic
+2. Keep access until next billing date
+3. New limits apply at renewal
+4. Videos within retention are kept
 
-### Annual Plan Upgrade
+### Need More Tokens This Month
 
-On annual Basic, need Plus features:
-
-1. Upgrade anytime
-2. Pay prorated difference for remaining term
-3. At renewal, pay annual Plus rate
+1. Go to Team Settings > Usage
+2. Purchase additional tokens ($12 each)
+3. Tokens are added immediately
+4. Never expire, used after subscription tokens
 
 ## Canceling Your Subscription
 
 ### How to Cancel
 
-1. Go to **Console > Billing**
-2. Click **Cancel Subscription**
-3. Confirm cancellation
-4. Access continues until end of billing period
+If you're on a paid plan and want to switch to Basic:
 
-### What Happens After Cancellation
+1. Go to **Team Settings > Subscription**
+2. Click **Change Plan**
+3. Select **Basic (Free)**
+4. Confirm the change
 
-- **No refunds** - you keep full access until your billing period ends
-- Monthly subscriptions end at end of current month
-- Annual subscriptions end at end of current year
-- After subscription ends, data is retained for 30 days (grace period)
-- Videos and data may be deleted after the grace period
-- You can resubscribe anytime to retain your data
+### What Happens After Switching to Basic
+
+- Change takes effect at end of billing period
+- You keep paid features until then
+- After switch: Basic limits apply
+- Videos beyond 30-day retention may be archived
 
 ### Resubscribing
 
-To restart your subscription:
+To upgrade again later:
 
-1. Log back in
-2. Go to billing
-3. Select a plan
-4. Your data is available if within the 30-day grace period
+1. Go to Team Settings > Subscription
+2. Click Change Plan
+3. Select your desired tier
+4. Complete checkout
 
 ## Common Questions
 
 ### Will I lose my data if I downgrade?
 
-Your data is preserved. All features remain available on all tiers. However, videos beyond your new retention period may expire, and games beyond your storage limits may become inaccessible.
+Your data is preserved. All features remain available on all tiers. However, videos beyond your new retention period may expire after the downgrade takes effect.
 
 ### Can I upgrade for just one month?
 
-Yes, you can upgrade and then downgrade. The upgrade is prorated.
+Yes, you can upgrade and then downgrade. The upgrade is prorated for the remaining days.
 
 ### What if I need more than Premium offers?
 
@@ -218,14 +213,14 @@ Contact us about enterprise solutions for large programs.
 
 ### Is there a penalty for changing plans?
 
-No penalties for upgrading. Downgrades take effect at your next billing date.
+No penalties for upgrading. Downgrades take effect at your next billing date with no refund for the current period.
 
 ### Can I pause my subscription?
 
-Contact support to discuss pause options during off-season.
+Downgrade to Basic (free) during off-season. Your data is preserved and you can upgrade when you're ready.
 
 ## Next Steps
 
 - [Manage billing and payments](/guide/subscriptions/billing)
 - [Compare plan features](/guide/subscriptions/tier-comparison)
-- [Contact support](/guide/support/providing-feedback) with questions
+- [View your usage](/guide/teams/team-settings)

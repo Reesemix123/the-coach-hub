@@ -5,7 +5,6 @@ import Image from "next/image";
 import ScrollingNavbar from "@/components/ScrollingNavbar";
 import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
-import ConsoleLink from "@/components/ConsoleLink";
 import AdminLink from "@/components/AdminLink";
 import TourButton from "@/components/TourButton";
 import NavbarUtilities from "@/components/NavbarUtilities";
@@ -62,12 +61,10 @@ export default function RootLayout({
                 {/* Team Context - Desktop */}
                 <div className="hidden md:flex items-center gap-6">
                   <TeamSwitcher />
-                  <ConsoleLink />
                   <AdminLink />
                 </div>
-                {/* Admin/Console - Mobile (always visible for authorized users) */}
+                {/* Admin - Mobile (always visible for authorized users) */}
                 <div className="flex md:hidden items-center gap-3 ml-4">
-                  <ConsoleLink />
                   <AdminLink />
                 </div>
               </div>
