@@ -105,8 +105,11 @@ function SetupForm() {
     checkUser();
   }, []);
 
-  // Show canceled message
+  // Show canceled message and reset creating state when returning from Stripe
   useEffect(() => {
+    // Always reset creating state on mount (handles browser back button from Stripe)
+    setCreating(false);
+
     if (canceled) {
       setMessage('Checkout was canceled. You can try again when ready.');
       setMessageType('info');
