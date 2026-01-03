@@ -63,22 +63,22 @@ export default function Contact() {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-        <Link href="/" className="flex items-center gap-3">
+      <nav className="relative z-10 flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+        <Link href="/" className="flex items-center gap-2 sm:gap-3">
           <img
             src="/logo-darkmode.png"
             alt="Youth Coach Hub"
-            className="h-10 w-auto"
+            className="h-8 sm:h-10 w-auto"
           />
-          <span className="text-white font-semibold text-lg tracking-tight">
+          <span className="hidden sm:inline text-white font-semibold text-lg tracking-tight">
             youth<span className="text-[#B8CA6E]">coach</span>hub
           </span>
         </Link>
-        <div className="flex items-center gap-8">
-          <Link href="/#features" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
+        <div className="flex items-center gap-4 sm:gap-8">
+          <Link href="/#features" className="hidden sm:inline text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
           <Link href="/pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Pricing</Link>
           <Link href="/auth/login" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Log In</Link>
-          <Link href="/auth/signup" className="h-12 px-5 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-colors text-sm flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
+          <Link href="/auth/signup" className="hidden sm:flex h-12 px-5 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-colors text-sm items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
             Sign Up
           </Link>
         </div>
