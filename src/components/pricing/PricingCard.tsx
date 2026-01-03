@@ -139,16 +139,16 @@ export default function PricingCard({
 
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-200 ${
+      className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-200 backdrop-blur-sm ${
         isPopular
-          ? 'border-2 border-brand-green/50 bg-brand-surface shadow-lg shadow-brand-green/10'
-          : 'border border-gray-800 bg-brand-surface hover:border-brand-green/30'
+          ? 'border-2 border-[#B8CA6E]/50 bg-[#201a16]/70 shadow-lg shadow-[#B8CA6E]/10'
+          : 'border border-white/10 bg-[#201a16]/60 hover:border-[#B8CA6E]/30'
       }`}
     >
       {/* Popular badge */}
       {isPopular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="px-3 py-1 bg-brand-green text-brand-dark text-xs font-semibold rounded-full">
+          <span className="px-3 py-1 bg-[#B8CA6E] text-[#1a1410] text-xs font-semibold rounded-full">
             Most Popular
           </span>
         </div>
@@ -169,7 +169,7 @@ export default function PricingCard({
           <span className="text-gray-400">{priceLabel}</span>
         </div>
         {billingCycle === 'annual' && tier.annual_savings > 0 && (
-          <p className="mt-1 text-sm text-brand-green font-medium">
+          <p className="mt-1 text-sm text-[#B8CA6E] font-medium">
             Save ${tier.annual_savings}/year
           </p>
         )}
@@ -181,7 +181,7 @@ export default function PricingCard({
       </div>
 
       {/* Key stats - New metrics */}
-      <div className="mb-6 space-y-3 rounded-xl bg-brand-elevated p-4">
+      <div className="mb-6 space-y-3 rounded-xl bg-[#1a1410]/50 border border-white/5 p-4">
         <div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -214,8 +214,8 @@ export default function PricingCard({
       <ul className="mb-8 flex-grow space-y-3">
         {tier.features.map((feature, index) => (
           <li key={index} className="flex items-start gap-3">
-            <Check className="h-5 w-5 flex-shrink-0 text-brand-green mt-0.5" />
-            <span className="text-sm text-gray-300">{feature}</span>
+            <Check className="h-5 w-5 flex-shrink-0 text-[#B8CA6E] mt-0.5" />
+            <span className="text-sm text-gray-300/80">{feature}</span>
           </li>
         ))}
       </ul>
@@ -226,8 +226,8 @@ export default function PricingCard({
         disabled={isLoading}
         className={`block w-full rounded-xl px-6 py-4 text-center font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
           isPopular
-            ? 'bg-brand-green text-brand-dark hover:bg-brand-green-light'
-            : 'border border-gray-700 text-white hover:bg-brand-elevated'
+            ? 'bg-[#B8CA6E] text-[#1a1410] hover:bg-[#c9d88a]'
+            : 'border border-white/20 text-white hover:bg-white/10'
         }`}
       >
         {isLoading ? (

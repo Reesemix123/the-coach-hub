@@ -181,66 +181,84 @@ export default async function PricingPage() {
   const { tiers } = await getPricingData();
 
   return (
-    <div className="min-h-screen bg-brand-dark -mt-24">
-      {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6">
-        <Link href="/" className="flex items-center gap-3">
-          <img
-            src="/logo-darkmode.png"
-            alt="Youth Coach Hub"
-            className="h-10 w-auto"
-          />
-          <span className="text-white font-semibold text-lg tracking-tight">
-            youth<span className="text-brand-green">coach</span>hub
-          </span>
-        </Link>
-        <div className="flex items-center gap-8">
-          <Link href="/#features" className="text-gray-400 hover:text-white transition-colors text-sm">Features</Link>
-          <Link href="/pricing" className="text-white font-medium text-sm">Pricing</Link>
-          <Link href="/auth/login" className="text-gray-400 hover:text-white transition-colors text-sm">Log In</Link>
-          <Link
-            href="/auth/signup"
-            className="px-5 py-2.5 bg-brand-green text-brand-dark font-semibold rounded-lg hover:bg-brand-green-light transition-colors text-sm"
-          >
-            Start Free
-          </Link>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-[#1a1410] -mt-24">
+      {/* Single Fixed Background for entire page */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/marketing/friday-night-field.png)',
+            backgroundPosition: 'center 5%'
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/20 via-[#1a1410]/30 to-[#1a1410]/75"></div>
+      </div>
 
       {/* Hero Section */}
-      <section className="py-16">
-        <div className="mx-auto max-w-7xl px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
-            Simple, transparent pricing
-          </h1>
-          <p className="mt-4 text-lg text-gray-300 max-w-2xl mx-auto">
-            Choose the plan that fits your program. Use upload tokens to add games,
-            multiple camera angles for better coverage, and keep your games for longer.
-          </p>
+      <section className="relative min-h-[50vh] flex flex-col">
+        {/* Navigation */}
+        <nav className="relative z-10 flex items-center justify-between px-8 py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/logo-darkmode.png"
+              alt="Youth Coach Hub"
+              className="h-10 w-auto"
+            />
+            <span className="text-white font-semibold text-lg tracking-tight">
+              youth<span className="text-[#B8CA6E]">coach</span>hub
+            </span>
+          </Link>
+          <div className="flex items-center gap-8">
+            <Link href="/#features" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
+            <Link href="/pricing" className="text-white font-bold text-sm">Pricing</Link>
+            <Link href="/auth/login" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Log In</Link>
+            <Link
+              href="/auth/signup"
+              className="h-12 px-5 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-colors text-sm flex items-center justify-center"
+              style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}
+            >
+              Start Free
+            </Link>
+          </div>
+        </nav>
+
+        {/* Hero Content */}
+        <div className="relative z-10 flex-1 flex items-center justify-center py-16">
+          <div className="mx-auto max-w-7xl px-8 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
+              Simple, transparent pricing
+            </h1>
+            <p className="mt-4 text-lg text-gray-300/80 max-w-2xl mx-auto">
+              Choose the plan that fits your program. Use upload tokens to add games,
+              multiple camera angles for better coverage, and keep your games for longer.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* Pricing Grid */}
-      <section className="pb-16">
-        <div className="mx-auto max-w-7xl px-8">
+      {/* Pricing Grid Section */}
+      <section className="relative py-16">
+        <div className="relative z-10 mx-auto max-w-7xl px-8">
           <PricingGrid tiers={tiers} />
         </div>
       </section>
 
       {/* Feature Comparison Note */}
-      <section className="py-12 bg-brand-surface">
-        <div className="mx-auto max-w-4xl px-8 text-center">
-          <h2 className="text-2xl font-bold text-white">Need more capacity?</h2>
-          <p className="mt-4 text-gray-300">
-            Upgrade to a higher plan for more monthly uploads, additional camera angles,
-            longer retention, and more storage per game.
-          </p>
+      <section className="relative py-12">
+        <div className="relative z-10 mx-auto max-w-4xl px-8 text-center">
+          <div className="p-8 rounded-2xl bg-[#201a16]/60 backdrop-blur-sm border border-white/10">
+            <h2 className="text-2xl font-bold text-white">Need more capacity?</h2>
+            <p className="mt-4 text-gray-300/80">
+              Upgrade to a higher plan for more monthly uploads, additional camera angles,
+              longer retention, and more storage per game.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16">
-        <div className="mx-auto max-w-3xl px-8">
+      <section className="relative py-16">
+        <div className="relative z-10 mx-auto max-w-3xl px-8">
           <h2 className="text-3xl font-bold text-white text-center mb-12">
             Frequently asked questions
           </h2>
@@ -248,14 +266,14 @@ export default async function PricingPage() {
             {faqs.map((faq, index) => (
               <details
                 key={index}
-                className="group rounded-2xl border border-gray-800 bg-brand-surface"
+                className="group rounded-2xl border border-white/10 bg-[#201a16]/60 backdrop-blur-sm"
               >
                 <summary className="flex cursor-pointer items-center justify-between px-6 py-4 text-left">
                   <span className="font-medium text-white">{faq.question}</span>
                   <ChevronDown className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="px-6 pb-4">
-                  <p className="text-gray-300">{faq.answer}</p>
+                  <p className="text-gray-300/80">{faq.answer}</p>
                 </div>
               </details>
             ))}
@@ -264,18 +282,18 @@ export default async function PricingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-brand-surface">
-        <div className="mx-auto max-w-4xl px-8 text-center">
-          <h2 className="text-3xl font-bold text-white">
+      <section className="relative py-20">
+        <div className="relative z-10 mx-auto max-w-4xl px-8 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white">
             Ready to elevate your coaching?
           </h2>
-          <p className="mt-4 text-lg text-gray-300">
+          <p className="mt-4 text-lg text-gray-300/70">
             Join The Coach Hub today to start improving how you coach.
           </p>
           <div className="mt-8 flex justify-center">
             <Link
               href="/auth/signup"
-              className="px-8 py-4 bg-brand-green text-brand-dark font-semibold rounded-xl hover:bg-brand-green-light transition-all shadow-lg shadow-brand-green/20"
+              className="px-8 py-4 bg-[#B8CA6E] text-[#1a1410] font-semibold rounded-xl hover:bg-[#c9d88a] transition-all"
             >
               Get Started Free
             </Link>
@@ -284,7 +302,7 @@ export default async function PricingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-8 border-t border-gray-800">
+      <footer className="relative py-12 px-8 bg-[#1a1410] border-t border-white/10">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
@@ -295,7 +313,7 @@ export default async function PricingPage() {
                 className="h-8 w-auto"
               />
               <span className="text-white font-semibold tracking-tight">
-                youth<span className="text-brand-green">coach</span>hub
+                youth<span className="text-[#B8CA6E]">coach</span>hub
               </span>
             </div>
 

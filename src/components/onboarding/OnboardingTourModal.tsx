@@ -64,11 +64,11 @@ export default function OnboardingTourModal() {
       />
 
       {/* Modal */}
-      <div className="relative bg-[#161b22] border border-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="relative bg-[#1a1410]/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Close button */}
         <button
           onClick={handleClose}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-[#1e2a3a] rounded-full transition-colors z-10"
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-colors z-10"
         >
           <X className="h-5 w-5" />
         </button>
@@ -76,7 +76,7 @@ export default function OnboardingTourModal() {
         {/* Content */}
         <div className="p-6 sm:p-8">
           {/* Image */}
-          <div className="relative w-full aspect-[16/10] bg-gray-100 rounded-xl overflow-hidden mb-6 border border-gray-700">
+          <div className="relative w-full aspect-[16/10] bg-gray-100 rounded-xl overflow-hidden mb-6 border border-white/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={step.image}
@@ -84,7 +84,7 @@ export default function OnboardingTourModal() {
               className="absolute inset-0 w-full h-full object-cover"
             />
             {/* Decorative emoji badge in top-right corner */}
-            <div className="absolute top-3 right-3 w-12 h-12 bg-[#1e2a3a] border border-gray-700 rounded-full shadow-lg flex items-center justify-center">
+            <div className="absolute top-3 right-3 w-12 h-12 bg-[#1a1410] border border-white/20 rounded-full shadow-lg flex items-center justify-center">
               <span className="text-2xl">
                 {['👋', '📊', '🏈', '📋', '🏃', '📝', '🎬', '🏷️', '📈', '🚀'][currentStep]}
               </span>
@@ -109,10 +109,10 @@ export default function OnboardingTourModal() {
                 onClick={() => setCurrentStep(index)}
                 className={`w-2.5 h-2.5 rounded-full transition-all ${
                   index === currentStep
-                    ? 'bg-[#a3e635] scale-110'
+                    ? 'bg-[#B8CA6E] scale-110'
                     : index < currentStep
-                    ? 'bg-[#a3e635]/50'
-                    : 'bg-gray-700'
+                    ? 'bg-[#B8CA6E]/50'
+                    : 'bg-white/20'
                 }`}
               />
             ))}
@@ -131,7 +131,7 @@ export default function OnboardingTourModal() {
               {!isFirstStep && (
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1 px-4 py-2 text-gray-300 hover:bg-[#1e2a3a] rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-4 py-2 text-gray-300 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <ChevronLeft className="h-4 w-4" />
                   Back
@@ -139,7 +139,7 @@ export default function OnboardingTourModal() {
               )}
               <button
                 onClick={handleNext}
-                className="flex items-center gap-1 px-6 py-2 bg-[#a3e635] text-[#0d1117] font-semibold rounded-lg hover:bg-[#bef264] transition-colors"
+                className="flex items-center gap-1 px-6 py-2 bg-[#B8CA6E] text-[#1a1410] font-semibold rounded-lg hover:bg-[#c9d88a] transition-colors"
               >
                 {isLastStep ? (
                   'Get Started'
@@ -155,9 +155,9 @@ export default function OnboardingTourModal() {
         </div>
 
         {/* Progress bar */}
-        <div className="h-1 bg-gray-800">
+        <div className="h-1 bg-white/10">
           <div
-            className="h-full bg-[#a3e635] transition-all duration-300"
+            className="h-full bg-[#B8CA6E] transition-all duration-300"
             style={{ width: `${((currentStep + 1) / TOUR_STEPS.length) * 100}%` }}
           />
         </div>

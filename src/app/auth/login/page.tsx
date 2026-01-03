@@ -89,9 +89,21 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-[calc(100vh+6rem)] bg-[#0d1117] -mt-24">
+    <div className="min-h-screen bg-[#1a1410] -mt-24">
+      {/* Single Fixed Background for entire page */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/marketing/friday-night-field.png)',
+            backgroundPosition: 'center 5%'
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/20 via-[#1a1410]/30 to-[#1a1410]/75"></div>
+      </div>
+
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6">
+      <nav className="relative z-10 flex items-center justify-between px-8 py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/logo-darkmode.png"
@@ -99,39 +111,39 @@ function LoginForm() {
             className="h-10 w-auto"
           />
           <span className="text-white font-semibold text-lg tracking-tight">
-            youth<span className="text-[#a3e635]">coach</span>hub
+            youth<span className="text-[#B8CA6E]">coach</span>hub
           </span>
         </Link>
         <div className="flex items-center gap-8">
-          <Link href="/#features" className="text-gray-400 hover:text-white transition-colors text-sm">Features</Link>
-          <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors text-sm">Pricing</Link>
-          <Link href="/auth/signup" className="px-5 py-2.5 bg-[#a3e635] text-[#0d1117] font-semibold rounded-lg hover:bg-[#bef264] transition-colors text-sm">
+          <Link href="/#features" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
+          <Link href="/pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Pricing</Link>
+          <Link href="/auth/signup" className="h-12 px-5 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-colors text-sm flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
             Sign Up
           </Link>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center py-12 px-4">
+      <div className="relative z-10 flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-white">
               Sign in to your account
             </h2>
-            <p className="mt-2 text-sm text-gray-400">
+            <p className="mt-2 text-sm text-gray-300">
               Welcome back! Enter your credentials below.
             </p>
           </div>
 
           {/* Success banner from email confirmation */}
           {message && messageType === 'success' && (
-            <div className="bg-[#a3e635]/10 border border-[#a3e635]/30 text-[#a3e635] px-4 py-3 rounded-lg text-sm">
+            <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/30 text-[#B8CA6E] px-4 py-3 rounded-lg text-sm">
               {message}
             </div>
           )}
 
           <form className="mt-8 space-y-6" onSubmit={handleSignIn}>
-            <div className="rounded-2xl bg-[#161b22] border border-gray-800 p-6 space-y-5">
+            <div className="rounded-2xl bg-[#1a1410]/60 backdrop-blur-md border border-white/20 p-6 space-y-5 shadow-xl shadow-black/40">
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
@@ -144,7 +156,7 @@ function LoginForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="coach@school.edu"
                 />
               </div>
@@ -157,7 +169,7 @@ function LoginForm() {
                   </label>
                   <Link
                     href="/auth/forgot-password"
-                    className="text-sm text-[#a3e635] hover:text-[#bef264] transition-colors"
+                    className="text-sm text-[#B8CA6E] hover:text-[#c9d88a] transition-colors"
                   >
                     Forgot password?
                   </Link>
@@ -169,7 +181,7 @@ function LoginForm() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-300 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="Enter your password"
                 />
                 <div className="mt-3 flex items-center">
@@ -179,7 +191,7 @@ function LoginForm() {
                     type="checkbox"
                     checked={showPassword}
                     onChange={(e) => setShowPassword(e.target.checked)}
-                    className="h-4 w-4 bg-[#161b22] border-gray-600 rounded text-[#a3e635] focus:ring-[#a3e635] focus:ring-offset-0"
+                    className="h-4 w-4 bg-[#1a1410] border-white/20 rounded text-[#B8CA6E] focus:ring-[#B8CA6E] focus:ring-offset-0"
                   />
                   <label htmlFor="show-password" className="ml-2 text-sm text-gray-400">
                     Show password
@@ -193,7 +205,7 @@ function LoginForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-[#a3e635] text-[#0d1117] font-semibold rounded-xl hover:bg-[#bef264] transition-all disabled:opacity-50 shadow-lg shadow-[#a3e635]/20"
+                className="w-full py-4 bg-[#B8CA6E] text-[#1a1410] font-semibold rounded-xl hover:bg-[#c9d88a] transition-all disabled:opacity-50 shadow-lg shadow-[#B8CA6E]/20"
               >
                 {loading ? 'Signing in...' : 'Sign In'}
               </button>
@@ -212,7 +224,7 @@ function LoginForm() {
                 Don&apos;t have an account?{' '}
                 <Link
                   href="/pricing"
-                  className="text-[#a3e635] font-medium hover:text-[#bef264] transition-colors"
+                  className="text-[#B8CA6E] font-medium hover:text-[#c9d88a] transition-colors"
                 >
                   Sign up
                 </Link>
@@ -223,7 +235,7 @@ function LoginForm() {
       </div>
 
       {/* Footer */}
-      <footer className="py-12 px-8 border-t border-gray-800 mt-12">
+      <footer className="relative py-12 px-8 bg-[#1a1410] border-t border-white/10 mt-12">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
@@ -234,7 +246,7 @@ function LoginForm() {
                 className="h-8 w-auto"
               />
               <span className="text-white font-semibold tracking-tight">
-                youth<span className="text-[#a3e635]">coach</span>hub
+                youth<span className="text-[#B8CA6E]">coach</span>hub
               </span>
             </div>
 
@@ -260,7 +272,7 @@ function LoginForm() {
 // Loading fallback
 function LoginLoading() {
   return (
-    <div className="min-h-[calc(100vh+6rem)] bg-[#0d1117] flex items-center justify-center -mt-24">
+    <div className="min-h-screen bg-[#1a1410] flex items-center justify-center -mt-24">
       <div className="text-gray-400">Loading...</div>
     </div>
   )

@@ -15,9 +15,21 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-[calc(100vh+6rem)] bg-[#0d1117] -mt-24">
+    <div className="min-h-screen bg-[#1a1410] -mt-24">
+      {/* Single Fixed Background for entire page */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/marketing/friday-night-field.png)',
+            backgroundPosition: 'center 5%'
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/20 via-[#1a1410]/30 to-[#1a1410]/75"></div>
+      </div>
+
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6">
+      <nav className="relative z-10 flex items-center justify-between px-8 py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/logo-darkmode.png"
@@ -25,25 +37,25 @@ export default function PrivacyPage() {
             className="h-10 w-auto"
           />
           <span className="text-white font-semibold text-lg tracking-tight">
-            youth<span className="text-[#a3e635]">coach</span>hub
+            youth<span className="text-[#B8CA6E]">coach</span>hub
           </span>
         </Link>
         <div className="flex items-center gap-8">
-          <Link href="/#features" className="text-gray-400 hover:text-white transition-colors text-sm">Features</Link>
-          <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors text-sm">Pricing</Link>
-          <Link href="/auth/login" className="text-gray-400 hover:text-white transition-colors text-sm">Log In</Link>
-          <Link href="/auth/signup" className="px-5 py-2.5 bg-[#a3e635] text-[#0d1117] font-semibold rounded-lg hover:bg-[#bef264] transition-colors text-sm">
+          <Link href="/#features" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
+          <Link href="/pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Pricing</Link>
+          <Link href="/auth/login" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Log In</Link>
+          <Link href="/auth/signup" className="h-12 px-5 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-colors text-sm flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
             Sign Up
           </Link>
         </div>
       </nav>
 
-      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-12">
           <Link
             href="/"
-            className="text-sm text-gray-500 hover:text-[#a3e635] mb-4 inline-block transition-colors"
+            className="text-sm text-gray-400 hover:text-[#B8CA6E] mb-4 inline-block transition-colors"
           >
             &larr; Back to Home
           </Link>
@@ -190,7 +202,7 @@ export default function PrivacyPage() {
               your information and use it only for the purposes we specify:
             </p>
 
-            <div className="bg-[#161b22] border border-gray-800 rounded-xl p-6 mb-4">
+            <div className="bg-[#1a1410]/60 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-4 shadow-xl shadow-black/30">
               <h4 className="font-semibold text-white mb-4">Our Service Providers:</h4>
               <ul className="space-y-4 text-gray-300">
                 <li>
@@ -567,10 +579,10 @@ export default function PrivacyPage() {
               If you have questions, concerns, or requests regarding this Privacy Policy
               or our data practices, please contact us:
             </p>
-            <div className="bg-[#161b22] border border-gray-800 rounded-xl p-6">
+            <div className="bg-[#1a1410]/60 backdrop-blur-md border border-white/20 rounded-xl p-6 shadow-xl shadow-black/30">
               <p className="text-gray-300">
                 <strong className="text-white">Youth Coach Hub LLC</strong><br />
-                <Link href="/contact" className="text-[#a3e635] hover:text-[#bef264] transition-colors">
+                <Link href="/contact" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
                   Contact Form
                 </Link><br />
                 Website: youthcoachhub.com
@@ -583,15 +595,15 @@ export default function PrivacyPage() {
         </div>
 
         {/* Footer Links */}
-        <div className="mt-16 pt-8 border-t border-gray-800">
+        <div className="mt-16 pt-8 border-t border-white/10">
           <div className="flex flex-wrap gap-6 text-sm">
-            <Link href="/terms" className="text-gray-400 hover:text-[#a3e635] transition-colors">
+            <Link href="/terms" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
               Terms of Service
             </Link>
-            <Link href="/contact" className="text-gray-400 hover:text-[#a3e635] transition-colors">
+            <Link href="/contact" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
               Contact Us
             </Link>
-            <Link href="/pricing" className="text-gray-400 hover:text-[#a3e635] transition-colors">
+            <Link href="/pricing" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
               Pricing
             </Link>
           </div>
@@ -599,7 +611,7 @@ export default function PrivacyPage() {
       </div>
 
       {/* Footer */}
-      <footer className="py-12 px-8 border-t border-gray-800">
+      <footer className="relative py-12 px-8 bg-[#1a1410] border-t border-white/10">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
@@ -609,7 +621,7 @@ export default function PrivacyPage() {
                 className="h-8 w-auto"
               />
               <span className="text-white font-semibold tracking-tight">
-                youth<span className="text-[#a3e635]">coach</span>hub
+                youth<span className="text-[#B8CA6E]">coach</span>hub
               </span>
             </div>
             <div className="flex items-center gap-8">

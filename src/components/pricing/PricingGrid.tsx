@@ -30,13 +30,13 @@ export default function PricingGrid({
     <div>
       {/* Billing Toggle */}
       <div className="flex justify-center items-center gap-3 mb-10">
-        <div className="relative bg-brand-surface rounded-full p-1 flex border border-gray-800">
+        <div className="relative bg-[#201a16]/60 backdrop-blur-sm rounded-full p-1 flex border border-white/10">
           <button
             onClick={() => setBillingCycle('monthly')}
             className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-colors ${
               billingCycle === 'monthly'
-                ? 'text-brand-dark'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-[#1a1410]'
+                : 'text-white'
             }`}
           >
             Monthly
@@ -45,23 +45,25 @@ export default function PricingGrid({
             onClick={() => setBillingCycle('annual')}
             className={`relative z-10 px-6 py-2 text-sm font-medium rounded-full transition-colors ${
               billingCycle === 'annual'
-                ? 'text-brand-dark'
-                : 'text-gray-400 hover:text-white'
+                ? 'text-[#1a1410]'
+                : 'text-white'
             }`}
           >
             Annual
           </button>
           {/* Sliding background */}
           <div
-            className={`absolute inset-y-1 w-[calc(50%-4px)] bg-brand-green rounded-full transition-transform duration-200 ${
+            className={`absolute inset-y-1 w-[calc(50%-4px)] bg-[#B8CA6E] rounded-full transition-transform duration-200 ${
               billingCycle === 'annual' ? 'translate-x-full' : 'translate-x-0'
             }`}
             style={{ left: '4px' }}
           />
         </div>
-        <span className="inline-flex items-center rounded-full bg-brand-green/10 border border-brand-green/20 px-2.5 py-1 text-xs font-medium text-brand-green">
-          Save 17%
-        </span>
+        {billingCycle === 'annual' && (
+          <span className="inline-flex items-center rounded-full bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 px-2.5 py-1 text-xs font-medium text-[#B8CA6E]">
+            Save 17%
+          </span>
+        )}
       </div>
 
       {/* Pricing Cards */}

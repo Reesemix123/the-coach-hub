@@ -131,9 +131,21 @@ function SignUpForm() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] -mt-24">
+    <div className="min-h-screen bg-[#1a1410] -mt-24">
+      {/* Single Fixed Background for entire page */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/marketing/friday-night-field.png)',
+            backgroundPosition: 'center 5%'
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/20 via-[#1a1410]/30 to-[#1a1410]/75"></div>
+      </div>
+
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6">
+      <nav className="relative z-10 flex items-center justify-between px-8 py-6 backdrop-blur-sm" style={{ background: 'rgba(26,20,16,.65)', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
         <Link href="/" className="flex items-center gap-3">
           <img
             src="/logo-darkmode.png"
@@ -141,36 +153,36 @@ function SignUpForm() {
             className="h-10 w-auto"
           />
           <span className="text-white font-semibold text-lg tracking-tight">
-            youth<span className="text-[#a3e635]">coach</span>hub
+            youth<span className="text-[#B8CA6E]">coach</span>hub
           </span>
         </Link>
         <div className="flex items-center gap-8">
-          <Link href="/#features" className="text-gray-400 hover:text-white transition-colors text-sm">Features</Link>
-          <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors text-sm">Pricing</Link>
-          <Link href="/auth/login" className="text-gray-400 hover:text-white transition-colors text-sm">Log In</Link>
+          <Link href="/#features" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</Link>
+          <Link href="/pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Pricing</Link>
+          <Link href="/auth/login" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Log In</Link>
         </div>
       </nav>
 
       {/* Main Content */}
-      <div className="flex items-center justify-center py-12 px-4">
+      <div className="relative z-10 flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-white">
               Create your account
             </h2>
             {tierDisplayName && !isInviteFlow && (
-              <p className="mt-2 text-sm text-gray-400">
-                Selected plan: <span className="font-semibold text-[#a3e635]">{tierDisplayName}</span>
+              <p className="mt-2 text-sm text-gray-300">
+                Selected plan: <span className="font-semibold text-[#B8CA6E]">{tierDisplayName}</span>
               </p>
             )}
             {isInviteFlow && (
-              <p className="mt-2 text-sm text-gray-400">
+              <p className="mt-2 text-sm text-gray-300">
                 You&apos;ve been invited to join a team
               </p>
             )}
             {!selectedTier && !isInviteFlow && (
-              <p className="mt-2 text-sm text-gray-400">
-                <Link href="/pricing" className="text-[#a3e635] hover:text-[#bef264] transition-colors">
+              <p className="mt-2 text-sm text-gray-300">
+                <Link href="/pricing" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
                   View pricing plans
                 </Link>
               </p>
@@ -178,7 +190,7 @@ function SignUpForm() {
           </div>
 
           <form className="mt-8 space-y-6" onSubmit={handleSignUp}>
-            <div className="rounded-2xl bg-[#161b22] border border-gray-800 p-6 space-y-5">
+            <div className="rounded-2xl bg-[#1a1410]/85 backdrop-blur-md border border-white/20 p-6 space-y-5 shadow-xl shadow-black/40">
               {/* Full Name (optional) */}
               <div>
                 <label htmlFor="fullName" className="block text-sm font-medium text-gray-300 mb-2">
@@ -191,7 +203,7 @@ function SignUpForm() {
                   autoComplete="name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="Coach Smith"
                 />
               </div>
@@ -209,7 +221,7 @@ function SignUpForm() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="coach@school.edu"
                 />
               </div>
@@ -227,7 +239,7 @@ function SignUpForm() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="At least 8 characters"
                 />
               </div>
@@ -245,7 +257,7 @@ function SignUpForm() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0d1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:border-[#a3e635] focus:ring-1 focus:ring-[#a3e635] focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:border-[#B8CA6E] focus:ring-1 focus:ring-[#B8CA6E] focus:outline-none transition-colors"
                   placeholder="Confirm your password"
                 />
                 <div className="mt-3 flex items-center">
@@ -255,7 +267,7 @@ function SignUpForm() {
                     type="checkbox"
                     checked={showPassword}
                     onChange={(e) => setShowPassword(e.target.checked)}
-                    className="h-4 w-4 bg-[#0d1117] border-gray-700 rounded text-[#a3e635] focus:ring-[#a3e635] focus:ring-offset-0"
+                    className="h-4 w-4 bg-[#1a1410] border-white/20 rounded text-[#B8CA6E] focus:ring-[#B8CA6E] focus:ring-offset-0"
                   />
                   <label htmlFor="show-password" className="ml-2 text-sm text-gray-400">
                     Show password
@@ -271,15 +283,15 @@ function SignUpForm() {
                   type="checkbox"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="h-4 w-4 mt-1 bg-[#0d1117] border-gray-700 rounded text-[#a3e635] focus:ring-[#a3e635] focus:ring-offset-0"
+                  className="h-4 w-4 mt-1 bg-[#1a1410] border-white/20 rounded text-[#B8CA6E] focus:ring-[#B8CA6E] focus:ring-offset-0"
                 />
                 <label htmlFor="terms" className="ml-2 block text-sm text-gray-400">
                   I agree to the{' '}
-                  <Link href="/terms" className="text-[#a3e635] hover:text-[#bef264] transition-colors">
+                  <Link href="/terms" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
                     Terms of Service
                   </Link>{' '}
                   and{' '}
-                  <Link href="/privacy" className="text-[#a3e635] hover:text-[#bef264] transition-colors">
+                  <Link href="/privacy" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
                     Privacy Policy
                   </Link>
                 </label>
@@ -291,7 +303,7 @@ function SignUpForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 bg-[#a3e635] text-[#0d1117] font-semibold rounded-xl hover:bg-[#bef264] transition-all disabled:opacity-50 shadow-lg shadow-[#a3e635]/20"
+                className="w-full py-4 bg-[#B8CA6E] text-[#1a1410] font-semibold rounded-xl hover:bg-[#c9d88a] transition-all disabled:opacity-50 shadow-lg shadow-[#B8CA6E]/20"
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>
@@ -299,7 +311,7 @@ function SignUpForm() {
 
             {/* Message */}
             {message && (
-              <div className={`text-sm text-center ${messageType === 'error' ? 'text-red-400' : 'text-[#a3e635]'}`}>
+              <div className={`text-sm text-center ${messageType === 'error' ? 'text-red-400' : 'text-[#B8CA6E]'}`}>
                 {message}
               </div>
             )}
@@ -310,7 +322,7 @@ function SignUpForm() {
                 Already have an account?{' '}
                 <Link
                   href="/auth/login"
-                  className="text-[#a3e635] font-medium hover:text-[#bef264] transition-colors"
+                  className="text-[#B8CA6E] font-medium hover:text-[#c9d88a] transition-colors"
                 >
                   Sign in
                 </Link>
@@ -333,7 +345,7 @@ function SignUpForm() {
       </div>
 
       {/* Footer */}
-      <footer className="py-12 px-8 border-t border-gray-800 mt-12">
+      <footer className="relative py-12 px-8 bg-[#1a1410] border-t border-white/10 mt-12">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Logo */}
@@ -344,7 +356,7 @@ function SignUpForm() {
                 className="h-8 w-auto"
               />
               <span className="text-white font-semibold tracking-tight">
-                youth<span className="text-[#a3e635]">coach</span>hub
+                youth<span className="text-[#B8CA6E]">coach</span>hub
               </span>
             </div>
 
@@ -370,7 +382,7 @@ function SignUpForm() {
 // Loading fallback
 function SignUpLoading() {
   return (
-    <div className="min-h-screen bg-[#0d1117] flex items-center justify-center -mt-24">
+    <div className="min-h-screen bg-[#1a1410] flex items-center justify-center -mt-24">
       <div className="text-gray-400">Loading...</div>
     </div>
   );
