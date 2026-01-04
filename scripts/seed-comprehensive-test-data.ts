@@ -690,6 +690,18 @@ async function main() {
       // Target for passes - #1 Jaylen Davis gets most targets
       let targetId = isRun ? null : (Math.random() < 0.4 ? PLAYER_IDS['1'] : randomElement([PLAYER_IDS['11'], PLAYER_IDS['15'], PLAYER_IDS['85']].filter(Boolean)));
 
+      // Determine result string for analytics
+      let result: string;
+      if (isTouchdown) {
+        result = 'touchdown';
+      } else if (isTurnover) {
+        result = isRun ? 'fumble' : 'interception';
+      } else if (isRun) {
+        result = yards > 0 ? 'gain' : (yards < 0 ? 'loss' : 'no gain');
+      } else {
+        result = isComplete ? 'complete' : 'incomplete';
+      }
+
       const play: any = {
         team_id: TEAM_ID,
         video_id: videoId,
@@ -702,6 +714,7 @@ async function main() {
         hash_mark: randomElement(['left', 'middle', 'right']),
         yards_gained: isComplete === false && !isRun ? 0 : yards, // Incomplete passes = 0 yards
         resulted_in_first_down: resultedInFirstDown,
+        result, // Add result string for analytics
         is_turnover: isTurnover,
         is_fumble: isTurnover && isRun,
         is_interception: isTurnover && !isRun,
@@ -798,6 +811,20 @@ async function main() {
       // For passes, determine completion
       const isComplete = !isRun ? (!isTakeaway && Math.random() > 0.40) : null;
 
+      // Determine result string for analytics
+      let oppResult: string;
+      if (isTouchdown) {
+        oppResult = 'touchdown';
+      } else if (isTakeaway) {
+        oppResult = isRun ? 'fumble' : 'interception';
+      } else if (isSack) {
+        oppResult = 'sack';
+      } else if (isRun) {
+        oppResult = yards > 0 ? 'gain' : (yards < 0 ? 'loss' : 'no gain');
+      } else {
+        oppResult = isComplete ? 'complete' : 'incomplete';
+      }
+
       const play: any = {
         team_id: TEAM_ID,
         video_id: videoId,
@@ -810,6 +837,7 @@ async function main() {
         hash_mark: randomElement(['left', 'middle', 'right']),
         yards_gained: isComplete === false && !isRun ? 0 : yards,
         resulted_in_first_down: resultedInFirstDown,
+        result: oppResult, // Add result string for analytics
         is_turnover: isTakeaway,
         is_fumble: isTakeaway && isRun,
         is_interception: isTakeaway && !isRun,
