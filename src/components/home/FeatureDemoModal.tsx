@@ -317,13 +317,13 @@ export default function FeatureDemoModal({
                 onError={handleVideoError}
                 onEnded={handleVideoEnded}
               >
-                {/* WebM first - better compression and wider Chromium support */}
-                {feature.media.webm && (
-                  <source src={feature.media.webm} type="video/webm" />
-                )}
-                {/* MP4 fallback for Safari and older browsers */}
+                {/* MP4 first - Safari/iOS fires onError when WebM fails, breaking fallback */}
                 {feature.media.video && (
                   <source src={feature.media.video} type="video/mp4" />
+                )}
+                {/* WebM for Chrome/Firefox - better compression */}
+                {feature.media.webm && (
+                  <source src={feature.media.webm} type="video/webm" />
                 )}
               </video>
 
