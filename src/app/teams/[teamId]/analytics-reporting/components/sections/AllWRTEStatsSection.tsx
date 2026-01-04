@@ -2,7 +2,8 @@
  * All WR/TE Stats Section - Data Fetching Wrapper
  *
  * Fetches and displays statistics for ALL wide receivers and tight ends.
- * Queries play_instances table for WR/TE-specific stats (Tier 2+).
+ * Queries player_participation table for WR/TE-specific stats (Tier 2+).
+ * Uses unified player participation model with participation_type = 'receiver'.
  */
 
 'use client';
@@ -45,14 +46,26 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
       setLoading(true);
 
       try {
+        // ======================================================================
+        // UNIFIED PLAYER PARTICIPATION MODEL
+        // Query player_participation with participation_type = 'receiver'
+        // ======================================================================
         let query = supabase
-          .from('play_instances')
+          .from('player_participation')
           .select(`
-            target_id,
-            is_complete,
+            player_id,
             yards_gained,
             is_touchdown,
-            players!target_id (
+            play_instance:play_instances!inner (
+              id,
+              is_complete,
+              result_type,
+              video_id,
+              videos!inner (
+                game_id
+              )
+            ),
+            player:players!player_id (
               id,
               first_name,
               last_name,
@@ -61,10 +74,12 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
             )
           `)
           .eq('team_id', teamId)
-          .not('target_id', 'is', null);
+          .eq('participation_type', 'receiver')
+          .eq('phase', 'offense');
 
+        // Filter by game if specified
         if (gameId) {
-          query = query.eq('game_id', gameId);
+          query = query.eq('play_instance.videos.game_id', gameId);
         }
 
         const { data, error } = await query;
@@ -83,16 +98,17 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
 
         const wrteStatsMap = new Map<string, WRTEStats>();
 
-        data.forEach((play: any) => {
-          if (!play.target_id || !play.players) return;
+        data.forEach((participation: any) => {
+          if (!participation.player_id || !participation.player) return;
 
-          const player = play.players;
+          const player = participation.player;
           const position = player.primary_position;
+          const playInstance = participation.play_instance;
 
           // Only WRs and TEs
           if (position !== 'WR' && position !== 'TE') return;
 
-          const playerId = play.target_id;
+          const playerId = participation.player_id;
 
           let wrteStats = wrteStatsMap.get(playerId);
           if (!wrteStats) {
@@ -114,15 +130,20 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
 
           wrteStats.targets++;
 
-          if (play.is_complete) {
-            wrteStats.receptions++;
-            wrteStats.recYards += play.yards_gained || 0;
+          // Check for completion from play_instance or participation
+          const isComplete = playInstance?.is_complete ||
+            playInstance?.result_type === 'pass_complete' ||
+            participation.is_touchdown;
 
-            if (play.is_touchdown) {
+          if (isComplete) {
+            wrteStats.receptions++;
+            wrteStats.recYards += participation.yards_gained || 0;
+
+            if (participation.is_touchdown) {
               wrteStats.recTDs++;
             }
 
-            if ((play.yards_gained || 0) >= 15) {
+            if ((participation.yards_gained || 0) >= 15) {
               wrteStats.explosiveCatches++;
             }
           }

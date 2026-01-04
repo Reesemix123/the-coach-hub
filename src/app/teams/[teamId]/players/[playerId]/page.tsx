@@ -31,14 +31,17 @@ export default function PlayerStatsPage() {
   }, [teamId, playerId]);
 
   async function fetchData() {
+    console.log('[PlayerPage] fetchData starting...', { teamId, playerId });
     setLoading(true);
 
     // Fetch team info
-    const { data: teamData } = await supabase
+    const { data: teamData, error: teamError } = await supabase
       .from('teams')
       .select('*')
       .eq('id', teamId)
       .single();
+
+    console.log('[PlayerPage] Team fetch result:', { teamData: teamData?.name, error: teamError?.message });
 
     if (teamData) {
       setTeam(teamData);
@@ -46,11 +49,17 @@ export default function PlayerStatsPage() {
 
     // Fetch player stats
     try {
+      console.log('[PlayerPage] Calling AnalyticsService.getPlayerStats...');
       const analyticsService = new AnalyticsService();
       const data = await analyticsService.getPlayerStats(playerId, teamId);
+      console.log('[PlayerPage] Stats received:', {
+        totalPlays: data.totalPlays,
+        defensiveSnaps: data.defensiveSnaps,
+        tackles: data.tackles
+      });
       setStats(data);
     } catch (error) {
-      console.error('Error fetching player stats:', error);
+      console.error('[PlayerPage] Error fetching player stats:', error);
     }
 
     setLoading(false);
@@ -85,12 +94,22 @@ export default function PlayerStatsPage() {
   }
 
   const { player } = stats;
-  const isQB = player.position === 'QB';
-  const isWR = ['WR', 'SE', 'FL', 'X', 'Y', 'Z', 'SLOT'].includes(player.position);
-  const isTE = player.position === 'TE';
-  const isRB = ['RB', 'HB', 'FB', 'TB'].includes(player.position);
-  const isOL = ['LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG'].includes(player.position);
-  const isDefense = ['DL', 'DE', 'DT', 'NT', 'LB', 'ILB', 'OLB', 'MLB', 'CB', 'S', 'FS', 'SS', 'DB'].includes(player.position);
+  const pos = player.position?.toUpperCase() || '';
+
+  // Position detection including playbook positions
+  const isQB = pos === 'QB';
+  const isWR = ['WR', 'SE', 'FL', 'X', 'Y', 'Z', 'SLOT', 'SL', 'SR', 'WB'].includes(pos);
+  const isTE = ['TE', 'TE1', 'TE2'].includes(pos);
+  const isRB = ['RB', 'HB', 'FB', 'TB', 'HB1', 'HB2'].includes(pos);
+  const isOL = ['LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG'].includes(pos);
+  const isDefense = ['DL', 'DE', 'DT', 'NT', 'LB', 'ILB', 'OLB', 'MLB', 'CB', 'S', 'FS', 'SS', 'DB', 'EDGE', 'MIKE', 'WILL', 'SAM'].includes(pos);
+
+  // Data-driven stats detection (for two-way players)
+  const hasRushingStats = stats.rushingAttempts > 0;
+  const hasReceivingStats = stats.targets > 0;
+  const hasPassingStats = stats.passingAttempts > 0;
+  const hasDefensiveStats = stats.defensiveSnaps > 0;
+  const hasOffensiveStats = hasRushingStats || hasReceivingStats || hasPassingStats;
 
   // Position-specific metrics
   const catchRate = stats.targets > 0 ? (stats.receptions / stats.targets) * 100 : 0;
@@ -139,8 +158,8 @@ export default function PlayerStatsPage() {
             </div>
           </div>
 
-          {/* Check if there's data */}
-          {stats.totalPlays === 0 ? (
+          {/* Check if there's any data (offensive or defensive) */}
+          {stats.totalPlays === 0 && stats.defensiveSnaps === 0 ? (
             <div className="bg-gray-50 rounded-lg p-12 text-center border border-gray-200">
               <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -156,122 +175,184 @@ export default function PlayerStatsPage() {
             </div>
           ) : (
             <>
-              {/* Position-Specific Key Stats */}
+              {/* Data-driven stats sections - shows based on actual data, not just position */}
               <div className="mb-8">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Performance Statistics</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* WR/TE Stats */}
-                  {(isWR || isTE) && stats.targets > 0 && (
-                    <>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {catchRate.toFixed(1)}%
+
+                <div className="space-y-6">
+                  {/* Passing Stats - show if player has passing attempts */}
+                  {hasPassingStats && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Passing</div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.completionPct.toFixed(1)}%
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Comp %</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Catch Rate</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.targets}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.passingAttempts > 0 ? (stats.passingYards / stats.passingAttempts).toFixed(1) : '0.0'}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Yards/Att</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Targets</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.receivingYards}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-green-600">
+                            {stats.passingTouchdowns}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Pass TDs</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Rec Yards</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-green-600">
-                          {stats.receivingTouchdowns}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-red-600">
+                            {stats.interceptions}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">INTs</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Touchdowns</div>
                       </div>
-                    </>
+                    </div>
                   )}
 
-                  {/* RB Stats */}
-                  {isRB && stats.rushingAttempts > 0 && (
-                    <>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {yardsPerCarry.toFixed(1)}
+                  {/* Rushing Stats - show if player has rushing attempts */}
+                  {hasRushingStats && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Rushing</div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {yardsPerCarry.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Yards/Carry</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Yards/Carry</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.rushingAttempts}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.rushingAttempts}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Carries</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Carries</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.rushingYards}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.rushingYards}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Yards</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Rush Yards</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-green-600">
-                          {stats.rushingTouchdowns}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.rushingAvg.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Avg</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Touchdowns</div>
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-green-600">
+                            {stats.rushingTouchdowns}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">TDs</div>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
 
-                  {/* QB Stats */}
-                  {isQB && stats.passingAttempts > 0 && (
-                    <>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.completionPct.toFixed(1)}%
+                  {/* Receiving Stats - show if player has targets */}
+                  {hasReceivingStats && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Receiving</div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {catchRate.toFixed(1)}%
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Catch Rate</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Comp %</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.passingAttempts > 0 ? (stats.passingYards / stats.passingAttempts).toFixed(1) : '0.0'}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.receptions}/{stats.targets}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Rec/Targets</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Yards/Att</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-green-600">
-                          {stats.passingTouchdowns}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.receivingYards}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Yards</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Pass TDs</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-red-600">
-                          {stats.interceptions}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.receivingAvg.toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">YPC</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">INTs</div>
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-green-600">
+                            {stats.receivingTouchdowns}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">TDs</div>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
 
-                  {/* Generic fallback for other positions or no data */}
-                  {!isWR && !isTE && !isRB && !isQB && (
-                    <>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.totalPlays}
+                  {/* Defensive Stats - show if player has defensive involvement */}
+                  {hasDefensiveStats && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-500 mb-2">Defense</div>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.tackles}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Tackles</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Plays Involved</div>
-                      </div>
-                      <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {stats.successRate.toFixed(0)}%
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.tacklesForLoss}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">TFLs</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Play Success Rate</div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="text-3xl font-bold text-gray-900">
-                          {(stats.rushingYards + stats.receivingYards).toFixed(0)}
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.sacks}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Sacks</div>
                         </div>
-                        <div className="text-sm text-gray-600 mt-1">Total Yards</div>
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-gray-900">
+                            {stats.pressures}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">Pressures</div>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                          <div className="text-2xl font-bold text-green-600">
+                            {stats.interceptions}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1">INTs</div>
+                        </div>
+                        {/* Show additional defensive stats if any exist */}
+                        {(stats.passBreakups > 0 || stats.forcedFumbles > 0) && (
+                          <>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                              <div className="text-2xl font-bold text-gray-900">
+                                {stats.passBreakups}
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">PBUs</div>
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                              <div className="text-2xl font-bold text-green-600">
+                                {stats.forcedFumbles}
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">FF</div>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    </>
+                    </div>
+                  )}
+
+                  {/* No stats message */}
+                  {!hasOffensiveStats && !hasDefensiveStats && (
+                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 text-center">
+                      <p className="text-gray-500">No stats recorded yet</p>
+                      <p className="text-sm text-gray-400 mt-1">Tag plays in film analysis to track this player&apos;s performance</p>
+                    </div>
                   )}
                 </div>
               </div>

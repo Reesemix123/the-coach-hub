@@ -32,6 +32,16 @@ export interface AITagPredictions {
   play_action?: { value: boolean; confidence: number };
   run_concept?: { value: string; confidence: number };
   pass_concept?: { value: string; confidence: number };
+  // Special Teams fields
+  special_teams_unit?: { value: string; confidence: number };
+  kick_result?: { value: string; confidence: number };
+  kick_distance?: { value: number; confidence: number };
+  return_yards?: { value: number; confidence: number };
+  is_touchback?: { value: boolean; confidence: number };
+  is_fair_catch?: { value: boolean; confidence: number };
+  is_muffed?: { value: boolean; confidence: number };
+  punt_type?: { value: string; confidence: number };
+  kickoff_type?: { value: string; confidence: number };
   reasoning?: string;
 }
 

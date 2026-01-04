@@ -2401,10 +2401,71 @@ export default function GameFilmPage() {
               player_id: id,
               team_id: game.team_id,
               participation_type: pos,
+              phase: 'offense',
               result: result || null
             });
           }
         });
+
+        // ======================================================================
+        // OFFENSIVE PLAYER PARTICIPATIONS (Unified Model)
+        // Write passer, rusher, receiver to player_participation table
+        // ======================================================================
+
+        // Prepare denormalized result fields for offensive participations
+        const yardsGained = values.yards_gained ? parseInt(String(values.yards_gained)) : null;
+        const isTouchdown = values.scoring_type === 'touchdown';
+        const isFirstDown = values.resulted_in_first_down || false;
+        const isTurnover = values.result_type === 'pass_interception' || values.result_type === 'fumble_lost';
+
+        // Determine if this is a special teams play
+        const isSpecialTeamsPlay = taggingMode === 'specialTeams' ||
+          ['kick', 'punt', 'pat', 'two_point'].includes(values.play_type || '');
+
+        // Passer (QB)
+        if (values.qb_id) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.qb_id,
+            team_id: game.team_id,
+            participation_type: 'passer',
+            phase: 'offense',
+            yards_gained: yardsGained,
+            is_touchdown: isTouchdown,
+            is_first_down: isFirstDown,
+            is_turnover: isTurnover
+          });
+        }
+
+        // Rusher (Ball Carrier) - or Returner for special teams
+        if (values.ball_carrier_id) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.ball_carrier_id,
+            team_id: game.team_id,
+            participation_type: isSpecialTeamsPlay ? 'returner' : 'rusher',
+            phase: isSpecialTeamsPlay ? 'special_teams' : 'offense',
+            yards_gained: yardsGained,
+            is_touchdown: isTouchdown,
+            is_first_down: isFirstDown,
+            is_turnover: isTurnover
+          });
+        }
+
+        // Receiver (Target)
+        if (values.target_id) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.target_id,
+            team_id: game.team_id,
+            participation_type: 'receiver',
+            phase: 'offense',
+            yards_gained: yardsGained,
+            is_touchdown: isTouchdown,
+            is_first_down: isFirstDown,
+            is_turnover: isTurnover
+          });
+        }
       }
 
       // DEFENSIVE TRACKING (Tier 3)
@@ -2417,6 +2478,7 @@ export default function GameFilmPage() {
               player_id: tacklerId,
               team_id: game.team_id,
               participation_type: tacklerId === primaryTacklerId ? 'primary_tackle' : 'assist_tackle',
+              phase: 'defense',
               result: 'made'
             });
           });
@@ -2432,6 +2494,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'missed_tackle',
+              phase: 'defense',
               result: 'missed'
             });
           });
@@ -2454,6 +2517,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'pressure',
+              phase: 'defense',
               result
             });
           });
@@ -2466,6 +2530,7 @@ export default function GameFilmPage() {
             player_id: values.coverage_player_id,
             team_id: game.team_id,
             participation_type: 'coverage_assignment',
+            phase: 'defense',
             result: values.coverage_result || null
           });
         }
@@ -2482,6 +2547,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'dl_run_defense',
+              phase: 'defense',
               result: data.result || null,
               metadata: {
                 gap_assignment: data.gap || null,
@@ -2524,6 +2590,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'lb_run_stop',
+              phase: 'defense',
               result: data.result || null,
               metadata: {
                 gap_assignment: data.gap || null,
@@ -2545,6 +2612,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'lb_pass_coverage',
+              phase: 'defense',
               result: data.result || null,
               metadata: {
                 coverage_zone: data.zone || null
@@ -2565,6 +2633,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'db_run_support',
+              phase: 'defense',
               result: data.result || null,
               metadata: {
                 force_contain: data.forceContain || false,
@@ -2586,6 +2655,7 @@ export default function GameFilmPage() {
               player_id: playerId,
               team_id: game.team_id,
               participation_type: 'db_pass_coverage',
+              phase: 'defense',
               result: data.result || null,
               metadata: {
                 coverage_zone: data.zone || null,
@@ -2603,6 +2673,7 @@ export default function GameFilmPage() {
           player_id: values.interception_player_id,
           team_id: game.team_id,
           participation_type: 'interception',
+          phase: 'defense',
           result: 'interception',
           metadata: {}
         });
@@ -2618,6 +2689,111 @@ export default function GameFilmPage() {
           result: 'forced_fumble',
           metadata: {}
         });
+      }
+
+      // ======================================================================
+      // SPECIAL TEAMS PLAYER PARTICIPATIONS
+      // Write kicker, punter, long_snapper, holder, coverage to player_participation
+      // ======================================================================
+      if (taggingMode === 'specialTeams' && selectedSpecialTeamsUnit) {
+        // Prepare special teams result fields
+        const stYards = values.return_yards ? parseInt(String(values.return_yards)) :
+                        values.kick_distance ? parseInt(String(values.kick_distance)) : null;
+        const stTouchdown = values.scoring_type === 'touchdown';
+        const stTurnover = values.is_muffed || false;
+
+        // Kicker (for kickoff, field_goal, pat)
+        if (values.kicker_id && ['kickoff', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit)) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.kicker_id,
+            team_id: game.team_id,
+            participation_type: 'kicker',
+            phase: 'special_teams',
+            yards_gained: values.kick_distance ? parseInt(String(values.kick_distance)) : null,
+            is_touchdown: false, // Kicker doesn't score the TD on returns
+            result: values.kick_result || null,
+            metadata: {
+              kick_type: selectedSpecialTeamsUnit,
+              kickoff_type: values.kickoff_type || null
+            }
+          });
+        }
+
+        // Punter (for punt)
+        if (values.punter_id && selectedSpecialTeamsUnit === 'punt') {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.punter_id,
+            team_id: game.team_id,
+            participation_type: 'punter',
+            phase: 'special_teams',
+            yards_gained: values.kick_distance ? parseInt(String(values.kick_distance)) : null,
+            result: values.kick_result || null,
+            metadata: {
+              punt_type: values.punt_type || null
+            }
+          });
+        }
+
+        // Long Snapper (for punt, field_goal, pat)
+        if (values.long_snapper_id && ['punt', 'field_goal', 'pat'].includes(selectedSpecialTeamsUnit)) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.long_snapper_id,
+            team_id: game.team_id,
+            participation_type: 'long_snapper',
+            phase: 'special_teams',
+            result: values.snap_quality || null,
+            metadata: {}
+          });
+        }
+
+        // Holder (for field_goal, pat)
+        if (values.holder_id && ['field_goal', 'pat'].includes(selectedSpecialTeamsUnit)) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.holder_id,
+            team_id: game.team_id,
+            participation_type: 'holder',
+            phase: 'special_teams',
+            result: values.kick_result || null,
+            metadata: {}
+          });
+        }
+
+        // Returner (for kick_return, punt_return) - using returner_id field
+        if (values.returner_id && ['kick_return', 'punt_return'].includes(selectedSpecialTeamsUnit)) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.returner_id,
+            team_id: game.team_id,
+            participation_type: 'returner',
+            phase: 'special_teams',
+            yards_gained: values.return_yards ? parseInt(String(values.return_yards)) : null,
+            is_touchdown: stTouchdown,
+            is_turnover: stTurnover,
+            result: values.kick_result || null,
+            metadata: {
+              is_fair_catch: values.is_fair_catch || false,
+              is_touchback: values.is_touchback || false,
+              is_muffed: values.is_muffed || false
+            }
+          });
+        }
+
+        // Coverage Tackler / Gunner (for kickoff, punt coverage)
+        if (values.coverage_tackler_id && ['kickoff', 'punt'].includes(selectedSpecialTeamsUnit)) {
+          participations.push({
+            play_instance_id: playInstanceId,
+            player_id: values.coverage_tackler_id,
+            team_id: game.team_id,
+            participation_type: selectedSpecialTeamsUnit === 'punt' ? 'gunner' : 'coverage_tackle',
+            phase: 'special_teams',
+            result: 'tackle',
+            metadata: {}
+          });
+        }
       }
 
       // Batch insert all participations

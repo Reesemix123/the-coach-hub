@@ -2,7 +2,8 @@
  * All QB Stats Section - Data Fetching Wrapper
  *
  * Fetches and displays statistics for ALL quarterbacks on the team.
- * Queries play_instances table for QB-specific stats (Tier 2+).
+ * Queries player_participation table for QB-specific stats (Tier 2+).
+ * Uses unified player participation model with participation_type = 'passer'.
  */
 
 'use client';
@@ -47,20 +48,29 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
       setLoading(true);
 
       try {
-        // Build query for plays where team's QBs threw passes
+        // ======================================================================
+        // UNIFIED PLAYER PARTICIPATION MODEL
+        // Query player_participation with participation_type = 'passer'
+        // ======================================================================
         let query = supabase
-          .from('play_instances')
+          .from('player_participation')
           .select(`
-            qb_id,
-            result,
+            player_id,
             yards_gained,
-            down,
-            distance,
-            is_complete,
             is_touchdown,
-            is_interception,
-            is_sack,
-            players!qb_id (
+            is_turnover,
+            play_instance:play_instances!inner (
+              id,
+              result_type,
+              is_complete,
+              is_sack,
+              is_interception,
+              video_id,
+              videos!inner (
+                game_id
+              )
+            ),
+            player:players!player_id (
               id,
               first_name,
               last_name,
@@ -68,11 +78,13 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
             )
           `)
           .eq('team_id', teamId)
-          .not('qb_id', 'is', null);
+          .eq('participation_type', 'passer')
+          .eq('phase', 'offense');
 
         // Filter by game if specified
         if (gameId) {
-          query = query.eq('game_id', gameId);
+          // Need to filter through the nested relationship
+          query = query.eq('play_instance.videos.game_id', gameId);
         }
 
         const { data, error } = await query;
@@ -92,11 +104,12 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
         // Group by QB and calculate stats
         const qbStatsMap = new Map<string, QBStats>();
 
-        data.forEach((play: any) => {
-          if (!play.qb_id || !play.players) return;
+        data.forEach((participation: any) => {
+          if (!participation.player_id || !participation.player) return;
 
-          const qbId = play.qb_id;
-          const player = play.players;
+          const qbId = participation.player_id;
+          const player = participation.player;
+          const playInstance = participation.play_instance;
 
           // Get or create QB stats
           let qbStats = qbStatsMap.get(qbId);
@@ -121,23 +134,31 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
           // Count passing stats
           qbStats.attempts++;
 
-          if (play.is_complete) {
+          // Check for completion (from play_instance or participation)
+          const isComplete = playInstance?.is_complete ||
+            playInstance?.result_type === 'pass_complete' ||
+            participation.is_touchdown;
+          if (isComplete) {
             qbStats.completions++;
           }
 
-          if (play.is_touchdown) {
+          // Check for touchdown (from participation denormalized field or play_instance)
+          if (participation.is_touchdown) {
             qbStats.touchdowns++;
           }
 
-          if (play.is_interception) {
+          // Check for interception
+          if (participation.is_turnover || playInstance?.is_interception ||
+              playInstance?.result_type === 'pass_interception') {
             qbStats.interceptions++;
           }
 
-          if (play.is_sack) {
+          // Check for sack
+          if (playInstance?.is_sack || playInstance?.result_type === 'pass_sack') {
             qbStats.sacks++;
           } else {
-            // Only count yards for non-sack plays
-            qbStats.passingYards += play.yards_gained || 0;
+            // Only count yards for non-sack plays (use denormalized or fallback)
+            qbStats.passingYards += participation.yards_gained || playInstance?.yards_gained || 0;
           }
         });
 

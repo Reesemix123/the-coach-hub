@@ -202,4 +202,238 @@ export const METRICS: Record<string, MetricDefinition> = {
       return (successful / redZonePlays.length) * 100;
     },
   },
+
+  // ========================================
+  // DEFENSIVE METRICS
+  // ========================================
+
+  havocRate: {
+    name: 'Havoc Rate',
+    description: 'Percentage of defensive plays resulting in TFL, sack, PBU, INT, or forced fumble',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const defensivePlays = plays.filter((p) => p.is_opponent_play === true);
+      if (defensivePlays.length === 0) return null;
+
+      const havocPlays = defensivePlays.filter(
+        (p) => p.is_tfl || p.is_sack || p.is_pbu || p.is_forced_fumble
+      ).length;
+      return (havocPlays / defensivePlays.length) * 100;
+    },
+  },
+
+  pressureRate: {
+    name: 'Pressure Rate',
+    description: 'Percentage of pass plays where defense generated pressure or sack',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const defensivePassPlays = plays.filter(
+        (p) => p.is_opponent_play === true && p.play_type === 'pass'
+      );
+      if (defensivePassPlays.length === 0) return null;
+
+      const pressurePlays = defensivePassPlays.filter(
+        (p) =>
+          p.is_sack ||
+          (p.pressure_player_ids && p.pressure_player_ids.length > 0)
+      ).length;
+      return (pressurePlays / defensivePassPlays.length) * 100;
+    },
+  },
+
+  sackRate: {
+    name: 'Sack Rate',
+    description: 'Percentage of pass plays resulting in a sack',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const defensivePassPlays = plays.filter(
+        (p) => p.is_opponent_play === true && p.play_type === 'pass'
+      );
+      if (defensivePassPlays.length === 0) return null;
+
+      const sacks = defensivePassPlays.filter((p) => p.is_sack === true).length;
+      return (sacks / defensivePassPlays.length) * 100;
+    },
+  },
+
+  tflRate: {
+    name: 'TFL Rate',
+    description: 'Percentage of run plays resulting in a tackle for loss',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const defensiveRunPlays = plays.filter(
+        (p) => p.is_opponent_play === true && p.play_type === 'run'
+      );
+      if (defensiveRunPlays.length === 0) return null;
+
+      const tfls = defensiveRunPlays.filter((p) => p.is_tfl === true).length;
+      return (tfls / defensiveRunPlays.length) * 100;
+    },
+  },
+
+  yardsAllowedPerPlay: {
+    name: 'Yards Allowed Per Play',
+    description: 'Average yards allowed per defensive play',
+    unit: 'yards',
+    calculate: (plays: PlayData[]) => {
+      const defensivePlays = plays.filter(
+        (p) => p.is_opponent_play === true && p.yards_gained !== null
+      );
+      if (defensivePlays.length === 0) return null;
+
+      const totalYards = defensivePlays.reduce(
+        (sum, p) => sum + (p.yards_gained ?? 0),
+        0
+      );
+      return totalYards / defensivePlays.length;
+    },
+  },
+
+  opposingSuccessRate: {
+    name: 'Opposing Success Rate',
+    description: 'Success rate allowed to opponents (lower is better)',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const defensivePlays = plays.filter(
+        (p) => p.is_opponent_play === true && p.success !== null
+      );
+      if (defensivePlays.length === 0) return null;
+
+      const successfulOpponentPlays = defensivePlays.filter(
+        (p) => p.success === true
+      ).length;
+      return (successfulOpponentPlays / defensivePlays.length) * 100;
+    },
+  },
+
+  // ========================================
+  // SPECIAL TEAMS METRICS
+  // ========================================
+
+  fieldGoalPercentage: {
+    name: 'Field Goal Percentage',
+    description: 'Percentage of field goal attempts made',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const fgAttempts = plays.filter(
+        (p) => p.special_teams_unit === 'field_goal' && p.kick_result !== null
+      );
+      if (fgAttempts.length === 0) return null;
+
+      const made = fgAttempts.filter((p) => p.kick_result === 'made').length;
+      return (made / fgAttempts.length) * 100;
+    },
+  },
+
+  patPercentage: {
+    name: 'PAT Percentage',
+    description: 'Percentage of extra point attempts made',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const patAttempts = plays.filter(
+        (p) => p.special_teams_unit === 'pat' && p.kick_result !== null
+      );
+      if (patAttempts.length === 0) return null;
+
+      const made = patAttempts.filter((p) => p.kick_result === 'made').length;
+      return (made / patAttempts.length) * 100;
+    },
+  },
+
+  puntAverage: {
+    name: 'Punt Average',
+    description: 'Average yards per punt',
+    unit: 'yards',
+    calculate: (plays: PlayData[]) => {
+      const punts = plays.filter(
+        (p) => p.special_teams_unit === 'punt' && p.kick_distance !== null
+      );
+      if (punts.length === 0) return null;
+
+      const totalYards = punts.reduce((sum, p) => sum + (p.kick_distance ?? 0), 0);
+      return totalYards / punts.length;
+    },
+  },
+
+  netPuntAverage: {
+    name: 'Net Punt Average',
+    description: 'Average net yards per punt (gross minus return yards)',
+    unit: 'yards',
+    calculate: (plays: PlayData[]) => {
+      const punts = plays.filter(
+        (p) => p.special_teams_unit === 'punt' && p.kick_distance !== null
+      );
+      if (punts.length === 0) return null;
+
+      const netYards = punts.reduce((sum, p) => {
+        const gross = p.kick_distance ?? 0;
+        const returnYds = p.return_yards ?? 0;
+        return sum + (gross - returnYds);
+      }, 0);
+      return netYards / punts.length;
+    },
+  },
+
+  kickoffTouchbackRate: {
+    name: 'Kickoff Touchback Rate',
+    description: 'Percentage of kickoffs resulting in touchback',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const kickoffs = plays.filter((p) => p.special_teams_unit === 'kickoff');
+      if (kickoffs.length === 0) return null;
+
+      const touchbacks = kickoffs.filter((p) => p.is_touchback === true).length;
+      return (touchbacks / kickoffs.length) * 100;
+    },
+  },
+
+  kickReturnAverage: {
+    name: 'Kick Return Average',
+    description: 'Average yards per kick return',
+    unit: 'yards',
+    calculate: (plays: PlayData[]) => {
+      const returns = plays.filter(
+        (p) =>
+          p.special_teams_unit === 'kick_return' &&
+          p.return_yards !== null &&
+          p.is_fair_catch !== true &&
+          p.is_touchback !== true
+      );
+      if (returns.length === 0) return null;
+
+      const totalYards = returns.reduce((sum, p) => sum + (p.return_yards ?? 0), 0);
+      return totalYards / returns.length;
+    },
+  },
+
+  puntReturnAverage: {
+    name: 'Punt Return Average',
+    description: 'Average yards per punt return',
+    unit: 'yards',
+    calculate: (plays: PlayData[]) => {
+      const returns = plays.filter(
+        (p) =>
+          p.special_teams_unit === 'punt_return' &&
+          p.return_yards !== null &&
+          p.is_fair_catch !== true
+      );
+      if (returns.length === 0) return null;
+
+      const totalYards = returns.reduce((sum, p) => sum + (p.return_yards ?? 0), 0);
+      return totalYards / returns.length;
+    },
+  },
+
+  fairCatchRate: {
+    name: 'Fair Catch Rate',
+    description: 'Percentage of punt returns that are fair catches',
+    unit: 'percentage',
+    calculate: (plays: PlayData[]) => {
+      const puntReturns = plays.filter((p) => p.special_teams_unit === 'punt_return');
+      if (puntReturns.length === 0) return null;
+
+      const fairCatches = puntReturns.filter((p) => p.is_fair_catch === true).length;
+      return (fairCatches / puntReturns.length) * 100;
+    },
+  },
 };

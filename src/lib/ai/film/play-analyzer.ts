@@ -32,6 +32,16 @@ export interface PlayPrediction {
   play_action?: FieldPrediction;
   run_concept?: FieldPrediction;
   pass_concept?: FieldPrediction;
+  // Special Teams fields (only returned when play_type is special_teams)
+  special_teams_unit?: FieldPrediction;
+  kick_result?: FieldPrediction;
+  kick_distance?: FieldPrediction;
+  return_yards?: FieldPrediction;
+  is_touchback?: FieldPrediction;
+  is_fair_catch?: FieldPrediction;
+  is_muffed?: FieldPrediction;
+  punt_type?: FieldPrediction;
+  kickoff_type?: FieldPrediction;
   audio_used?: boolean;
   fields_uncertain?: string[];
   reasoning?: string;

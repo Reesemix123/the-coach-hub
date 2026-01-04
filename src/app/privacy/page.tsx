@@ -594,20 +594,6 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        {/* Footer Links */}
-        <div className="mt-16 pt-8 border-t border-white/10">
-          <div className="flex flex-wrap gap-6 text-sm">
-            <Link href="/terms" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
-              Terms of Service
-            </Link>
-            <Link href="/contact" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
-              Contact Us
-            </Link>
-            <Link href="/pricing" className="text-gray-400 hover:text-[#B8CA6E] transition-colors">
-              Pricing
-            </Link>
-          </div>
-        </div>
       </div>
 
       {/* Footer */}

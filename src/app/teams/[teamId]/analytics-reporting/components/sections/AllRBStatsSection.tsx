@@ -2,7 +2,8 @@
  * All RB Stats Section - Data Fetching Wrapper
  *
  * Fetches and displays statistics for ALL running backs on the team.
- * Queries play_instances table for RB-specific stats (Tier 2+).
+ * Queries player_participation table for RB-specific stats (Tier 2+).
+ * Uses unified player participation model with participation_type = 'rusher' and 'receiver'.
  */
 
 'use client';
@@ -55,24 +56,27 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
       setLoading(true);
 
       try {
-        // Query plays where RBs were ball carriers or targets
+        // ======================================================================
+        // UNIFIED PLAYER PARTICIPATION MODEL
+        // Query player_participation for rushers and receivers, filter to RBs
+        // ======================================================================
         let query = supabase
-          .from('play_instances')
+          .from('player_participation')
           .select(`
-            ball_carrier_id,
-            target_id,
-            result,
+            player_id,
+            participation_type,
             yards_gained,
             is_touchdown,
-            is_complete,
-            players_ball_carrier:players!ball_carrier_id (
+            play_instance:play_instances!inner (
               id,
-              first_name,
-              last_name,
-              jersey_number,
-              primary_position
+              is_complete,
+              result_type,
+              video_id,
+              videos!inner (
+                game_id
+              )
             ),
-            players_target:players!target_id (
+            player:players!player_id (
               id,
               first_name,
               last_name,
@@ -80,10 +84,13 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
               primary_position
             )
           `)
-          .eq('team_id', teamId);
+          .eq('team_id', teamId)
+          .in('participation_type', ['rusher', 'receiver'])
+          .eq('phase', 'offense');
 
+        // Filter by game if specified
         if (gameId) {
-          query = query.eq('game_id', gameId);
+          query = query.eq('play_instance.videos.game_id', gameId);
         }
 
         const { data, error } = await query;
@@ -103,87 +110,69 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
         // Group by RB and calculate stats
         const rbStatsMap = new Map<string, RBStats>();
 
-        data.forEach((play: any) => {
-          // Check ball carrier (rushing)
-          if (play.ball_carrier_id && play.players_ball_carrier) {
-            const player = play.players_ball_carrier;
-            if (player.primary_position === 'RB') {
-              const rbId = play.ball_carrier_id;
+        data.forEach((participation: any) => {
+          if (!participation.player_id || !participation.player) return;
 
-              let rbStats = rbStatsMap.get(rbId);
-              if (!rbStats) {
-                rbStats = {
-                  playerId: rbId,
-                  playerName: `${player.first_name} ${player.last_name}`,
-                  jerseyNumber: player.jersey_number || '',
-                  carries: 0,
-                  rushYards: 0,
-                  rushAvg: 0,
-                  rushTDs: 0,
-                  explosiveRuns: 0,
-                  targets: 0,
-                  receptions: 0,
-                  recYards: 0,
-                  recAvg: 0,
-                  recTDs: 0,
-                  totalTouches: 0,
-                  totalYards: 0,
-                  totalTDs: 0,
-                };
-                rbStatsMap.set(rbId, rbStats);
-              }
+          const player = participation.player;
+          // Only include players with primary_position = 'RB'
+          if (player.primary_position !== 'RB') return;
 
-              rbStats.carries++;
-              rbStats.rushYards += play.yards_gained || 0;
+          const rbId = participation.player_id;
+          const playInstance = participation.play_instance;
 
-              if (play.is_touchdown) {
-                rbStats.rushTDs++;
-              }
+          // Get or create RB stats
+          let rbStats = rbStatsMap.get(rbId);
+          if (!rbStats) {
+            rbStats = {
+              playerId: rbId,
+              playerName: `${player.first_name} ${player.last_name}`,
+              jerseyNumber: player.jersey_number || '',
+              carries: 0,
+              rushYards: 0,
+              rushAvg: 0,
+              rushTDs: 0,
+              explosiveRuns: 0,
+              targets: 0,
+              receptions: 0,
+              recYards: 0,
+              recAvg: 0,
+              recTDs: 0,
+              totalTouches: 0,
+              totalYards: 0,
+              totalTDs: 0,
+            };
+            rbStatsMap.set(rbId, rbStats);
+          }
 
-              if ((play.yards_gained || 0) >= 10) {
-                rbStats.explosiveRuns++;
-              }
+          // Handle rushing stats (participation_type = 'rusher')
+          if (participation.participation_type === 'rusher') {
+            rbStats.carries++;
+            rbStats.rushYards += participation.yards_gained || 0;
+
+            if (participation.is_touchdown) {
+              rbStats.rushTDs++;
+            }
+
+            if ((participation.yards_gained || 0) >= 10) {
+              rbStats.explosiveRuns++;
             }
           }
 
-          // Check target (receiving)
-          if (play.target_id && play.players_target) {
-            const player = play.players_target;
-            if (player.primary_position === 'RB') {
-              const rbId = play.target_id;
+          // Handle receiving stats (participation_type = 'receiver')
+          if (participation.participation_type === 'receiver') {
+            rbStats.targets++;
 
-              let rbStats = rbStatsMap.get(rbId);
-              if (!rbStats) {
-                rbStats = {
-                  playerId: rbId,
-                  playerName: `${player.first_name} ${player.last_name}`,
-                  jerseyNumber: player.jersey_number || '',
-                  carries: 0,
-                  rushYards: 0,
-                  rushAvg: 0,
-                  rushTDs: 0,
-                  explosiveRuns: 0,
-                  targets: 0,
-                  receptions: 0,
-                  recYards: 0,
-                  recAvg: 0,
-                  recTDs: 0,
-                  totalTouches: 0,
-                  totalYards: 0,
-                  totalTDs: 0,
-                };
-                rbStatsMap.set(rbId, rbStats);
-              }
+            // Check for completion from play_instance or participation
+            const isComplete = playInstance?.is_complete ||
+              playInstance?.result_type === 'pass_complete' ||
+              participation.is_touchdown;
 
-              rbStats.targets++;
+            if (isComplete) {
+              rbStats.receptions++;
+              rbStats.recYards += participation.yards_gained || 0;
 
-              if (play.is_complete) {
-                rbStats.receptions++;
-                rbStats.recYards += play.yards_gained || 0;
-
-                if (play.is_touchdown) {
-                  rbStats.recTDs++;
-                }
+              if (participation.is_touchdown) {
+                rbStats.recTDs++;
               }
             }
           }

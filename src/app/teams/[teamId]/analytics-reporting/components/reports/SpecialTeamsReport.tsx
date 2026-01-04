@@ -16,6 +16,8 @@ import { METRIC_DEFINITIONS, type ComprehensiveTeamMetrics } from '@/lib/service
 import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import AllKickersStatsSection from '../sections/AllKickersStatsSection';
+import AllReturnersStatsSection from '../sections/AllReturnersStatsSection';
 
 export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
@@ -336,6 +338,10 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
           </div>
         )}
       </section>
+
+      {/* Player Stats Sections */}
+      <AllKickersStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
+      <AllReturnersStatsSection teamId={teamId} gameId={filters.gameId || gameId} />
     </div>
   );
 }

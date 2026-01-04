@@ -577,11 +577,14 @@ async function main() {
   // ========================================
   // Step 3b: Update games to comprehensive tagging tier
   // ========================================
-  console.log('📊 Setting games to comprehensive tagging tier...');
+  console.log('📊 Setting games to comprehensive tagging tier and marking as complete...');
   const gameIds = GAME_PROFILES.map(g => g.gameId);
   const { error: tierError } = await supabase
     .from('games')
-    .update({ tagging_tier: 'comprehensive' })
+    .update({
+      tagging_tier: 'comprehensive',
+      film_analysis_status: 'complete'  // Required for analytics to include these games
+    })
     .in('id', gameIds);
 
   if (tierError) {

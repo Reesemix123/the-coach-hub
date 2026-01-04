@@ -798,6 +798,7 @@ export function canUpgradeTier(currentTier: TaggingTier, targetTier: TaggingTier
 export type ReportSection =
   | 'qb_stats' | 'rb_stats' | 'wr_te_stats' | 'tackler_attribution'
   | 'ol_performance' | 'dl_stats' | 'lb_stats' | 'db_stats'
+  | 'special_teams_stats' | 'kicker_stats' | 'returner_stats'
   | 'player_report_basic' | 'player_report_full';
 
 export const REPORT_SECTION_MIN_TIERS: Record<ReportSection, TaggingTier> = {
@@ -809,6 +810,9 @@ export const REPORT_SECTION_MIN_TIERS: Record<ReportSection, TaggingTier> = {
   dl_stats: 'comprehensive',
   lb_stats: 'comprehensive',
   db_stats: 'comprehensive',
+  special_teams_stats: 'standard',
+  kicker_stats: 'standard',
+  returner_stats: 'standard',
   player_report_basic: 'standard',
   player_report_full: 'comprehensive'
 };
@@ -829,6 +833,9 @@ export function getReportTierMessage(section: ReportSection): string {
     dl_stats: `Tag games at **${tierName}** level to see defensive line statistics.`,
     lb_stats: `Tag games at **${tierName}** level to see linebacker statistics.`,
     db_stats: `Tag games at **${tierName}** level to see defensive back statistics.`,
+    special_teams_stats: `Tag games at **${tierName}** level to see special teams statistics.`,
+    kicker_stats: `Tag games at **${tierName}** level to see kicker and punter statistics.`,
+    returner_stats: `Tag games at **${tierName}** level to see kick/punt return statistics.`,
     player_report_basic: `Tag games at **${tierName}** level to unlock player involvement stats.`,
     player_report_full: `Tag games at **${tierName}** level for individual player grades and position-specific metrics.`
   };
@@ -985,8 +992,12 @@ export interface PlayInstance {
 
   // Player attribution (Tier 1-2)
   player_id?: string; // Legacy field
+
+  /** @deprecated Use player_participation with type='rusher' instead */
   ball_carrier_id?: string;
+  /** @deprecated Use player_participation with type='passer' instead */
   qb_id?: string;
+  /** @deprecated Use player_participation with type='receiver' instead */
   target_id?: string;
 
   // Play classification (Tier 2+)
@@ -1502,6 +1513,154 @@ export type NewPracticePeriod = Omit<PracticePeriod, 'id' | 'created_at'>;
  * Helper type for creating new practice drills
  */
 export type NewPracticeDrill = Omit<PracticeDrill, 'id' | 'created_at'>;
+
+// ============================================================================
+// UNIFIED PLAYER PARTICIPATION MODEL
+// ============================================================================
+
+/**
+ * Phase of play for player participation
+ * Used to categorize player involvement across all units
+ */
+export type Phase = 'offense' | 'defense' | 'special_teams';
+
+/**
+ * All possible participation types across offense, defense, and special teams
+ * Maps to the player_participation.participation_type column
+ */
+export type ParticipationType =
+  // ========== OFFENSIVE ==========
+  | 'passer'           // QB throwing the ball
+  | 'rusher'           // Ball carrier on run plays
+  | 'receiver'         // Target/receiver on pass plays
+  | 'blocker'          // Any blocking assignment (non-OL, e.g., FB, TE, WR)
+
+  // Offensive line
+  | 'ol_lt'
+  | 'ol_lg'
+  | 'ol_c'
+  | 'ol_rg'
+  | 'ol_rt'
+  | 'ol_penalty'
+
+  // ========== DEFENSIVE ==========
+  // Universal actions
+  | 'primary_tackle'
+  | 'assist_tackle'
+  | 'missed_tackle'
+  | 'pressure'
+  | 'interception'
+  | 'pass_breakup'
+  | 'forced_fumble'
+  | 'fumble_recovery'
+  | 'tackle_for_loss'
+  | 'coverage_assignment'
+
+  // Position-specific run defense
+  | 'dl_run_defense'
+  | 'lb_run_stop'
+  | 'db_run_support'
+
+  // Position-specific pass coverage
+  | 'lb_pass_coverage'
+  | 'db_pass_coverage'
+
+  // ========== SPECIAL TEAMS ==========
+  // Kicking specialists
+  | 'kicker'           // Field goal/PAT kicker, also kickoff
+  | 'punter'           // Punter
+  | 'long_snapper'     // Long snapper
+  | 'holder'           // Holder for FG/PAT
+
+  // Return specialists
+  | 'returner'         // Kick/punt returner
+
+  // Coverage team
+  | 'gunner'           // Punt coverage outside - first down field
+  | 'jammer'           // Blocks gunners on returns
+  | 'coverage_tackle'  // Made tackle on special teams coverage
+
+  // Blocking on returns
+  | 'st_blocker'       // Blocker on return teams
+
+  // Legacy special teams (kept for backward compatibility)
+  | 'punt_return'
+  | 'kickoff_return'
+  | 'punt_coverage'
+  | 'kickoff_coverage';
+
+/**
+ * Database table: player_participation
+ * Unified table for tracking ALL player involvement in plays
+ * Single source of truth for offense, defense, and special teams
+ */
+export interface PlayerParticipation {
+  id: string;
+  play_instance_id: string;
+  player_id: string;
+  team_id: string;
+  participation_type: ParticipationType;
+  phase: Phase;
+  result?: string;
+  metadata?: Record<string, unknown>;
+
+  // Denormalized play result fields (for self-contained queries)
+  yards_gained?: number;
+  is_touchdown?: boolean;
+  is_first_down?: boolean;
+  is_turnover?: boolean;
+
+  created_at: string;
+  updated_at?: string;
+}
+
+/**
+ * Helper type for creating new player participation records
+ */
+export type NewPlayerParticipation = Omit<PlayerParticipation, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * Helper type for updating player participation records
+ */
+export type PlayerParticipationUpdate = Partial<Omit<PlayerParticipation, 'id' | 'created_at'>>;
+
+/**
+ * Offensive participation types for filtering
+ */
+export const OFFENSIVE_PARTICIPATION_TYPES: ParticipationType[] = [
+  'passer', 'rusher', 'receiver', 'blocker',
+  'ol_lt', 'ol_lg', 'ol_c', 'ol_rg', 'ol_rt', 'ol_penalty'
+];
+
+/**
+ * Defensive participation types for filtering
+ */
+export const DEFENSIVE_PARTICIPATION_TYPES: ParticipationType[] = [
+  'primary_tackle', 'assist_tackle', 'missed_tackle',
+  'pressure', 'interception', 'pass_breakup',
+  'forced_fumble', 'fumble_recovery', 'tackle_for_loss',
+  'coverage_assignment', 'dl_run_defense', 'lb_run_stop',
+  'db_run_support', 'lb_pass_coverage', 'db_pass_coverage'
+];
+
+/**
+ * Special teams participation types for filtering
+ */
+export const SPECIAL_TEAMS_PARTICIPATION_TYPES: ParticipationType[] = [
+  'kicker', 'punter', 'long_snapper', 'holder',
+  'returner', 'gunner', 'jammer', 'coverage_tackle', 'st_blocker',
+  'punt_return', 'kickoff_return', 'punt_coverage', 'kickoff_coverage'
+];
+
+/**
+ * Get phase from participation type
+ */
+export function getPhaseFromParticipationType(type: ParticipationType): Phase {
+  if (OFFENSIVE_PARTICIPATION_TYPES.includes(type)) return 'offense';
+  if (DEFENSIVE_PARTICIPATION_TYPES.includes(type)) return 'defense';
+  if (SPECIAL_TEAMS_PARTICIPATION_TYPES.includes(type)) return 'special_teams';
+  return 'defense'; // Default fallback
+}
 
 // ============================================================================
 // UNIFIED PLAYER STATS (Multi-Position Support)

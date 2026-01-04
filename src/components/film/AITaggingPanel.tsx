@@ -32,6 +32,16 @@ const FIELD_LABELS: Record<string, string> = {
   play_action: 'Play Action',
   run_concept: 'Run Concept',
   pass_concept: 'Pass Concept',
+  // Special Teams fields
+  special_teams_unit: 'Special Teams Unit',
+  kick_result: 'Kick Result',
+  kick_distance: 'Kick Distance',
+  return_yards: 'Return Yards',
+  is_touchback: 'Touchback',
+  is_fair_catch: 'Fair Catch',
+  is_muffed: 'Muffed',
+  punt_type: 'Punt Type',
+  kickoff_type: 'Kickoff Type',
 };
 
 // Confidence level styling - used for row backgrounds and badges

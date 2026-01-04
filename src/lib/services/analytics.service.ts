@@ -87,6 +87,37 @@ export interface PlayerStats {
     successRate: number;
     avgYards: number;
   }>;
+
+  // Defensive stats
+  defensiveSnaps: number;
+  tackles: number;
+  tacklesForLoss: number;
+  sacks: number;
+  pressures: number;
+  passBreakups: number;
+  defensiveInterceptions: number;
+  forcedFumbles: number;
+  missedTackles: number;
+
+  // Special Teams stats
+  specialTeamsSnaps: number;
+  kickoffs: number;
+  kickoffYards: number;
+  kickoffAvg: number;
+  kickoffTouchbacks: number;
+  punts: number;
+  puntYards: number;
+  puntAvg: number;
+  fieldGoalAttempts: number;
+  fieldGoalsMade: number;
+  fieldGoalPct: number;
+  patAttempts: number;
+  patMade: number;
+  returns: number;
+  returnYards: number;
+  returnAvg: number;
+  returnTouchdowns: number;
+  coverageTackles: number;
 }
 
 export class AnalyticsService {
@@ -349,26 +380,78 @@ export class AnalyticsService {
       return this.getEmptyPlayerStats(player);
     }
 
-    // Fetch all plays by this player (check all player attribution columns)
-    // Only from completed games
-    const { data: plays } = await this.supabase
-      .from('play_instances')
-      .select('*')
-      .or(`ball_carrier_id.eq.${playerId},qb_id.eq.${playerId},target_id.eq.${playerId}`)
-      .eq('team_id', teamId)
-      .eq('is_opponent_play', false)
-      .in('video_id', completedVideoIds);
+    // ======================================================================
+    // UNIFIED PLAYER PARTICIPATION MODEL
+    // Query player_participation table for ALL player involvement
+    // This replaces the deprecated play_instances columns (ball_carrier_id, qb_id, target_id)
+    // ======================================================================
 
-    if (!plays || plays.length === 0) {
+    // Query all participation records for this player
+    const { data: allParticipation, error: partError } = await this.supabase
+      .from('player_participation')
+      .select('*, play_instance:play_instances!inner(id, video_id, is_opponent_play, down, distance, yards_gained, resulted_in_first_down, is_turnover, is_touchdown, scoring_type, result_type, play_code, yard_line)')
+      .eq('player_id', playerId)
+      .eq('team_id', teamId);
+
+    console.log('[Analytics] Participation query completed:', {
+      playerId,
+      teamId,
+      totalRecords: allParticipation?.length || 0,
+      error: partError?.message
+    });
+
+    // Filter to only completed games
+    const validParticipation = allParticipation?.filter(p =>
+      p.play_instance && completedVideoIds.includes(p.play_instance.video_id)
+    ) || [];
+
+    // Separate by phase
+    const offensiveParticipation = validParticipation.filter(p =>
+      p.phase === 'offense' || ['passer', 'rusher', 'receiver', 'blocker'].includes(p.participation_type)
+    );
+    const validDefensiveParticipation = validParticipation.filter(p =>
+      (p.phase === 'defense' || !['passer', 'rusher', 'receiver', 'blocker', 'returner'].includes(p.participation_type)) &&
+      p.play_instance?.is_opponent_play === true
+    );
+    const specialTeamsParticipation = validParticipation.filter(p =>
+      p.phase === 'special_teams' || p.participation_type === 'returner'
+    );
+
+    console.log('[Analytics] Participation by phase:', {
+      offense: offensiveParticipation.length,
+      defense: validDefensiveParticipation.length,
+      specialTeams: specialTeamsParticipation.length
+    });
+
+    // Build a list of unique play instances with their data for offensive stats
+    const offensivePlays = offensiveParticipation
+      .filter(p => p.play_instance && !p.play_instance.is_opponent_play)
+      .map(p => ({
+        ...p.play_instance,
+        // Mark which role this player had on this play
+        _participation_type: p.participation_type,
+        _player_id: playerId
+      }));
+
+    // De-duplicate plays (player might have multiple participation types on same play)
+    const uniqueOffensivePlays = Array.from(
+      new Map(offensivePlays.map(p => [p.id, p])).values()
+    );
+
+    console.log('[Analytics] Valid defensive participation after filtering:', validDefensiveParticipation.length);
+
+    // If no offensive plays AND no defensive participation, return empty stats
+    if (uniqueOffensivePlays.length === 0 && validDefensiveParticipation.length === 0) {
+      console.log('[Analytics] No plays found, returning empty stats');
       return this.getEmptyPlayerStats(player);
     }
 
-    // Calculate overall stats
-    const totalPlays = plays.length;
-    const successfulPlays = plays.filter(p =>
+    // Calculate overall stats (offensive plays only)
+    const totalPlays = uniqueOffensivePlays.length;
+    const successfulPlays = uniqueOffensivePlays.filter(p =>
       this.isPlaySuccessful(p.down, p.distance, p.yards_gained, p.resulted_in_first_down)
     );
-    const successRate = (successfulPlays.length / totalPlays) * 100;
+    const successRate = totalPlays > 0 ? (successfulPlays.length / totalPlays) * 100 : 0;
 
     // Helper to check if a play is a touchdown (supports new scoring_type, result_type, and legacy fields)
     const isTouchdown = (p: any) =>
@@ -392,53 +475,63 @@ export class AnalyticsService {
       p.result_type === 'pass_incomplete' ||
       p.result?.includes('incomplete');
 
-    // Rushing stats (plays where this player was the ball carrier)
-    const rushPlays = plays.filter(p => p.ball_carrier_id === playerId);
-    const rushingAttempts = rushPlays.length;
-    const rushingYards = rushPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const rushingAvg = rushingAttempts > 0 ? rushingYards / rushingAttempts : 0;
-    const rushingTouchdowns = rushPlays.filter(p =>
-      isTouchdown(p) || (p.yard_line && p.yard_line >= 100)
-    ).length;
-    const rushingFumbles = rushPlays.filter(p => p.is_turnover).length;
+    // ======================================================================
+    // UNIFIED MODEL: Use participation types to identify player roles
+    // Instead of checking play_instances columns, we filter by participation_type
+    // ======================================================================
 
-    // Passing stats (plays where this player was the QB)
-    const passPlays = plays.filter(p => p.qb_id === playerId);
+    // Rushing stats (participation_type = 'rusher')
+    const rushParticipation = offensiveParticipation.filter(p => p.participation_type === 'rusher');
+    const rushPlays = rushParticipation.map(p => p.play_instance).filter(Boolean);
+    const rushingAttempts = rushPlays.length;
+    const rushingYards = rushParticipation.reduce((sum, p) => sum + (p.yards_gained || p.play_instance?.yards_gained || 0), 0);
+    const rushingAvg = rushingAttempts > 0 ? rushingYards / rushingAttempts : 0;
+    const rushingTouchdowns = rushParticipation.filter(p =>
+      p.is_touchdown || isTouchdown(p.play_instance)
+    ).length;
+    const rushingFumbles = rushParticipation.filter(p =>
+      p.is_turnover || p.play_instance?.is_turnover
+    ).length;
+
+    // Passing stats (participation_type = 'passer')
+    const passParticipation = offensiveParticipation.filter(p => p.participation_type === 'passer');
+    const passPlays = passParticipation.map(p => p.play_instance).filter(Boolean);
     const passingAttempts = passPlays.length;
     const completions = passPlays.filter(p =>
-      isComplete(p) || (isTouchdown(p) && p.target_id)
+      isComplete(p) || isTouchdown(p)
     ).length;
     const completionPct = passingAttempts > 0 ? (completions / passingAttempts) * 100 : 0;
-    const passingYards = passPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const passingTouchdowns = passPlays.filter(p =>
-      isTouchdown(p) && p.target_id
+    const passingYards = passParticipation.reduce((sum, p) => sum + (p.yards_gained || p.play_instance?.yards_gained || 0), 0);
+    const passingTouchdowns = passParticipation.filter(p =>
+      p.is_touchdown || isTouchdown(p.play_instance)
     ).length;
     const interceptions = passPlays.filter(p => isInt(p)).length;
     const passingFumbles = passPlays.filter(p => p.is_turnover && !p.is_interception).length;
 
-    // Receiving stats (plays where this player was the target)
-    const targetPlays = plays.filter(p => p.target_id === playerId);
+    // Receiving stats (participation_type = 'receiver')
+    const receiverParticipation = offensiveParticipation.filter(p => p.participation_type === 'receiver');
+    const targetPlays = receiverParticipation.map(p => p.play_instance).filter(Boolean);
     const targets = targetPlays.length;
     const receptions = targetPlays.filter(p =>
-      isComplete(p) || (isTouchdown(p) && p.target_id === playerId)
+      isComplete(p) || isTouchdown(p)
     ).length;
     const drops = targetPlays.filter(p =>
       isIncomplete(p) && !p.result?.includes('defended') && !p.result_type?.includes('defended')
     ).length;
-    const receivingYards = targetPlays
-      .filter(p => isComplete(p) || isTouchdown(p))
-      .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+    const receivingYards = receiverParticipation
+      .filter(p => isComplete(p.play_instance) || isTouchdown(p.play_instance))
+      .reduce((sum, p) => sum + (p.yards_gained || p.play_instance?.yards_gained || 0), 0);
     const receivingAvg = receptions > 0 ? receivingYards / receptions : 0;
-    const receivingTouchdowns = targetPlays.filter(p =>
-      isTouchdown(p)
+    const receivingTouchdowns = receiverParticipation.filter(p =>
+      p.is_touchdown || isTouchdown(p.play_instance)
     ).length;
     const receivingFumbles = targetPlays.filter(p => p.is_turnover).length;
 
-    // Yards by down
-    const firstDownPlays = plays.filter(p => p.down === 1);
-    const secondDownPlays = plays.filter(p => p.down === 2);
-    const thirdDownPlays = plays.filter(p => p.down === 3);
-    const fourthDownPlays = plays.filter(p => p.down === 4);
+    // Yards by down (use unique offensive plays)
+    const firstDownPlays = uniqueOffensivePlays.filter(p => p.down === 1);
+    const secondDownPlays = uniqueOffensivePlays.filter(p => p.down === 2);
+    const thirdDownPlays = uniqueOffensivePlays.filter(p => p.down === 3);
+    const fourthDownPlays = uniqueOffensivePlays.filter(p => p.down === 4);
 
     const yardsByDown = {
       firstDown: {
@@ -479,7 +572,7 @@ export class AnalyticsService {
       totalYards: number;
     }>();
 
-    plays.forEach(play => {
+    uniqueOffensivePlays.forEach(play => {
       if (!play.play_code) return;
 
       const existing = playStats.get(play.play_code) || {
@@ -500,11 +593,11 @@ export class AnalyticsService {
 
     // Fetch play names from playbook
     const playCodes = Array.from(playStats.keys());
-    const { data: playbookPlays } = await this.supabase
+    const { data: playbookPlays } = playCodes.length > 0 ? await this.supabase
       .from('playbook_plays')
       .select('play_code, play_name')
       .in('play_code', playCodes)
-      .eq('team_id', teamId);
+      .eq('team_id', teamId) : { data: [] };
 
     const playNameMap = new Map(playbookPlays?.map(p => [p.play_code, p.play_name]) || []);
 
@@ -520,6 +613,122 @@ export class AnalyticsService {
       }))
       .sort((a, b) => b.successRate - a.successRate)
       .slice(0, 5);
+
+    // Count defensive stats by participation_type
+    let tackles = 0;
+    let tacklesForLoss = 0;
+    let sacks = 0;
+    let pressures = 0;
+    let passBreakups = 0;
+    let defensiveInterceptions = 0;
+    let forcedFumbles = 0;
+    let missedTackles = 0;
+
+    validDefensiveParticipation.forEach(p => {
+      const type = p.participation_type;
+
+      // Tackles
+      if (type === 'primary_tackle' || type === 'assist_tackle' || type === 'solo_tackle') {
+        tackles++;
+      }
+
+      // Tackles for loss
+      if (type === 'tackle_for_loss') {
+        tacklesForLoss++;
+        tackles++; // TFLs also count as tackles
+      }
+
+      // Sacks (from pressure type with sack result)
+      if (type === 'pressure' && p.result === 'sack') {
+        sacks++;
+        pressures++; // Sacks also count as pressures
+      } else if (type === 'sack') {
+        sacks++;
+      }
+
+      // Pressures (QB hurries, hits without sack)
+      if (type === 'pressure' && p.result !== 'sack') {
+        pressures++;
+      }
+
+      // Interceptions
+      if (type === 'interception') {
+        defensiveInterceptions++;
+      }
+
+      // Pass breakups / PBUs
+      if (type === 'pass_breakup' || type === 'pbu') {
+        passBreakups++;
+      }
+
+      // Forced fumbles
+      if (type === 'forced_fumble' || type === 'fumble_recovery') {
+        forcedFumbles++;
+      }
+
+      // Missed tackles
+      if (type === 'missed_tackle') {
+        missedTackles++;
+      }
+    });
+
+    // Count unique plays where this player had defensive involvement
+    const uniqueDefensivePlays = new Set(validDefensiveParticipation.map(p => p.play_instance_id));
+    const defensiveSnaps = uniqueDefensivePlays.size;
+
+    // ======================================================================
+    // SPECIAL TEAMS STATS
+    // Calculate kicking, punting, returning, and coverage stats
+    // ======================================================================
+
+    // Count unique special teams plays
+    const uniqueSpecialTeamsPlays = new Set(specialTeamsParticipation.map(p => p.play_instance_id));
+    const specialTeamsSnaps = uniqueSpecialTeamsPlays.size;
+
+    // Kicking stats (kickoffs)
+    const kickerParticipation = specialTeamsParticipation.filter(p =>
+      p.participation_type === 'kicker' && p.metadata?.kick_type === 'kickoff'
+    );
+    const kickoffs = kickerParticipation.length;
+    const kickoffYards = kickerParticipation.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+    const kickoffAvg = kickoffs > 0 ? kickoffYards / kickoffs : 0;
+    const kickoffTouchbacks = kickerParticipation.filter(p =>
+      p.result === 'touchback' || p.metadata?.is_touchback
+    ).length;
+
+    // Punting stats
+    const punterParticipation = specialTeamsParticipation.filter(p => p.participation_type === 'punter');
+    const punts = punterParticipation.length;
+    const puntYards = punterParticipation.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+    const puntAvg = punts > 0 ? puntYards / punts : 0;
+
+    // Field Goal stats
+    const fgKickerParticipation = specialTeamsParticipation.filter(p =>
+      p.participation_type === 'kicker' && p.metadata?.kick_type === 'field_goal'
+    );
+    const fieldGoalAttempts = fgKickerParticipation.length;
+    const fieldGoalsMade = fgKickerParticipation.filter(p => p.result === 'made').length;
+    const fieldGoalPct = fieldGoalAttempts > 0 ? (fieldGoalsMade / fieldGoalAttempts) * 100 : 0;
+
+    // PAT stats
+    const patKickerParticipation = specialTeamsParticipation.filter(p =>
+      p.participation_type === 'kicker' && p.metadata?.kick_type === 'pat'
+    );
+    const patAttempts = patKickerParticipation.length;
+    const patMade = patKickerParticipation.filter(p => p.result === 'made').length;
+
+    // Return stats
+    const returnerParticipation = specialTeamsParticipation.filter(p => p.participation_type === 'returner');
+    const returns = returnerParticipation.length;
+    const returnYards = returnerParticipation.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
+    const returnAvg = returns > 0 ? returnYards / returns : 0;
+    const returnTouchdowns = returnerParticipation.filter(p => p.is_touchdown).length;
+
+    // Coverage stats (gunner/coverage_tackle)
+    const coverageParticipation = specialTeamsParticipation.filter(p =>
+      p.participation_type === 'gunner' || p.participation_type === 'coverage_tackle'
+    );
+    const coverageTackles = coverageParticipation.length;
 
     return {
       player: {
@@ -551,7 +760,36 @@ export class AnalyticsService {
       drops,
       receivingFumbles,
       yardsByDown,
-      topPlays
+      topPlays,
+      // Defensive stats
+      defensiveSnaps,
+      tackles,
+      tacklesForLoss,
+      sacks,
+      pressures,
+      passBreakups,
+      defensiveInterceptions,
+      forcedFumbles,
+      missedTackles,
+      // Special Teams stats
+      specialTeamsSnaps,
+      kickoffs,
+      kickoffYards,
+      kickoffAvg,
+      kickoffTouchbacks,
+      punts,
+      puntYards,
+      puntAvg,
+      fieldGoalAttempts,
+      fieldGoalsMade,
+      fieldGoalPct,
+      patAttempts,
+      patMade,
+      returns,
+      returnYards,
+      returnAvg,
+      returnTouchdowns,
+      coverageTackles
     };
   }
 
@@ -594,7 +832,36 @@ export class AnalyticsService {
         thirdDown: { attempts: 0, totalYards: 0, avgYards: 0 },
         fourthDown: { attempts: 0, totalYards: 0, avgYards: 0 }
       },
-      topPlays: []
+      topPlays: [],
+      // Defensive stats
+      defensiveSnaps: 0,
+      tackles: 0,
+      tacklesForLoss: 0,
+      sacks: 0,
+      pressures: 0,
+      passBreakups: 0,
+      defensiveInterceptions: 0,
+      forcedFumbles: 0,
+      missedTackles: 0,
+      // Special Teams stats
+      specialTeamsSnaps: 0,
+      kickoffs: 0,
+      kickoffYards: 0,
+      kickoffAvg: 0,
+      kickoffTouchbacks: 0,
+      punts: 0,
+      puntYards: 0,
+      puntAvg: 0,
+      fieldGoalAttempts: 0,
+      fieldGoalsMade: 0,
+      fieldGoalPct: 0,
+      patAttempts: 0,
+      patMade: 0,
+      returns: 0,
+      returnYards: 0,
+      returnAvg: 0,
+      returnTouchdowns: 0,
+      coverageTackles: 0
     };
   }
 }

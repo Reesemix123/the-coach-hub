@@ -64,11 +64,19 @@ export const QUICK_TAG_PROMPT = `Analyze this football play clip and suggest tag
 - result: For runs (gain, loss, no_gain, fumble, touchdown). For passes (complete, incomplete, interception, touchdown, sack)
 - yards_gained: Estimate yards (negative for losses, use your best judgment)
 
+**If play_type is "special_teams", also analyze:**
+- special_teams_unit: "kickoff", "punt", "field_goal", "pat", "kick_return", "punt_return"
+- kick_result: "made", "missed", "touchback", "fair_catch", "blocked", "returned", "out_of_bounds"
+- kick_distance: For kicks/punts, estimate distance in yards
+- return_yards: For returns, estimate yards gained
+
 **If audio is available, use it to:**
 - Confirm play timing (whistle, snap)
 - Increase confidence when audio confirms visual
 
 Return ONLY valid JSON (no markdown):
+
+For run/pass plays:
 {
   "play_type": { "value": "pass", "confidence": 85 },
   "direction": { "value": "right", "confidence": 78 },
@@ -76,6 +84,17 @@ Return ONLY valid JSON (no markdown):
   "yards_gained": { "value": 12, "confidence": 55, "notes": "Estimated - yard lines partially visible" },
   "audio_used": true,
   "reasoning": "Brief explanation of what you observed"
+}
+
+For special teams plays:
+{
+  "play_type": { "value": "special_teams", "confidence": 95 },
+  "special_teams_unit": { "value": "punt", "confidence": 90 },
+  "kick_result": { "value": "returned", "confidence": 85 },
+  "kick_distance": { "value": 42, "confidence": 60 },
+  "return_yards": { "value": 15, "confidence": 55 },
+  "audio_used": true,
+  "reasoning": "Punt from own 30, returned to the 45 yard line"
 }
 
 **Confidence Guidelines:**
@@ -108,7 +127,17 @@ Additional Standard fields:
 - down: 1-4 if visible or deducible
 - distance: Yards to go if visible
 
+**If play_type is "special_teams", also analyze:**
+- special_teams_unit: "kickoff", "punt", "field_goal", "pat", "kick_return", "punt_return"
+- kick_result: "made", "missed", "touchback", "fair_catch", "blocked", "returned", "out_of_bounds"
+- kick_distance: For kicks/punts, estimate distance in yards
+- return_yards: For returns, estimate yards gained
+- is_touchback: true/false
+- is_fair_catch: true/false
+
 Return ONLY valid JSON (no markdown):
+
+For run/pass plays:
 {
   "play_type": { "value": "pass", "confidence": 85 },
   "direction": { "value": "right", "confidence": 78 },
@@ -122,6 +151,19 @@ Return ONLY valid JSON (no markdown):
   "audio_used": false,
   "fields_uncertain": ["down", "distance", "yards_gained"],
   "reasoning": "Brief explanation of what you observed"
+}
+
+For special teams plays:
+{
+  "play_type": { "value": "special_teams", "confidence": 95 },
+  "special_teams_unit": { "value": "kickoff", "confidence": 92 },
+  "kick_result": { "value": "touchback", "confidence": 88 },
+  "kick_distance": { "value": 65, "confidence": 70 },
+  "is_touchback": { "value": true, "confidence": 90 },
+  "hash": { "value": "middle", "confidence": 85 },
+  "audio_used": true,
+  "fields_uncertain": ["kick_distance"],
+  "reasoning": "Kickoff into the end zone, touchback called"
 }`;
 
 export const COMPREHENSIVE_TAG_PROMPT = `Analyze this football play clip in detail for COMPREHENSIVE tagging mode.
@@ -155,12 +197,26 @@ Play Details (if detectable):
 - run_concept: "inside_zone", "outside_zone", "power", "counter", "sweep", "draw", "dive" (for runs)
 - pass_concept: "quick_game", "dropback", "screen", "play_action", "rollout" (for passes)
 
+**If play_type is "special_teams", analyze these instead:**
+- special_teams_unit: "kickoff", "punt", "field_goal", "pat", "kick_return", "punt_return"
+- kick_result: "made", "missed", "touchback", "fair_catch", "blocked", "returned", "out_of_bounds", "muffed"
+- kick_distance: For kicks/punts, estimate distance in yards
+- return_yards: For returns, estimate yards gained
+- is_touchback: true/false
+- is_fair_catch: true/false
+- is_muffed: true/false (fumbled catch attempt)
+- punt_type: "normal", "pooch", "coffin_corner" (for punts)
+- kickoff_type: "normal", "onside", "squib" (for kickoffs)
+
 **Do NOT guess at:**
 - Specific play name from playbook
 - Player grades
 - Individual blocking assignments
+- Player identification (jersey numbers)
 
 Return ONLY valid JSON (no markdown):
+
+For run/pass plays:
 {
   "play_type": { "value": "pass", "confidence": 85 },
   "direction": { "value": "right", "confidence": 78 },
@@ -179,6 +235,24 @@ Return ONLY valid JSON (no markdown):
   "audio_used": false,
   "fields_uncertain": ["down", "distance", "quarter"],
   "reasoning": "Detailed explanation of what you observed and why you made these predictions"
+}
+
+For special teams plays:
+{
+  "play_type": { "value": "special_teams", "confidence": 95 },
+  "special_teams_unit": { "value": "punt", "confidence": 92 },
+  "kick_result": { "value": "returned", "confidence": 85 },
+  "kick_distance": { "value": 48, "confidence": 65 },
+  "return_yards": { "value": 22, "confidence": 60 },
+  "punt_type": { "value": "normal", "confidence": 80 },
+  "is_touchback": { "value": false, "confidence": 95 },
+  "is_fair_catch": { "value": false, "confidence": 95 },
+  "is_muffed": { "value": false, "confidence": 90 },
+  "field_zone": { "value": "own_territory", "confidence": 70 },
+  "quarter": { "value": 3, "confidence": 40 },
+  "audio_used": true,
+  "fields_uncertain": ["kick_distance", "return_yards", "quarter"],
+  "reasoning": "Punt from own 25, returner caught at the 27 and returned to midfield"
 }`;
 
 // Helper to fill in prompt templates
