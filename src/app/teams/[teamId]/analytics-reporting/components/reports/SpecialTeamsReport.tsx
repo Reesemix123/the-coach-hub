@@ -128,13 +128,13 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
             <StatCard
               label="Touchbacks"
               value={(metrics.specialTeams?.kickoff?.touchbacks || 0).toString()}
-              subtitle={`${(metrics.specialTeams?.kickoff?.touchbackRate || 0).toFixed(1)}% touchback rate`}
+              subtitle={`${(metrics.specialTeams?.kickoff?.touchbackRate || 0).toFixed(0)}% touchback rate`}
               tooltip={METRIC_DEFINITIONS.touchbacks}
             />
             <StatCard
-              label="Avg Starting Field Position"
-              value={`${(metrics.specialTeams?.kickoff?.averageKickoffYardLine || 0).toFixed(1)}`}
-              subtitle="Average starting yard line"
+              label="Opp Starting Position"
+              value={`${(metrics.specialTeams?.kickoff?.averageKickoffYardLine || 0).toFixed(0)}`}
+              subtitle="Average opponent start"
               tooltip={METRIC_DEFINITIONS.averageKickoffYardLine}
             />
           </div>
@@ -164,7 +164,7 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
               tooltip={METRIC_DEFINITIONS.punts}
             />
             <StatCard
-              label="Average Punt Yards"
+              label="Punt Average"
               value={`${(metrics.specialTeams?.punt?.averagePuntYards || 0).toFixed(1)}`}
               subtitle="Average yards per punt"
               tooltip={METRIC_DEFINITIONS.averagePuntYards}
@@ -202,7 +202,7 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
               tooltip={METRIC_DEFINITIONS.returns}
             />
             <StatCard
-              label="Average Return Yards"
+              label="Return Average"
               value={`${(metrics.specialTeams?.returns?.averageReturnYards || 0).toFixed(1)}`}
               subtitle="Average yards per return"
               tooltip={METRIC_DEFINITIONS.averageReturnYards}
@@ -241,7 +241,7 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
             />
             <StatCard
               label="FG Percentage"
-              value={`${(metrics.specialTeams?.fieldGoal?.percentage || 0).toFixed(1)}%`}
+              value={`${(metrics.specialTeams?.fieldGoal?.percentage || 0).toFixed(0)}%`}
               subtitle="Success rate"
               tooltip={METRIC_DEFINITIONS.fieldGoalPercentage}
             />
@@ -285,7 +285,7 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
             />
             <StatCard
               label="PAT Percentage"
-              value={`${(metrics.specialTeams?.pat?.percentage || 0).toFixed(1)}%`}
+              value={`${(metrics.specialTeams?.pat?.percentage || 0).toFixed(0)}%`}
               subtitle="Success rate"
               tooltip={METRIC_DEFINITIONS.patPercentage}
             />
@@ -325,10 +325,10 @@ export default function SpecialTeamsReport({ teamId, gameId, filters }: ReportPr
               label="Blocks Recovered"
               value={(metrics.specialTeams?.fgBlock?.blocksRecovered || 0).toString()}
               subtitle="Blocked and recovered"
-              tooltip={METRIC_DEFINITIONS.fgBlocks}
+              hint="Possession change"
             />
             <StatCard
-              label="Blocks Returned for TD"
+              label="Blocks for TD"
               value={(metrics.specialTeams?.fgBlock?.blocksReturnedForTD || 0).toString()}
               subtitle="Returned for touchdowns"
               tooltip={METRIC_DEFINITIONS.fgBlocksReturnedForTD}

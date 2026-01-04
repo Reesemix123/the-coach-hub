@@ -64,7 +64,9 @@ export default function AnalyticsReportingPage({
   );
   const [filters, setFilters] = useState<ReportFiltersType>({});
   const [team, setTeam] = useState<any>(null);
-  const [games, setGames] = useState<any[]>([]);
+  const [games, setGames] = useState<any[]>([]); // All games
+  const [teamGames, setTeamGames] = useState<any[]>([]); // Only team games (not scouting)
+  const [scoutingGames, setScoutingGames] = useState<any[]>([]); // Only opponent scouting games
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,9 +84,9 @@ export default function AnalyticsReportingPage({
   // Track which reports have been visited (for showing cached versions)
   const [visitedReports, setVisitedReports] = useState<Set<string>>(new Set());
 
-  // Calculate win/loss record from games
+  // Calculate win/loss record from team games only (not scouting games)
   const record = useMemo(() => {
-    return games.reduce(
+    return teamGames.reduce(
       (acc, game) => {
         if (game.game_result === 'win') acc.wins++;
         else if (game.game_result === 'loss') acc.losses++;
@@ -93,7 +95,7 @@ export default function AnalyticsReportingPage({
       },
       { wins: 0, losses: 0, ties: 0 }
     );
-  }, [games]);
+  }, [teamGames]);
 
   // Generate a hash of current filters for cache invalidation
   const filterHash = useMemo(() => {
@@ -148,7 +150,14 @@ export default function AnalyticsReportingPage({
           .eq('team_id', teamId)
           .order('date', { ascending: false });
 
-        setGames(gamesData || []);
+        const allGames = gamesData || [];
+        setGames(allGames);
+
+        // Separate team games from opponent scouting games
+        const regularGames = allGames.filter(g => !g.is_opponent_game);
+        const opponentScoutGames = allGames.filter(g => g.is_opponent_game === true);
+        setTeamGames(regularGames);
+        setScoutingGames(opponentScoutGames);
 
         // Fetch players (for player reports)
         const { data: playersData } = await supabase
@@ -240,16 +249,17 @@ export default function AnalyticsReportingPage({
             {/* Upgrade Banner for users without active subscription */}
             <UpgradeBanner teamId={teamId} />
 
-            {/* Report Filters */}
+            {/* Report Filters - Use team games for regular reports, scouting games for opponent scouting */}
             <ReportFilters
               filters={filters}
               onFiltersChange={setFilters}
-              games={games}
+              games={selectedReport === 'opponent-scouting' ? scoutingGames : teamGames}
               players={players}
               showGameFilter={true}
               showPlayerFilter={currentReportConfig.requiresPlayer}
               showOpponentFilter={false}
               showDateRange={false}
+              requiresGameSelection={currentReportConfig.requiresGame}
             />
 
             {/* Report Content */}

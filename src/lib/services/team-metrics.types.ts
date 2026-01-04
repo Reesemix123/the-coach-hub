@@ -294,6 +294,24 @@ export const METRIC_DEFINITIONS = {
     description: 'Any tackle behind the line of scrimmage. Shows penetration and playmaking in the backfield.',
     calculation: 'Count of tackles for loss',
   },
+  interceptionsDefense: {
+    title: 'Interceptions (Defense)',
+    description: 'Passes caught by defensive players, ending the opponent\'s possession and creating scoring opportunities.',
+    useful: 'Creates possession changes and potential return yards. One of the most impactful defensive plays.',
+    calculation: 'Count of interceptions by defensive players',
+  },
+  fumbleRecoveries: {
+    title: 'Fumble Recoveries',
+    description: 'Loose balls recovered by the defense after opponent fumbles. Creates possession changes.',
+    useful: 'While forced fumbles show aggression, recoveries are partly luck. Both matter for takeaways.',
+    calculation: 'Count of fumbles recovered by defense',
+  },
+  passBreakups: {
+    title: 'Pass Breakups (PBUs)',
+    description: 'Passes defended or broken up by defensive backs, preventing completions.',
+    useful: 'Shows coverage ability even when ball isn\'t intercepted. Great PBU rate often precedes interceptions.',
+    calculation: 'Count of passes broken up or defended',
+  },
   havocRate: {
     title: 'Havoc Rate',
     description: 'Percentage of plays with disruptive impact (TFLs + sacks + FFs + PBUs).',

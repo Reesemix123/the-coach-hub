@@ -7,6 +7,10 @@ import { Gift, Users, Shield, ChevronRight } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useGlobalOnboardingSafe } from '@/components/onboarding';
 import type { SubscriptionTier } from '@/types/admin';
+import { FEATURE_DEMOS, getFeatureById } from '@/config/featureDemos';
+import FeatureCard from '@/components/home/FeatureCard';
+import FeatureDemoModal from '@/components/home/FeatureDemoModal';
+import { trackFeatureModalOpen } from '@/utils/analytics';
 
 interface UserTeam {
   id: string;
@@ -32,6 +36,8 @@ function HomeContent() {
   const [trialName, setTrialName] = useState('');
   const [trialReason, setTrialReason] = useState('');
   const [trialTier, setTrialTier] = useState('plus');
+  const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -117,8 +123,11 @@ function HomeContent() {
 
       if (!user) {
         setLoading(false);
+        setIsAuthenticated(false);
         return;
       }
+
+      setIsAuthenticated(true);
 
       // Fetch all owned teams with subscription info
       const { data: ownedTeams } = await supabase
@@ -417,68 +426,33 @@ function HomeContent() {
         <div className="relative z-10 max-w-5xl mx-auto">
           {/* 2x2 Feature Grid */}
           <div className="grid md:grid-cols-2 gap-5">
-            {/* Feature 1: Digital Playbook */}
-            <div className="group p-6 rounded-2xl transition-all" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(184,202,110,.12)', border: '1px solid rgba(184,202,110,.18)' }}>
-                  <svg className="w-5 h-5 text-[#B8CA6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#F9FAFB] mb-1">Digital Playbook</h3>
-                  <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Create, organize, and manage your entire playbook digitally. Visual play builder makes it simple.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 2: Pro Analytics */}
-            <div className="group p-6 rounded-2xl transition-all" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(184,202,110,.12)', border: '1px solid rgba(184,202,110,.18)' }}>
-                  <svg className="w-5 h-5 text-[#B8CA6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#F9FAFB] mb-1">Pro-Level Analytics</h3>
-                  <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>The same analysis tools the pros use. Tendencies, success rates, and insights—finally accessible.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 3: AI Film Tagging */}
-            <div className="group p-6 rounded-2xl transition-all" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(184,202,110,.12)', border: '1px solid rgba(184,202,110,.18)' }}>
-                  <svg className="w-5 h-5 text-[#B8CA6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#F9FAFB] mb-1">AI Film Tagging</h3>
-                  <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Your Co-Pilot cuts film tagging time by 50%. AI suggests, you confirm. Hours become minutes.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Feature 4: Game-Day Preparation */}
-            <div className="group p-6 rounded-2xl transition-all" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(184,202,110,.12)', border: '1px solid rgba(184,202,110,.18)' }}>
-                  <svg className="w-5 h-5 text-[#B8CA6E]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#F9FAFB] mb-1">Game-Day Preparation</h3>
-                  <p className="text-sm leading-relaxed font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Show up on game day with a real plan. Build on your team&apos;s proven strengths against opponent tendencies.</p>
-                </div>
-              </div>
-            </div>
+            {FEATURE_DEMOS.map((feature) => (
+              <FeatureCard
+                key={feature.id}
+                feature={feature}
+                onClick={() => {
+                  trackFeatureModalOpen(feature.id);
+                  setActiveFeatureId(feature.id);
+                }}
+              />
+            ))}
           </div>
         </div>
       </section>
+
+      {/* Feature Demo Modal */}
+      {activeFeatureId && (
+        <FeatureDemoModal
+          feature={getFeatureById(activeFeatureId)!}
+          isOpen={!!activeFeatureId}
+          onClose={() => setActiveFeatureId(null)}
+          onNavigateToFeature={(featureId) => {
+            trackFeatureModalOpen(featureId);
+            setActiveFeatureId(featureId);
+          }}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
 
       {/* Co-Pilot Deep Dive Section */}
       <section className="relative py-20 px-8">

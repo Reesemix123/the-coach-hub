@@ -13,12 +13,81 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { METRIC_DEFINITIONS, type ComprehensiveTeamMetrics } from '@/lib/services/team-metrics.types';
+import { type ComprehensiveTeamMetrics } from '@/lib/services/team-metrics.types';
 import StatCard from '@/components/analytics/StatCard';
 import { ReportProps } from '@/types/reports';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { QuarterScoreDisplay } from '@/components/film/QuarterScoreDisplay';
 import type { GameScoreBreakdown } from '@/types/football';
+
+// Calculate special teams metrics from plays
+function calculateSpecialTeamsMetrics(plays: any[]) {
+  // Our offensive plays (for FG/XP attempts we make)
+  const ourPlays = plays.filter(p => !p.is_opponent_play);
+
+  // Field Goals
+  const fgAttempts = ourPlays.filter(p => p.is_field_goal_attempt);
+  const fgMade = fgAttempts.filter(p => p.is_field_goal_made).length;
+  const fgPct = fgAttempts.length > 0 ? (fgMade / fgAttempts.length) * 100 : 0;
+
+  // Extra Points
+  const xpAttempts = ourPlays.filter(p => p.is_extra_point_attempt);
+  const xpMade = xpAttempts.filter(p => p.is_extra_point_made).length;
+  const xpPct = xpAttempts.length > 0 ? (xpMade / xpAttempts.length) * 100 : 0;
+
+  // Kickoffs (our team kicking off)
+  const kickoffs = ourPlays.filter(p => p.is_kickoff && p.kick_distance != null);
+  const avgKickoffDistance = kickoffs.length > 0
+    ? kickoffs.reduce((sum, p) => sum + (p.kick_distance || 0), 0) / kickoffs.length
+    : 0;
+
+  // Punts (our team punting)
+  const punts = ourPlays.filter(p => p.is_punt && p.kick_distance != null);
+  const avgPuntDistance = punts.length > 0
+    ? punts.reduce((sum, p) => sum + (p.kick_distance || 0), 0) / punts.length
+    : 0;
+
+  // Kickoff returns (our team returning kicks)
+  const kickoffReturns = plays.filter(p => p.is_kickoff_return && p.return_yards != null);
+  const avgKickReturnYards = kickoffReturns.length > 0
+    ? kickoffReturns.reduce((sum, p) => sum + (p.return_yards || 0), 0) / kickoffReturns.length
+    : 0;
+
+  // Punt returns (our team returning punts)
+  const puntReturns = plays.filter(p => p.is_punt_return && p.return_yards != null);
+  const avgPuntReturnYards = puntReturns.length > 0
+    ? puntReturns.reduce((sum, p) => sum + (p.return_yards || 0), 0) / puntReturns.length
+    : 0;
+
+  // Average starting field position after kickoff returns
+  const avgStartingFieldPosition = kickoffReturns.length > 0
+    ? Math.min(50, 5 + avgKickReturnYards)
+    : 25;
+
+  return {
+    kicking: {
+      fgMade,
+      fgAttempts: fgAttempts.length,
+      fgPct,
+      xpMade,
+      xpAttempts: xpAttempts.length,
+      xpPct,
+    },
+    kickoff: {
+      kickoffs: kickoffs.length,
+      avgKickoffDistance,
+      kickReturns: kickoffReturns.length,
+      avgKickReturnYards,
+      avgStartingFieldPosition,
+    },
+    punting: {
+      punts: punts.length,
+      avgPuntDistance,
+      puntReturns: puntReturns.length,
+      avgPuntReturnYards,
+    },
+  };
+}
 
 export default function GameReport({ teamId, gameId, filters }: ReportProps) {
   const supabase = createClient();
@@ -89,8 +158,9 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
             disruptive: { turnoversForced: 0, sacks: 0, tacklesForLoss: 0, havocRate: 0 },
           },
           specialTeams: {
-            kickoff: { averageKickoffYardLine: 0 },
-            returns: { averageReturnYards: 0 },
+            kicking: { fgMade: 0, fgAttempts: 0, fgPct: 0, xpMade: 0, xpAttempts: 0, xpPct: 0 },
+            kickoff: { kickoffs: 0, avgKickoffDistance: 0, kickReturns: 0, avgKickReturnYards: 0, avgStartingFieldPosition: 25 },
+            punting: { punts: 0, avgPuntDistance: 0, puntReturns: 0, avgPuntReturnYards: 0 },
           },
         } as any);
         setLoading(false);
@@ -199,14 +269,7 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
             havocRate: defensivePlays.length > 0 ? ((sacks + turnoversForced + tacklesForLoss) / defensivePlays.length) * 100 : 0,
           },
         },
-        specialTeams: {
-          kickoff: {
-            averageKickoffYardLine: 0,
-          },
-          returns: {
-            averageReturnYards: 0,
-          },
-        },
+        specialTeams: calculateSpecialTeamsMetrics(plays || []),
       };
 
       setMetrics(gameMetrics as any);
@@ -319,69 +382,32 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Total Yards"
+                  label="Total Yards"
                   value={metrics.offense.volume.totalYards.toString()}
                   subtitle="Total offense"
+                  hint="Combined rushing + passing yards"
                 />
                 <StatCard
-                  title="Rushing Yards"
+                  label="Rushing Yards"
                   value={metrics.offense.volume.rushingYards.toString()}
                   subtitle="Yards on the ground"
+                  hint="Shows run game effectiveness"
                 />
                 <StatCard
-                  title="Passing Yards"
+                  label="Passing Yards"
                   value={metrics.offense.volume.passingYards.toString()}
                   subtitle="Yards through the air"
+                  hint="Shows passing attack production"
                 />
                 <StatCard
-                  title="Touchdowns"
+                  label="Touchdowns"
                   value={metrics.offense.volume.touchdowns.toString()}
                   subtitle="Offensive TDs"
                   color="green"
+                  hint="Ability to finish drives"
                 />
               </div>
             </div>
-
-            {/* Scoring Breakdown */}
-            {metrics.offense.scoring && (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Scoring Breakdown</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <StatCard
-                    title="Total Points"
-                    value={metrics.offense.scoring.totalPoints.toString()}
-                    subtitle="Points scored"
-                    color="green"
-                  />
-                  <StatCard
-                    title="Touchdowns"
-                    value={metrics.offense.scoring.touchdowns.toString()}
-                    subtitle="6 pts each"
-                    color={metrics.offense.scoring.touchdowns > 0 ? 'green' : 'default'}
-                  />
-                  <StatCard
-                    title="Field Goals"
-                    value={metrics.offense.scoring.fieldGoals.toString()}
-                    subtitle="3 pts each"
-                  />
-                  <StatCard
-                    title="Extra Points"
-                    value={metrics.offense.scoring.extraPoints.toString()}
-                    subtitle="1 pt each"
-                  />
-                  <StatCard
-                    title="2-Pt Conv"
-                    value={metrics.offense.scoring.twoPointConversions.toString()}
-                    subtitle="2 pts each"
-                  />
-                  <StatCard
-                    title="Safeties"
-                    value={metrics.offense.scoring.safeties.toString()}
-                    subtitle="2 pts each"
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Penalties */}
             {metrics.offense.penalties && (
@@ -389,28 +415,32 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Penalties</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard
-                    title="Penalties (Us)"
+                    label="Penalties (Us)"
                     value={metrics.offense.penalties.penaltiesOnUs.toString()}
                     subtitle={`${metrics.offense.penalties.penaltyYardsOnUs} yards`}
                     color={metrics.offense.penalties.penaltiesOnUs > 5 ? 'red' : 'default'}
+                    hint="Discipline issues hurt drives"
                   />
                   <StatCard
-                    title="Penalties (Opp)"
+                    label="Penalties (Opp)"
                     value={metrics.offense.penalties.penaltiesOnOpponent.toString()}
                     subtitle={`${metrics.offense.penalties.penaltyYardsOnOpponent} yards`}
                     color={metrics.offense.penalties.penaltiesOnOpponent > 0 ? 'green' : 'default'}
+                    hint="Free yards from opponent mistakes"
                   />
                   <StatCard
-                    title="Penalty Yards (Us)"
+                    label="Penalty Yards (Us)"
                     value={metrics.offense.penalties.penaltyYardsOnUs.toString()}
                     subtitle="Yards assessed"
                     color={metrics.offense.penalties.penaltyYardsOnUs > 50 ? 'red' : 'default'}
+                    hint="Total yardage lost to flags"
                   />
                   <StatCard
-                    title="Penalty Diff"
+                    label="Penalty Diff"
                     value={(metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs).toString()}
                     subtitle="+ favors us"
                     color={(metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs) > 0 ? 'green' : (metrics.offense.penalties.penaltiesOnOpponent - metrics.offense.penalties.penaltiesOnUs) < 0 ? 'red' : 'default'}
+                    hint="Net penalty advantage"
                   />
                 </div>
               </div>
@@ -421,22 +451,25 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Efficiency</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCard
-                  title="Yards Per Play"
-                  value={metrics.offense.efficiency.yardsPerPlay?.toFixed(2) || '0.00'}
+                  label="Yards Per Play"
+                  value={metrics.offense.efficiency.yardsPerPlay?.toFixed(1) || '0.0'}
                   subtitle="Overall efficiency"
                   color={(metrics.offense.efficiency.yardsPerPlay || 0) >= 5.5 ? 'green' : 'default'}
+                  hint="5+ is good, 6+ is excellent"
                 />
                 <StatCard
-                  title="3rd Down Conversions"
+                  label="3rd Down Conv"
                   value={`${metrics.offense.efficiency.thirdDownConversions}/${metrics.offense.efficiency.thirdDownAttempts}`}
-                  subtitle={`${(metrics.offense.efficiency.thirdDownConversionRate || 0).toFixed(1)}%`}
+                  subtitle={`${(metrics.offense.efficiency.thirdDownConversionRate || 0).toFixed(0)}%`}
                   color={(metrics.offense.efficiency.thirdDownConversionRate || 0) >= 40 ? 'green' : 'default'}
+                  hint="Key to sustaining drives"
                 />
                 <StatCard
-                  title="Turnovers"
+                  label="Turnovers"
                   value={metrics.offense.ballSecurity.turnovers.toString()}
                   subtitle="Giveaways"
                   color={metrics.offense.ballSecurity.turnovers > 0 ? 'red' : 'green'}
+                  hint="Turnovers often decide games"
                 />
               </div>
             </div>
@@ -465,26 +498,30 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Total Yards Allowed"
+                  label="Total Yards Allowed"
                   value={metrics.defense.volume.totalYardsAllowed.toString()}
                   subtitle="Total yards given up"
                   color={(metrics.defense.volume.totalYardsAllowed || 999) <= 300 ? 'green' : 'default'}
+                  hint="Lower is better"
                 />
                 <StatCard
-                  title="Rushing Yards Allowed"
+                  label="Rush Yards Allowed"
                   value={metrics.defense.volume.rushingYardsAllowed.toString()}
                   subtitle="Yards on ground"
+                  hint="Run defense effectiveness"
                 />
                 <StatCard
-                  title="Passing Yards Allowed"
+                  label="Pass Yards Allowed"
                   value={metrics.defense.volume.passingYardsAllowed.toString()}
                   subtitle="Yards through air"
+                  hint="Coverage and pass rush"
                 />
                 <StatCard
-                  title="Points Allowed"
+                  label="Points Allowed"
                   value={metrics.defense.volume.pointsAllowed.toString()}
                   subtitle="Points given up"
                   color={(metrics.defense.volume.pointsAllowed || 999) <= 20 ? 'green' : 'default'}
+                  hint="Ultimate defensive measure"
                 />
               </div>
             </div>
@@ -494,28 +531,32 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Disruptive Plays</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Turnovers Forced"
+                  label="Turnovers Forced"
                   value={metrics.defense.disruptive.turnoversForced.toString()}
                   subtitle="Takeaways"
                   color={metrics.defense.disruptive.turnoversForced > 0 ? 'green' : 'default'}
+                  hint="Extra possessions for offense"
                 />
                 <StatCard
-                  title="Sacks"
+                  label="Sacks"
                   value={metrics.defense.disruptive.sacks.toString()}
                   subtitle="QB takedowns"
                   color={metrics.defense.disruptive.sacks > 0 ? 'green' : 'default'}
+                  hint="Disrupts passing game"
                 />
                 <StatCard
-                  title="Tackles For Loss"
+                  label="Tackles For Loss"
                   value={metrics.defense.disruptive.tacklesForLoss.toString()}
                   subtitle="TFLs"
                   color={metrics.defense.disruptive.tacklesForLoss > 0 ? 'green' : 'default'}
+                  hint="Puts offense behind schedule"
                 />
                 <StatCard
-                  title="Havoc Rate"
+                  label="Havoc Rate"
                   value={`${(metrics.defense.disruptive.havocRate || 0).toFixed(1)}%`}
                   subtitle="Disruptive plays"
                   color={(metrics.defense.disruptive.havocRate || 0) >= 10 ? 'green' : 'default'}
+                  hint="% of plays with TFL, sack, or TO"
                 />
               </div>
             </div>
@@ -538,17 +579,75 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
         </button>
 
         {expandedSections.specialTeams && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <StatCard
-              title="Kickoff Average"
-              value={`${(metrics.specialTeams.kickoff.averageKickoffYardLine || 0).toFixed(1)}`}
-              subtitle="Average starting yard line"
-            />
-            <StatCard
-              title="Return Average"
-              value={`${(metrics.specialTeams.returns.averageReturnYards || 0).toFixed(1)}`}
-              subtitle="Average yards per return"
-            />
+          <div className="space-y-6">
+            {/* Kicking (FG/XP) */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Kicking</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  label="Field Goals"
+                  value={`${metrics.specialTeams.kicking.fgMade}/${metrics.specialTeams.kicking.fgAttempts}`}
+                  subtitle="Made / Attempted"
+                  color={metrics.specialTeams.kicking.fgPct >= 75 ? 'green' : 'default'}
+                  hint="Points when TDs aren't possible"
+                />
+                <StatCard
+                  label="Extra Points"
+                  value={`${metrics.specialTeams.kicking.xpMade}/${metrics.specialTeams.kicking.xpAttempts}`}
+                  subtitle="Made / Attempted"
+                  color={metrics.specialTeams.kicking.xpPct >= 90 ? 'green' : 'default'}
+                  hint="Should be automatic"
+                />
+                <StatCard
+                  label="Kickoff Avg"
+                  value={`${(metrics.specialTeams.kickoff.avgKickoffDistance || 0).toFixed(0)}`}
+                  subtitle="Yards per kickoff"
+                  color={(metrics.specialTeams.kickoff.avgKickoffDistance || 0) >= 55 ? 'green' : 'default'}
+                  hint="Deeper = worse field position for opponent"
+                />
+                <StatCard
+                  label="Punt Avg"
+                  value={`${(metrics.specialTeams.punting.avgPuntDistance || 0).toFixed(0)}`}
+                  subtitle="Yards per punt"
+                  color={(metrics.specialTeams.punting.avgPuntDistance || 0) >= 35 ? 'green' : 'default'}
+                  hint="Flips field position"
+                />
+              </div>
+            </div>
+
+            {/* Returns */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Returns</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                  label="Kick Return Avg"
+                  value={`${(metrics.specialTeams.kickoff.avgKickReturnYards || 0).toFixed(1)}`}
+                  subtitle="Yards per return"
+                  color={(metrics.specialTeams.kickoff.avgKickReturnYards || 0) >= 22 ? 'green' : 'default'}
+                  hint="Hidden yardage for offense"
+                />
+                <StatCard
+                  label="Punt Return Avg"
+                  value={`${(metrics.specialTeams.punting.avgPuntReturnYards || 0).toFixed(1)}`}
+                  subtitle="Yards per return"
+                  color={(metrics.specialTeams.punting.avgPuntReturnYards || 0) >= 10 ? 'green' : 'default'}
+                  hint="Negates opponent's punt"
+                />
+                <StatCard
+                  label="Starting Field Position"
+                  value={`Own ${(metrics.specialTeams.kickoff.avgStartingFieldPosition || 25).toFixed(0)}`}
+                  subtitle="After receiving kickoffs"
+                  color={(metrics.specialTeams.kickoff.avgStartingFieldPosition || 0) >= 30 ? 'green' : 'default'}
+                  hint="Shorter field = easier to score"
+                />
+                <StatCard
+                  label="Total Returns"
+                  value={`${(metrics.specialTeams.kickoff.kickReturns || 0) + (metrics.specialTeams.punting.puntReturns || 0)}`}
+                  subtitle="Kick + punt returns"
+                  hint="Return opportunities taken"
+                />
+              </div>
+            </div>
           </div>
         )}
       </section>

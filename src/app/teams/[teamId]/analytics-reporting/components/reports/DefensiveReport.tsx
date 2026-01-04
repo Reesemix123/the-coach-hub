@@ -148,26 +148,26 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Total Yards Allowed/Game"
+                  label="Yards Allowed/Game"
                   value={(metrics.defense?.volume?.totalYardsAllowedPerGame || 0).toFixed(1)}
                   subtitle="Total yards given up"
                   tooltip={METRIC_DEFINITIONS.totalYardsAllowedPerGame}
                   color={(metrics.defense?.volume?.totalYardsAllowedPerGame || 999) <= 300 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Rushing Yards Allowed/Game"
+                  label="Rush Yards/Game"
                   value={(metrics.defense?.volume?.rushingYardsAllowedPerGame || 0).toFixed(1)}
                   subtitle="Rushing yards given up"
-                  tooltip={METRIC_DEFINITIONS.rushingYardsAllowedPerGame}
+                  hint="Run defense effectiveness"
                 />
                 <StatCard
-                  title="Passing Yards Allowed/Game"
+                  label="Pass Yards/Game"
                   value={(metrics.defense?.volume?.passingYardsAllowedPerGame || 0).toFixed(1)}
                   subtitle="Passing yards given up"
-                  tooltip={METRIC_DEFINITIONS.passingYardsAllowedPerGame}
+                  hint="Coverage and pass rush"
                 />
                 <StatCard
-                  title="Points Allowed/Game"
+                  label="Points Allowed/Game"
                   value={(metrics.defense?.volume?.pointsAllowedPerGame || 0).toFixed(1)}
                   subtitle="Points given up per game"
                   tooltip={METRIC_DEFINITIONS.pointsAllowedPerGame}
@@ -181,30 +181,31 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Efficiency</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Yards Per Play Allowed"
-                  value={(metrics.defense?.efficiency?.yardsPerPlayAllowed || 0).toFixed(2)}
+                  label="Yards/Play Allowed"
+                  value={(metrics.defense?.efficiency?.yardsPerPlayAllowed || 0).toFixed(1)}
                   subtitle="Yards allowed per play"
                   tooltip={METRIC_DEFINITIONS.yardsPerPlayAllowed}
                   color={(metrics.defense?.efficiency?.yardsPerPlayAllowed || 999) <= 5.0 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="3rd Down Stop Rate"
-                  value={`${(metrics.defense?.efficiency?.thirdDownStopRate || 0).toFixed(1)}%`}
+                  label="3rd Down Stop Rate"
+                  value={`${(metrics.defense?.efficiency?.thirdDownStopRate || 0).toFixed(0)}%`}
                   subtitle={`${metrics.defense?.efficiency?.thirdDownStops || 0} of ${metrics.defense?.efficiency?.thirdDownAttempts || 0}`}
-                  tooltip={METRIC_DEFINITIONS.thirdDownStopRate}
+                  tooltip={METRIC_DEFINITIONS.thirdDownStopPercentage}
                   color={(metrics.defense?.efficiency?.thirdDownStopRate || 0) >= 50 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Red Zone TD Rate"
-                  value={`${(metrics.defense?.efficiency?.redZoneTDRate || 0).toFixed(1)}%`}
+                  label="Red Zone TD Rate"
+                  value={`${(metrics.defense?.efficiency?.redZoneTDRate || 0).toFixed(0)}%`}
                   subtitle="Opponent TDs in red zone"
-                  tooltip={METRIC_DEFINITIONS.redZoneTDRate}
+                  tooltip={METRIC_DEFINITIONS.redZoneDefense}
                   color={(metrics.defense?.efficiency?.redZoneTDRate || 999) <= 50 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Completion % Allowed"
-                  value={`${(metrics.defense?.efficiency?.completionPercentageAllowed || 0).toFixed(1)}%`}
+                  label="Completion % Allowed"
+                  value={`${(metrics.defense?.efficiency?.completionPercentageAllowed || 0).toFixed(0)}%`}
                   subtitle="Pass completions allowed"
+                  hint="Coverage effectiveness"
                 />
               </div>
             </div>
@@ -214,29 +215,31 @@ export default function DefensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Disruptive Plays</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Havoc Rate"
+                  label="Havoc Rate"
                   value={`${(metrics.defense?.disruptive?.havocRate || 0).toFixed(1)}%`}
                   subtitle="Disruptive plays per snap"
                   tooltip={METRIC_DEFINITIONS.havocRate}
                   color={(metrics.defense?.disruptive?.havocRate || 0) >= 10 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Sacks"
+                  label="Sacks"
                   value={(metrics.defense?.disruptive?.sacks || 0).toString()}
-                  subtitle={`${(metrics.defense?.disruptive?.sacksPerGame || 0).toFixed(2)} per game`}
+                  subtitle={`${(metrics.defense?.disruptive?.sacksPerGame || 0).toFixed(1)} per game`}
+                  tooltip={METRIC_DEFINITIONS.sacks}
                   color={(metrics.defense?.disruptive?.sacks || 0) > 0 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Turnovers Forced"
+                  label="Turnovers Forced"
                   value={(metrics.defense?.disruptive?.turnoversForced || 0).toString()}
-                  subtitle={`${(metrics.defense?.disruptive?.turnoversPerGame || 0).toFixed(2)} per game`}
-                  tooltip={METRIC_DEFINITIONS.turnoversForced}
+                  subtitle={`${(metrics.defense?.disruptive?.turnoversPerGame || 0).toFixed(1)} per game`}
+                  tooltip={METRIC_DEFINITIONS.takeaways}
                   color={(metrics.defense?.disruptive?.turnoversForced || 0) > 0 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Tackles For Loss"
+                  label="Tackles For Loss"
                   value={(metrics.defense?.disruptive?.tacklesForLoss || 0).toString()}
-                  subtitle={`${(metrics.defense?.disruptive?.tflPerGame || 0).toFixed(2)} per game`}
+                  subtitle={`${(metrics.defense?.disruptive?.tflPerGame || 0).toFixed(1)} per game`}
+                  tooltip={METRIC_DEFINITIONS.tacklesForLoss}
                   color={(metrics.defense?.disruptive?.tacklesForLoss || 0) > 0 ? 'green' : 'default'}
                 />
               </div>

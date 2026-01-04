@@ -32,6 +32,7 @@ interface ReportFiltersProps {
   showPlayerFilter?: boolean;
   showOpponentFilter?: boolean;
   showDateRange?: boolean;
+  requiresGameSelection?: boolean; // Hide "All Games" option for game-level reports
 }
 
 export default function ReportFilters({
@@ -43,6 +44,7 @@ export default function ReportFilters({
   showPlayerFilter = false,
   showOpponentFilter = false,
   showDateRange = false,
+  requiresGameSelection = false,
 }: ReportFiltersProps) {
   const handleFilterChange = (key: keyof ReportFiltersType, value: string | undefined) => {
     onFiltersChange({
@@ -68,7 +70,12 @@ export default function ReportFilters({
               onChange={(e) => handleFilterChange('gameId', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
             >
-              <option value="">All Games (Season)</option>
+              {!requiresGameSelection && (
+                <option value="">All Games (Season)</option>
+              )}
+              {requiresGameSelection && !filters.gameId && (
+                <option value="">Select a game...</option>
+              )}
               {games.map((game) => (
                 <option key={game.id} value={game.id}>
                   {game.name} - {game.opponent}

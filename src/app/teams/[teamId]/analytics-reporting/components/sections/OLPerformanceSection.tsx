@@ -43,68 +43,71 @@ export default function OLPerformanceSection({ teamId, gameId, currentTier }: OL
       setLoading(true);
 
       try {
-        // Build query for player_participation
-        let query = supabase
-          .from('player_participation')
-          .select(`
-            player_id,
-            participation_type,
-            result,
-            play_instances!inner (
-              id,
-              game_id,
-              team_id
-            ),
-            players!inner (
-              id,
-              first_name,
-              last_name,
-              jersey_number,
-              primary_position
-            )
-          `)
-          .eq('play_instances.team_id', teamId)
-          .in('participation_type', ['ol_lt', 'ol_lg', 'ol_c', 'ol_rg', 'ol_rt']);
+        // First, get OL players from the roster
+        const { data: olPlayers, error: playersError } = await supabase
+          .from('players')
+          .select('id, first_name, last_name, jersey_number, primary_position')
+          .eq('team_id', teamId)
+          .in('primary_position', ['LT', 'LG', 'C', 'RG', 'RT']);
 
-        // Filter by game if specified
-        if (gameId) {
-          query = query.eq('play_instances.game_id', gameId);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error('Error fetching OL stats:', error);
-          setLoading(false);
-          return;
-        }
-
-        if (!data || data.length === 0) {
+        if (playersError || !olPlayers || olPlayers.length === 0) {
           setStats([]);
           setLoading(false);
           return;
         }
 
+        // Get participation records for these players
+        const playerIds = olPlayers.map(p => p.id);
+        const { data: participations, error: partError } = await supabase
+          .from('player_participation')
+          .select('player_id, participation_type, result, play_instance_id')
+          .eq('team_id', teamId)
+          .in('player_id', playerIds)
+          .in('participation_type', ['ol_lt', 'ol_lg', 'ol_c', 'ol_rg', 'ol_rt']);
+
+        if (partError) {
+          console.error('Error fetching OL participations:', partError);
+          setLoading(false);
+          return;
+        }
+
+        if (!participations || participations.length === 0) {
+          setStats([]);
+          setLoading(false);
+          return;
+        }
+
+        // If filtering by game, get play instances for that game
+        let validPlayIds: Set<string> | null = null;
+        if (gameId) {
+          const { data: plays } = await supabase
+            .from('play_instances')
+            .select('id')
+            .eq('team_id', teamId)
+            .eq('game_id', gameId);
+          validPlayIds = new Set(plays?.map(p => p.id) || []);
+        }
+
+        // Create a map of player info
+        const playerInfoMap = new Map(olPlayers.map(p => [p.id, p]));
+
         // Group by player and calculate stats
         const playerStatsMap = new Map<string, OLPlayerStats>();
 
-        data.forEach((record: any) => {
+        participations.forEach((record: any) => {
+          // Filter by game if needed
+          if (validPlayIds && !validPlayIds.has(record.play_instance_id)) return;
+
           const playerId = record.player_id;
-          const playerName = `${record.players.first_name} ${record.players.last_name}`;
-          const jerseyNumber = record.players.jersey_number || '';
-          const participationType = record.participation_type;
+          const playerInfo = playerInfoMap.get(playerId);
+          if (!playerInfo) return;
+
+          const playerName = `${playerInfo.first_name} ${playerInfo.last_name}`;
+          const jerseyNumber = playerInfo.jersey_number || '';
           const blockResult = record.result;
 
-          // Map participation_type to position
-          const positionMap: Record<string, 'LT' | 'LG' | 'C' | 'RG' | 'RT'> = {
-            'ol_lt': 'LT',
-            'ol_lg': 'LG',
-            'ol_c': 'C',
-            'ol_rg': 'RG',
-            'ol_rt': 'RT'
-          };
-          const position = positionMap[participationType];
-
+          // Use player's primary position
+          const position = playerInfo.primary_position as 'LT' | 'LG' | 'C' | 'RG' | 'RT';
           if (!position) return;
 
           // Get or create player stats

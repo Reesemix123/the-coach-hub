@@ -38,6 +38,7 @@ export function ChatWidget() {
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; posX: number; posY: number } | null>(null);
+  const hasDraggedRef = useRef(false); // Track if user actually moved during drag
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const {
@@ -142,6 +143,7 @@ export function ChatWidget() {
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
+    hasDraggedRef.current = false; // Reset on start
     dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
@@ -155,6 +157,11 @@ export function ChatWidget() {
 
     const deltaX = dragStartRef.current.x - e.clientX;
     const deltaY = dragStartRef.current.y - e.clientY; // Inverted for bottom positioning
+
+    // Mark as dragged if moved more than 5 pixels in any direction
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      hasDraggedRef.current = true;
+    }
 
     // Calculate new position (right-based for x, bottom-based for y)
     const newX = Math.max(0, Math.min(window.innerWidth - 150, dragStartRef.current.posX + deltaX));
@@ -184,6 +191,7 @@ export function ChatWidget() {
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     setIsDragging(true);
+    hasDraggedRef.current = false; // Reset on start
     dragStartRef.current = {
       x: touch.clientX,
       y: touch.clientY,
@@ -199,6 +207,11 @@ export function ChatWidget() {
     const touch = e.touches[0];
     const deltaX = dragStartRef.current.x - touch.clientX;
     const deltaY = dragStartRef.current.y - touch.clientY; // Inverted for bottom positioning
+
+    // Mark as dragged if moved more than 5 pixels in any direction
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      hasDraggedRef.current = true;
+    }
 
     const newX = Math.max(0, Math.min(window.innerWidth - 150, dragStartRef.current.posX + deltaX));
     const newY = Math.max(0, Math.min(window.innerHeight - 50, dragStartRef.current.posY + deltaY));
@@ -224,11 +237,11 @@ export function ChatWidget() {
 
   // Click handler that ignores drag
   const handleClick = useCallback(() => {
-    // Only toggle if we weren't dragging
-    if (!isDragging) {
+    // Only toggle if user didn't drag (moved less than 5px)
+    if (!hasDraggedRef.current) {
       setIsOpen(prev => !prev);
     }
-  }, [isDragging]);
+  }, []);
 
   // Don't render for unauthenticated users
   if (!isAuthenticated) return null;

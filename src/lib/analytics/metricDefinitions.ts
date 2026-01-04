@@ -14,7 +14,7 @@
 export interface MetricDefinition {
   title: string;
   description: string;
-  useful: string;
+  useful?: string;  // Optional for backward compatibility with team-metrics.types.ts
   calculation: string;
 }
 

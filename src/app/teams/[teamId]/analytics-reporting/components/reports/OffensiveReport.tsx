@@ -151,25 +151,25 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Volume</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Total Yards/Game"
+                  label="Total Yards/Game"
                   value={metrics.offense.volume.totalYardsPerGame?.toFixed(1) || '0.0'}
                   subtitle="Total offense per game"
                   tooltip={METRIC_DEFINITIONS.totalYardsPerGame}
                 />
                 <StatCard
-                  title="Rushing Yards/Game"
+                  label="Rushing Yards/Game"
                   value={metrics.offense.volume.rushingYardsPerGame?.toFixed(1) || '0.0'}
                   subtitle="Average rushing yards"
                   tooltip={METRIC_DEFINITIONS.rushingYardsPerGame}
                 />
                 <StatCard
-                  title="Passing Yards/Game"
+                  label="Passing Yards/Game"
                   value={metrics.offense.volume.passingYardsPerGame?.toFixed(1) || '0.0'}
                   subtitle="Average passing yards"
                   tooltip={METRIC_DEFINITIONS.passingYardsPerGame}
                 />
                 <StatCard
-                  title="Touchdowns"
+                  label="Touchdowns"
                   value={metrics.offense.volume.touchdowns.toString()}
                   subtitle={`${(metrics.offense.volume.touchdownsPerGame || 0).toFixed(1)} per game`}
                   tooltip={METRIC_DEFINITIONS.touchdowns}
@@ -183,41 +183,42 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Efficiency</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
-                  title="Yards Per Play"
-                  value={metrics.offense.efficiency.yardsPerPlay?.toFixed(2) || '0.00'}
+                  label="Yards Per Play"
+                  value={metrics.offense.efficiency.yardsPerPlay?.toFixed(1) || '0.0'}
                   subtitle="Overall efficiency"
                   tooltip={METRIC_DEFINITIONS.yardsPerPlay}
                   color={(metrics.offense.efficiency.yardsPerPlay || 0) >= 5.5 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Yards Per Carry"
-                  value={metrics.offense.efficiency.yardsPerCarry?.toFixed(2) || '0.00'}
+                  label="Yards Per Carry"
+                  value={metrics.offense.efficiency.yardsPerCarry?.toFixed(1) || '0.0'}
                   subtitle="Rushing efficiency"
                   tooltip={METRIC_DEFINITIONS.yardsPerCarry}
                 />
                 <StatCard
-                  title="Yards Per Completion"
+                  label="Yards Per Completion"
                   value={metrics.offense.efficiency.yardsPerCompletion?.toFixed(1) || '0.0'}
                   subtitle="Average yards per catch"
                   tooltip={METRIC_DEFINITIONS.yardsPerCompletion}
                 />
                 <StatCard
-                  title="Completion %"
-                  value={`${(metrics.offense.efficiency.completionPercentage || 0).toFixed(1)}%`}
+                  label="Completion %"
+                  value={`${(metrics.offense.efficiency.completionPercentage || 0).toFixed(0)}%`}
                   subtitle="Passing accuracy"
+                  hint="60%+ is good"
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <StatCard
-                  title="3rd Down Conversion %"
-                  value={`${(metrics.offense.efficiency.thirdDownConversionRate || 0).toFixed(1)}%`}
+                  label="3rd Down Conv %"
+                  value={`${(metrics.offense.efficiency.thirdDownConversionRate || 0).toFixed(0)}%`}
                   subtitle={`${metrics.offense.efficiency.thirdDownConversions} of ${metrics.offense.efficiency.thirdDownAttempts}`}
                   tooltip={METRIC_DEFINITIONS.thirdDownConversionRate}
                   color={(metrics.offense.efficiency.thirdDownConversionRate || 0) >= 40 ? 'green' : 'default'}
                 />
                 <StatCard
-                  title="Red Zone Efficiency"
-                  value={`${(metrics.offense.efficiency.redZoneEfficiency || 0).toFixed(1)}%`}
+                  label="Red Zone Efficiency"
+                  value={`${(metrics.offense.efficiency.redZoneEfficiency || 0).toFixed(0)}%`}
                   subtitle="Scoring in red zone"
                   tooltip={METRIC_DEFINITIONS.redZoneEfficiency}
                   color={(metrics.offense.efficiency.redZoneEfficiency || 0) >= 60 ? 'green' : 'default'}
@@ -230,21 +231,23 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Ball Security</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCard
-                  title="Turnovers"
+                  label="Turnovers"
                   value={metrics.offense.ballSecurity.turnovers.toString()}
-                  subtitle={`${(metrics.offense.ballSecurity.turnoversPerGame || 0).toFixed(2)} per game`}
+                  subtitle={`${(metrics.offense.ballSecurity.turnoversPerGame || 0).toFixed(1)} per game`}
                   tooltip={METRIC_DEFINITIONS.turnovers}
                   color={metrics.offense.ballSecurity.turnovers > 0 ? 'red' : 'green'}
                 />
                 <StatCard
-                  title="Fumbles"
+                  label="Fumbles"
                   value={metrics.offense.ballSecurity.fumbles.toString()}
                   subtitle="Fumbles lost"
+                  hint="Ball security issue"
                 />
                 <StatCard
-                  title="Interceptions"
+                  label="Interceptions"
                   value={metrics.offense.ballSecurity.interceptions.toString()}
                   subtitle="Passes intercepted"
+                  hint="Decision or accuracy issue"
                 />
               </div>
             </div>
@@ -254,15 +257,16 @@ export default function OffensiveReport({ teamId, gameId, filters }: ReportProps
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Possession</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <StatCard
-                  title="Time of Possession"
+                  label="Time of Possession"
                   value={metrics.offense.possession.timeOfPossessionFormatted}
                   subtitle={`${(metrics.offense.possession.timeOfPossessionPerGame || 0).toFixed(0)} sec/game`}
                   tooltip={METRIC_DEFINITIONS.timeOfPossession}
                 />
                 <StatCard
-                  title="Avg Play Duration"
+                  label="Avg Play Duration"
                   value={`${(metrics.offense.possession.averagePlayDuration || 0).toFixed(1)}s`}
                   subtitle="Seconds per play"
+                  hint="Longer = more deliberate"
                 />
               </div>
             </div>

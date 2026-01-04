@@ -30,7 +30,7 @@ import { useState, useRef, useEffect } from 'react';
 interface TooltipContent {
   title: string;
   description: string;
-  useful: string;
+  useful?: string;  // Optional for backward compatibility
   calculation: string;
 }
 
@@ -164,27 +164,29 @@ export default function Tooltip({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          {/* Tooltip Box */}
-          <div className="bg-gray-900 text-white rounded-lg shadow-xl p-4 text-sm max-h-[80vh] overflow-y-auto">
-            <div className="font-semibold text-white mb-2">{content.title}</div>
+          {/* Tooltip Box - Subtle white style */}
+          <div className="bg-white text-gray-700 rounded-lg shadow-lg border border-gray-200 p-4 text-sm max-h-[80vh] overflow-y-auto">
+            <div className="font-semibold text-gray-900 mb-2">{content.title}</div>
 
             <div className="space-y-3">
               {/* What it is */}
               <div>
-                <div className="text-gray-300 font-medium mb-1">What it is:</div>
-                <div className="text-gray-100">{content.description}</div>
+                <div className="text-gray-500 font-medium mb-1">What it is:</div>
+                <div className="text-gray-700">{content.description}</div>
               </div>
 
-              {/* Why it's useful */}
-              <div>
-                <div className="text-gray-300 font-medium mb-1">Why it's useful:</div>
-                <div className="text-gray-100">{content.useful}</div>
-              </div>
+              {/* Why it's useful (only if provided) */}
+              {content.useful && (
+                <div>
+                  <div className="text-gray-500 font-medium mb-1">Why it's useful:</div>
+                  <div className="text-gray-700">{content.useful}</div>
+                </div>
+              )}
 
               {/* How it's calculated */}
               <div>
-                <div className="text-gray-300 font-medium mb-1">How it's calculated:</div>
-                <div className="text-gray-100 font-mono text-xs break-words">{content.calculation}</div>
+                <div className="text-gray-500 font-medium mb-1">How it's calculated:</div>
+                <div className="text-gray-700 font-mono text-xs break-words">{content.calculation}</div>
               </div>
             </div>
           </div>
