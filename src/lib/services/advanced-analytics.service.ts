@@ -3,6 +3,61 @@
 // Handles Tier 1-3 analytics: drive analytics, player attribution, OL/defensive tracking, situational splits
 
 import { createClient } from '@/utils/supabase/client';
+
+// ============================================
+// HELPER FUNCTIONS FOR RESULT CHECKING
+// ============================================
+// The film tagging UI saves result_type (e.g., 'pass_complete')
+// Legacy/seed data may use result field (e.g., 'complete')
+// These helpers ensure analytics work with both formats
+
+/**
+ * Check if a play was a completed pass
+ */
+function isPassComplete(play: any): boolean {
+  // Check result_type (what users set in film tagging UI)
+  if (play.result_type === 'pass_complete') return true;
+  // Check result field (legacy/seed data)
+  if (play.result?.includes('complete')) return true;
+  // Check is_complete boolean fallback
+  if (play.is_complete === true) return true;
+  return false;
+}
+
+/**
+ * Check if a play was a pass touchdown
+ */
+function isPassTouchdown(play: any): boolean {
+  // Check if it's a TD pass
+  if (play.play_type === 'pass') {
+    if (play.result?.includes('touchdown')) return true;
+    if (play.result_type?.includes('touchdown')) return true;
+    if (play.is_touchdown === true) return true;
+  }
+  return false;
+}
+
+/**
+ * Check if a play resulted in an interception
+ */
+function isInterception(play: any): boolean {
+  if (play.result_type === 'pass_interception') return true;
+  if (play.result?.includes('interception')) return true;
+  if (play.is_interception === true) return true;
+  return false;
+}
+
+/**
+ * Check if a play resulted in a rushing touchdown
+ */
+function isRushTouchdown(play: any): boolean {
+  if (play.result?.includes('touchdown') && play.play_type === 'run') return true;
+  if (play.result_type?.includes('touchdown') && play.play_type === 'run') return true;
+  if (play.is_touchdown === true && play.play_type === 'run') return true;
+  // Fallback: yard_line >= 100 typically means TD
+  if (play.yard_line && play.yard_line >= 100) return true;
+  return false;
+}
 import type { AnalyticsTier, TeamAnalyticsConfig, PlayInstance, PlayerRecord } from '@/types/football';
 
 export interface TierCapabilities {
@@ -356,40 +411,30 @@ export class AdvancedAnalyticsService {
       // Ball carrier stats
       const carries = ballCarrierPlays.length;
       const rushYards = ballCarrierPlays.reduce((sum: number, p: any) => sum + (p.yards_gained || 0), 0);
-      const rushTouchdowns = ballCarrierPlays.filter((p: any) =>
-        p.result?.includes('touchdown') || (p.yard_line && p.yard_line >= 100)
-      ).length;
+      const rushTouchdowns = ballCarrierPlays.filter((p: any) => isRushTouchdown(p)).length;
       const rushSuccess = ballCarrierPlays.filter((p: any) => p.success).length;
 
       // QB stats
       const dropbacks = qbPlays.filter((p: any) => p.play_type === 'pass').length;
       const passAttempts = dropbacks;
       const completions = qbPlays.filter((p: any) =>
-        p.result?.includes('complete') ||
-        (p.result?.includes('touchdown') && p.play_type === 'pass')
+        isPassComplete(p) || isPassTouchdown(p)
       ).length;
       const passYards = qbPlays
         .filter((p: any) => p.play_type === 'pass')
         .reduce((sum: number, p: any) => sum + (p.yards_gained || 0), 0);
-      const passTouchdowns = qbPlays.filter((p: any) =>
-        p.result?.includes('touchdown') && p.play_type === 'pass'
-      ).length;
-      const interceptions = qbPlays.filter((p: any) =>
-        p.result?.includes('interception') || p.is_interception
-      ).length;
+      const passTouchdowns = qbPlays.filter((p: any) => isPassTouchdown(p)).length;
+      const interceptions = qbPlays.filter((p: any) => isInterception(p)).length;
 
       // Target stats
       const targets = targetPlays.length;
       const receptions = targetPlays.filter((p: any) =>
-        p.result?.includes('complete') ||
-        (p.result?.includes('touchdown') && p.play_type === 'pass')
+        isPassComplete(p) || isPassTouchdown(p)
       ).length;
       const recYards = targetPlays
-        .filter((p: any) => p.result?.includes('complete') || p.result?.includes('touchdown'))
+        .filter((p: any) => isPassComplete(p) || isPassTouchdown(p))
         .reduce((sum: number, p: any) => sum + (p.yards_gained || 0), 0);
-      const recTouchdowns = targetPlays.filter((p: any) =>
-        p.result?.includes('touchdown') && p.play_type === 'pass'
-      ).length;
+      const recTouchdowns = targetPlays.filter((p: any) => isPassTouchdown(p)).length;
 
       stats.push({
         playerId: player.id,
@@ -1037,30 +1082,30 @@ export class AdvancedAnalyticsService {
 
     // Passing stats
     const passPlays = plays.filter(p => p.play_type === 'pass');
-    const completions = passPlays.filter(p =>
-      p.result?.includes('complete') || (p.result?.includes('touchdown') && p.play_type === 'pass')
-    ).length;
+    const completions = passPlays.filter(p => isPassComplete(p) || isPassTouchdown(p)).length;
     const passYards = passPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const passTDs = passPlays.filter(p => p.result?.includes('touchdown')).length;
-    const interceptions = passPlays.filter(p => p.result?.includes('interception') || p.is_interception).length;
+    const passTDs = passPlays.filter(p => isPassTouchdown(p)).length;
+    const interceptions = passPlays.filter(p => isInterception(p)).length;
     const sacks = passPlays.filter(p => p.is_sack).length;
 
     // Rushing stats (when QB is ball carrier)
     const rushPlays = plays.filter(p => p.ball_carrier_id === playerId && p.play_type === 'run');
     const rushYards = rushPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const rushTDs = rushPlays.filter(p => p.result?.includes('touchdown')).length;
+    const rushTDs = rushPlays.filter(p => isRushTouchdown(p)).length;
 
     // Situational stats
     const thirdDownAttempts = passPlays.filter(p => p.down === 3);
-    const thirdDownConversions = thirdDownAttempts.filter(p => p.resulted_in_first_down || p.result?.includes('touchdown')).length;
+    const thirdDownConversions = thirdDownAttempts.filter(p =>
+      p.resulted_in_first_down || isPassTouchdown(p)
+    ).length;
 
     const redZoneAttempts = passPlays.filter(p => p.yard_line && p.yard_line >= 80);
-    const redZoneTDs = redZoneAttempts.filter(p => p.result?.includes('touchdown')).length;
+    const redZoneTDs = redZoneAttempts.filter(p => isPassTouchdown(p)).length;
 
     // Pressure stats
     const pressuredPlays = passPlays.filter(p => p.facing_blitz || p.is_sack);
     const completionsUnderPressure = pressuredPlays.filter(p =>
-      p.result?.includes('complete') || p.result?.includes('touchdown')
+      isPassComplete(p) || isPassTouchdown(p)
     ).length;
 
     return {
@@ -1137,23 +1182,23 @@ export class AdvancedAnalyticsService {
     // Rushing stats
     const rushPlays = plays.filter(p => p.ball_carrier_id === playerId && p.play_type === 'run');
     const rushYards = rushPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const rushTDs = rushPlays.filter(p => p.result?.includes('touchdown')).length;
+    const rushTDs = rushPlays.filter(p => isRushTouchdown(p)).length;
     const rushSuccess = rushPlays.filter(p => p.success).length;
     const explosive = rushPlays.filter(p => (p.yards_gained || 0) >= 10).length;
 
     // Receiving stats
     const targets = plays.filter(p => p.target_id === playerId);
-    const receptions = targets.filter(p =>
-      p.result?.includes('complete') || p.result?.includes('touchdown')
-    ).length;
+    const receptions = targets.filter(p => isPassComplete(p) || isPassTouchdown(p)).length;
     const recYards = targets
-      .filter(p => p.result?.includes('complete') || p.result?.includes('touchdown'))
+      .filter(p => isPassComplete(p) || isPassTouchdown(p))
       .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const recTDs = targets.filter(p => p.result?.includes('touchdown')).length;
+    const recTDs = targets.filter(p => isPassTouchdown(p)).length;
 
     // Situational
     const thirdDownRushes = rushPlays.filter(p => p.down === 3);
-    const thirdDownConversions = thirdDownRushes.filter(p => p.resulted_in_first_down || p.result?.includes('touchdown')).length;
+    const thirdDownConversions = thirdDownRushes.filter(p =>
+      p.resulted_in_first_down || isRushTouchdown(p)
+    ).length;
 
     return {
       playerName: `${player.first_name} ${player.last_name}`,
@@ -1226,34 +1271,34 @@ export class AdvancedAnalyticsService {
     if (!plays || plays.length === 0) return null;
 
     // Receiving stats
-    const receptions = plays.filter(p =>
-      p.result?.includes('complete') || p.result?.includes('touchdown')
-    ).length;
+    const receptions = plays.filter(p => isPassComplete(p) || isPassTouchdown(p)).length;
     const recYards = plays
-      .filter(p => p.result?.includes('complete') || p.result?.includes('touchdown'))
+      .filter(p => isPassComplete(p) || isPassTouchdown(p))
       .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
-    const recTDs = plays.filter(p => p.result?.includes('touchdown')).length;
+    const recTDs = plays.filter(p => isPassTouchdown(p)).length;
     const explosive = plays.filter(p => (p.yards_gained || 0) >= 15).length;
 
     // Drops (incomplete where QB didn't get pressured/sacked)
     const catchableTargets = plays.filter(p =>
       !p.is_sack &&
       !p.result?.includes('throwaway') &&
-      !p.result?.includes('batted')
+      !p.result_type?.includes('throwaway') &&
+      !p.result?.includes('batted') &&
+      !p.result_type?.includes('batted')
     );
     const drops = catchableTargets.filter(p =>
-      !p.result?.includes('complete') && !p.result?.includes('touchdown')
+      !isPassComplete(p) && !isPassTouchdown(p)
     ).length;
 
     // Situational
     const thirdDownTargets = plays.filter(p => p.down === 3);
     const thirdDownCatches = thirdDownTargets.filter(p =>
-      (p.result?.includes('complete') || p.result?.includes('touchdown')) &&
-      (p.resulted_in_first_down || p.result?.includes('touchdown'))
+      (isPassComplete(p) || isPassTouchdown(p)) &&
+      (p.resulted_in_first_down || isPassTouchdown(p))
     ).length;
 
     const redZoneTargets = plays.filter(p => p.yard_line && p.yard_line >= 80);
-    const redZoneTDs = redZoneTargets.filter(p => p.result?.includes('touchdown')).length;
+    const redZoneTDs = redZoneTargets.filter(p => isPassTouchdown(p)).length;
 
     return {
       playerName: `${player.first_name} ${player.last_name}`,

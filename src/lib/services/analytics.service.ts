@@ -370,9 +370,27 @@ export class AnalyticsService {
     );
     const successRate = (successfulPlays.length / totalPlays) * 100;
 
-    // Helper to check if a play is a touchdown (supports new scoring_type and legacy fields)
+    // Helper to check if a play is a touchdown (supports new scoring_type, result_type, and legacy fields)
     const isTouchdown = (p: any) =>
-      p.scoring_type === 'touchdown' || p.is_touchdown || p.result?.includes('touchdown');
+      p.scoring_type === 'touchdown' || p.is_touchdown ||
+      p.result?.includes('touchdown') || p.result_type?.includes('touchdown');
+
+    // Helper to check if a pass was completed (supports result_type from UI and legacy result field)
+    const isComplete = (p: any) =>
+      p.result_type === 'pass_complete' ||
+      p.result?.includes('complete') ||
+      p.is_complete === true;
+
+    // Helper to check if a play was an interception
+    const isInt = (p: any) =>
+      p.result_type === 'pass_interception' ||
+      p.result?.includes('interception') ||
+      p.is_interception === true;
+
+    // Helper to check if a pass was incomplete (for drops)
+    const isIncomplete = (p: any) =>
+      p.result_type === 'pass_incomplete' ||
+      p.result?.includes('incomplete');
 
     // Rushing stats (plays where this player was the ball carrier)
     const rushPlays = plays.filter(p => p.ball_carrier_id === playerId);
@@ -388,31 +406,27 @@ export class AnalyticsService {
     const passPlays = plays.filter(p => p.qb_id === playerId);
     const passingAttempts = passPlays.length;
     const completions = passPlays.filter(p =>
-      p.result?.includes('complete') ||
-      (isTouchdown(p) && p.target_id)
+      isComplete(p) || (isTouchdown(p) && p.target_id)
     ).length;
     const completionPct = passingAttempts > 0 ? (completions / passingAttempts) * 100 : 0;
     const passingYards = passPlays.reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const passingTouchdowns = passPlays.filter(p =>
       isTouchdown(p) && p.target_id
     ).length;
-    const interceptions = passPlays.filter(p =>
-      p.result?.includes('interception') || p.is_interception
-    ).length;
+    const interceptions = passPlays.filter(p => isInt(p)).length;
     const passingFumbles = passPlays.filter(p => p.is_turnover && !p.is_interception).length;
 
     // Receiving stats (plays where this player was the target)
     const targetPlays = plays.filter(p => p.target_id === playerId);
     const targets = targetPlays.length;
     const receptions = targetPlays.filter(p =>
-      p.result?.includes('complete') ||
-      (isTouchdown(p) && p.target_id === playerId)
+      isComplete(p) || (isTouchdown(p) && p.target_id === playerId)
     ).length;
     const drops = targetPlays.filter(p =>
-      p.result?.includes('incomplete') && !p.result?.includes('defended')
+      isIncomplete(p) && !p.result?.includes('defended') && !p.result_type?.includes('defended')
     ).length;
     const receivingYards = targetPlays
-      .filter(p => p.result?.includes('complete') || isTouchdown(p))
+      .filter(p => isComplete(p) || isTouchdown(p))
       .reduce((sum, p) => sum + (p.yards_gained || 0), 0);
     const receivingAvg = receptions > 0 ? receivingYards / receptions : 0;
     const receivingTouchdowns = targetPlays.filter(p =>
