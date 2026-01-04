@@ -685,7 +685,8 @@ async function main() {
       }
 
       // For passes, determine completion
-      const isComplete = !isRun ? (!isTurnover && Math.random() > 0.35) : null;
+      // Pass TDs are ALWAYS completions. Otherwise ~60% completion rate (Math.random() > 0.40)
+      const isComplete = !isRun ? (!isTurnover && (isTouchdown || Math.random() > 0.40)) : null;
 
       // Target for passes - #1 Jaylen Davis gets most targets
       let targetId = isRun ? null : (Math.random() < 0.4 ? PLAYER_IDS['1'] : randomElement([PLAYER_IDS['11'], PLAYER_IDS['15'], PLAYER_IDS['85']].filter(Boolean)));
@@ -809,7 +810,8 @@ async function main() {
       const resultedInFirstDown = yards >= distance && !isTakeaway && !isTouchdown;
 
       // For passes, determine completion
-      const isComplete = !isRun ? (!isTakeaway && Math.random() > 0.40) : null;
+      // Pass TDs are ALWAYS completions. Otherwise ~55% completion rate (lower for opponents)
+      const isComplete = !isRun ? (!isTakeaway && (isTouchdown || Math.random() > 0.45)) : null;
 
       // Determine result string for analytics
       let oppResult: string;
