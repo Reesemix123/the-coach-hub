@@ -11,6 +11,100 @@ import { createClient } from '@/utils/supabase/client';
 import { ReportProps } from '@/types/reports';
 import StatCard from '@/components/analytics/StatCard';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { MetricDefinition } from '@/lib/analytics/metricDefinitions';
+
+// ============================================================================
+// Drive Analysis Metric Definitions (for tooltips)
+// ============================================================================
+const DRIVE_METRICS: Record<string, MetricDefinition> = {
+  // Offensive Drive Metrics
+  totalDrives: {
+    title: 'Total Drives',
+    description: 'Number of offensive possessions',
+    useful: 'Shows total opportunities to score. More drives usually means better field position or tempo.',
+    calculation: 'Count of distinct offensive possessions (changes after punts, turnovers, scores, etc.)',
+  },
+  pointsPerDrive: {
+    title: 'Points Per Drive',
+    description: 'Average points scored on each offensive possession',
+    useful: 'Best single measure of offensive efficiency. 2.5+ is excellent. 1.5-2.5 is good. Below 1.5 needs improvement.',
+    calculation: 'Total points scored ÷ Total offensive drives',
+  },
+  avgYardsPerDrive: {
+    title: 'Avg Yards Per Drive',
+    description: 'Average yards gained on each offensive possession',
+    useful: 'Shows drive sustainability. 30+ yards/drive is good. Under 20 indicates stalled drives.',
+    calculation: 'Total yards gained ÷ Total offensive drives',
+  },
+  scoringDriveRate: {
+    title: 'Scoring Drive Rate',
+    description: 'Percentage of drives that result in points (TD or FG)',
+    useful: 'Shows finishing ability. 40%+ is strong. Below 30% means too many empty possessions.',
+    calculation: '(Drives ending in TD or FG) ÷ Total drives × 100',
+  },
+  threeAndOutRate: {
+    title: '3-and-Out Rate',
+    description: 'Percentage of drives ending after just 3 plays with a punt',
+    useful: 'Lower is better. Under 15% is excellent. Above 25% indicates first-down struggles.',
+    calculation: '(Drives with 3 or fewer plays ending in punt) ÷ Total drives × 100',
+  },
+  redZoneTDRate: {
+    title: 'Red Zone TD Rate',
+    description: 'Percentage of red zone trips that end in touchdowns (not field goals)',
+    useful: 'Shows goal-line efficiency. 60%+ is great. Below 40% means settling for field goals too often.',
+    calculation: 'Red zone touchdowns ÷ Red zone drives × 100',
+  },
+  redZoneDrives: {
+    title: 'Red Zone Drives',
+    description: 'Number of drives that reached inside the opponent\'s 20-yard line',
+    useful: 'Shows ability to move the ball into scoring position. More trips = more scoring chances.',
+    calculation: 'Count of drives that reached the opponent\'s 20-yard line',
+  },
+
+  // Defensive Drive Metrics
+  totalDrivesDefense: {
+    title: 'Total Drives Faced',
+    description: 'Number of opponent offensive possessions',
+    useful: 'Fewer drives faced often means offense controlling time of possession.',
+    calculation: 'Count of opponent offensive possessions',
+  },
+  pointsPerDriveAllowed: {
+    title: 'Points Per Drive Allowed',
+    description: 'Average points allowed on each opponent possession',
+    useful: 'Best single measure of defensive efficiency. Under 1.5 is elite. Under 2.0 is good.',
+    calculation: 'Total points allowed ÷ Total opponent drives',
+  },
+  avgYardsAllowedPerDrive: {
+    title: 'Avg Yards Allowed/Drive',
+    description: 'Average yards opponent gains per possession',
+    useful: 'Shows defensive drive containment. Under 25 yards is good. Over 35 is concerning.',
+    calculation: 'Total yards allowed ÷ Total opponent drives',
+  },
+  scoringDrivesAllowed: {
+    title: 'Scoring Drives Allowed',
+    description: 'Percentage of opponent drives resulting in points',
+    useful: 'Lower is better. Under 25% is excellent. Over 40% is problematic.',
+    calculation: '(Opponent drives ending in TD or FG) ÷ Total opponent drives × 100',
+  },
+  threeAndOutStopRate: {
+    title: '3-and-Out Stop Rate',
+    description: 'Percentage of opponent drives forced into 3-and-out',
+    useful: 'Higher is better. 25%+ is excellent. Shows ability to get off field quickly.',
+    calculation: '(Opponent 3-and-outs) ÷ Total opponent drives × 100',
+  },
+  redZoneStopRate: {
+    title: 'Red Zone Stop Rate',
+    description: 'Percentage of opponent red zone trips held to field goals or less',
+    useful: 'Shows bend-don\'t-break ability. 50%+ is solid. Limiting TDs in red zone is crucial.',
+    calculation: '(Red zone drives held to FG or no points) ÷ Opponent red zone drives × 100',
+  },
+  redZoneDrivesFaced: {
+    title: 'Red Zone Drives Faced',
+    description: 'Number of opponent drives that reached your 20-yard line',
+    useful: 'Fewer is better. Shows ability to prevent deep penetration.',
+    calculation: 'Count of opponent drives reaching the 20-yard line',
+  },
+};
 
 interface DriveStats {
   // Offensive drives
@@ -220,27 +314,31 @@ export default function DriveAnalysisReport({ teamId, gameId, filters }: ReportP
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Drive Metrics</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard
-                    title="Total Drives"
+                    label="Total Drives"
                     value={stats.offensive.totalDrives.toString()}
                     subtitle={`${stats.offensive.totalPoints} total points`}
+                    tooltip={DRIVE_METRICS.totalDrives}
                   />
                   <StatCard
-                    title="Points Per Drive"
+                    label="Points Per Drive"
                     value={stats.offensive.pointsPerDrive.toFixed(2)}
                     subtitle="Offensive efficiency"
                     color={stats.offensive.pointsPerDrive >= 2.5 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.pointsPerDrive}
                   />
                   <StatCard
-                    title="Avg Yards Per Drive"
+                    label="Avg Yards Per Drive"
                     value={stats.offensive.avgYardsPerDrive.toFixed(1)}
                     subtitle={`${stats.offensive.avgPlaysPerDrive.toFixed(1)} plays/drive`}
                     color={stats.offensive.avgYardsPerDrive >= 30 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.avgYardsPerDrive}
                   />
                   <StatCard
-                    title="Scoring Drive Rate"
+                    label="Scoring Drive Rate"
                     value={`${stats.offensive.scoringDriveRate.toFixed(1)}%`}
                     subtitle={`${stats.offensive.scoringDrives} of ${stats.offensive.totalDrives} drives`}
                     color={stats.offensive.scoringDriveRate >= 40 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.scoringDriveRate}
                   />
                 </div>
               </div>
@@ -250,21 +348,24 @@ export default function DriveAnalysisReport({ teamId, gameId, filters }: ReportP
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Drive Efficiency</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <StatCard
-                    title="3-and-Out Rate"
+                    label="3-and-Out Rate"
                     value={`${stats.offensive.threeAndOutRate.toFixed(1)}%`}
                     subtitle={`${stats.offensive.threeAndOuts} of ${stats.offensive.totalDrives} drives`}
                     color={stats.offensive.threeAndOutRate <= 20 ? 'green' : 'red'}
+                    tooltip={DRIVE_METRICS.threeAndOutRate}
                   />
                   <StatCard
-                    title="Red Zone TD Rate"
+                    label="Red Zone TD Rate"
                     value={`${stats.offensive.redZoneTDRate.toFixed(1)}%`}
                     subtitle={`${stats.offensive.redZoneTouchdowns} of ${stats.offensive.redZoneDrives} attempts`}
                     color={stats.offensive.redZoneTDRate >= 50 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.redZoneTDRate}
                   />
                   <StatCard
-                    title="Red Zone Drives"
+                    label="Red Zone Drives"
                     value={stats.offensive.redZoneDrives.toString()}
                     subtitle="Trips inside 20"
+                    tooltip={DRIVE_METRICS.redZoneDrives}
                   />
                 </div>
               </div>
@@ -295,27 +396,31 @@ export default function DriveAnalysisReport({ teamId, gameId, filters }: ReportP
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Overall Drive Metrics</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <StatCard
-                    title="Total Drives"
+                    label="Total Drives"
                     value={stats.defensive.totalDrives.toString()}
                     subtitle={`${stats.defensive.totalPointsAllowed} points allowed`}
+                    tooltip={DRIVE_METRICS.totalDrivesDefense}
                   />
                   <StatCard
-                    title="Points Per Drive Allowed"
+                    label="Points Per Drive Allowed"
                     value={stats.defensive.pointsPerDriveAllowed.toFixed(2)}
                     subtitle="Defensive efficiency"
                     color={stats.defensive.pointsPerDriveAllowed <= 2.0 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.pointsPerDriveAllowed}
                   />
                   <StatCard
-                    title="Avg Yards Allowed/Drive"
+                    label="Avg Yards Allowed/Drive"
                     value={stats.defensive.avgYardsPerDriveAllowed.toFixed(1)}
                     subtitle={`${stats.defensive.avgPlaysPerDriveAllowed.toFixed(1)} plays/drive`}
                     color={stats.defensive.avgYardsPerDriveAllowed <= 25 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.avgYardsAllowedPerDrive}
                   />
                   <StatCard
-                    title="Scoring Drives Allowed"
+                    label="Scoring Drives Allowed"
                     value={`${stats.defensive.scoringDriveRateAllowed.toFixed(1)}%`}
                     subtitle={`${stats.defensive.scoringDrivesAllowed} of ${stats.defensive.totalDrives} drives`}
                     color={stats.defensive.scoringDriveRateAllowed <= 30 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.scoringDrivesAllowed}
                   />
                 </div>
               </div>
@@ -325,21 +430,24 @@ export default function DriveAnalysisReport({ teamId, gameId, filters }: ReportP
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Defensive Stops</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <StatCard
-                    title="3-and-Out Stop Rate"
+                    label="3-and-Out Stop Rate"
                     value={`${stats.defensive.threeAndOutStopRate.toFixed(1)}%`}
                     subtitle={`${stats.defensive.threeAndOutStops} of ${stats.defensive.totalDrives} drives`}
                     color={stats.defensive.threeAndOutStopRate >= 30 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.threeAndOutStopRate}
                   />
                   <StatCard
-                    title="Red Zone Stop Rate"
+                    label="Red Zone Stop Rate"
                     value={`${stats.defensive.redZoneStopRate.toFixed(1)}%`}
                     subtitle={`${stats.defensive.redZoneDrives - stats.defensive.redZoneTouchdownsAllowed} of ${stats.defensive.redZoneDrives} stops`}
                     color={stats.defensive.redZoneStopRate >= 50 ? 'green' : 'default'}
+                    tooltip={DRIVE_METRICS.redZoneStopRate}
                   />
                   <StatCard
-                    title="Red Zone Drives Faced"
+                    label="Red Zone Drives Faced"
                     value={stats.defensive.redZoneDrives.toString()}
                     subtitle={`${stats.defensive.redZoneTouchdownsAllowed} TDs allowed`}
+                    tooltip={DRIVE_METRICS.redZoneDrivesFaced}
                   />
                 </div>
               </div>

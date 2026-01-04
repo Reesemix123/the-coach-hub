@@ -11,6 +11,84 @@ import { createClient } from '@/utils/supabase/client';
 import { ReportProps } from '@/types/reports';
 import StatCard from '@/components/analytics/StatCard';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { MetricDefinition } from '@/lib/analytics/metricDefinitions';
+
+// ============================================================================
+// Situational Metric Definitions (for tooltips)
+// ============================================================================
+const SITUATIONAL_METRICS: Record<string, MetricDefinition> = {
+  // By Down
+  firstDown: {
+    title: '1st Down Performance',
+    description: 'How the offense performs on first down plays',
+    useful: 'First down sets the tone. Good 1st down execution creates manageable 2nd/3rd downs. Target 4+ yards and 50%+ success.',
+    calculation: 'Success = gain 40% of distance needed (e.g., 4+ yards on 1st & 10)',
+  },
+  secondDown: {
+    title: '2nd Down Performance',
+    description: 'How the offense performs on second down plays',
+    useful: 'Shows recovery ability after first down. Good 2nd down play prevents 3rd and long. Target 50%+ success.',
+    calculation: 'Success = gain 60% of remaining distance needed',
+  },
+  thirdDown: {
+    title: '3rd Down Performance',
+    description: 'How the offense performs on third down (conversion situations)',
+    useful: 'Critical for sustaining drives. 40%+ conversion rate is strong. Below 30% leads to short drives.',
+    calculation: 'Success = convert for first down or touchdown. Conversions shown separately.',
+  },
+  fourthDown: {
+    title: '4th Down Performance',
+    description: 'How the offense performs when going for it on fourth down',
+    useful: 'High-risk plays. Shows aggressiveness and execution in critical moments. Sample size usually small.',
+    calculation: 'Success = convert for first down or touchdown',
+  },
+
+  // By Distance
+  shortYardage: {
+    title: 'Short Yardage (1-3 yards)',
+    description: 'Performance when needing 1-3 yards for first down',
+    useful: 'Tests physicality and play design. Should convert 70%+ of short yardage. Power running and QB sneaks common.',
+    calculation: 'Success = gain the required yards for conversion',
+  },
+  mediumYardage: {
+    title: 'Medium Yardage (4-7 yards)',
+    description: 'Performance when needing 4-7 yards for first down',
+    useful: 'Most common situation. Balanced run/pass. 50%+ success rate is solid. Shows offensive versatility.',
+    calculation: 'Success rate based on down-specific thresholds',
+  },
+  longYardage: {
+    title: 'Long Yardage (8+ yards)',
+    description: 'Performance when needing 8+ yards for first down',
+    useful: 'Challenging situations, often 3rd and long. 35%+ success is good. Pass-heavy. Avoid these with good early-down play.',
+    calculation: 'Success = convert despite long distance needed',
+  },
+
+  // By Field Position
+  ownTerritory: {
+    title: 'Own Territory (0-40 yard line)',
+    description: 'Performance when backed up in own territory',
+    useful: 'Conservative play calling expected. Avoid turnovers. Steady gains to escape danger zone.',
+    calculation: 'Yard line 0-40 from own end zone. Success based on down thresholds.',
+  },
+  midfield: {
+    title: 'Midfield (41-60 yard line)',
+    description: 'Performance in the middle of the field',
+    useful: 'Open playbook territory. Good for establishing rhythm. Can take calculated risks.',
+    calculation: 'Yard line 41-60. Full offensive playbook available.',
+  },
+  opponentTerritory: {
+    title: 'Opponent Territory (61-80 yard line)',
+    description: 'Performance inside opponent territory but before red zone',
+    useful: 'Scoring range for field goals. Should maintain drives and avoid stalling. Sets up red zone entries.',
+    calculation: 'Yard line 61-80. Drives here should result in points.',
+  },
+  redZone: {
+    title: 'Red Zone (81-100 yard line)',
+    description: 'Performance inside the opponent\'s 20-yard line',
+    useful: 'Must score points when here. TD rate of 60%+ is strong. Field shrinks, precision matters.',
+    calculation: 'Yard line 81-100 (inside opponent 20). TD rate = TDs ÷ red zone trips.',
+  },
+};
 
 interface SituationalStats {
   // By Down
@@ -306,28 +384,32 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
         {expandedSections.byDown && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              title="1st Down"
+              label="1st Down"
               value={`${stats.byDown.firstDown.plays} plays`}
               subtitle={`${stats.byDown.firstDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.firstDown.successRate.toFixed(1)}% success`}
               color={stats.byDown.firstDown.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.firstDown}
             />
             <StatCard
-              title="2nd Down"
+              label="2nd Down"
               value={`${stats.byDown.secondDown.plays} plays`}
               subtitle={`${stats.byDown.secondDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.secondDown.successRate.toFixed(1)}% success`}
               color={stats.byDown.secondDown.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.secondDown}
             />
             <StatCard
-              title="3rd Down"
+              label="3rd Down"
               value={`${stats.byDown.thirdDown.plays} plays`}
               subtitle={`${stats.byDown.thirdDown.conversions} conversions • ${stats.byDown.thirdDown.successRate.toFixed(1)}% success`}
               color={stats.byDown.thirdDown.successRate >= 40 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.thirdDown}
             />
             <StatCard
-              title="4th Down"
+              label="4th Down"
               value={`${stats.byDown.fourthDown.plays} plays`}
               subtitle={`${stats.byDown.fourthDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.fourthDown.successRate.toFixed(1)}% success`}
               color={stats.byDown.fourthDown.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.fourthDown}
             />
           </div>
         )}
@@ -350,22 +432,25 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
         {expandedSections.byDistance && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
-              title="Short (1-3 yards)"
+              label="Short (1-3 yards)"
               value={`${stats.byDistance.short.plays} plays`}
               subtitle={`${stats.byDistance.short.avgYards.toFixed(1)} avg yards • ${stats.byDistance.short.successRate.toFixed(1)}% success`}
               color={stats.byDistance.short.successRate >= 60 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.shortYardage}
             />
             <StatCard
-              title="Medium (4-7 yards)"
+              label="Medium (4-7 yards)"
               value={`${stats.byDistance.medium.plays} plays`}
               subtitle={`${stats.byDistance.medium.avgYards.toFixed(1)} avg yards • ${stats.byDistance.medium.successRate.toFixed(1)}% success`}
               color={stats.byDistance.medium.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.mediumYardage}
             />
             <StatCard
-              title="Long (8+ yards)"
+              label="Long (8+ yards)"
               value={`${stats.byDistance.long.plays} plays`}
               subtitle={`${stats.byDistance.long.avgYards.toFixed(1)} avg yards • ${stats.byDistance.long.successRate.toFixed(1)}% success`}
               color={stats.byDistance.long.successRate >= 40 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.longYardage}
             />
           </div>
         )}
@@ -388,28 +473,32 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
         {expandedSections.byFieldPosition && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
-              title="Own Territory (0-40)"
+              label="Own Territory (0-40)"
               value={`${stats.byFieldPosition.ownTerritory.plays} plays`}
               subtitle={`${stats.byFieldPosition.ownTerritory.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.ownTerritory.successRate.toFixed(1)}% success`}
               color={stats.byFieldPosition.ownTerritory.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.ownTerritory}
             />
             <StatCard
-              title="Midfield (41-60)"
+              label="Midfield (41-60)"
               value={`${stats.byFieldPosition.midfield.plays} plays`}
               subtitle={`${stats.byFieldPosition.midfield.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.midfield.successRate.toFixed(1)}% success`}
               color={stats.byFieldPosition.midfield.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.midfield}
             />
             <StatCard
-              title="Opponent Territory (61-80)"
+              label="Opponent Territory (61-80)"
               value={`${stats.byFieldPosition.opponentTerritory.plays} plays`}
               subtitle={`${stats.byFieldPosition.opponentTerritory.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.opponentTerritory.successRate.toFixed(1)}% success`}
               color={stats.byFieldPosition.opponentTerritory.successRate >= 50 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.opponentTerritory}
             />
             <StatCard
-              title="Red Zone (81-100)"
+              label="Red Zone (81-100)"
               value={`${stats.byFieldPosition.redZone.plays} plays`}
               subtitle={`${stats.byFieldPosition.redZone.touchdowns} TDs • ${stats.byFieldPosition.redZone.successRate.toFixed(1)}% success`}
               color={stats.byFieldPosition.redZone.successRate >= 60 ? 'green' : 'default'}
+              tooltip={SITUATIONAL_METRICS.redZone}
             />
           </div>
         )}

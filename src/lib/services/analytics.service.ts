@@ -393,13 +393,6 @@ export class AnalyticsService {
       .eq('player_id', playerId)
       .eq('team_id', teamId);
 
-    console.log('[Analytics] Participation query completed:', {
-      playerId,
-      teamId,
-      totalRecords: allParticipation?.length || 0,
-      error: partError?.message
-    });
-
     // Filter to only completed games
     const validParticipation = allParticipation?.filter(p =>
       p.play_instance && completedVideoIds.includes(p.play_instance.video_id)
@@ -417,12 +410,6 @@ export class AnalyticsService {
       p.phase === 'special_teams' || p.participation_type === 'returner'
     );
 
-    console.log('[Analytics] Participation by phase:', {
-      offense: offensiveParticipation.length,
-      defense: validDefensiveParticipation.length,
-      specialTeams: specialTeamsParticipation.length
-    });
-
     // Build a list of unique play instances with their data for offensive stats
     const offensivePlays = offensiveParticipation
       .filter(p => p.play_instance && !p.play_instance.is_opponent_play)
@@ -438,11 +425,8 @@ export class AnalyticsService {
       new Map(offensivePlays.map(p => [p.id, p])).values()
     );
 
-    console.log('[Analytics] Valid defensive participation after filtering:', validDefensiveParticipation.length);
-
     // If no offensive plays AND no defensive participation, return empty stats
     if (uniqueOffensivePlays.length === 0 && validDefensiveParticipation.length === 0) {
-      console.log('[Analytics] No plays found, returning empty stats');
       return this.getEmptyPlayerStats(player);
     }
 

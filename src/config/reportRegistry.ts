@@ -83,7 +83,7 @@ export const REPORT_REGISTRY: ReportConfig[] = [
     description: 'Opponent tendencies, coverage patterns, and game plan insights',
     category: 'scouting',
     icon: 'Eye',
-    requiresOpponent: true,
+    // Note: This report has its own internal opponent selector, not the page-level filter
   },
 ];
 

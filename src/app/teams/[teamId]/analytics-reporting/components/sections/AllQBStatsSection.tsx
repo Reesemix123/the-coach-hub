@@ -52,6 +52,7 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
         // UNIFIED PLAYER PARTICIPATION MODEL
         // Query player_participation with participation_type = 'passer'
         // ======================================================================
+        // Build query - simpler approach without deeply nested joins
         let query = supabase
           .from('player_participation')
           .select(`
@@ -65,12 +66,9 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
               is_complete,
               is_sack,
               is_interception,
-              video_id,
-              videos!inner (
-                game_id
-              )
+              video_id
             ),
-            player:players!player_id (
+            player:players!inner (
               id,
               first_name,
               last_name,
@@ -81,12 +79,6 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
           .eq('participation_type', 'passer')
           .eq('phase', 'offense');
 
-        // Filter by game if specified
-        if (gameId) {
-          // Need to filter through the nested relationship
-          query = query.eq('play_instance.videos.game_id', gameId);
-        }
-
         const { data, error } = await query;
 
         if (error) {
@@ -95,7 +87,24 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
           return;
         }
 
-        if (!data || data.length === 0) {
+        // If gameId specified, filter by video's game_id (need to look up videos)
+        let filteredData = data || [];
+        if (gameId && data && data.length > 0) {
+          // Get video IDs from the participation records
+          const videoIds = [...new Set(data.map((p: any) => p.play_instance?.video_id).filter(Boolean))];
+
+          // Look up which videos belong to this game
+          const { data: videos } = await supabase
+            .from('videos')
+            .select('id')
+            .eq('game_id', gameId)
+            .in('id', videoIds);
+
+          const gameVideoIds = new Set(videos?.map(v => v.id) || []);
+          filteredData = data.filter((p: any) => gameVideoIds.has(p.play_instance?.video_id));
+        }
+
+        if (!filteredData || filteredData.length === 0) {
           setStats([]);
           setLoading(false);
           return;
@@ -104,7 +113,7 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
         // Group by QB and calculate stats
         const qbStatsMap = new Map<string, QBStats>();
 
-        data.forEach((participation: any) => {
+        filteredData.forEach((participation: any) => {
           if (!participation.player_id || !participation.player) return;
 
           const qbId = participation.player_id;

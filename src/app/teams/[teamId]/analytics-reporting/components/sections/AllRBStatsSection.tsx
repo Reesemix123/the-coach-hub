@@ -60,6 +60,7 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
         // UNIFIED PLAYER PARTICIPATION MODEL
         // Query player_participation for rushers and receivers, filter to RBs
         // ======================================================================
+        // Build query - simpler approach without deeply nested joins
         let query = supabase
           .from('player_participation')
           .select(`
@@ -71,12 +72,9 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
               id,
               is_complete,
               result_type,
-              video_id,
-              videos!inner (
-                game_id
-              )
+              video_id
             ),
-            player:players!player_id (
+            player:players!inner (
               id,
               first_name,
               last_name,
@@ -88,11 +86,6 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
           .in('participation_type', ['rusher', 'receiver'])
           .eq('phase', 'offense');
 
-        // Filter by game if specified
-        if (gameId) {
-          query = query.eq('play_instance.videos.game_id', gameId);
-        }
-
         const { data, error } = await query;
 
         if (error) {
@@ -101,7 +94,22 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
           return;
         }
 
-        if (!data || data.length === 0) {
+        // If gameId specified, filter by video's game_id
+        let filteredData = data || [];
+        if (gameId && data && data.length > 0) {
+          const videoIds = [...new Set(data.map((p: any) => p.play_instance?.video_id).filter(Boolean))];
+
+          const { data: videos } = await supabase
+            .from('videos')
+            .select('id')
+            .eq('game_id', gameId)
+            .in('id', videoIds);
+
+          const gameVideoIds = new Set(videos?.map(v => v.id) || []);
+          filteredData = data.filter((p: any) => gameVideoIds.has(p.play_instance?.video_id));
+        }
+
+        if (!filteredData || filteredData.length === 0) {
           setStats([]);
           setLoading(false);
           return;
@@ -110,7 +118,7 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
         // Group by RB and calculate stats
         const rbStatsMap = new Map<string, RBStats>();
 
-        data.forEach((participation: any) => {
+        filteredData.forEach((participation: any) => {
           if (!participation.player_id || !participation.player) return;
 
           const player = participation.player;

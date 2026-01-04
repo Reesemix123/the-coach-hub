@@ -249,18 +249,20 @@ export default function AnalyticsReportingPage({
             {/* Upgrade Banner for users without active subscription */}
             <UpgradeBanner teamId={teamId} />
 
-            {/* Report Filters - Use team games for regular reports, scouting games for opponent scouting */}
-            <ReportFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              games={selectedReport === 'opponent-scouting' ? scoutingGames : teamGames}
-              players={players}
-              showGameFilter={true}
-              showPlayerFilter={currentReportConfig.requiresPlayer}
-              showOpponentFilter={false}
-              showDateRange={false}
-              requiresGameSelection={currentReportConfig.requiresGame}
-            />
+            {/* Report Filters - Hide for opponent-scouting since it has its own selector */}
+            {selectedReport !== 'opponent-scouting' && (
+              <ReportFilters
+                filters={filters}
+                onFiltersChange={setFilters}
+                games={teamGames}
+                players={players}
+                showGameFilter={true}
+                showPlayerFilter={currentReportConfig.requiresPlayer}
+                showOpponentFilter={false}
+                showDateRange={false}
+                requiresGameSelection={currentReportConfig.requiresGame}
+              />
+            )}
 
             {/* Report Content */}
             {!validation.valid ? (
