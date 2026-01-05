@@ -200,13 +200,15 @@ export default function GameReport({ teamId, gameId, filters }: ReportProps) {
       const safeties = offensivePlays.filter(p => p.scoring_type === 'safety').length;
       const totalPoints = offensivePlays.reduce((sum, p) => sum + (p.scoring_points || 0), 0);
 
-      // Penalty stats
-      const penaltiesOnUs = offensivePlays.filter(p => p.penalty_on_play && p.penalty_on_us === true).length;
-      const penaltiesOnOpponent = offensivePlays.filter(p => p.penalty_on_play && p.penalty_on_us === false).length;
-      const penaltyYardsOnUs = offensivePlays
+      // Penalty stats - count from ALL plays (offensive and defensive)
+      // penalty_on_us = true means OUR team committed the penalty
+      const allPlays = plays || [];
+      const penaltiesOnUs = allPlays.filter(p => p.penalty_on_play && p.penalty_on_us === true).length;
+      const penaltiesOnOpponent = allPlays.filter(p => p.penalty_on_play && p.penalty_on_us === false).length;
+      const penaltyYardsOnUs = allPlays
         .filter(p => p.penalty_on_play && p.penalty_on_us === true)
         .reduce((sum, p) => sum + (p.penalty_yards || 0), 0);
-      const penaltyYardsOnOpponent = offensivePlays
+      const penaltyYardsOnOpponent = allPlays
         .filter(p => p.penalty_on_play && p.penalty_on_us === false)
         .reduce((sum, p) => sum + (p.penalty_yards || 0), 0);
 

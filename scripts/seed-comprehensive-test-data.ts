@@ -760,6 +760,22 @@ async function main() {
         play.rt_block_result = getBlockResult();
       }
 
+      // Add penalty data (~8% of plays have a penalty)
+      if (Math.random() < 0.08) {
+        play.penalty_on_play = true;
+        // 60% chance penalty is on us (offensive penalties), 40% on opponent (defensive)
+        play.penalty_on_us = Math.random() < 0.6;
+        if (play.penalty_on_us) {
+          // Offensive penalties: false start, holding, illegal formation
+          play.penalty_type = randomElement(['false_start', 'holding_offense', 'illegal_formation', 'illegal_motion']);
+          play.penalty_yards = randomElement([5, 5, 10, 10, 5]); // Mostly 5-yard penalties
+        } else {
+          // Defensive penalties: offsides, pass interference, roughing
+          play.penalty_type = randomElement(['offsides', 'pass_interference', 'roughing_passer', 'encroachment']);
+          play.penalty_yards = randomElement([5, 15, 15, 5]); // Mix of 5 and 15
+        }
+      }
+
       plays.push(play);
       timestamp += randomInt(25, 45);
     }
@@ -865,6 +881,23 @@ async function main() {
       play._isTakeaway = isTakeaway;
       play._isInterception = isTakeaway && !isRun;
       play._isFumbleRecovery = isTakeaway && isRun;
+
+      // Add penalty data (~8% of plays have a penalty)
+      // For opponent plays, penalty_on_us means penalty on OPPONENT (the offense)
+      if (Math.random() < 0.08) {
+        play.penalty_on_play = true;
+        // 55% chance penalty is on opponent (their offense), 45% on us (our defense)
+        play.penalty_on_us = Math.random() < 0.45; // penalty_on_us = true means OUR team committed penalty
+        if (!play.penalty_on_us) {
+          // Their offensive penalties (counts as penalty NOT on us)
+          play.penalty_type = randomElement(['false_start', 'holding_offense', 'illegal_formation', 'illegal_shift']);
+          play.penalty_yards = randomElement([5, 5, 10, 10, 5]);
+        } else {
+          // Our defensive penalties
+          play.penalty_type = randomElement(['offsides', 'pass_interference', 'roughing_passer', 'personal_foul']);
+          play.penalty_yards = randomElement([5, 15, 15, 15]);
+        }
+      }
 
       plays.push(play);
       timestamp += randomInt(25, 45);
