@@ -71,7 +71,7 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
             play_instance:play_instances!inner (
               id,
               is_complete,
-              result_type,
+              result,
               video_id
             ),
             player:players!inner (
@@ -172,7 +172,8 @@ export default function AllRBStatsSection({ teamId, gameId, currentTier }: AllRB
 
             // Check for completion from play_instance or participation
             const isComplete = playInstance?.is_complete ||
-              playInstance?.result_type === 'pass_complete' ||
+              playInstance?.result === 'pass_complete' ||
+              playInstance?.result === 'complete' ||
               participation.is_touchdown;
 
             if (isComplete) {

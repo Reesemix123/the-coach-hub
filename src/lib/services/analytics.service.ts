@@ -389,7 +389,7 @@ export class AnalyticsService {
     // Query all participation records for this player
     const { data: allParticipation, error: partError } = await this.supabase
       .from('player_participation')
-      .select('*, play_instance:play_instances!inner(id, video_id, is_opponent_play, down, distance, yards_gained, resulted_in_first_down, is_turnover, is_touchdown, scoring_type, result_type, play_code, yard_line)')
+      .select('*, play_instance:play_instances!inner(id, video_id, is_opponent_play, down, distance, yards_gained, resulted_in_first_down, is_turnover, is_touchdown, scoring_type, result, play_code, yard_line)')
       .eq('player_id', playerId)
       .eq('team_id', teamId);
 

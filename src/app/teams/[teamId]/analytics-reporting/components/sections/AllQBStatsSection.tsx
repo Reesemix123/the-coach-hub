@@ -62,7 +62,7 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
             is_turnover,
             play_instance:play_instances!inner (
               id,
-              result_type,
+              result,
               is_complete,
               is_sack,
               is_interception,
@@ -145,7 +145,8 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
 
           // Check for completion (from play_instance or participation)
           const isComplete = playInstance?.is_complete ||
-            playInstance?.result_type === 'pass_complete' ||
+            playInstance?.result === 'pass_complete' ||
+            playInstance?.result === 'complete' ||
             participation.is_touchdown;
           if (isComplete) {
             qbStats.completions++;
@@ -158,12 +159,12 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
 
           // Check for interception
           if (participation.is_turnover || playInstance?.is_interception ||
-              playInstance?.result_type === 'pass_interception') {
+              playInstance?.result === 'interception') {
             qbStats.interceptions++;
           }
 
           // Check for sack
-          if (playInstance?.is_sack || playInstance?.result_type === 'pass_sack') {
+          if (playInstance?.is_sack || playInstance?.result === 'sack') {
             qbStats.sacks++;
           } else {
             // Only count yards for non-sack plays (use denormalized or fallback)

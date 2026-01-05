@@ -196,7 +196,7 @@ export class DriveService {
     // Get all plays for this drive
     const { data: plays, error: playsError } = await this.supabase
       .from('play_instances')
-      .select('yards_gained, resulted_in_first_down, yard_line, result_type, is_turnover')
+      .select('yards_gained, resulted_in_first_down, yard_line, result, scoring_type, is_turnover, is_touchdown')
       .eq('drive_id', driveId)
       .order('created_at', { ascending: true });
 
@@ -219,21 +219,21 @@ export class DriveService {
         result = 'turnover';
         points = 0;
       }
-      // Check for scoring plays
-      else if (plays.some(p => p.result_type === 'touchdown' || p.result_type === 'pass_touchdown')) {
+      // Check for scoring plays - use scoring_type (new) or is_touchdown/result (legacy)
+      else if (plays.some(p => p.scoring_type === 'touchdown' || p.is_touchdown || p.result === 'touchdown')) {
         result = 'touchdown';
         points = 6; // Base touchdown points (PAT would add 1 or 2)
       }
-      else if (plays.some(p => p.result_type === 'field_goal')) {
+      else if (plays.some(p => p.scoring_type === 'field_goal' || p.result === 'field_goal')) {
         result = 'field_goal';
         points = 3;
       }
       // Check last play for other results
       else {
         const lastPlay = plays[plays.length - 1];
-        if (lastPlay.result_type === 'punt') {
+        if (lastPlay.result === 'punt') {
           result = 'punt';
-        } else if (lastPlay.result_type === 'turnover_on_downs') {
+        } else if (lastPlay.result === 'turnover_on_downs' || lastPlay.result === 'downs') {
           result = 'downs';
         }
       }
