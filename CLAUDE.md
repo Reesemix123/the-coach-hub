@@ -68,6 +68,14 @@ Do NOT update `src/content/features.ts` without user confirmation.
 - Log errors appropriately for debugging
 - Performance optimization for large playbooks and film libraries
 
+**Database Migrations:**
+- **IMPORTANT:** The project owner will deploy all database structural migrations to Supabase
+- Claude Code should create migration files in `supabase/migrations/` with sequential numbering (e.g., `127_description.sql`)
+- Migration files should include clear comments explaining what changes are being made
+- Do NOT attempt to run migrations directly - only create the SQL files
+- After creating a migration file, inform the user so they can deploy it via Supabase dashboard or CLI
+- Frontend code that depends on new database functions should include fallback logic until migrations are deployed
+
 ---
 
 ## High-Level Architecture
@@ -1325,6 +1333,6 @@ For questions about this codebase, refer to:
 
 ---
 
-*Last Updated: 2025-01-02*
+*Last Updated: 2025-01-05*
 *Version: main branch*
 *Design System: v1.0 (see DESIGN_SYSTEM.md)*

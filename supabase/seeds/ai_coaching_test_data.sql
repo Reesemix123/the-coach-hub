@@ -252,17 +252,17 @@ BEGIN
   -- GAMES (8-game season: 5-3 record)
   -- ============================================================================
 
-  INSERT INTO games (id, team_id, user_id, name, opponent, date, team_score, opponent_score, game_result, game_type, film_analysis_status, created_at)
+  INSERT INTO games (id, team_id, user_id, name, opponent, date, team_score, opponent_score, game_result, game_type, film_analysis_status, week_number, season_phase, created_at)
   VALUES
-    (v_game1_id, v_team_id, v_user_id, 'Week 1 vs Lincoln', 'Lincoln Lions', '2024-09-06', 21, 14, 'win', 'team', 'complete', NOW() - INTERVAL '12 weeks'),
-    (v_game2_id, v_team_id, v_user_id, 'Week 2 vs Roosevelt', 'Roosevelt Roughriders', '2024-09-13', 14, 28, 'loss', 'team', 'complete', NOW() - INTERVAL '11 weeks'),
-    (v_game3_id, v_team_id, v_user_id, 'Week 3 vs Jefferson', 'Jefferson Jaguars', '2024-09-20', 28, 7, 'win', 'team', 'complete', NOW() - INTERVAL '10 weeks'),
-    (v_game4_id, v_team_id, v_user_id, 'Week 4 vs Washington', 'Washington Wolves', '2024-09-27', 17, 21, 'loss', 'team', 'complete', NOW() - INTERVAL '9 weeks'),
-    (v_game5_id, v_team_id, v_user_id, 'Week 5 vs Adams', 'Adams Arrows', '2024-10-04', 35, 14, 'win', 'team', 'complete', NOW() - INTERVAL '8 weeks'),
-    (v_game6_id, v_team_id, v_user_id, 'Week 6 vs Madison', 'Madison Mustangs', '2024-10-11', 24, 21, 'win', 'team', 'complete', NOW() - INTERVAL '7 weeks'),
-    (v_game7_id, v_team_id, v_user_id, 'Week 7 vs Monroe', 'Monroe Monarchs', '2024-10-18', 7, 14, 'loss', 'team', 'complete', NOW() - INTERVAL '6 weeks'),
-    (v_game8_id, v_team_id, v_user_id, 'Week 8 vs Hamilton', 'Hamilton Hawks', '2024-10-25', 28, 21, 'win', 'team', 'complete', NOW() - INTERVAL '5 weeks')
-  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name;
+    (v_game1_id, v_team_id, v_user_id, 'Week 1 vs Lincoln', 'Lincoln Lions', '2024-09-06', 21, 14, 'win', 'team', 'complete', 1, 'regular', NOW() - INTERVAL '12 weeks'),
+    (v_game2_id, v_team_id, v_user_id, 'Week 2 vs Roosevelt', 'Roosevelt Roughriders', '2024-09-13', 14, 28, 'loss', 'team', 'complete', 2, 'regular', NOW() - INTERVAL '11 weeks'),
+    (v_game3_id, v_team_id, v_user_id, 'Week 3 vs Jefferson', 'Jefferson Jaguars', '2024-09-20', 28, 7, 'win', 'team', 'complete', 3, 'regular', NOW() - INTERVAL '10 weeks'),
+    (v_game4_id, v_team_id, v_user_id, 'Week 4 vs Washington', 'Washington Wolves', '2024-09-27', 17, 21, 'loss', 'team', 'complete', 4, 'regular', NOW() - INTERVAL '9 weeks'),
+    (v_game5_id, v_team_id, v_user_id, 'Week 5 vs Adams', 'Adams Arrows', '2024-10-04', 35, 14, 'win', 'team', 'complete', 5, 'regular', NOW() - INTERVAL '8 weeks'),
+    (v_game6_id, v_team_id, v_user_id, 'Week 6 vs Madison', 'Madison Mustangs', '2024-10-11', 24, 21, 'win', 'team', 'complete', 6, 'regular', NOW() - INTERVAL '7 weeks'),
+    (v_game7_id, v_team_id, v_user_id, 'Week 7 vs Monroe', 'Monroe Monarchs', '2024-10-18', 7, 14, 'loss', 'team', 'complete', 7, 'regular', NOW() - INTERVAL '6 weeks'),
+    (v_game8_id, v_team_id, v_user_id, 'Week 8 vs Hamilton', 'Hamilton Hawks', '2024-10-25', 28, 21, 'win', 'team', 'complete', 8, 'regular', NOW() - INTERVAL '5 weeks')
+  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, week_number = EXCLUDED.week_number, season_phase = EXCLUDED.season_phase;
 
   -- ============================================================================
   -- VIDEOS (one per game)

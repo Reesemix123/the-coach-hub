@@ -2061,7 +2061,8 @@ export default function GameFilmPage() {
     }
     
     setValue('formation', instance.formation);
-    setValue('result_type', instance.result_type);
+    // Database column is 'result', UI form field is 'result_type'
+    setValue('result_type', instance.result || instance.result_type);
     setValue('resulted_in_first_down', instance.resulted_in_first_down);
     setValue('down', instance.down);
     setValue('distance', instance.distance);
@@ -2180,7 +2181,9 @@ export default function GameFilmPage() {
             : (values.play_code || ''),
 
         formation: values.formation || undefined,
-        result_type: values.result_type || undefined,
+        // IMPORTANT: Database column is 'result', not 'result_type'
+        // The form uses result_type for UI, but we map it to result for the database
+        result: values.result_type || undefined,
         resulted_in_first_down: values.resulted_in_first_down || false,
         // Turnovers determined by Result dropdown ONLY (not checkboxes)
         is_turnover: values.result_type === 'pass_interception' ||
@@ -4136,11 +4139,11 @@ export default function GameFilmPage() {
                             </div>
                           )}
 
-                          {instance.result_type && (
+                          {(instance.result || instance.result_type) && (
                             <div className="bg-white rounded px-2 py-1 border border-gray-200">
                               <span className="text-gray-600">Result:</span>
                               <span className="text-gray-900 font-medium ml-1">
-                                {RESULT_TYPES.find(r => r.value === instance.result_type)?.label || instance.result_type}
+                                {RESULT_TYPES.find(r => r.value === (instance.result || instance.result_type))?.label || (instance.result || instance.result_type)}
                               </span>
                             </div>
                           )}

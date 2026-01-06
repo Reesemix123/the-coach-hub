@@ -1,12 +1,16 @@
 /**
  * ReportFilters Component
  *
- * Filter controls for reports: game selection, opponent, date range, player.
- * Dynamically shows/hides filters based on report requirements.
+ * Filter controls for reports: game selection, view mode, opponent, date range, player.
+ * Supports both single-game and cumulative (through week X) filtering.
+ *
+ * Game selection is always required. Use "Through Week" mode on the last game
+ * to see full season stats.
  */
 
 'use client';
 
+import { useEffect } from 'react';
 import { ReportFilters as ReportFiltersType } from '@/types/reports';
 
 interface Game {
@@ -14,6 +18,7 @@ interface Game {
   name: string;
   date: string;
   opponent: string;
+  week_number?: number;
 }
 
 interface Player {
@@ -32,7 +37,6 @@ interface ReportFiltersProps {
   showPlayerFilter?: boolean;
   showOpponentFilter?: boolean;
   showDateRange?: boolean;
-  requiresGameSelection?: boolean; // Hide "All Games" option for game-level reports
 }
 
 export default function ReportFilters({
@@ -44,8 +48,47 @@ export default function ReportFilters({
   showPlayerFilter = false,
   showOpponentFilter = false,
   showDateRange = false,
-  requiresGameSelection = false,
 }: ReportFiltersProps) {
+
+  // Sort games by week_number or date for proper ordering
+  const sortedGames = [...games].sort((a, b) => {
+    if (a.week_number && b.week_number) {
+      return a.week_number - b.week_number;
+    }
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  // Calculate cumulative game IDs when viewMode or gameId changes
+  useEffect(() => {
+    if (filters.viewMode === 'cumulative' && filters.gameId) {
+      const selectedGame = sortedGames.find(g => g.id === filters.gameId);
+      if (selectedGame) {
+        // Get all games up to and including the selected game
+        const cumulativeGames = sortedGames.filter(g => {
+          if (selectedGame.week_number && g.week_number) {
+            return g.week_number <= selectedGame.week_number;
+          }
+          return new Date(g.date).getTime() <= new Date(selectedGame.date).getTime();
+        });
+        const gameIds = cumulativeGames.map(g => g.id);
+
+        // Only update if gameIds changed
+        if (JSON.stringify(gameIds) !== JSON.stringify(filters.gameIds)) {
+          onFiltersChange({
+            ...filters,
+            gameIds,
+          });
+        }
+      }
+    } else if (filters.viewMode === 'single' && filters.gameIds) {
+      // Clear gameIds when switching to single mode
+      onFiltersChange({
+        ...filters,
+        gameIds: undefined,
+      });
+    }
+  }, [filters.viewMode, filters.gameId, sortedGames]);
+
   const handleFilterChange = (key: keyof ReportFiltersType, value: string | undefined) => {
     onFiltersChange({
       ...filters,
@@ -53,12 +96,29 @@ export default function ReportFilters({
     });
   };
 
+  const handleViewModeChange = (mode: 'single' | 'cumulative') => {
+    onFiltersChange({
+      ...filters,
+      viewMode: mode,
+      gameIds: undefined, // Reset gameIds, will be recalculated by useEffect
+    });
+  };
+
   // Get unique opponents from games
   const opponents = Array.from(new Set(games.map(g => g.opponent))).filter(Boolean);
 
+  // Get display info for cumulative view
+  const selectedGame = filters.gameId ? sortedGames.find(g => g.id === filters.gameId) : null;
+  const cumulativeGamesCount = filters.gameIds?.length || 0;
+  const showViewModeToggle = showGameFilter && filters.gameId;
+
+  // Check if any filters are active
+  const hasActiveFilters = filters.gameId || filters.opponent || filters.playerId || filters.startDate || filters.endDate;
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex items-end gap-4">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Game Filter */}
         {showGameFilter && (
           <div>
@@ -70,18 +130,48 @@ export default function ReportFilters({
               onChange={(e) => handleFilterChange('gameId', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
             >
-              {!requiresGameSelection && (
-                <option value="">All Games (Season)</option>
-              )}
-              {requiresGameSelection && !filters.gameId && (
+              {!filters.gameId && (
                 <option value="">Select a game...</option>
               )}
-              {games.map((game) => (
+              {sortedGames.map((game) => (
                 <option key={game.id} value={game.id}>
-                  {game.name} - {game.opponent}
+                  {game.week_number ? `Week ${game.week_number}` : game.name} - {game.opponent}
                 </option>
               ))}
             </select>
+          </div>
+        )}
+
+        {/* View Mode Toggle - Only show when a game is selected */}
+        {showViewModeToggle && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              View
+            </label>
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('single')}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                  filters.viewMode !== 'cumulative'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                This Game
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange('cumulative')}
+                className={`flex-1 px-3 py-2 text-sm font-medium transition-colors border-l border-gray-300 ${
+                  filters.viewMode === 'cumulative'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Through Week
+              </button>
+            </div>
           </div>
         )}
 
@@ -154,17 +244,28 @@ export default function ReportFilters({
             </div>
           </>
         )}
-      </div>
+        </div>
 
-      {/* Clear Filters */}
-      {(filters.gameId || filters.opponent || filters.playerId || filters.startDate || filters.endDate) && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
+        {/* Clear Filters - inline at end of row */}
+        {hasActiveFilters && (
           <button
             onClick={() => onFiltersChange({})}
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-sm text-gray-400 hover:text-gray-600 transition-colors whitespace-nowrap pb-2"
           >
-            Clear all filters
+            Clear filter
           </button>
+        )}
+      </div>
+
+      {/* Cumulative View Info */}
+      {filters.viewMode === 'cumulative' && selectedGame && cumulativeGamesCount > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Showing stats for <span className="font-medium">{cumulativeGamesCount} game{cumulativeGamesCount > 1 ? 's' : ''}</span>
+            {selectedGame.week_number && (
+              <span> (Weeks 1-{selectedGame.week_number})</span>
+            )}
+          </p>
         </div>
       )}
     </div>

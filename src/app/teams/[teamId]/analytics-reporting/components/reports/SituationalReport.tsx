@@ -385,29 +385,29 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="1st Down"
-              value={`${stats.byDown.firstDown.plays} plays`}
-              subtitle={`${stats.byDown.firstDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.firstDown.successRate.toFixed(1)}% success`}
+              value={`${stats.byDown.firstDown.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDown.firstDown.plays} plays • ${stats.byDown.firstDown.avgYards.toFixed(1)} avg yards`}
               color={stats.byDown.firstDown.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.firstDown}
             />
             <StatCard
               label="2nd Down"
-              value={`${stats.byDown.secondDown.plays} plays`}
-              subtitle={`${stats.byDown.secondDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.secondDown.successRate.toFixed(1)}% success`}
+              value={`${stats.byDown.secondDown.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDown.secondDown.plays} plays • ${stats.byDown.secondDown.avgYards.toFixed(1)} avg yards`}
               color={stats.byDown.secondDown.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.secondDown}
             />
             <StatCard
               label="3rd Down"
-              value={`${stats.byDown.thirdDown.plays} plays`}
-              subtitle={`${stats.byDown.thirdDown.conversions} conversions • ${stats.byDown.thirdDown.successRate.toFixed(1)}% success`}
+              value={`${stats.byDown.thirdDown.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDown.thirdDown.conversions}/${stats.byDown.thirdDown.plays} conversions • ${stats.byDown.thirdDown.avgYards.toFixed(1)} avg yards`}
               color={stats.byDown.thirdDown.successRate >= 40 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.thirdDown}
             />
             <StatCard
               label="4th Down"
-              value={`${stats.byDown.fourthDown.plays} plays`}
-              subtitle={`${stats.byDown.fourthDown.avgYards.toFixed(1)} avg yards • ${stats.byDown.fourthDown.successRate.toFixed(1)}% success`}
+              value={`${stats.byDown.fourthDown.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDown.fourthDown.plays} plays • ${stats.byDown.fourthDown.avgYards.toFixed(1)} avg yards`}
               color={stats.byDown.fourthDown.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.fourthDown}
             />
@@ -433,22 +433,22 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <StatCard
               label="Short (1-3 yards)"
-              value={`${stats.byDistance.short.plays} plays`}
-              subtitle={`${stats.byDistance.short.avgYards.toFixed(1)} avg yards • ${stats.byDistance.short.successRate.toFixed(1)}% success`}
+              value={`${stats.byDistance.short.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDistance.short.plays} plays • ${stats.byDistance.short.avgYards.toFixed(1)} avg yards`}
               color={stats.byDistance.short.successRate >= 60 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.shortYardage}
             />
             <StatCard
               label="Medium (4-7 yards)"
-              value={`${stats.byDistance.medium.plays} plays`}
-              subtitle={`${stats.byDistance.medium.avgYards.toFixed(1)} avg yards • ${stats.byDistance.medium.successRate.toFixed(1)}% success`}
+              value={`${stats.byDistance.medium.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDistance.medium.plays} plays • ${stats.byDistance.medium.avgYards.toFixed(1)} avg yards`}
               color={stats.byDistance.medium.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.mediumYardage}
             />
             <StatCard
               label="Long (8+ yards)"
-              value={`${stats.byDistance.long.plays} plays`}
-              subtitle={`${stats.byDistance.long.avgYards.toFixed(1)} avg yards • ${stats.byDistance.long.successRate.toFixed(1)}% success`}
+              value={`${stats.byDistance.long.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byDistance.long.plays} plays • ${stats.byDistance.long.avgYards.toFixed(1)} avg yards`}
               color={stats.byDistance.long.successRate >= 40 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.longYardage}
             />
@@ -474,29 +474,29 @@ export default function SituationalReport({ teamId, gameId, filters }: ReportPro
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
               label="Own Territory (0-40)"
-              value={`${stats.byFieldPosition.ownTerritory.plays} plays`}
-              subtitle={`${stats.byFieldPosition.ownTerritory.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.ownTerritory.successRate.toFixed(1)}% success`}
+              value={`${stats.byFieldPosition.ownTerritory.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byFieldPosition.ownTerritory.plays} plays • ${stats.byFieldPosition.ownTerritory.avgYards.toFixed(1)} avg yards`}
               color={stats.byFieldPosition.ownTerritory.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.ownTerritory}
             />
             <StatCard
               label="Midfield (41-60)"
-              value={`${stats.byFieldPosition.midfield.plays} plays`}
-              subtitle={`${stats.byFieldPosition.midfield.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.midfield.successRate.toFixed(1)}% success`}
+              value={`${stats.byFieldPosition.midfield.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byFieldPosition.midfield.plays} plays • ${stats.byFieldPosition.midfield.avgYards.toFixed(1)} avg yards`}
               color={stats.byFieldPosition.midfield.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.midfield}
             />
             <StatCard
               label="Opponent Territory (61-80)"
-              value={`${stats.byFieldPosition.opponentTerritory.plays} plays`}
-              subtitle={`${stats.byFieldPosition.opponentTerritory.avgYards.toFixed(1)} avg yards • ${stats.byFieldPosition.opponentTerritory.successRate.toFixed(1)}% success`}
+              value={`${stats.byFieldPosition.opponentTerritory.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byFieldPosition.opponentTerritory.plays} plays • ${stats.byFieldPosition.opponentTerritory.avgYards.toFixed(1)} avg yards`}
               color={stats.byFieldPosition.opponentTerritory.successRate >= 50 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.opponentTerritory}
             />
             <StatCard
               label="Red Zone (81-100)"
-              value={`${stats.byFieldPosition.redZone.plays} plays`}
-              subtitle={`${stats.byFieldPosition.redZone.touchdowns} TDs • ${stats.byFieldPosition.redZone.successRate.toFixed(1)}% success`}
+              value={`${stats.byFieldPosition.redZone.successRate.toFixed(1)}%`}
+              subtitle={`${stats.byFieldPosition.redZone.plays} plays • ${stats.byFieldPosition.redZone.touchdowns} TDs`}
               color={stats.byFieldPosition.redZone.successRate >= 60 ? 'green' : 'default'}
               tooltip={SITUATIONAL_METRICS.redZone}
             />

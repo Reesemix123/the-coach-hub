@@ -238,9 +238,9 @@ export class AnalyticsService {
 
     // Red zone (inside 20 yard line)
     const redZonePlays = plays.filter(p => p.yard_line && p.yard_line <= 20);
-    // Use scoring_type for touchdowns (new field), fall back to is_touchdown or result_type for backward compatibility
+    // Use scoring_type for touchdowns (new field), fall back to is_touchdown or result
     const redZoneTouchdowns = redZonePlays.filter(p =>
-      p.scoring_type === 'touchdown' || p.is_touchdown || p.result_type === 'touchdown'
+      p.scoring_type === 'touchdown' || p.is_touchdown || p.result === 'touchdown' || p.result?.includes('touchdown')
     ).length;
 
     // Group plays by play_code and calculate stats
@@ -437,26 +437,27 @@ export class AnalyticsService {
     );
     const successRate = totalPlays > 0 ? (successfulPlays.length / totalPlays) * 100 : 0;
 
-    // Helper to check if a play is a touchdown (supports new scoring_type, result_type, and legacy fields)
+    // Helper to check if a play is a touchdown (supports new scoring_type and result fields)
     const isTouchdown = (p: any) =>
       p.scoring_type === 'touchdown' || p.is_touchdown ||
-      p.result?.includes('touchdown') || p.result_type?.includes('touchdown');
+      p.result?.includes('touchdown');
 
-    // Helper to check if a pass was completed (supports result_type from UI and legacy result field)
+    // Helper to check if a pass was completed (uses result column)
     const isComplete = (p: any) =>
-      p.result_type === 'pass_complete' ||
-      p.result?.includes('complete') ||
+      p.result === 'pass_complete' ||
+      p.result === 'complete' ||
       p.is_complete === true;
 
     // Helper to check if a play was an interception
     const isInt = (p: any) =>
-      p.result_type === 'pass_interception' ||
+      p.result === 'pass_interception' ||
+      p.result === 'interception' ||
       p.result?.includes('interception') ||
       p.is_interception === true;
 
     // Helper to check if a pass was incomplete (for drops)
     const isIncomplete = (p: any) =>
-      p.result_type === 'pass_incomplete' ||
+      p.result === 'pass_incomplete' ||
       p.result?.includes('incomplete');
 
     // ======================================================================
@@ -500,7 +501,7 @@ export class AnalyticsService {
       isComplete(p) || isTouchdown(p)
     ).length;
     const drops = targetPlays.filter(p =>
-      isIncomplete(p) && !p.result?.includes('defended') && !p.result_type?.includes('defended')
+      isIncomplete(p) && !p.result?.includes('defended')
     ).length;
     const receivingYards = receiverParticipation
       .filter(p => isComplete(p.play_instance) || isTouchdown(p.play_instance))

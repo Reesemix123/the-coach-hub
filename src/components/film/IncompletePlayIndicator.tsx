@@ -46,20 +46,21 @@ function checkMissingTierData(
   unitType: 'offense' | 'defense' | 'specialTeams'
 ): boolean {
   // Define required fields per tier and unit type
+  // Note: Database column is 'result', not 'result_type'
   const requiredFields: Record<TaggingTier, Record<string, string[]>> = {
     quick: {
-      offense: ['result_type', 'yards_gained'],
-      defense: ['result_type', 'yards_gained'],
+      offense: ['result', 'yards_gained'],
+      defense: ['result', 'yards_gained'],
       specialTeams: ['special_teams_unit', 'kick_result']
     },
     standard: {
-      offense: ['result_type', 'yards_gained', 'play_type'],
-      defense: ['result_type', 'yards_gained', 'tackler_ids'],
+      offense: ['result', 'yards_gained', 'play_type'],
+      defense: ['result', 'yards_gained', 'tackler_ids'],
       specialTeams: ['special_teams_unit', 'kick_result']
     },
     comprehensive: {
-      offense: ['result_type', 'yards_gained', 'play_type', 'qb_id', 'ball_carrier_id'],
-      defense: ['result_type', 'yards_gained', 'tackler_ids'],
+      offense: ['result', 'yards_gained', 'play_type', 'qb_id', 'ball_carrier_id'],
+      defense: ['result', 'yards_gained', 'tackler_ids'],
       specialTeams: ['special_teams_unit', 'kick_result']
     }
   };

@@ -39,13 +39,21 @@ export default function SeasonOverviewReport({ teamId, gameId, filters }: Report
     async function loadMetrics() {
       setLoading(true);
 
+      // Determine which game filter to use:
+      // - Cumulative mode (gameIds array) takes priority
+      // - Single game mode uses gameId
+      // - No selection = all games
+      const useGameIds = filters.viewMode === 'cumulative' && filters.gameIds && filters.gameIds.length > 0;
+
       // Get comprehensive metrics directly from database function
+      // Note: Pass empty array [] instead of null for p_game_ids - PostgREST needs explicit array type
       const { data: metricsData, error: metricsError } = await supabase.rpc('calculate_team_metrics', {
         p_team_id: teamId,
-        p_game_id: filters.gameId || gameId || null,
+        p_game_id: useGameIds ? null : (filters.gameId || gameId || null),
         p_start_date: filters.startDate || null,
         p_end_date: filters.endDate || null,
         p_opponent: filters.opponent || null,
+        p_game_ids: useGameIds ? filters.gameIds : [],
       });
 
       if (metricsError) {

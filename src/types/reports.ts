@@ -52,6 +52,8 @@ export interface ReportProps {
 
 export interface ReportFilters {
   gameId?: string;
+  gameIds?: string[];          // For cumulative view: array of game IDs to include
+  viewMode?: 'single' | 'cumulative';  // Single game or cumulative through that game
   opponent?: string;
   startDate?: string;
   endDate?: string;

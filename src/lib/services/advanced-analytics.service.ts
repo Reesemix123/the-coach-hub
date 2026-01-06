@@ -7,18 +7,17 @@ import { createClient } from '@/utils/supabase/client';
 // ============================================
 // HELPER FUNCTIONS FOR RESULT CHECKING
 // ============================================
-// The film tagging UI saves result_type (e.g., 'pass_complete')
-// Legacy/seed data may use result field (e.g., 'complete')
-// These helpers ensure analytics work with both formats
+// The database column is 'result' (not 'result_type')
+// Values include: 'pass_complete', 'pass_incomplete', 'interception', etc.
+// These helpers check result and boolean fields for completeness
 
 /**
  * Check if a play was a completed pass
  */
 function isPassComplete(play: any): boolean {
-  // Check result_type (what users set in film tagging UI)
-  if (play.result_type === 'pass_complete') return true;
-  // Check result field (legacy/seed data)
-  if (play.result?.includes('complete')) return true;
+  // Check result field
+  if (play.result === 'pass_complete') return true;
+  if (play.result === 'complete') return true;
   // Check is_complete boolean fallback
   if (play.is_complete === true) return true;
   return false;
@@ -31,7 +30,6 @@ function isPassTouchdown(play: any): boolean {
   // Check if it's a TD pass
   if (play.play_type === 'pass') {
     if (play.result?.includes('touchdown')) return true;
-    if (play.result_type?.includes('touchdown')) return true;
     if (play.is_touchdown === true) return true;
   }
   return false;
@@ -41,7 +39,8 @@ function isPassTouchdown(play: any): boolean {
  * Check if a play resulted in an interception
  */
 function isInterception(play: any): boolean {
-  if (play.result_type === 'pass_interception') return true;
+  if (play.result === 'pass_interception') return true;
+  if (play.result === 'interception') return true;
   if (play.result?.includes('interception')) return true;
   if (play.is_interception === true) return true;
   return false;
@@ -52,7 +51,6 @@ function isInterception(play: any): boolean {
  */
 function isRushTouchdown(play: any): boolean {
   if (play.result?.includes('touchdown') && play.play_type === 'run') return true;
-  if (play.result_type?.includes('touchdown') && play.play_type === 'run') return true;
   if (play.is_touchdown === true && play.play_type === 'run') return true;
   // Fallback: yard_line >= 100 typically means TD
   if (play.yard_line && play.yard_line >= 100) return true;
@@ -1279,12 +1277,11 @@ export class AdvancedAnalyticsService {
     const explosive = plays.filter(p => (p.yards_gained || 0) >= 15).length;
 
     // Drops (incomplete where QB didn't get pressured/sacked)
+    // Note: result column contains values like 'throwaway', 'batted' etc.
     const catchableTargets = plays.filter(p =>
       !p.is_sack &&
       !p.result?.includes('throwaway') &&
-      !p.result_type?.includes('throwaway') &&
-      !p.result?.includes('batted') &&
-      !p.result_type?.includes('batted')
+      !p.result?.includes('batted')
     );
     const drops = catchableTargets.filter(p =>
       !isPassComplete(p) && !isPassTouchdown(p)

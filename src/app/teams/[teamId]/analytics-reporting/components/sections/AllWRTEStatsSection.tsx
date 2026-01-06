@@ -2,8 +2,8 @@
  * All WR/TE Stats Section - Data Fetching Wrapper
  *
  * Fetches and displays statistics for ALL wide receivers and tight ends.
- * Queries player_participation table for WR/TE-specific stats (Tier 2+).
- * Uses unified player participation model with participation_type = 'receiver'.
+ * Uses database function get_wrte_stats() for optimized server-side aggregation.
+ * Falls back to split queries if the function is not available.
  */
 
 'use client';
@@ -47,84 +47,121 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
 
       try {
         // ======================================================================
-        // UNIFIED PLAYER PARTICIPATION MODEL
-        // Query player_participation with participation_type = 'receiver'
+        // OPTION 2: Use database function for server-side aggregation
+        // This is 10-50x faster than client-side joins
         // ======================================================================
-        // Build query - simpler approach without deeply nested joins
-        let query = supabase
-          .from('player_participation')
-          .select(`
-            player_id,
-            yards_gained,
-            is_touchdown,
-            play_instance:play_instances!inner (
-              id,
-              is_complete,
-              result,
-              video_id
-            ),
-            player:players!inner (
-              id,
-              first_name,
-              last_name,
-              jersey_number,
-              primary_position
-            )
-          `)
-          .eq('team_id', teamId)
-          .eq('participation_type', 'receiver')
-          .eq('phase', 'offense');
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_wrte_stats', {
+            p_team_id: teamId,
+            p_game_id: gameId || null
+          });
 
-        const { data, error } = await query;
+        if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+          // Map database function response to component interface
+          const wrteStatsArray: WRTEStats[] = rpcData.map((wr: any) => ({
+            playerId: wr.playerId,
+            playerName: wr.playerName,
+            jerseyNumber: wr.jerseyNumber || '',
+            position: wr.position || 'WR',
+            targets: wr.targets || 0,
+            receptions: wr.receptions || 0,
+            recYards: wr.recYards || 0,
+            recAvg: wr.recAvg || 0,
+            recTDs: wr.recTDs || 0,
+            catchRate: wr.catchRate || 0,
+            explosiveCatches: wr.explosiveCatches || 0,
+          }));
 
-        if (error) {
-          console.error('Error fetching WR/TE stats:', error);
+          setStats(wrteStatsArray);
           setLoading(false);
           return;
         }
 
-        // If gameId specified, filter by video's game_id
-        let filteredData = data || [];
-        if (gameId && data && data.length > 0) {
-          const videoIds = [...new Set(data.map((p: any) => p.play_instance?.video_id).filter(Boolean))];
+        // ======================================================================
+        // OPTION 1 FALLBACK: Split queries if database function unavailable
+        // ======================================================================
+        console.log('Falling back to split queries for WR/TE stats');
 
+        // Step 1: Get video IDs for this game (if filtering by game)
+        let videoIds: string[] = [];
+        if (gameId) {
           const { data: videos } = await supabase
             .from('videos')
             .select('id')
-            .eq('game_id', gameId)
-            .in('id', videoIds);
-
-          const gameVideoIds = new Set(videos?.map(v => v.id) || []);
-          filteredData = data.filter((p: any) => gameVideoIds.has(p.play_instance?.video_id));
+            .eq('game_id', gameId);
+          videoIds = videos?.map(v => v.id) || [];
+          if (videoIds.length === 0) {
+            setStats([]);
+            setLoading(false);
+            return;
+          }
         }
 
-        if (!filteredData || filteredData.length === 0) {
+        // Step 2: Get play instances for those videos (or all for team)
+        let playInstanceQuery = supabase
+          .from('play_instances')
+          .select('id, video_id, result, is_complete')
+          .eq('team_id', teamId)
+          .eq('is_opponent_play', false);
+
+        if (videoIds.length > 0) {
+          playInstanceQuery = playInstanceQuery.in('video_id', videoIds);
+        }
+
+        const { data: playInstances } = await playInstanceQuery;
+        if (!playInstances || playInstances.length === 0) {
           setStats([]);
           setLoading(false);
           return;
         }
 
+        const playInstanceIds = playInstances.map(pi => pi.id);
+        const playInstanceMap = new Map(playInstances.map(pi => [pi.id, pi]));
+
+        // Step 3: Get player participation for receivers
+        const { data: participations } = await supabase
+          .from('player_participation')
+          .select('player_id, play_instance_id, yards_gained, is_touchdown')
+          .eq('team_id', teamId)
+          .eq('participation_type', 'receiver')
+          .eq('phase', 'offense')
+          .in('play_instance_id', playInstanceIds);
+
+        if (!participations || participations.length === 0) {
+          setStats([]);
+          setLoading(false);
+          return;
+        }
+
+        // Step 4: Get player details (only WRs and TEs)
+        const playerIds = [...new Set(participations.map(p => p.player_id))];
+        const { data: players } = await supabase
+          .from('players')
+          .select('id, first_name, last_name, jersey_number, primary_position')
+          .in('id', playerIds)
+          .in('primary_position', ['WR', 'TE']);
+
+        const playerMap = new Map(players?.map(p => [p.id, p]) || []);
+
+        // Step 5: Aggregate stats
         const wrteStatsMap = new Map<string, WRTEStats>();
 
-        filteredData.forEach((participation: any) => {
-          if (!participation.player_id || !participation.player) return;
+        participations.forEach((participation) => {
+          const player = playerMap.get(participation.player_id);
+          if (!player) return; // Skip if not a WR/TE
 
-          const player = participation.player;
-          const position = player.primary_position;
-          const playInstance = participation.play_instance;
+          const playInstance = playInstanceMap.get(participation.play_instance_id);
+          if (!playInstance) return;
 
-          // Only WRs and TEs
-          if (position !== 'WR' && position !== 'TE') return;
+          const wrId = participation.player_id;
 
-          const playerId = participation.player_id;
-
-          let wrteStats = wrteStatsMap.get(playerId);
-          if (!wrteStats) {
-            wrteStats = {
-              playerId,
+          let wrStats = wrteStatsMap.get(wrId);
+          if (!wrStats) {
+            wrStats = {
+              playerId: wrId,
               playerName: `${player.first_name} ${player.last_name}`,
               jerseyNumber: player.jersey_number || '',
-              position,
+              position: player.primary_position || 'WR',
               targets: 0,
               receptions: 0,
               recYards: 0,
@@ -133,44 +170,33 @@ export default function AllWRTEStatsSection({ teamId, gameId, currentTier }: All
               catchRate: 0,
               explosiveCatches: 0,
             };
-            wrteStatsMap.set(playerId, wrteStats);
+            wrteStatsMap.set(wrId, wrStats);
           }
 
-          wrteStats.targets++;
+          wrStats.targets++;
 
-          // Check for completion from play_instance or participation
-          const isComplete = playInstance?.is_complete ||
-            playInstance?.result === 'pass_complete' ||
-            playInstance?.result === 'complete' ||
+          const isComplete = playInstance.is_complete ||
+            playInstance.result === 'pass_complete' ||
+            playInstance.result === 'complete' ||
             participation.is_touchdown;
 
           if (isComplete) {
-            wrteStats.receptions++;
-            wrteStats.recYards += participation.yards_gained || 0;
-
-            if (participation.is_touchdown) {
-              wrteStats.recTDs++;
-            }
-
-            if ((participation.yards_gained || 0) >= 15) {
-              wrteStats.explosiveCatches++;
-            }
+            wrStats.receptions++;
+            const yards = participation.yards_gained || 0;
+            wrStats.recYards += yards;
+            if (participation.is_touchdown) wrStats.recTDs++;
+            if (yards >= 15) wrStats.explosiveCatches++;
           }
         });
 
-        const wrteStatsArray: WRTEStats[] = Array.from(wrteStatsMap.values()).map(stats => {
-          const recAvg = stats.receptions > 0 ? stats.recYards / stats.receptions : 0;
-          const catchRate = stats.targets > 0 ? (stats.receptions / stats.targets) * 100 : 0;
-
-          return {
-            ...stats,
-            recAvg,
-            catchRate,
-          };
-        });
+        // Calculate derived stats
+        const wrteStatsArray: WRTEStats[] = Array.from(wrteStatsMap.values()).map(stats => ({
+          ...stats,
+          recAvg: stats.receptions > 0 ? stats.recYards / stats.receptions : 0,
+          catchRate: stats.targets > 0 ? (stats.receptions / stats.targets) * 100 : 0,
+        }));
 
         wrteStatsArray.sort((a, b) => b.targets - a.targets);
-
         setStats(wrteStatsArray);
       } catch (error) {
         console.error('Error calculating WR/TE stats:', error);

@@ -912,12 +912,15 @@ async function main() {
     for (let i = 0; i < Math.min(kickoffs, 8); i++) {
       const isTouchback = Math.random() > 0.7; // 30% touchbacks
       const isReturn = !isTouchback;
+      const isOpponentKickoff = i % 2 === 0; // Alternate who is kicking off
       const play: any = {
         team_id: TEAM_ID,
         video_id: videoId,
         play_code: randomElement(SPECIAL_TEAMS_PLAYS),
-        is_opponent_play: i % 2 === 0, // Alternate who is kicking off
+        is_opponent_play: isOpponentKickoff,
         play_type: 'special_teams',
+        // Set special_teams_unit for proper function filtering
+        special_teams_unit: isOpponentKickoff && isReturn ? 'kick_return' : 'kickoff',
         is_kickoff: true,
         is_kickoff_return: isReturn,
         is_touchback: isTouchback,
@@ -943,6 +946,7 @@ async function main() {
         play_code: randomElement(SPECIAL_TEAMS_PLAYS),
         is_opponent_play: false,
         play_type: 'special_teams',
+        special_teams_unit: 'field_goal',
         is_field_goal_attempt: true,
         is_field_goal_made: isMade,
         kick_result: isMade ? 'made' : 'missed',
@@ -969,6 +973,7 @@ async function main() {
         play_code: randomElement(SPECIAL_TEAMS_PLAYS),
         is_opponent_play: true,
         play_type: 'special_teams',
+        special_teams_unit: 'field_goal',
         is_field_goal_attempt: true,
         is_field_goal_made: isMade,
         kick_result: isBlocked ? 'blocked' : (isMade ? 'made' : 'missed'),
@@ -993,6 +998,7 @@ async function main() {
         play_code: randomElement(SPECIAL_TEAMS_PLAYS),
         is_opponent_play: false,
         play_type: 'special_teams',
+        special_teams_unit: 'pat',
         is_extra_point_attempt: true,
         is_extra_point_made: isMade,
         scoring_type: isMade ? 'extra_point' : null,
@@ -1019,8 +1025,10 @@ async function main() {
         play_code: randomElement(SPECIAL_TEAMS_PLAYS),
         is_opponent_play: !isOurPunt, // Flip: our punts are NOT opponent plays
         play_type: 'special_teams',
+        // Set special_teams_unit: 'punt' for our punts, 'punt_return' when opponent punts to us
+        special_teams_unit: isOurPunt ? 'punt' : 'punt_return',
         is_punt: true,
-        is_punt_return: isReturn,
+        is_punt_return: isReturn && !isOurPunt, // Only our team returns opponent punts
         kick_distance: puntDistance, // Gross punt yards
         return_yards: returnYards,
         yards_gained: puntDistance - returnYards, // Net punt yards
@@ -1121,6 +1129,146 @@ async function main() {
                 });
               }
             });
+
+            // ========================================
+            // Create receiver/passer/rusher participation records
+            // This is critical for Standard tier stats (WR/TE, QB, RB)
+            // Valid results: success, failure, neutral (from player_participation_result_check)
+            // ========================================
+
+            // Passer participation (QB on all offensive plays)
+            if (play.qb_id) {
+              participationRecords.push({
+                play_instance_id: playId,
+                team_id: TEAM_ID,
+                player_id: play.qb_id,
+                participation_type: 'passer',
+                phase: 'offense',
+                yards_gained: play.play_type === 'pass' ? play.yards_gained : 0,
+                is_touchdown: play.play_type === 'pass' && play.is_touchdown,
+                // Use valid result values from constraint
+                result: play.play_type === 'pass'
+                  ? (play.is_complete ? 'success' : 'failure')
+                  : 'neutral', // handoff is neutral for QB
+              });
+            }
+
+            // Rusher participation (ball carrier on run plays)
+            if (play.play_type === 'run' && play.ball_carrier_id) {
+              participationRecords.push({
+                play_instance_id: playId,
+                team_id: TEAM_ID,
+                player_id: play.ball_carrier_id,
+                participation_type: 'rusher',
+                phase: 'offense',
+                yards_gained: play.yards_gained,
+                is_touchdown: play.is_touchdown,
+                // Use valid result values from constraint
+                result: play.yards_gained > 0 ? 'success' : (play.yards_gained < 0 ? 'failure' : 'neutral'),
+              });
+            }
+
+            // Receiver participation (target on pass plays)
+            if (play.play_type === 'pass' && play.target_id) {
+              participationRecords.push({
+                play_instance_id: playId,
+                team_id: TEAM_ID,
+                player_id: play.target_id,
+                participation_type: 'receiver',
+                phase: 'offense',
+                yards_gained: play.is_complete ? play.yards_gained : 0,
+                is_touchdown: play.is_complete && play.is_touchdown,
+                // Use valid result values from constraint
+                result: play.is_complete ? 'success' : 'failure',
+              });
+            }
+          }
+
+          // ========================================
+          // SPECIAL TEAMS PARTICIPATION RECORDS
+          // (MUST be BEFORE the 'continue' for non-opponent plays!)
+          // ========================================
+          const kickerId = PLAYER_IDS['3'];   // K - Kicker (#3 Ethan Reynolds)
+          const punterId = PLAYER_IDS['9'];   // P - Punter (#9 Lucas Chen)
+          const returnerId = PLAYER_IDS['1']; // WR - also used as returner (#1 Jaylen Davis)
+
+          // Kicker participation for OUR kickoffs
+          if (play.is_kickoff && !play.is_opponent_play && kickerId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: kickerId,
+              participation_type: 'kicker',
+              phase: 'special_teams',
+              yards_gained: play.kick_distance || 0,
+              result: play.kick_result === 'touchback' ? 'success' : 'neutral',
+            });
+          }
+
+          // Kicker participation for OUR field goals
+          if (play.is_field_goal_attempt && !play.is_opponent_play && kickerId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: kickerId,
+              participation_type: 'kicker',
+              phase: 'special_teams',
+              yards_gained: play.kick_distance || 0,
+              result: play.kick_result === 'made' ? 'success' : 'failure',
+            });
+          }
+
+          // Kicker participation for OUR extra points (PATs)
+          if (play.is_extra_point_attempt && !play.is_opponent_play && kickerId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: kickerId,
+              participation_type: 'kicker',
+              phase: 'special_teams',
+              result: play.is_extra_point_made ? 'success' : 'failure',
+            });
+          }
+
+          // Punter participation for OUR punts
+          if (play.is_punt && !play.is_opponent_play && punterId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: punterId,
+              participation_type: 'punter',
+              phase: 'special_teams',
+              yards_gained: play.kick_distance || 0,
+              result: 'success',
+            });
+          }
+
+          // Returner participation for kick/punt returns (when opponent kicks to us)
+          if (play.is_kickoff_return && play.is_opponent_play && returnerId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: returnerId,
+              participation_type: 'returner',
+              phase: 'special_teams',
+              yards_gained: play.return_yards || 0,
+              is_touchdown: play.is_touchdown || false,
+              result: (play.return_yards || 0) >= 20 ? 'success' : 'neutral',
+            });
+          }
+
+          // Punt returner participation (when opponent punts to us)
+          if (play.is_punt_return && play.is_opponent_play && returnerId) {
+            participationRecords.push({
+              play_instance_id: playId,
+              team_id: TEAM_ID,
+              player_id: returnerId,
+              participation_type: 'returner',
+              phase: 'special_teams',
+              yards_gained: play.return_yards || 0,
+              is_touchdown: play.is_touchdown || false,
+              result: (play.return_yards || 0) >= 10 ? 'success' : 'neutral',
+            });
           }
 
           // Skip defensive tracking for non-opponent plays
@@ -1135,6 +1283,7 @@ async function main() {
                 team_id: TEAM_ID,
                 player_id: sackPlayer,
                 participation_type: 'pressure',
+                phase: 'defense',  // Required for fallback queries
                 result: 'sack',
               });
             }
@@ -1149,6 +1298,7 @@ async function main() {
                 team_id: TEAM_ID,
                 player_id: tflPlayer,
                 participation_type: 'tackle_for_loss',
+                phase: 'defense',  // Required for fallback queries
                 result: 'made',
               });
             }
@@ -1163,6 +1313,7 @@ async function main() {
                 team_id: TEAM_ID,
                 player_id: intPlayer,
                 participation_type: 'interception',
+                phase: 'defense',  // Required for fallback queries
                 result: 'success',
               });
             }
@@ -1177,6 +1328,7 @@ async function main() {
                 team_id: TEAM_ID,
                 player_id: fumblePlayer,
                 participation_type: 'fumble_recovery',
+                phase: 'defense',  // Required for fallback queries
                 result: 'success',
               });
             }
@@ -1191,6 +1343,7 @@ async function main() {
                 team_id: TEAM_ID,
                 player_id: tackler,
                 participation_type: 'primary_tackle',
+                phase: 'defense',  // Required for fallback queries
                 result: 'made',
               });
             }
@@ -1228,12 +1381,15 @@ async function main() {
   console.log(`✅ Playbook: ${21 + NEW_PLAYS.length} plays (run-heavy offense)`);
   console.log(`✅ Videos: ${Object.keys(videoIds).length} game videos`);
   console.log(`✅ Play Instances: ${totalPlays} comprehensive tagged plays`);
-  console.log(`✅ Player Participation: ${totalParticipation} defensive stat records`);
+  console.log(`✅ Player Participation: ${totalParticipation} player stat records`);
   console.log('\nData includes:');
   console.log('  - Offensive plays with TDs, passing yards, OL tracking');
   console.log('  - Defensive plays with opponent TDs, sacks, TFLs, takeaways');
   console.log('  - Special teams: kickoffs, punts, FGs, PATs, returns');
-  console.log('  - Player participation: sacks, TFLs, interceptions, fumble recoveries');
+  console.log('  - Offensive participation: passer, rusher, receiver stats');
+  console.log('  - OL participation: block win/loss tracking');
+  console.log('  - Defensive participation: sacks, TFLs, interceptions, fumble recoveries');
+  console.log('  - Special teams participation: kicker, punter, returner stats');
   console.log('\n🎯 Refresh Analytics & Reports to see the data!');
 }
 

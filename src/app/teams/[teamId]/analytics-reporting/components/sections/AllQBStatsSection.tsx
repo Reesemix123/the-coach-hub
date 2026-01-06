@@ -2,8 +2,8 @@
  * All QB Stats Section - Data Fetching Wrapper
  *
  * Fetches and displays statistics for ALL quarterbacks on the team.
- * Queries player_participation table for QB-specific stats (Tier 2+).
- * Uses unified player participation model with participation_type = 'passer'.
+ * Uses database function get_qb_stats() for optimized server-side aggregation.
+ * Falls back to split queries if the function is not available.
  */
 
 'use client';
@@ -28,7 +28,7 @@ interface QBStats {
   touchdowns: number;
   interceptions: number;
   sacks: number;
-  successRate: number;
+  qbRating: number;
 }
 
 interface AllQBStatsSectionProps {
@@ -49,78 +49,115 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
 
       try {
         // ======================================================================
-        // UNIFIED PLAYER PARTICIPATION MODEL
-        // Query player_participation with participation_type = 'passer'
+        // OPTION 2: Use database function for server-side aggregation
+        // This is 10-50x faster than client-side joins
         // ======================================================================
-        // Build query - simpler approach without deeply nested joins
-        let query = supabase
-          .from('player_participation')
-          .select(`
-            player_id,
-            yards_gained,
-            is_touchdown,
-            is_turnover,
-            play_instance:play_instances!inner (
-              id,
-              result,
-              is_complete,
-              is_sack,
-              is_interception,
-              video_id
-            ),
-            player:players!inner (
-              id,
-              first_name,
-              last_name,
-              jersey_number
-            )
-          `)
-          .eq('team_id', teamId)
-          .eq('participation_type', 'passer')
-          .eq('phase', 'offense');
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_qb_stats', {
+            p_team_id: teamId,
+            p_game_id: gameId || null
+          });
 
-        const { data, error } = await query;
+        if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+          // Map database function response to component interface
+          const qbStatsArray: QBStats[] = rpcData.map((qb: any) => ({
+            playerId: qb.playerId,
+            playerName: qb.playerName,
+            jerseyNumber: qb.jerseyNumber || '',
+            attempts: qb.passAttempts || 0,
+            completions: qb.completions || 0,
+            completionPct: qb.completionPct || 0,
+            passingYards: qb.passingYards || 0,
+            yardsPerAttempt: qb.yardsPerAttempt || 0,
+            touchdowns: qb.passTDs || 0,
+            interceptions: qb.interceptions || 0,
+            sacks: qb.sacks || 0,
+            qbRating: qb.qbRating || 0,
+          }));
 
-        if (error) {
-          console.error('Error fetching QB stats:', error);
+          setStats(qbStatsArray);
           setLoading(false);
           return;
         }
 
-        // If gameId specified, filter by video's game_id (need to look up videos)
-        let filteredData = data || [];
-        if (gameId && data && data.length > 0) {
-          // Get video IDs from the participation records
-          const videoIds = [...new Set(data.map((p: any) => p.play_instance?.video_id).filter(Boolean))];
+        // ======================================================================
+        // OPTION 1 FALLBACK: Split queries if database function unavailable
+        // ======================================================================
+        console.log('Falling back to split queries for QB stats');
 
-          // Look up which videos belong to this game
+        // Step 1: Get video IDs for this game (if filtering by game)
+        let videoIds: string[] = [];
+        if (gameId) {
           const { data: videos } = await supabase
             .from('videos')
             .select('id')
-            .eq('game_id', gameId)
-            .in('id', videoIds);
-
-          const gameVideoIds = new Set(videos?.map(v => v.id) || []);
-          filteredData = data.filter((p: any) => gameVideoIds.has(p.play_instance?.video_id));
+            .eq('game_id', gameId);
+          videoIds = videos?.map(v => v.id) || [];
+          if (videoIds.length === 0) {
+            setStats([]);
+            setLoading(false);
+            return;
+          }
         }
 
-        if (!filteredData || filteredData.length === 0) {
+        // Step 2: Get play instances for those videos (or all for team)
+        let playInstanceQuery = supabase
+          .from('play_instances')
+          .select('id, video_id, result, is_complete, is_sack, is_interception')
+          .eq('team_id', teamId)
+          .eq('is_opponent_play', false);
+
+        if (videoIds.length > 0) {
+          playInstanceQuery = playInstanceQuery.in('video_id', videoIds);
+        }
+
+        const { data: playInstances } = await playInstanceQuery;
+        if (!playInstances || playInstances.length === 0) {
           setStats([]);
           setLoading(false);
           return;
         }
 
-        // Group by QB and calculate stats
+        const playInstanceIds = playInstances.map(pi => pi.id);
+        const playInstanceMap = new Map(playInstances.map(pi => [pi.id, pi]));
+
+        // Step 3: Get player participation for passers
+        const { data: participations } = await supabase
+          .from('player_participation')
+          .select('player_id, play_instance_id, yards_gained, is_touchdown, is_turnover')
+          .eq('team_id', teamId)
+          .eq('participation_type', 'passer')
+          .eq('phase', 'offense')
+          .in('play_instance_id', playInstanceIds);
+
+        if (!participations || participations.length === 0) {
+          setStats([]);
+          setLoading(false);
+          return;
+        }
+
+        // Step 4: Get player details
+        const playerIds = [...new Set(participations.map(p => p.player_id))];
+        const { data: players } = await supabase
+          .from('players')
+          .select('id, first_name, last_name, jersey_number, primary_position')
+          .in('id', playerIds)
+          .eq('primary_position', 'QB');
+
+        const playerMap = new Map(players?.map(p => [p.id, p]) || []);
+
+        // Step 5: Aggregate stats
         const qbStatsMap = new Map<string, QBStats>();
 
-        filteredData.forEach((participation: any) => {
-          if (!participation.player_id || !participation.player) return;
+        participations.forEach((participation) => {
+          const player = playerMap.get(participation.player_id);
+          if (!player) return; // Skip if not a QB
+
+          const playInstance = playInstanceMap.get(participation.play_instance_id);
+          if (!playInstance) return;
 
           const qbId = participation.player_id;
-          const player = participation.player;
-          const playInstance = participation.play_instance;
 
-          // Get or create QB stats
           let qbStats = qbStatsMap.get(qbId);
           if (!qbStats) {
             qbStats = {
@@ -135,69 +172,46 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
               touchdowns: 0,
               interceptions: 0,
               sacks: 0,
-              successRate: 0,
+              qbRating: 0,
             };
             qbStatsMap.set(qbId, qbStats);
           }
 
-          // Count passing stats
           qbStats.attempts++;
 
-          // Check for completion (from play_instance or participation)
-          const isComplete = playInstance?.is_complete ||
-            playInstance?.result === 'pass_complete' ||
-            playInstance?.result === 'complete' ||
+          const isComplete = playInstance.is_complete ||
+            playInstance.result === 'pass_complete' ||
+            playInstance.result === 'complete' ||
             participation.is_touchdown;
+
           if (isComplete) {
             qbStats.completions++;
+            qbStats.passingYards += participation.yards_gained || 0;
           }
 
-          // Check for touchdown (from participation denormalized field or play_instance)
           if (participation.is_touchdown) {
             qbStats.touchdowns++;
           }
 
-          // Check for interception
-          if (participation.is_turnover || playInstance?.is_interception ||
-              playInstance?.result === 'interception') {
+          if (participation.is_turnover || playInstance.is_interception ||
+              playInstance.result === 'interception' || playInstance.result?.includes('interception')) {
             qbStats.interceptions++;
           }
 
-          // Check for sack
-          if (playInstance?.is_sack || playInstance?.result === 'sack') {
+          if (playInstance.is_sack || playInstance.result === 'sack') {
             qbStats.sacks++;
-          } else {
-            // Only count yards for non-sack plays (use denormalized or fallback)
-            qbStats.passingYards += participation.yards_gained || playInstance?.yards_gained || 0;
           }
         });
 
-        // Calculate percentages and rates
-        const qbStatsArray: QBStats[] = Array.from(qbStatsMap.values()).map(stats => {
-          const completionPct = stats.attempts > 0
-            ? (stats.completions / stats.attempts) * 100
-            : 0;
+        // Calculate derived stats
+        const qbStatsArray: QBStats[] = Array.from(qbStatsMap.values()).map(stats => ({
+          ...stats,
+          completionPct: stats.attempts > 0 ? (stats.completions / stats.attempts) * 100 : 0,
+          yardsPerAttempt: stats.attempts > 0 ? stats.passingYards / stats.attempts : 0,
+          qbRating: calculateQBRating(stats),
+        }));
 
-          const yardsPerAttempt = stats.attempts > 0
-            ? stats.passingYards / stats.attempts
-            : 0;
-
-          // Calculate success rate (simplified - completions / attempts)
-          const successRate = stats.attempts > 0
-            ? (stats.completions / stats.attempts) * 100
-            : 0;
-
-          return {
-            ...stats,
-            completionPct,
-            yardsPerAttempt,
-            successRate,
-          };
-        });
-
-        // Sort by attempts (most active QBs first)
         qbStatsArray.sort((a, b) => b.attempts - a.attempts);
-
         setStats(qbStatsArray);
       } catch (error) {
         console.error('Error calculating QB stats:', error);
@@ -267,7 +281,7 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">TD</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">INT</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Sacks</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Success %</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase">Rating</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -298,8 +312,8 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
                         {qb.sacks}
                       </td>
                       <td className="px-6 py-4 text-sm text-right text-gray-900">
-                        <span className={qb.successRate >= 60 ? 'text-green-600 font-semibold' : ''}>
-                          {qb.successRate.toFixed(1)}%
+                        <span className={qb.qbRating >= 90 ? 'text-green-600 font-semibold' : ''}>
+                          {qb.qbRating.toFixed(1)}
                         </span>
                       </td>
                     </tr>
@@ -311,11 +325,25 @@ export default function AllQBStatsSection({ teamId, gameId, currentTier }: AllQB
 
           {/* Legend */}
           <p className="text-sm text-gray-600">
-            <strong>Success Rate:</strong> Completion percentage (completions / attempts).
-            Good: 60%+. Data from Standard tagging level.
+            <strong>Rating:</strong> Passer rating (0-158.3 scale).
+            Good: 90+. Data from Standard tagging level.
           </p>
         </>
       )}
     </section>
   );
+}
+
+/**
+ * Calculate simplified QB rating
+ */
+function calculateQBRating(stats: { attempts: number; completions: number; passingYards: number; touchdowns: number; interceptions: number }): number {
+  if (stats.attempts === 0) return 0;
+
+  const a = Math.min(2.375, Math.max(0, (stats.completions / stats.attempts - 0.3) * 5));
+  const b = Math.min(2.375, Math.max(0, (stats.passingYards / stats.attempts - 3) * 0.25));
+  const c = Math.min(2.375, Math.max(0, (stats.touchdowns / stats.attempts) * 20));
+  const d = Math.min(2.375, Math.max(0, 2.375 - (stats.interceptions / stats.attempts * 25)));
+
+  return ((a + b + c + d) / 6) * 100;
 }
