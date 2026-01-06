@@ -262,50 +262,111 @@ async function capturePlaybookDemo(page: Page, teamId: string): Promise<void> {
 async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
   console.log('  📊 Capturing Pro-Level Analytics demo...');
 
-  // Navigate to analytics reporting
-  await page.goto(`${BASE_URL}/teams/${teamId}/analytics-reporting`);
+  // Page is already pre-loaded by captureDemo at analytics-reporting
+  // Wait for the page to be fully ready
+  await page.waitForSelector('text=Season Overview', { timeout: 10000 });
+  await smoothWait(page, 500);
+
+  // Step 1: Select Week 8 in the Game dropdown
+  const gameDropdown = page.locator('select').first();
+  await gameDropdown.waitFor({ state: 'visible', timeout: 5000 });
+  const gameBox = await gameDropdown.boundingBox();
+  if (gameBox) {
+    await page.mouse.move(gameBox.x + gameBox.width / 2, gameBox.y + gameBox.height / 2);
+    await smoothWait(page, 300);
+    await gameDropdown.click();
+    await smoothWait(page, 200);
+    // Select Week 8 - Hamilton Hawks
+    await gameDropdown.selectOption({ label: 'Week 8 - Hamilton Hawks' });
+    await smoothWait(page, 300);
+  }
+
+  // Wait for report to load (networkidle ensures data is fetched)
   await page.waitForLoadState('networkidle');
-  await smoothWait(page, 2000);
+  await smoothWait(page, 800);
 
-  // Scroll down to show charts
-  await smoothScroll(page, 300);
-  await smoothWait(page, 1500);
+  // Step 2: Click "Through Week" toggle
+  const throughWeekButton = page.locator('button:has-text("Through Week")').first();
+  await throughWeekButton.waitFor({ state: 'visible', timeout: 5000 });
+  const throughWeekBox = await throughWeekButton.boundingBox();
+  if (throughWeekBox) {
+    await page.mouse.move(throughWeekBox.x + throughWeekBox.width / 2, throughWeekBox.y + throughWeekBox.height / 2);
+    await smoothWait(page, 300);
+    await throughWeekButton.click();
+  }
 
-  // Click on different report types if available
-  const reportTabs = page.locator('[role="tab"], button[class*="tab"]');
-  const tabCount = await reportTabs.count();
+  // Wait for cumulative report to load
+  await page.waitForLoadState('networkidle');
+  await smoothWait(page, 800);
 
-  if (tabCount > 1) {
-    for (let i = 0; i < Math.min(tabCount, 3); i++) {
-      await reportTabs.nth(i).click();
-      await smoothWait(page, 1200);
+  // Step 3: Scroll through the Season Overview report
+  await smoothScroll(page, 250);
+  await smoothWait(page, 600);
+  await smoothScroll(page, 250);
+  await smoothWait(page, 600);
+  await smoothScroll(page, 200);
+  await smoothWait(page, 800);
+
+  // Scroll back up to top
+  await smoothScrollUp(page, 600);
+  await smoothWait(page, 500);
+
+  // Step 4: Select Opponent Scouting report from the report selector
+  // Find the report selector dropdown (likely a select or button group)
+  const reportSelector = page.locator('select:has(option:has-text("Opponent Scouting"))').first();
+  if (await reportSelector.isVisible()) {
+    const reportBox = await reportSelector.boundingBox();
+    if (reportBox) {
+      await page.mouse.move(reportBox.x + reportBox.width / 2, reportBox.y + reportBox.height / 2);
+      await smoothWait(page, 300);
+      await reportSelector.click();
+      await smoothWait(page, 200);
+      await reportSelector.selectOption({ label: 'Opponent Scouting' });
+      await smoothWait(page, 300);
+    }
+  } else {
+    // Try clicking a button/tab with "Opponent Scouting" text
+    const opponentTab = page.locator('button:has-text("Opponent Scouting"), [role="tab"]:has-text("Opponent Scouting")').first();
+    if (await opponentTab.isVisible()) {
+      const tabBox = await opponentTab.boundingBox();
+      if (tabBox) {
+        await page.mouse.move(tabBox.x + tabBox.width / 2, tabBox.y + tabBox.height / 2);
+        await smoothWait(page, 300);
+        await opponentTab.click();
+      }
     }
   }
 
-  // Scroll to show more content
-  await smoothScroll(page, 200);
+  // Wait for Opponent Scouting report to load
+  await page.waitForLoadState('networkidle');
+  await smoothWait(page, 800);
+
+  // Step 5: Select Lincoln Lions in the opponent filter
+  // The Opponent Scouting report has its own dropdown with format "Lincoln Lions (X plays)"
+  // Wait for the opponent selector to appear (labeled "Select Opponent")
+  await page.waitForSelector('label:has-text("Select Opponent")', { timeout: 5000 });
+  const opponentDropdown = page.locator('select').first();
+  await opponentDropdown.waitFor({ state: 'visible', timeout: 5000 });
+  const opponentBox = await opponentDropdown.boundingBox();
+  if (opponentBox) {
+    await page.mouse.move(opponentBox.x + opponentBox.width / 2, opponentBox.y + opponentBox.height / 2);
+    await smoothWait(page, 300);
+    await opponentDropdown.click();
+    await smoothWait(page, 200);
+    // Select by value (the opponent name) since label includes play count
+    await opponentDropdown.selectOption({ value: 'Lincoln Lions' });
+    await smoothWait(page, 300);
+  }
+
+  // Wait for opponent report to load
+  await page.waitForLoadState('networkidle');
   await smoothWait(page, 1000);
 
-  // Look for filter options
-  const filterButton = page.locator('button:has-text("Filter")').first();
-  if (await filterButton.isVisible()) {
-    await filterButton.click();
-    await smoothWait(page, 800);
-    // Close filter
-    await page.keyboard.press('Escape');
-    await smoothWait(page, 500);
-  }
-
-  // Navigate to advanced analytics if available
-  try {
-    await page.goto(`${BASE_URL}/teams/${teamId}/analytics-advanced`);
-    await page.waitForLoadState('networkidle');
-    await smoothWait(page, 2000);
-    await smoothScroll(page, 250);
-    await smoothWait(page, 1000);
-  } catch {
-    // Page might not exist
-  }
+  // Step 6: Scroll through the Opponent Scouting report
+  await smoothScroll(page, 200);
+  await smoothWait(page, 600);
+  await smoothScroll(page, 200);
+  await smoothWait(page, 800);
 
   console.log('  ✅ Analytics demo complete');
 }
