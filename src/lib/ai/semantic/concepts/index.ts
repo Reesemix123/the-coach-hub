@@ -38,7 +38,8 @@ import { resolvePlayerPerformance } from './player-performance';
 import { resolveOLPerformance } from './ol-performance';
 import { resolveDefensivePerformance } from './defensive-performance';
 import { resolveSpecialTeamsPerformance } from './special-teams-performance';
-import { fetchPlayInstances, fetchPlayers } from '../data-fetcher';
+import { resolveOpponentTendencies } from './opponent-tendencies';
+import { fetchPlayInstances, fetchPlayers, fetchOpponentsWithScoutingData, matchOpponentName, fetchAllGames } from '../data-fetcher';
 
 /**
  * Map topic from classification to concept resolver
@@ -126,6 +127,54 @@ export async function resolveConceptForTopic(
     case 'third_down':
     case 'red_zone':
       return resolveSituationAnalysis(supabase, teamId, params);
+
+    case 'opponent_scouting':
+    case 'opponent_tendencies':
+    case 'opponent_weaknesses':
+    case 'game_plan':
+    case 'strategy':
+    case 'exploit': {
+      // Get all plays (we'll filter to opponent plays in the resolver)
+      const allPlays = await fetchPlayInstances(supabase, teamId, {});
+      const allGames = await fetchAllGames(supabase, teamId);
+
+      // Get available opponents with scouting data
+      const availableOpponents = await fetchOpponentsWithScoutingData(supabase, teamId);
+
+      if (availableOpponents.length === 0) {
+        return `**No Opponent Scouting Data Available**\n\nYou haven't tagged any opponent plays yet. To get opponent analysis:\n\n1. Go to Film → select a game\n2. When tagging plays, mark opponent plays as "Opponent Play"\n3. The AI will then be able to analyze their tendencies and weaknesses\n\nAvailable reports:\n- Opponent Scouting Report in Analytics\n- Ask me about opponent tendencies once you have tagged opponent film`;
+      }
+
+      // Try to match the requested opponent
+      let opponentName = entities.opponent || '';
+
+      if (opponentName) {
+        const matched = matchOpponentName(opponentName, availableOpponents);
+        if (matched) {
+          opponentName = matched;
+        } else {
+          // Couldn't find a match - list available opponents
+          return `**Opponent "${opponentName}" Not Found**\n\nI don't have scouting data for "${opponentName}". Here are the opponents I have film on:\n\n${availableOpponents.map(o => `• ${o}`).join('\n')}\n\nTry asking about one of these opponents, like: "How can I exploit the ${availableOpponents[0]}?"`;
+        }
+      } else {
+        // No specific opponent requested - use the one with most data or ask
+        opponentName = availableOpponents[0];
+      }
+
+      // Run opponent tendencies analysis
+      const result = resolveOpponentTendencies(allPlays, opponentName, allGames);
+
+      if (!result.hasData) {
+        return result.summary;
+      }
+
+      // Build comprehensive response
+      let response = result.summary + '\n\n';
+      response += '**Practice Recommendations:**\n';
+      response += result.practiceRecommendations.map(r => `• ${r}`).join('\n');
+
+      return response;
+    }
 
     default:
       // If no specific topic, provide general tendencies

@@ -487,3 +487,98 @@ export async function getTeamName(
 
   return data?.name || 'Your Team';
 }
+
+/**
+ * Get opponents that have scouting data (plays tagged with is_opponent_play = true)
+ */
+export async function fetchOpponentsWithScoutingData(
+  supabase: RealSupabaseClient,
+  teamId: string
+): Promise<string[]> {
+  // Get all games for this team
+  const { data: games, error: gamesError } = await supabase
+    .from('games')
+    .select('id, opponent')
+    .eq('team_id', teamId);
+
+  if (gamesError || !games) {
+    console.error('Error fetching games for scouting:', gamesError);
+    return [];
+  }
+
+  // Get videos for these games
+  const gameIds = games.map(g => g.id);
+  const { data: videos, error: videosError } = await supabase
+    .from('videos')
+    .select('id, game_id')
+    .in('game_id', gameIds);
+
+  if (videosError || !videos) {
+    console.error('Error fetching videos for scouting:', videosError);
+    return [];
+  }
+
+  // Check which videos have opponent plays
+  const videoIds = videos.map(v => v.id);
+  const { data: opponentPlays, error: playsError } = await supabase
+    .from('play_instances')
+    .select('video_id')
+    .eq('team_id', teamId)
+    .eq('is_opponent_play', true)
+    .in('video_id', videoIds);
+
+  if (playsError || !opponentPlays) {
+    console.error('Error fetching opponent plays:', playsError);
+    return [];
+  }
+
+  // Map video IDs back to game IDs, then to opponent names
+  const videoToGame = new Map(videos.map(v => [v.id, v.game_id]));
+  const gameToOpponent = new Map(games.map(g => [g.id, g.opponent]));
+
+  const opponentsWithData = new Set<string>();
+  for (const play of opponentPlays) {
+    const gameId = videoToGame.get(play.video_id);
+    if (gameId) {
+      const opponent = gameToOpponent.get(gameId);
+      if (opponent) {
+        opponentsWithData.add(opponent);
+      }
+    }
+  }
+
+  return Array.from(opponentsWithData);
+}
+
+/**
+ * Find best matching opponent name from available opponents
+ */
+export function matchOpponentName(
+  searchTerm: string,
+  availableOpponents: string[]
+): string | null {
+  const lowerSearch = searchTerm.toLowerCase();
+
+  // Exact match first
+  const exactMatch = availableOpponents.find(
+    o => o.toLowerCase() === lowerSearch
+  );
+  if (exactMatch) return exactMatch;
+
+  // Partial match (contains)
+  const partialMatch = availableOpponents.find(
+    o => o.toLowerCase().includes(lowerSearch) || lowerSearch.includes(o.toLowerCase())
+  );
+  if (partialMatch) return partialMatch;
+
+  // Word-level match (any word matches)
+  const searchWords = lowerSearch.split(/\s+/);
+  for (const opponent of availableOpponents) {
+    const opponentWords = opponent.toLowerCase().split(/\s+/);
+    if (searchWords.some(sw => opponentWords.some(ow => ow.includes(sw) || sw.includes(ow)))) {
+      return opponent;
+    }
+  }
+
+  return null;
+}
