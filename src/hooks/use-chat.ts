@@ -3,8 +3,17 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { ChatMessage, Message } from '@/lib/ai/types';
 
-const STORAGE_KEY = 'ych-chat-history';
+const STORAGE_KEY_PREFIX = 'ych-chat-history';
+const LEGACY_STORAGE_KEY = 'ych-chat-history'; // Old key without user scoping
 const MAX_STORED_MESSAGES = 50; // Store last 50 messages
+
+/**
+ * Get user-specific storage key
+ */
+function getStorageKey(userId: string | null): string {
+  if (!userId) return LEGACY_STORAGE_KEY;
+  return `${STORAGE_KEY_PREFIX}-${userId}`;
+}
 
 /**
  * Rate limit info from API
@@ -23,19 +32,20 @@ interface RateLimitInfo {
  */
 interface StoredMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: string; // ISO string
 }
 
 /**
- * Load messages from localStorage
+ * Load messages from localStorage (user-scoped)
  */
-function loadStoredMessages(): ChatMessage[] {
+function loadStoredMessages(userId: string | null): ChatMessage[] {
   if (typeof window === 'undefined') return [];
 
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const storageKey = getStorageKey(userId);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return [];
 
     const parsed: StoredMessage[] = JSON.parse(stored);
@@ -50,12 +60,13 @@ function loadStoredMessages(): ChatMessage[] {
 }
 
 /**
- * Save messages to localStorage
+ * Save messages to localStorage (user-scoped)
  */
-function saveMessages(messages: ChatMessage[]): void {
+function saveMessages(messages: ChatMessage[], userId: string | null): void {
   if (typeof window === 'undefined') return;
 
   try {
+    const storageKey = getStorageKey(userId);
     // Only keep the last MAX_STORED_MESSAGES
     const toStore = messages.slice(-MAX_STORED_MESSAGES);
     const serializable: StoredMessage[] = toStore.map(m => ({
@@ -64,9 +75,21 @@ function saveMessages(messages: ChatMessage[]): void {
       content: m.content,
       timestamp: m.timestamp.toISOString(),
     }));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+    localStorage.setItem(storageKey, JSON.stringify(serializable));
   } catch (err) {
     console.error('Error saving chat history:', err);
+  }
+}
+
+/**
+ * Clear legacy (non-user-scoped) chat history to prevent data leakage
+ */
+function clearLegacyStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Ignore errors
   }
 }
 
@@ -74,12 +97,12 @@ function saveMessages(messages: ChatMessage[]): void {
  * useChat Hook
  *
  * Manages chat state including:
- * - Messages history (persisted to localStorage)
+ * - Messages history (persisted to localStorage, user-scoped)
  * - Loading state
  * - Streaming responses
  * - Rate limit tracking
  */
-export function useChat(teamId?: string) {
+export function useChat(teamId?: string, userId?: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,21 +110,27 @@ export function useChat(teamId?: string) {
   const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load messages from localStorage on mount
+  // Load messages from localStorage on mount (user-scoped)
+  // Also clear legacy non-user-scoped storage to prevent data leakage
   useEffect(() => {
-    const stored = loadStoredMessages();
+    // Clear legacy storage when we have a userId (migration)
+    if (userId) {
+      clearLegacyStorage();
+    }
+
+    const stored = loadStoredMessages(userId ?? null);
     if (stored.length > 0) {
       setMessages(stored);
     }
     setIsInitialized(true);
-  }, []);
+  }, [userId]);
 
-  // Save messages to localStorage when they change
+  // Save messages to localStorage when they change (user-scoped)
   useEffect(() => {
     if (isInitialized && messages.length > 0) {
-      saveMessages(messages);
+      saveMessages(messages, userId ?? null);
     }
-  }, [messages, isInitialized]);
+  }, [messages, isInitialized, userId]);
 
   // Fetch initial rate limit info
   useEffect(() => {
@@ -246,16 +275,17 @@ export function useChat(teamId?: string) {
   );
 
   /**
-   * Clear chat history (both state and localStorage)
+   * Clear chat history (both state and localStorage, user-scoped)
    */
   const clearChat = useCallback(() => {
     setMessages([]);
     setStreamingContent('');
     setError(null);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
+      const storageKey = getStorageKey(userId ?? null);
+      localStorage.removeItem(storageKey);
     }
-  }, []);
+  }, [userId]);
 
   /**
    * Get the total count of messages in history

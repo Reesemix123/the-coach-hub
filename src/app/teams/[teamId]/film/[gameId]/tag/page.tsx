@@ -680,11 +680,21 @@ export default function GameFilmPage() {
   }, [timelineLanes]);
 
   useEffect(() => {
-    if (selectedVideo) {
+    // Check if selectedVideo is still in the videos array (handles deleted videos)
+    const selectedVideoExists = selectedVideo && videos.some(v => v.id === selectedVideo.id);
+
+    if (selectedVideoExists) {
+      // Selected video is valid, load it
       loadVideo(selectedVideo);
       fetchMarkers(selectedVideo.id);
     } else if (videos.length > 0) {
+      // Selected video was deleted or doesn't exist, select first available
+      console.log('[TagPage] Selected video not found in videos array, selecting first video:', videos[0].id);
       setSelectedVideo(videos[0]);
+    } else if (selectedVideo) {
+      // Videos array is empty but we have a stale selection, clear it
+      console.log('[TagPage] Clearing stale selectedVideo - no videos available');
+      setSelectedVideo(null);
     }
   }, [selectedVideo, videos]);
 

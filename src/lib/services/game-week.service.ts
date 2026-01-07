@@ -19,9 +19,28 @@ export interface GameWeekContext {
   opponent: string | null;
   gameDate: Date | null;
   daysUntilGame: number | null;
+  daysAgo?: number; // For past games
   weekStart: Date;
   weekEnd: Date;
   phase: SeasonPhase;
+  isHistorical?: boolean; // True if viewing a past game
+  gameResult?: 'win' | 'loss' | 'tie' | null; // For past games
+  teamScore?: number | null;
+  opponentScore?: number | null;
+}
+
+export type TimeFilter = 'upcoming' | 'past' | 'all';
+
+export interface GameForSelector {
+  id: string;
+  name: string;
+  opponent: string;
+  opponent_team_name?: string;
+  date: string;
+  is_opponent_game?: boolean;
+  team_score?: number | null;
+  opponent_score?: number | null;
+  game_result?: 'win' | 'loss' | 'tie' | null;
 }
 
 export interface MetricItem {
@@ -75,10 +94,28 @@ export async function getGameWeekContext(
 
     if (selectedGame) {
       const gameDate = new Date(selectedGame.date);
-      const daysUntilGame = Math.ceil(
-        (gameDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const diffTime = gameDate.getTime() - now.getTime();
+      const daysUntilGame = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+      // Handle past games (historical review mode)
+      if (daysUntilGame < 0) {
+        return {
+          gameId: selectedGame.id,
+          opponent: selectedGame.opponent,
+          gameDate,
+          daysUntilGame,
+          daysAgo: Math.abs(daysUntilGame),
+          weekStart: getStartOfWeek(gameDate),
+          weekEnd: gameDate,
+          phase: 'post_game',
+          isHistorical: true,
+          gameResult: selectedGame.game_result || null,
+          teamScore: selectedGame.team_score ?? null,
+          opponentScore: selectedGame.opponent_score ?? null
+        };
+      }
+
+      // Handle future games
       return {
         gameId: selectedGame.id,
         opponent: selectedGame.opponent,
@@ -86,7 +123,8 @@ export async function getGameWeekContext(
         daysUntilGame,
         weekStart: daysUntilGame <= 10 ? getStartOfWeek(gameDate) : getStartOfWeek(now),
         weekEnd: daysUntilGame <= 10 ? gameDate : getEndOfWeek(now),
-        phase: daysUntilGame > 10 ? 'bye_week' : 'pre_game'
+        phase: daysUntilGame > 10 ? 'bye_week' : 'pre_game',
+        isHistorical: false
       };
     }
   }
@@ -173,6 +211,48 @@ export async function getUpcomingGames(
 
   const { data } = await query;
   return data || [];
+}
+
+/**
+ * Get games for the game selector with time filtering
+ * Returns games grouped by upcoming and past for the dropdown
+ * Only includes games where your team actually played (excludes opponent scouting games)
+ * @param teamId - The team ID
+ * @param timeFilter - 'upcoming' | 'past' | 'all'
+ */
+export async function getGamesForSelector(
+  teamId: string,
+  timeFilter: TimeFilter = 'upcoming'
+): Promise<{ upcoming: GameForSelector[]; past: GameForSelector[] }> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().split('T')[0];
+
+  // Fetch games for the team, excluding opponent scouting games
+  // Opponent scouting games (is_opponent_game = true) are for film analysis of opponents
+  // playing other teams, not games your team actually played
+  const { data } = await supabase
+    .from('games')
+    .select('id, name, opponent, opponent_team_name, date, is_opponent_game, team_score, opponent_score, game_result')
+    .eq('team_id', teamId)
+    .or('is_opponent_game.is.null,is_opponent_game.eq.false') // Exclude opponent scouting games
+    .order('date', { ascending: true });
+
+  const games = (data || []) as GameForSelector[];
+
+  // Split into upcoming and past
+  const upcoming = games.filter(g => g.date >= today);
+  const past = games.filter(g => g.date < today).reverse(); // Most recent first for past
+
+  // Return based on filter
+  switch (timeFilter) {
+    case 'upcoming':
+      return { upcoming, past: [] };
+    case 'past':
+      return { upcoming: [], past };
+    case 'all':
+    default:
+      return { upcoming, past };
+  }
 }
 
 /**

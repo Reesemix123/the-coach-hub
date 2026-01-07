@@ -12,12 +12,82 @@
  * - Basic: 20 messages/day
  * - Plus: 50 messages/day
  * - Premium: Unlimited
+ *
+ * Message Logging:
+ * - All chat messages are stored in chat_messages table for quality improvement
+ * - User messages stored before generation, AI responses after streaming completes
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { type Message, RATE_LIMITS, generateRoutedResponse } from '@/lib/ai';
 import type { SubscriptionTier } from '@/types/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+/**
+ * Store a chat message in the database (fire and forget)
+ */
+async function logChatMessage(
+  supabase: SupabaseClient,
+  userId: string,
+  teamId: string | undefined,
+  role: 'user' | 'assistant',
+  content: string,
+  intent?: string,
+  topic?: string,
+  sessionId?: string
+): Promise<void> {
+  try {
+    await supabase.from('chat_messages').insert({
+      user_id: userId,
+      team_id: teamId || null,
+      role,
+      content,
+      intent: intent || null,
+      topic: topic || null,
+      session_id: sessionId || null,
+    });
+  } catch (error) {
+    // Don't fail the request if logging fails
+    console.error('Failed to log chat message:', error);
+  }
+}
+
+/**
+ * Create a stream wrapper that collects the full response while streaming
+ */
+function createLoggingStream(
+  originalStream: ReadableStream<string>,
+  onComplete: (fullContent: string) => void
+): ReadableStream<string> {
+  let fullContent = '';
+
+  return new ReadableStream({
+    async start(controller) {
+      const reader = originalStream.getReader();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            onComplete(fullContent);
+            controller.close();
+            break;
+          }
+
+          // Collect content
+          fullContent += value;
+
+          // Pass through to client
+          controller.enqueue(value);
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+  });
+}
 
 // Rate limits by tier (messages per day)
 const TIER_RATE_LIMITS: Record<SubscriptionTier, number> = {
@@ -161,11 +231,48 @@ export async function POST(request: NextRequest) {
         supabase
       );
 
-      // Log classification for debugging (optional)
+      // Log classification for debugging
       console.log(`[Chat] Intent: ${classification.intent}, Confidence: ${classification.confidence}`);
 
+      // Generate a session ID for grouping messages in this conversation
+      const sessionId = crypto.randomUUID();
+
+      // Extract the topic from classification entities
+      const topic = classification.entities?.topic || undefined;
+
+      // Get the latest user message to log
+      const latestUserMessage = messages[messages.length - 1];
+      if (latestUserMessage && latestUserMessage.role === 'user') {
+        // Log user message (fire and forget - don't await)
+        logChatMessage(
+          supabase,
+          user.id,
+          teamId,
+          'user',
+          latestUserMessage.content,
+          classification.intent,
+          topic,
+          sessionId
+        );
+      }
+
+      // Wrap the stream to capture the AI response for logging
+      const loggingStream = createLoggingStream(stream, (fullContent) => {
+        // Log AI response after streaming completes (fire and forget)
+        logChatMessage(
+          supabase,
+          user.id,
+          teamId,
+          'assistant',
+          fullContent,
+          classification.intent,
+          topic,
+          sessionId
+        );
+      });
+
       // Return streaming response
-      return new Response(stream, {
+      return new Response(loggingStream, {
         headers: {
           'Content-Type': 'text/plain; charset=utf-8',
           'Cache-Control': 'no-cache',

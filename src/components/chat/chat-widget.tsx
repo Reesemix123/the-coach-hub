@@ -32,6 +32,7 @@ export function ChatWidget() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   // Draggable state
@@ -41,6 +42,26 @@ export function ChatWidget() {
   const hasDraggedRef = useRef(false); // Track if user actually moved during drag
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  // Check authentication status and get userId
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      setUserId(user?.id ?? null);
+    };
+    checkAuth();
+
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session?.user);
+      setUserId(session?.user?.id ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Pass userId to useChat for user-scoped conversation history
   const {
     messages,
     isLoading,
@@ -50,7 +71,7 @@ export function ChatWidget() {
     sendMessage,
     clearChat,
     messageCount,
-  } = useChat();
+  } = useChat(undefined, userId);
 
   // Load saved position
   useEffect(() => {
@@ -75,23 +96,6 @@ export function ChatWidget() {
       }
     }
   }, [position, isDragging]);
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-    };
-    checkAuth();
-
-    const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session?.user);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Animate visibility after mount
   useEffect(() => {

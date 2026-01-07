@@ -4,18 +4,21 @@ import GameWeekHeader from '@/components/game-week/GameWeekHeader';
 import Station from '@/components/game-week/Station';
 import EmptyState from '@/components/game-week/EmptyState';
 import GameSelector from '@/components/game-week/GameSelector';
-import { getGameWeekContext, getStationData, getUpcomingGames } from '@/lib/services/game-week.service';
+import { getGameWeekContext, getStationData, getGamesForSelector, TimeFilter } from '@/lib/services/game-week.service';
 import { createClient } from '@/utils/supabase/server';
 
 interface GameWeekPageProps {
   params: Promise<{ teamId: string }>;
-  searchParams: Promise<{ game?: string; showAll?: string }>;
+  searchParams: Promise<{ game?: string; time?: string }>;
 }
 
 export default async function GameWeekPage({ params, searchParams }: GameWeekPageProps) {
   const { teamId } = await params;
-  const { game: selectedGameId, showAll } = await searchParams;
+  const { game: selectedGameId, time } = await searchParams;
   const supabase = await createClient();
+
+  // Parse time filter (default to 'upcoming')
+  const timeFilter: TimeFilter = (time === 'past' || time === 'all') ? time : 'upcoming';
 
   // Get team data
   const { data: team } = await supabase
@@ -34,32 +37,48 @@ export default async function GameWeekPage({ params, searchParams }: GameWeekPag
     );
   }
 
-  // Get upcoming games for selector
-  const upcomingGames = await getUpcomingGames(teamId, showAll === 'true');
+  // Get games for selector (includes both upcoming and past based on filter)
+  const { upcoming: upcomingGames, past: pastGames } = await getGamesForSelector(teamId, 'all');
 
   // Get game week context (with selected game if provided)
   const context = await getGameWeekContext(teamId, selectedGameId);
 
-  // Show empty state if off-season or bye week
-  if (context.phase === 'off_season') {
-    return (
-      <AuthGuard>
-        <div className="min-h-screen bg-white">
-          <TeamNavigation team={team} teamId={teamId} currentPage="game-week" />
-          <div className="max-w-7xl mx-auto px-6 py-12">
-            <EmptyState type="off_season" teamId={teamId} />
+  // Determine if we should show an empty state
+  // Off-season only applies when there are no games AND no game is selected
+  if (context.phase === 'off_season' && !selectedGameId) {
+    // Check if there are any past games to review
+    if (pastGames.length > 0) {
+      // There are past games - don't show off-season, let the user select one
+      // Fall through to normal rendering
+    } else {
+      return (
+        <AuthGuard>
+          <div className="min-h-screen bg-white">
+            <TeamNavigation team={team} teamId={teamId} currentPage="game-week" />
+            <div className="max-w-7xl mx-auto px-6 py-12">
+              <EmptyState type="off_season" teamId={teamId} />
+            </div>
           </div>
-        </div>
-      </AuthGuard>
-    );
+        </AuthGuard>
+      );
+    }
   }
 
-  if (context.phase === 'bye_week') {
+  // Bye week only applies to upcoming games (not when reviewing past games)
+  if (context.phase === 'bye_week' && !context.isHistorical) {
     return (
       <AuthGuard>
         <div className="min-h-screen bg-white">
           <TeamNavigation team={team} teamId={teamId} currentPage="game-week" />
           <div className="max-w-7xl mx-auto px-6 py-12">
+            <GameSelector
+              upcomingGames={upcomingGames}
+              pastGames={pastGames}
+              selectedGameId={context.gameId}
+              teamId={teamId}
+              timeFilter={timeFilter}
+              isHistorical={context.isHistorical}
+            />
             <EmptyState type="bye_week" teamId={teamId} />
           </div>
         </div>
@@ -67,9 +86,14 @@ export default async function GameWeekPage({ params, searchParams }: GameWeekPag
     );
   }
 
-  // Get station data (only if we have an active game week)
-  const stations = context.gameId && context.daysUntilGame !== null
-    ? await getStationData(teamId, context.gameId, context.daysUntilGame)
+  // Get station data (works for both future and past games)
+  // For past games, use daysAgo (as positive number) for display purposes
+  const daysForStation = context.isHistorical
+    ? (context.daysAgo || 0)
+    : (context.daysUntilGame || 0);
+
+  const stations = context.gameId
+    ? await getStationData(teamId, context.gameId, daysForStation)
     : [];
 
   return (
@@ -77,14 +101,17 @@ export default async function GameWeekPage({ params, searchParams }: GameWeekPag
       <div className="min-h-screen bg-white">
         <TeamNavigation team={team} teamId={teamId} currentPage="game-week" />
         <div className="max-w-7xl mx-auto px-6 py-8">
-          {/* Game Selector */}
+          {/* Game Selector with Time Filter */}
           <GameSelector
             upcomingGames={upcomingGames}
+            pastGames={pastGames}
             selectedGameId={context.gameId}
             teamId={teamId}
+            timeFilter={timeFilter}
+            isHistorical={context.isHistorical}
           />
 
-          {/* Header with game info and countdown */}
+          {/* Header with game info and countdown/result */}
           <GameWeekHeader context={context} />
 
           {/* Station Grid - Two large tiles */}
