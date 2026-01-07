@@ -267,7 +267,7 @@ async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
   await page.waitForSelector('text=Season Overview', { timeout: 10000 });
   await smoothWait(page, 500);
 
-  // Step 1: Select Week 8 in the Game dropdown
+  // Step 1: Select Week 1 in the Game dropdown (has data in seed)
   const gameDropdown = page.locator('select').first();
   await gameDropdown.waitFor({ state: 'visible', timeout: 5000 });
   const gameBox = await gameDropdown.boundingBox();
@@ -276,8 +276,8 @@ async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
     await smoothWait(page, 300);
     await gameDropdown.click();
     await smoothWait(page, 200);
-    // Select Week 8 - Hamilton Hawks
-    await gameDropdown.selectOption({ label: 'Week 8 - Hamilton Hawks' });
+    // Select Week 1 - Lincoln Lions (has play data in seed)
+    await gameDropdown.selectOption({ label: 'Week 1 - Lincoln Lions' });
     await smoothWait(page, 300);
   }
 
