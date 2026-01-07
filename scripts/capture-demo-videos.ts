@@ -265,76 +265,64 @@ async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
   // Page is already pre-loaded by captureDemo at analytics-reporting
   // Wait for the page to be fully ready
   await page.waitForSelector('text=Season Overview', { timeout: 10000 });
-  await smoothWait(page, 500);
+  await smoothWait(page, 800);
 
-  // Step 1: Select Week 1 in the Game dropdown (has data in seed)
+  // Step 1: Select Week 6 Madison Mustangs in the Game dropdown
   const gameDropdown = page.locator('select').first();
   await gameDropdown.waitFor({ state: 'visible', timeout: 5000 });
   const gameBox = await gameDropdown.boundingBox();
   if (gameBox) {
     await page.mouse.move(gameBox.x + gameBox.width / 2, gameBox.y + gameBox.height / 2);
-    await smoothWait(page, 300);
+    await smoothWait(page, 400);
     await gameDropdown.click();
-    await smoothWait(page, 200);
-    // Select Week 1 - Lincoln Lions (has play data in seed)
-    await gameDropdown.selectOption({ label: 'Week 1 - Lincoln Lions' });
     await smoothWait(page, 300);
+    // Select Week 6 - Madison Mustangs
+    await gameDropdown.selectOption({ label: 'Week 6 - Madison Mustangs' });
+    await smoothWait(page, 400);
   }
 
-  // Wait for "This Game" report to load
+  // Wait for report to load
   await page.waitForLoadState('networkidle');
-  await smoothWait(page, 800);
-
-  // Step 2: Scroll through the "This Game" (single game) report
-  await smoothScroll(page, 250);
-  await smoothWait(page, 500);
-  await smoothScroll(page, 250);
-  await smoothWait(page, 500);
-  await smoothScroll(page, 200);
   await smoothWait(page, 600);
 
-  // Scroll back up to show the filter toggle
-  await smoothScrollUp(page, 600);
-  await smoothWait(page, 400);
-
-  // Step 3: Click "Through Week" toggle
+  // Step 2: Click "Through Week" toggle
   const throughWeekButton = page.locator('button:has-text("Through Week")').first();
   await throughWeekButton.waitFor({ state: 'visible', timeout: 5000 });
   const throughWeekBox = await throughWeekButton.boundingBox();
   if (throughWeekBox) {
     await page.mouse.move(throughWeekBox.x + throughWeekBox.width / 2, throughWeekBox.y + throughWeekBox.height / 2);
-    await smoothWait(page, 300);
+    await smoothWait(page, 400);
     await throughWeekButton.click();
   }
 
   // Wait for cumulative report to load
   await page.waitForLoadState('networkidle');
+  await smoothWait(page, 1000);
+
+  // Step 3: Scroll through the "Through Week" report
+  await smoothScroll(page, 300);
+  await smoothWait(page, 600);
+  await smoothScroll(page, 300);
+  await smoothWait(page, 600);
+  await smoothScroll(page, 250);
   await smoothWait(page, 800);
 
-  // Step 4: Scroll through the "Through Week" (cumulative) report
-  await smoothScroll(page, 250);
-  await smoothWait(page, 500);
-  await smoothScroll(page, 250);
-  await smoothWait(page, 500);
-  await smoothScroll(page, 200);
-  await smoothWait(page, 600);
-
   // Scroll back up to top
-  await smoothScrollUp(page, 600);
-  await smoothWait(page, 400);
+  await smoothScrollUp(page, 750);
+  await smoothWait(page, 500);
 
-  // Step 5: Select Opponent Scouting report from the report selector
-  // Find the report selector dropdown (likely a select or button group)
+  // Step 4: Navigate to Opponent Scouting report
+  // Find the report selector dropdown
   const reportSelector = page.locator('select:has(option:has-text("Opponent Scouting"))').first();
   if (await reportSelector.isVisible()) {
     const reportBox = await reportSelector.boundingBox();
     if (reportBox) {
       await page.mouse.move(reportBox.x + reportBox.width / 2, reportBox.y + reportBox.height / 2);
-      await smoothWait(page, 300);
+      await smoothWait(page, 400);
       await reportSelector.click();
-      await smoothWait(page, 200);
-      await reportSelector.selectOption({ label: 'Opponent Scouting' });
       await smoothWait(page, 300);
+      await reportSelector.selectOption({ label: 'Opponent Scouting' });
+      await smoothWait(page, 400);
     }
   } else {
     // Try clicking a button/tab with "Opponent Scouting" text
@@ -343,7 +331,7 @@ async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
       const tabBox = await opponentTab.boundingBox();
       if (tabBox) {
         await page.mouse.move(tabBox.x + tabBox.width / 2, tabBox.y + tabBox.height / 2);
-        await smoothWait(page, 300);
+        await smoothWait(page, 400);
         await opponentTab.click();
       }
     }
@@ -351,34 +339,119 @@ async function captureAnalyticsDemo(page: Page, teamId: string): Promise<void> {
 
   // Wait for Opponent Scouting report to load
   await page.waitForLoadState('networkidle');
-  await smoothWait(page, 800);
+  await smoothWait(page, 1000);
 
-  // Step 6: Select Lincoln Lions in the opponent filter
-  // The Opponent Scouting report has its own dropdown with format "Lincoln Lions (X plays)"
-  // Wait for the opponent selector to appear (labeled "Select Opponent")
+  // Step 5: Select Monroe Monarchs in the opponent filter
   await page.waitForSelector('label:has-text("Select Opponent")', { timeout: 5000 });
   const opponentDropdown = page.locator('select').first();
   await opponentDropdown.waitFor({ state: 'visible', timeout: 5000 });
   const opponentBox = await opponentDropdown.boundingBox();
   if (opponentBox) {
     await page.mouse.move(opponentBox.x + opponentBox.width / 2, opponentBox.y + opponentBox.height / 2);
-    await smoothWait(page, 300);
+    await smoothWait(page, 400);
     await opponentDropdown.click();
-    await smoothWait(page, 200);
-    // Select by value (the opponent name) since label includes play count
-    await opponentDropdown.selectOption({ value: 'Lincoln Lions' });
     await smoothWait(page, 300);
+    // Select Monroe Monarchs
+    await opponentDropdown.selectOption({ value: 'Monroe Monarchs' });
+    await smoothWait(page, 400);
   }
 
   // Wait for opponent report to load
   await page.waitForLoadState('networkidle');
-  await smoothWait(page, 1000);
+  await smoothWait(page, 1200);
 
-  // Step 7: Scroll through the Opponent Scouting report
-  await smoothScroll(page, 200);
-  await smoothWait(page, 600);
+  // Step 6: Scroll through the Opponent Scouting report
+  await smoothScroll(page, 250);
+  await smoothWait(page, 700);
+  await smoothScroll(page, 250);
+  await smoothWait(page, 700);
   await smoothScroll(page, 200);
   await smoothWait(page, 800);
+
+  // Scroll back up
+  await smoothScrollUp(page, 600);
+  await smoothWait(page, 500);
+
+  // Step 7: Click the AI Assistant button
+  const aiAssistantButton = page.locator('button:has-text("AI Assistant"), button:has-text("Ask AI"), button:has(svg)').filter({ hasText: /AI|Assistant/ }).first();
+  // Try different selectors for the AI button
+  let aiButton = page.locator('[aria-label*="AI"], [aria-label*="Assistant"]').first();
+  if (!await aiButton.isVisible()) {
+    aiButton = page.locator('button').filter({ hasText: 'AI' }).first();
+  }
+  if (!await aiButton.isVisible()) {
+    // Look for a floating action button or chat icon
+    aiButton = page.locator('button:has(svg[class*="message"]), button:has(svg[class*="chat"]), button[class*="assistant"]').first();
+  }
+
+  if (await aiButton.isVisible()) {
+    const aiBox = await aiButton.boundingBox();
+    if (aiBox) {
+      await page.mouse.move(aiBox.x + aiBox.width / 2, aiBox.y + aiBox.height / 2);
+      await smoothWait(page, 400);
+      await aiButton.click();
+      await smoothWait(page, 1000);
+    }
+  }
+
+  // Wait for AI Assistant panel to open
+  await page.waitForLoadState('networkidle');
+  await smoothWait(page, 800);
+
+  // Step 8: Type the question in the AI Assistant input
+  const aiInput = page.locator('textarea, input[type="text"]').last();
+  if (await aiInput.isVisible()) {
+    const inputBox = await aiInput.boundingBox();
+    if (inputBox) {
+      await page.mouse.move(inputBox.x + inputBox.width / 2, inputBox.y + inputBox.height / 2);
+      await smoothWait(page, 400);
+      await aiInput.click();
+      await smoothWait(page, 300);
+      // Type the question with visible delay
+      await page.keyboard.type("How do the Monroe Monarch's strengths and weaknesses match up against my team?", { delay: 40 });
+      await smoothWait(page, 800);
+    }
+  }
+
+  // Step 9: Submit the question (press Enter or click send button)
+  const sendButton = page.locator('button[type="submit"], button:has(svg[class*="send"]), button:has-text("Send")').first();
+  if (await sendButton.isVisible()) {
+    const sendBox = await sendButton.boundingBox();
+    if (sendBox) {
+      await page.mouse.move(sendBox.x + sendBox.width / 2, sendBox.y + sendBox.height / 2);
+      await smoothWait(page, 300);
+      await sendButton.click();
+    }
+  } else {
+    // Press Enter to submit
+    await page.keyboard.press('Enter');
+  }
+
+  // Wait for AI response to generate (this may take several seconds)
+  await smoothWait(page, 8000);
+  await page.waitForLoadState('networkidle');
+  await smoothWait(page, 3000);
+
+  // Step 10: Scroll through the AI response
+  // Find the response container and scroll within it
+  const responseContainer = page.locator('[class*="response"], [class*="message"], [class*="chat"]').last();
+  if (await responseContainer.isVisible()) {
+    await smoothScroll(page, 200);
+    await smoothWait(page, 800);
+    await smoothScroll(page, 200);
+    await smoothWait(page, 800);
+    await smoothScroll(page, 150);
+    await smoothWait(page, 1000);
+  } else {
+    // Scroll the main page to show the response
+    await smoothScroll(page, 250);
+    await smoothWait(page, 800);
+    await smoothScroll(page, 250);
+    await smoothWait(page, 1000);
+  }
+
+  // Final pause to show the complete response
+  await smoothWait(page, 1500);
 
   console.log('  ✅ Analytics demo complete');
 }
@@ -555,8 +628,8 @@ async function login(page: Page): Promise<boolean> {
   }
 
   console.log(`🔐 Logging in as ${EMAIL}...`);
-  await page.goto(`${BASE_URL}/auth/login`);
-  await page.waitForLoadState('networkidle');
+  await page.goto(`${BASE_URL}/auth/login`, { timeout: 60000 });
+  await page.waitForLoadState('networkidle', { timeout: 60000 });
   await page.waitForTimeout(1000); // Extra wait for page to settle
 
   // Fill form
@@ -569,7 +642,7 @@ async function login(page: Page): Promise<boolean> {
 
   // Click submit and wait for navigation
   await Promise.all([
-    page.waitForURL((url) => !url.toString().includes('/auth/login'), { timeout: 10000 }).catch(() => null),
+    page.waitForURL((url) => !url.toString().includes('/auth/login'), { timeout: 60000 }).catch(() => null),
     page.click('button[type="submit"]'),
   ]);
 

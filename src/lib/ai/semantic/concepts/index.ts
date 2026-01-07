@@ -25,6 +25,15 @@ export type { PlayDrillCandidate, PlayDrillCandidatesResult } from './play-drill
 export { resolveOpponentTendencies } from './opponent-tendencies';
 export type { OpponentTendenciesResult } from './opponent-tendencies';
 
+export { resolveSchedule, resolveRecord, resolveNextGame, resolvePastGames } from './schedule';
+export type { ScheduleResult } from './schedule';
+
+export { resolvePlaybookBrowse, resolvePlaybookSearch, resolvePlayRecommendations, findPlayByName } from './playbook';
+export type { PlaybookSearchResult } from './playbook';
+
+export { resolvePracticeSchedule, resolveLastPractice, resolveNextPractice, resolvePastPractices, resolveUpcomingPractices, resolvePracticeStats, resolveLastPracticeDetails, resolveNextPracticeDetails, resolvePracticeDrills, resolvePracticeEquipment, formatPracticeDetails } from './practice';
+export type { PracticeResult } from './practice';
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ConceptParams } from '../types';
 import type { ClassificationEntities } from '../../router/intent-classifier';
@@ -39,7 +48,10 @@ import { resolveOLPerformance } from './ol-performance';
 import { resolveDefensivePerformance } from './defensive-performance';
 import { resolveSpecialTeamsPerformance } from './special-teams-performance';
 import { resolveOpponentTendencies } from './opponent-tendencies';
-import { fetchPlayInstances, fetchPlayers, fetchOpponentsWithScoutingData, matchOpponentName, fetchAllGames } from '../data-fetcher';
+import { resolveSchedule, resolveRecord, resolveNextGame, resolvePastGames } from './schedule';
+import { resolvePlaybookBrowse, resolvePlaybookSearch } from './playbook';
+import { resolvePracticeSchedule, resolveLastPractice, resolveNextPractice, resolvePastPractices, resolveUpcomingPractices, resolvePracticeStats, resolveLastPracticeDetails, resolveNextPracticeDetails, resolvePracticeDrills, resolvePracticeEquipment } from './practice';
+import { fetchPlayInstances, fetchPlayers, fetchOpponentsWithScoutingData, matchOpponentName, fetchAllGames, fetchPlaybookPlays, fetchPracticePlansWithDetails, fetchLastPracticeWithDetails, fetchNextPracticeWithDetails } from '../data-fetcher';
 
 /**
  * Map topic from classification to concept resolver
@@ -57,6 +69,12 @@ export async function resolveConceptForTopic(
     fieldZone: entities.situation?.fieldZone,
     formation: entities.formation,
     playerNumber: entities.player,
+    opponent: entities.opponent,
+    // Playbook search params
+    targetPosition: entities.targetPosition,
+    concept: entities.concept,
+    personnel: entities.personnel,
+    odk: entities.odk,
   };
 
   // Route to appropriate resolver based on topic
@@ -174,6 +192,97 @@ export async function resolveConceptForTopic(
       response += result.practiceRecommendations.map(r => `• ${r}`).join('\n');
 
       return response;
+    }
+
+    case 'schedule':
+    case 'games':
+    case 'upcoming_games': {
+      const allGames = await fetchAllGames(supabase, teamId);
+      const result = resolveSchedule(allGames, params);
+      return result.summary;
+    }
+
+    case 'record': {
+      const allGames = await fetchAllGames(supabase, teamId);
+      return resolveRecord(allGames);
+    }
+
+    case 'next_game': {
+      const allGames = await fetchAllGames(supabase, teamId);
+      return resolveNextGame(allGames);
+    }
+
+    case 'past_games':
+    case 'game_results': {
+      const allGames = await fetchAllGames(supabase, teamId);
+      return resolvePastGames(allGames);
+    }
+
+    case 'playbook':
+    case 'playbook_browse': {
+      // Fetch plays based on ODK, or all plays if not specified
+      const plays = await fetchPlaybookPlays(supabase, teamId, params.odk ? { odk: params.odk } : undefined);
+      const result = resolvePlaybookBrowse(plays, params);
+      return result.summary;
+    }
+
+    case 'playbook_search':
+    case 'play_recommendation': {
+      // Fetch plays based on ODK, default to offense if not specified
+      const odkFilter = params.odk || 'offense';
+      const plays = await fetchPlaybookPlays(supabase, teamId, { odk: odkFilter });
+      const result = resolvePlaybookSearch(plays, {
+        targetPosition: params.targetPosition,
+        concept: params.concept,
+        personnel: params.personnel,
+        playType: params.playType as 'run' | 'pass' | undefined,
+        formation: params.formation,
+      });
+      return result.summary;
+    }
+
+    case 'practice':
+    case 'practice_schedule': {
+      const practices = await fetchPracticePlansWithDetails(supabase, teamId);
+      const result = resolvePracticeSchedule(practices, params);
+      return result.summary;
+    }
+
+    case 'last_practice': {
+      const practices = await fetchPracticePlansWithDetails(supabase, teamId);
+      return resolveLastPractice(practices);
+    }
+
+    case 'next_practice': {
+      const practices = await fetchPracticePlansWithDetails(supabase, teamId);
+      return resolveNextPractice(practices);
+    }
+
+    case 'upcoming_practices': {
+      const practices = await fetchPracticePlansWithDetails(supabase, teamId);
+      return resolveUpcomingPractices(practices);
+    }
+
+    case 'past_practices': {
+      const practices = await fetchPracticePlansWithDetails(supabase, teamId);
+      return resolvePastPractices(practices);
+    }
+
+    case 'last_practice_details':
+    case 'practice_drills': {
+      const lastPractice = await fetchLastPracticeWithDetails(supabase, teamId);
+      return resolveLastPracticeDetails(lastPractice);
+    }
+
+    case 'next_practice_details': {
+      const nextPractice = await fetchNextPracticeWithDetails(supabase, teamId);
+      return resolveNextPracticeDetails(nextPractice);
+    }
+
+    case 'practice_equipment': {
+      // Default to last practice for equipment queries
+      const practiceForEquipment = await fetchLastPracticeWithDetails(supabase, teamId);
+      return resolvePracticeEquipment(practiceForEquipment);
     }
 
     default:

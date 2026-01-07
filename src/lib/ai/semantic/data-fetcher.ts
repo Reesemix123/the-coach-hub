@@ -6,7 +6,7 @@
  */
 
 import type { SupabaseClient as RealSupabaseClient } from '@supabase/supabase-js';
-import type { PlayData, DriveData, PlayerData, GameData, ConceptParams } from './types';
+import type { PlayData, DriveData, PlayerData, GameData, PlaybookPlayData, PracticePlanData, PracticePlanWithDetails, PracticePeriodData, PracticeDrillData, ConceptParams } from './types';
 
 type QueryBuilder = ReturnType<RealSupabaseClient['from']>;
 
@@ -283,7 +283,7 @@ export async function fetchRecentGames(
 ): Promise<GameData[]> {
   const { data, error } = await supabase
     .from('games')
-    .select('id, team_id, name, opponent, date, team_score, opponent_score, game_result')
+    .select('id, team_id, name, opponent, date, team_score, opponent_score, game_result, location, start_time, week_number, notes')
     .eq('team_id', teamId)
     .order('date', { ascending: false })
     .limit(limit);
@@ -305,7 +305,7 @@ export async function fetchAllGames(
 ): Promise<GameData[]> {
   const { data, error } = await supabase
     .from('games')
-    .select('id, team_id, name, opponent, date, team_score, opponent_score, game_result')
+    .select('id, team_id, name, opponent, date, team_score, opponent_score, game_result, location, start_time, week_number, notes')
     .eq('team_id', teamId)
     .order('date', { ascending: true });
 
@@ -581,4 +581,348 @@ export function matchOpponentName(
   }
 
   return null;
+}
+
+/**
+ * Fetch all plays from the team's playbook
+ */
+export async function fetchPlaybookPlays(
+  supabase: RealSupabaseClient,
+  teamId: string,
+  filters?: {
+    odk?: 'offense' | 'defense' | 'special_teams';
+    playType?: string;
+    formation?: string;
+    personnel?: string;
+    searchTerm?: string;
+  }
+): Promise<PlaybookPlayData[]> {
+  const query = supabase
+    .from('playbook_plays')
+    .select('id, team_id, play_code, play_name, attributes, page_number, is_archived, created_at, updated_at')
+    .eq('team_id', teamId)
+    .eq('is_archived', false)
+    .order('play_name', { ascending: true });
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching playbook plays:', error);
+    return [];
+  }
+
+  let plays = (data || []) as PlaybookPlayData[];
+
+  // Apply filters in memory (JSONB filtering is complex in Supabase)
+  if (filters) {
+    if (filters.odk) {
+      plays = plays.filter(p => p.attributes?.odk === filters.odk);
+    }
+    if (filters.playType) {
+      plays = plays.filter(p =>
+        p.attributes?.playType?.toLowerCase() === filters.playType?.toLowerCase()
+      );
+    }
+    if (filters.formation) {
+      plays = plays.filter(p =>
+        p.attributes?.formation?.toLowerCase().includes(filters.formation!.toLowerCase())
+      );
+    }
+    if (filters.personnel) {
+      plays = plays.filter(p =>
+        p.attributes?.personnel?.toLowerCase().includes(filters.personnel!.toLowerCase())
+      );
+    }
+    if (filters.searchTerm) {
+      const term = filters.searchTerm.toLowerCase();
+      plays = plays.filter(p =>
+        p.play_name.toLowerCase().includes(term) ||
+        p.play_code.toLowerCase().includes(term) ||
+        p.attributes?.formation?.toLowerCase().includes(term) ||
+        p.attributes?.runConcept?.toLowerCase().includes(term) ||
+        p.attributes?.passConcept?.toLowerCase().includes(term)
+      );
+    }
+  }
+
+  return plays;
+}
+
+/**
+ * Search playbook for plays matching criteria
+ */
+export async function searchPlaybook(
+  supabase: RealSupabaseClient,
+  teamId: string,
+  criteria: {
+    targetPosition?: string;  // e.g., "TE", "RB", "WR"
+    concept?: string;         // e.g., "power", "zone", "play-action"
+    formation?: string;       // e.g., "Shotgun", "I-Form"
+    playType?: 'run' | 'pass';
+  }
+): Promise<PlaybookPlayData[]> {
+  const allPlays = await fetchPlaybookPlays(supabase, teamId, { odk: 'offense' });
+
+  let results = allPlays;
+
+  // Filter by play type
+  if (criteria.playType) {
+    const playTypeMap: Record<string, string[]> = {
+      'run': ['Run'],
+      'pass': ['Pass', 'Screen', 'RPO', 'Play Action']
+    };
+    const validTypes = playTypeMap[criteria.playType] || [];
+    results = results.filter(p =>
+      validTypes.some(t => p.attributes?.playType?.toLowerCase().includes(t.toLowerCase()))
+    );
+  }
+
+  // Filter by formation
+  if (criteria.formation) {
+    results = results.filter(p =>
+      p.attributes?.formation?.toLowerCase().includes(criteria.formation!.toLowerCase())
+    );
+  }
+
+  // Filter by concept (check both run and pass concepts)
+  if (criteria.concept) {
+    const conceptLower = criteria.concept.toLowerCase();
+    results = results.filter(p =>
+      p.attributes?.runConcept?.toLowerCase().includes(conceptLower) ||
+      p.attributes?.passConcept?.toLowerCase().includes(conceptLower) ||
+      p.play_name.toLowerCase().includes(conceptLower)
+    );
+  }
+
+  // Filter by target position (check personnel, play name, or ball carrier)
+  if (criteria.targetPosition) {
+    const posLower = criteria.targetPosition.toLowerCase();
+    results = results.filter(p => {
+      // Check personnel (e.g., "12 (1RB-2TE-2WR)")
+      if (p.attributes?.personnel?.toLowerCase().includes(posLower)) return true;
+      // Check ball carrier
+      if (p.attributes?.ballCarrier?.toLowerCase().includes(posLower)) return true;
+      // Check play name for position mentions
+      if (p.play_name.toLowerCase().includes(posLower)) return true;
+      // Check for TE-specific concepts
+      if (posLower === 'te' || posLower === 'tight end') {
+        // Plays that typically feature TE
+        const teKeywords = ['12 personnel', '13 personnel', '22 personnel', '2te', '2-te'];
+        return teKeywords.some(kw => p.attributes?.personnel?.toLowerCase().includes(kw));
+      }
+      return false;
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Fetch practice plans for a team
+ */
+export async function fetchPracticePlans(
+  supabase: RealSupabaseClient,
+  teamId: string,
+  options?: {
+    includeTemplates?: boolean;
+    limit?: number;
+  }
+): Promise<PracticePlanData[]> {
+  let query = supabase
+    .from('practice_plans')
+    .select(`
+      id,
+      team_id,
+      title,
+      date,
+      duration_minutes,
+      location,
+      notes,
+      is_template,
+      template_name,
+      created_at,
+      updated_at
+    `)
+    .eq('team_id', teamId)
+    .order('date', { ascending: false });
+
+  // Filter out templates unless explicitly requested
+  if (!options?.includeTemplates) {
+    query = query.eq('is_template', false);
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching practice plans:', error);
+    return [];
+  }
+
+  return (data || []) as PracticePlanData[];
+}
+
+/**
+ * Fetch practice plans with period and drill counts
+ */
+export async function fetchPracticePlansWithDetails(
+  supabase: RealSupabaseClient,
+  teamId: string,
+  options?: {
+    includeTemplates?: boolean;
+    limit?: number;
+  }
+): Promise<PracticePlanData[]> {
+  const plans = await fetchPracticePlans(supabase, teamId, options);
+
+  // For each plan, get the count of periods and drills
+  const plansWithDetails = await Promise.all(
+    plans.map(async (plan) => {
+      // Get period count
+      const { count: periodsCount } = await supabase
+        .from('practice_periods')
+        .select('id', { count: 'exact', head: true })
+        .eq('practice_plan_id', plan.id);
+
+      // Get total drills count across all periods
+      const { data: periods } = await supabase
+        .from('practice_periods')
+        .select('id')
+        .eq('practice_plan_id', plan.id);
+
+      let drillsCount = 0;
+      if (periods && periods.length > 0) {
+        const periodIds = periods.map(p => p.id);
+        const { count } = await supabase
+          .from('practice_drills')
+          .select('id', { count: 'exact', head: true })
+          .in('period_id', periodIds);
+        drillsCount = count || 0;
+      }
+
+      return {
+        ...plan,
+        periods_count: periodsCount || 0,
+        drills_count: drillsCount,
+      };
+    })
+  );
+
+  return plansWithDetails;
+}
+
+/**
+ * Fetch a specific practice plan with full details (periods and drills)
+ */
+export async function fetchPracticePlanById(
+  supabase: RealSupabaseClient,
+  practiceId: string
+): Promise<PracticePlanWithDetails | null> {
+  // Fetch the practice plan
+  const { data: plan, error: planError } = await supabase
+    .from('practice_plans')
+    .select('*')
+    .eq('id', practiceId)
+    .single();
+
+  if (planError || !plan) {
+    console.error('Error fetching practice plan:', planError);
+    return null;
+  }
+
+  // Fetch periods for this practice
+  const { data: periods, error: periodsError } = await supabase
+    .from('practice_periods')
+    .select('*')
+    .eq('practice_plan_id', practiceId)
+    .order('period_order', { ascending: true });
+
+  if (periodsError) {
+    console.error('Error fetching practice periods:', periodsError);
+    return null;
+  }
+
+  // Fetch drills for all periods
+  const periodIds = (periods || []).map(p => p.id);
+  let drills: PracticeDrillData[] = [];
+
+  if (periodIds.length > 0) {
+    const { data: drillsData, error: drillsError } = await supabase
+      .from('practice_drills')
+      .select('*')
+      .in('period_id', periodIds)
+      .order('drill_order', { ascending: true });
+
+    if (drillsError) {
+      console.error('Error fetching practice drills:', drillsError);
+    } else {
+      drills = (drillsData || []) as PracticeDrillData[];
+    }
+  }
+
+  // Build the nested structure
+  const periodsWithDrills = (periods || []).map(period => ({
+    ...period as PracticePeriodData,
+    drills: drills.filter(d => d.period_id === period.id),
+  }));
+
+  return {
+    ...(plan as PracticePlanData),
+    periods: periodsWithDrills,
+  };
+}
+
+/**
+ * Fetch the most recent practice with full details
+ */
+export async function fetchLastPracticeWithDetails(
+  supabase: RealSupabaseClient,
+  teamId: string
+): Promise<PracticePlanWithDetails | null> {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Get the most recent past practice
+  const { data, error } = await supabase
+    .from('practice_plans')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('is_template', false)
+    .lt('date', today)
+    .order('date', { ascending: false })
+    .limit(1);
+
+  if (error || !data || data.length === 0) {
+    return null;
+  }
+
+  return fetchPracticePlanById(supabase, data[0].id);
+}
+
+/**
+ * Fetch the next upcoming practice with full details
+ */
+export async function fetchNextPracticeWithDetails(
+  supabase: RealSupabaseClient,
+  teamId: string
+): Promise<PracticePlanWithDetails | null> {
+  const today = new Date().toISOString().split('T')[0];
+
+  // Get the next upcoming practice
+  const { data, error } = await supabase
+    .from('practice_plans')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('is_template', false)
+    .gte('date', today)
+    .order('date', { ascending: true })
+    .limit(1);
+
+  if (error || !data || data.length === 0) {
+    return null;
+  }
+
+  return fetchPracticePlanById(supabase, data[0].id);
 }

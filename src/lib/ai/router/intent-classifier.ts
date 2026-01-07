@@ -27,6 +27,11 @@ export interface ClassificationEntities {
   player?: string;
   comparison?: string;
   opponent?: string;  // Opponent team name for scouting queries
+  // Playbook search entities
+  targetPosition?: string;  // Position to feature (TE, RB, WR)
+  concept?: string;         // Run/pass concept (power, zone, levels)
+  personnel?: string;       // Personnel grouping (12, 11, 21)
+  odk?: 'offense' | 'defense' | 'special_teams';  // Offense/Defense/Special Teams
 }
 
 export interface ClassificationResult {
@@ -59,7 +64,7 @@ IMPORTANT DISTINCTIONS:
 - "Who's my best rusher?" → coaching (player performance)
 
 For COACHING intents, also extract relevant entities:
-- topic: The main subject (run_game, pass_game, turnovers, penalties, formations, player_stats, trends, tendencies, red_zone, third_down, ol_performance, offensive_line, blocking, linemen, defensive_performance, defense, tackling, pass_rush, coverage, secondary, special_teams, kicking, punting, returns, kickoff, punt, field_goal, opponent_scouting, opponent_tendencies, opponent_weaknesses, game_plan, strategy, etc.)
+- topic: The main subject (run_game, pass_game, turnovers, penalties, formations, player_stats, trends, tendencies, red_zone, third_down, ol_performance, offensive_line, blocking, linemen, defensive_performance, defense, tackling, pass_rush, coverage, secondary, special_teams, kicking, punting, returns, kickoff, punt, field_goal, opponent_scouting, opponent_tendencies, opponent_weaknesses, game_plan, strategy, schedule, games, record, upcoming_games, past_games, game_results, playbook, playbook_search, play_recommendation, practice, practice_schedule, last_practice, next_practice, upcoming_practices, past_practices, last_practice_details, practice_drills, practice_equipment, next_practice_details, etc.)
 - timeframe: recent (last 2 games), season (all games), game_specific (specific game mentioned)
 - situation: down (1-4), distance (short/medium/long), fieldZone (red_zone, scoring_position, midfield, own_territory)
 - formation: specific formation mentioned
@@ -67,6 +72,10 @@ For COACHING intents, also extract relevant entities:
 - player: player name or jersey number if mentioned
 - comparison: what they're comparing (before/after, game vs game, etc.)
 - opponent: opponent team name if asking about a specific opponent (e.g., "Lincoln Lions", "Eagles")
+- targetPosition: position to feature in playbook search (TE, RB, WR, QB, LB, CB, S)
+- concept: run or pass concept to search for (power, zone, levels, mesh, stick, cover 2, cover 3, blitz)
+- personnel: personnel grouping to search for (12, 11, 21, 22)
+- odk: offense, defense, or special_teams (for playbook searches)
 
 Examples of OL-related topics (use topic: "ol_performance"):
 - "How is my offensive line doing?" → ol_performance
@@ -100,6 +109,54 @@ Examples of opponent/scouting topics (use topic: "opponent_scouting" or "opponen
 - "What does the Lions defense do on 3rd down?" → opponent_tendencies, opponent: "Lions"
 - "Scouting report on Roosevelt" → opponent_scouting, opponent: "Roosevelt"
 - "Game plan against Hamilton Hawks" → opponent_scouting, opponent: "Hamilton Hawks"
+
+Examples of schedule/game topics (use topic: "schedule", "games", "record", "upcoming_games", "past_games", "game_results"):
+- "When is my next game?" → schedule, upcoming_games
+- "What's our record this season?" → record
+- "When do we play the Eagles?" → schedule, opponent: "Eagles"
+- "Show me our schedule" → schedule
+- "What games have we played?" → past_games
+- "What was the score against Lincoln Lions?" → game_results, opponent: "Lincoln Lions"
+- "Where is our next game?" → schedule, upcoming_games
+- "How did we do last week?" → past_games, game_results
+- "What time is the game Saturday?" → schedule
+- "List all our games" → games
+
+Examples of playbook/play search topics (use topic: "playbook", "playbook_search", "play_recommendation"):
+- "What plays in my playbook feature the tight end?" → playbook_search, targetPosition: "TE"
+- "Show me my run plays" → playbook_search, playType: run
+- "What plays should I use from shotgun?" → playbook_search, formation: "Shotgun"
+- "Give me a specific play from my playbook" → playbook
+- "What power plays do I have?" → playbook_search, concept: "power"
+- "Find plays that feature the RB" → playbook_search, targetPosition: "RB"
+- "Which plays should I call to target the TE?" → play_recommendation, targetPosition: "TE"
+- "List my passing plays" → playbook_search, playType: pass
+- "What 12 personnel plays do I have?" → playbook_search, personnel: "12"
+- "Show me zone run plays" → playbook_search, concept: "zone", playType: run
+- "What defensive plays do I have?" → playbook_search, odk: defense
+- "Show me my Cover 3 plays" → playbook_search, odk: defense, concept: "cover 3"
+- "What blitz packages are in my playbook?" → playbook_search, odk: defense, concept: "blitz"
+- "List my special teams plays" → playbook_search, odk: special_teams
+- "What kickoff plays do I have?" → playbook_search, odk: special_teams
+- "Show me punt return plays" → playbook_search, odk: special_teams
+
+Examples of practice topics (use topic: "practice", "practice_schedule", "last_practice", "next_practice", "upcoming_practices", "past_practices", "last_practice_details", "practice_drills", "practice_equipment", "next_practice_details"):
+- "When is my next practice?" → next_practice
+- "When was my last practice?" → last_practice
+- "Show me my practice schedule" → practice_schedule
+- "What practices do I have coming up?" → upcoming_practices
+- "List my past practices" → past_practices
+- "How many practices have we had?" → practice
+- "When do we practice next?" → next_practice
+- "What's on the schedule for practice?" → practice_schedule
+- "Show me upcoming practices" → upcoming_practices
+- "What did we do in practice?" → last_practice_details
+- "What drills did we run?" → practice_drills
+- "Show me the drills from last practice" → practice_drills
+- "What equipment do I need for practice?" → practice_equipment
+- "What's planned for our next practice?" → next_practice_details
+- "Tell me about our last practice" → last_practice_details
+- "What plays are we working on in practice?" → practice_drills
 
 Respond in valid JSON only (no markdown, no explanation):
 {
@@ -324,6 +381,193 @@ function extractBasicEntities(message: string): ClassificationEntities {
   else if (message.includes('tendency') || message.includes('tendencies'))
     entities.topic = 'tendencies';
   else if (message.includes('trend')) entities.topic = 'trends';
+  // Schedule/games detection
+  else if (message.includes('schedule') || message.includes('next game') || message.includes('upcoming') ||
+      message.includes('when do we play') || message.includes('when is') || message.includes('what time') ||
+      message.includes('where is') && (message.includes('game') || message.includes('play')))
+    entities.topic = 'schedule';
+  else if (message.includes('record') || message.includes('win') && message.includes('loss') ||
+      message.includes('how many wins') || message.includes('how many losses'))
+    entities.topic = 'record';
+  else if (message.includes('score') && (message.includes('game') || message.includes('against')) ||
+      message.includes('what was the score') || message.includes('final score'))
+    entities.topic = 'game_results';
+  else if (message.includes('past game') || message.includes('games we played') ||
+      message.includes('last week') || message.includes('previous game'))
+    entities.topic = 'past_games';
+  else if (message.includes('game') && !message.includes('game plan'))
+    entities.topic = 'games';
+  // Practice detection
+  else if (message.includes('last practice') || message.includes('previous practice') ||
+      message.includes('when was') && message.includes('practice'))
+    entities.topic = 'last_practice';
+  else if (message.includes('next practice') || message.includes('when do we practice') ||
+      message.includes('when is') && message.includes('practice'))
+    entities.topic = 'next_practice';
+  else if (message.includes('upcoming practice') || message.includes('practices coming') ||
+      message.includes('future practice'))
+    entities.topic = 'upcoming_practices';
+  else if (message.includes('past practice') || message.includes('practices we had') ||
+      message.includes('practice history'))
+    entities.topic = 'past_practices';
+  else if (message.includes('practice schedule') || message.includes('how many practice'))
+    entities.topic = 'practice_schedule';
+  else if (message.includes('drill') || message.includes('what did we do') && message.includes('practice') ||
+      message.includes('tell me about') && message.includes('practice') ||
+      message.includes('what we worked on'))
+    entities.topic = 'practice_drills';
+  else if (message.includes('equipment') && message.includes('practice') ||
+      message.includes('what do i need') && message.includes('practice') ||
+      message.includes('bring to practice'))
+    entities.topic = 'practice_equipment';
+  else if (message.includes('planned for') && message.includes('practice') ||
+      message.includes('what\'s in') && message.includes('practice'))
+    entities.topic = 'next_practice_details';
+  else if (message.includes('practice'))
+    entities.topic = 'practice';
+  // Playbook search detection
+  else if (message.includes('playbook') || message.includes('my plays') ||
+      message.includes('what plays') || message.includes('which plays') ||
+      message.includes('show me') && message.includes('play') ||
+      message.includes('find play') || message.includes('list') && message.includes('play') ||
+      message.includes('feature') && (message.includes('te') || message.includes('tight end') ||
+        message.includes('rb') || message.includes('running back') || message.includes('wr') ||
+        message.includes('receiver')))
+    entities.topic = 'playbook_search';
+
+  // Detect target position for playbook searches (offense, defense, special teams)
+  // Offensive positions
+  if (message.includes('te') || message.includes('tight end')) {
+    entities.targetPosition = 'TE';
+  } else if (message.includes('rb') || message.includes('running back') || message.includes('tailback')) {
+    entities.targetPosition = 'RB';
+  } else if (message.includes('wr') || message.includes('receiver') || message.includes('wide out')) {
+    entities.targetPosition = 'WR';
+  } else if (message.includes('qb') || message.includes('quarterback')) {
+    entities.targetPosition = 'QB';
+  }
+  // Offensive line positions
+  else if (message.includes('offensive line') || message.includes('o-line') || message.includes('oline') || message.match(/\bol\b/)) {
+    entities.targetPosition = 'OL';
+  } else if (message.includes('left tackle') || message.match(/\blt\b/)) {
+    entities.targetPosition = 'LT';
+  } else if (message.includes('left guard') || message.match(/\blg\b/)) {
+    entities.targetPosition = 'LG';
+  } else if (message.includes('center') && !message.includes('field')) {
+    entities.targetPosition = 'C';
+  } else if (message.includes('right guard') || message.match(/\brg\b/)) {
+    entities.targetPosition = 'RG';
+  } else if (message.includes('right tackle') || message.match(/\brt\b/)) {
+    entities.targetPosition = 'RT';
+  } else if (message.includes('guard') && message.includes('pull')) {
+    entities.targetPosition = 'guard';
+  }
+  // Defensive line positions
+  else if (message.includes('defensive line') || message.includes('d-line') || message.includes('dline') || message.match(/\bdl\b/)) {
+    entities.targetPosition = 'DL';
+  } else if (message.includes('defensive end') || message.match(/\bde\b/) || message.includes('edge')) {
+    entities.targetPosition = 'DE';
+  } else if (message.includes('defensive tackle') || message.match(/\bdt\b/) || message.includes('nose tackle') || message.includes('nose guard')) {
+    entities.targetPosition = 'DT';
+  }
+  // Other defensive positions
+  else if (message.includes('linebacker') || message.match(/\blb\b/)) {
+    entities.targetPosition = 'LB';
+  } else if (message.includes('cornerback') || message.includes('corner') || message.match(/\bcb\b/)) {
+    entities.targetPosition = 'CB';
+  } else if (message.includes('safety') || message.match(/\bfs\b/) || message.match(/\bss\b/)) {
+    entities.targetPosition = 'S';
+  }
+  // Special teams positions
+  else if (message.includes('kicker') || message.match(/\bk\b/) && message.includes('play')) {
+    entities.targetPosition = 'K';
+  } else if (message.includes('punter') || message.match(/\bp\b/) && message.includes('play')) {
+    entities.targetPosition = 'P';
+  } else if (message.includes('returner') || message.match(/\bkr\b/) || message.match(/\bpr\b/)) {
+    entities.targetPosition = 'Returner';
+  }
+
+  // Detect play concept for playbook searches (offense, defense, special teams)
+  // Offensive run concepts
+  if (message.includes('power')) {
+    entities.concept = 'power';
+  } else if (message.includes('zone') && !message.includes('coverage')) {
+    entities.concept = 'zone';
+  } else if (message.includes('counter')) {
+    entities.concept = 'counter';
+  } else if (message.includes('trap')) {
+    entities.concept = 'trap';
+  } else if (message.includes('sweep')) {
+    entities.concept = 'sweep';
+  }
+  // Offensive pass concepts
+  else if (message.includes('levels')) {
+    entities.concept = 'levels';
+  } else if (message.includes('mesh')) {
+    entities.concept = 'mesh';
+  } else if (message.includes('stick')) {
+    entities.concept = 'stick';
+  } else if (message.includes('smash')) {
+    entities.concept = 'smash';
+  } else if (message.includes('four verts') || message.includes('4 verts')) {
+    entities.concept = 'four verts';
+  }
+  // Defensive coverage concepts
+  else if (message.includes('cover 0') || message.includes('cover zero')) {
+    entities.concept = 'cover 0';
+  } else if (message.includes('cover 1')) {
+    entities.concept = 'cover 1';
+  } else if (message.includes('cover 2')) {
+    entities.concept = 'cover 2';
+  } else if (message.includes('cover 3')) {
+    entities.concept = 'cover 3';
+  } else if (message.includes('cover 4') || message.includes('quarters')) {
+    entities.concept = 'cover 4';
+  } else if (message.includes('cover 6')) {
+    entities.concept = 'cover 6';
+  } else if (message.includes('man coverage') || message.includes('man-to-man')) {
+    entities.concept = 'man';
+  } else if (message.includes('zone coverage')) {
+    entities.concept = 'zone coverage';
+  }
+  // Defensive blitz concepts
+  else if (message.includes('blitz')) {
+    entities.concept = 'blitz';
+  } else if (message.includes('fire zone')) {
+    entities.concept = 'fire zone';
+  } else if (message.includes('zero blitz')) {
+    entities.concept = 'zero blitz';
+  }
+  // Special teams concepts
+  else if (message.includes('onside')) {
+    entities.concept = 'onside';
+  } else if (message.includes('squib')) {
+    entities.concept = 'squib';
+  } else if (message.includes('pooch')) {
+    entities.concept = 'pooch';
+  }
+
+  // Detect personnel for playbook searches
+  const personnelMatch = message.match(/\b(11|12|13|21|22|23|10|20)\b\s*(?:personnel)?/);
+  if (personnelMatch) {
+    entities.personnel = personnelMatch[1];
+  }
+
+  // Detect ODK (Offense/Defense/Special Teams) for playbook searches
+  if (message.includes('defensive') || message.includes('defense play') ||
+      message.includes('cover ') || message.includes('blitz') ||
+      message.includes('linebacker') || message.includes('cornerback') ||
+      message.includes('safety play') || message.includes('zone coverage') ||
+      message.includes('man coverage')) {
+    entities.odk = 'defense';
+  } else if (message.includes('special team') || message.includes('kickoff') ||
+      message.includes('punt') || message.includes('field goal') ||
+      message.includes('extra point') || message.includes('onside') ||
+      message.includes('return play')) {
+    entities.odk = 'special_teams';
+  } else if (message.includes('offensive') || message.includes('offense play')) {
+    entities.odk = 'offense';
+  }
 
   // Detect play type
   if (message.includes('run') && !message.includes('pass')) {
