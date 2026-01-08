@@ -385,6 +385,7 @@ export default function GameFilmPage() {
   const [timelineLanes, setTimelineLanes] = useState<CameraLane[]>([]); // Timeline lanes data (for multi-clip camera switching)
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false); // Loading state for camera switch
   const lastCameraSwitchTime = useRef<number>(0); // Debounce rapid camera clicks
+  const deferredCameraSwitch = useRef<{ videoId: string; gameTime?: number } | null>(null); // Store pending camera switch when video not loaded yet
   const seekLockRef = useRef<boolean>(false); // Prevents onTimeUpdate from overwriting gameTimelinePositionMs after programmatic seek
   const [currentLaneNumber, setCurrentLaneNumber] = useState<number>(1); // Which camera lane is active (persists across clip switches)
   const virtualPlaybackRef = useRef<NodeJS.Timeout | null>(null); // Timer for advancing timeline during coverage gaps
@@ -681,22 +682,48 @@ export default function GameFilmPage() {
 
   useEffect(() => {
     // Check if selectedVideo is still in the videos array (handles deleted videos)
-    const selectedVideoExists = selectedVideo && videos.some(v => v.id === selectedVideo.id);
+    const selectedVideoInArray = selectedVideo && videos.find(v => v.id === selectedVideo.id);
 
-    if (selectedVideoExists) {
+    // A video is valid if it exists in the array AND has a url or file_path
+    const selectedVideoIsValid = selectedVideoInArray && (selectedVideoInArray.url || selectedVideoInArray.file_path);
+
+    if (selectedVideoIsValid) {
       // Selected video is valid, load it
-      loadVideo(selectedVideo);
-      fetchMarkers(selectedVideo.id);
+      loadVideo(selectedVideoInArray);
+      fetchMarkers(selectedVideoInArray.id);
     } else if (videos.length > 0) {
-      // Selected video was deleted or doesn't exist, select first available
-      console.log('[TagPage] Selected video not found in videos array, selecting first video:', videos[0].id);
-      setSelectedVideo(videos[0]);
+      // Find the first video with a valid URL/file_path (skip orphaned records)
+      const validVideo = videos.find(v => v.url || v.file_path);
+      if (validVideo) {
+        console.log('[TagPage] Selecting valid video:', validVideo.id, validVideo.name);
+        setSelectedVideo(validVideo);
+      } else {
+        // No valid videos available
+        console.log('[TagPage] No valid videos found (all missing URLs)');
+        setSelectedVideo(null);
+      }
     } else if (selectedVideo) {
       // Videos array is empty but we have a stale selection, clear it
       console.log('[TagPage] Clearing stale selectedVideo - no videos available');
       setSelectedVideo(null);
     }
   }, [selectedVideo, videos]);
+
+  // Process deferred camera switch when videos array updates
+  useEffect(() => {
+    if (!deferredCameraSwitch.current) return;
+
+    const { videoId, gameTime } = deferredCameraSwitch.current;
+    const video = videos.find(v => v.id === videoId);
+
+    if (video) {
+      console.log('[TagPage] Processing deferred camera switch:', videoId);
+      // Clear the deferred switch before calling handleCameraSwitch to avoid infinite loop
+      deferredCameraSwitch.current = null;
+      // Call handleCameraSwitch now that the video is in the array
+      handleCameraSwitch(videoId, gameTime);
+    }
+  }, [videos]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -1686,9 +1713,13 @@ export default function GameFilmPage() {
       actualClipLanePositionMs = targetLane.clips[0].lanePositionMs;
     }
 
-    const newCamera = videos.find(v => v.id === actualVideoId);
+    let newCamera = videos.find(v => v.id === actualVideoId);
     if (!newCamera) {
-      console.log('[CameraSwitch] Camera not found, returning');
+      // Video not in local array yet (race condition after upload)
+      // Store the deferred switch and refresh videos
+      console.log('[CameraSwitch] Camera not found in local array, deferring switch and fetching videos:', actualVideoId);
+      deferredCameraSwitch.current = { videoId: actualVideoId, gameTime: overrideGameTime };
+      fetchVideos();
       return;
     }
 
