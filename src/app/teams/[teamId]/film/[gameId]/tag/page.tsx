@@ -357,6 +357,8 @@ export default function GameFilmPage() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
+  const [urlGeneratedAt, setUrlGeneratedAt] = useState<number | null>(null); // Timestamp when URL was generated
+  const [urlRefreshAttempted, setUrlRefreshAttempted] = useState(false); // Track if we've tried refreshing after error
   const [plays, setPlays] = useState<Play[]>([]);
   const [playInstances, setPlayInstances] = useState<PlayInstance[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
@@ -735,6 +737,62 @@ export default function GameFilmPage() {
       setSelectedVideo(null);
     }
   }, [selectedVideo, videos]);
+
+  // Auto-refresh signed URLs before they expire (45 min = 15 min before 1-hour expiry)
+  // This prevents video playback from failing during long tagging sessions
+  useEffect(() => {
+    if (!urlGeneratedAt || !selectedVideo || !videoUrl) return;
+
+    const URL_REFRESH_INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
+    const timeSinceGeneration = Date.now() - urlGeneratedAt;
+    const timeUntilRefresh = URL_REFRESH_INTERVAL_MS - timeSinceGeneration;
+
+    // If URL is already old (e.g., tab was backgrounded), refresh immediately
+    if (timeUntilRefresh <= 0) {
+      console.log('[URL Refresh] URL is stale, refreshing immediately');
+      loadVideo(selectedVideo);
+      return;
+    }
+
+    console.log(`[URL Refresh] Scheduling refresh in ${Math.round(timeUntilRefresh / 60000)} minutes`);
+
+    const refreshTimer = setTimeout(() => {
+      console.log('[URL Refresh] Auto-refreshing signed URL');
+      // Store current playback state
+      const wasPlaying = videoRef.current && !videoRef.current.paused;
+      const currentPosition = videoRef.current?.currentTime || 0;
+
+      // Refresh the URL
+      loadVideo(selectedVideo).then(() => {
+        // Note: The video element will re-request the new URL automatically when src changes
+        // We need to restore playback position after the new URL loads
+        if (videoRef.current) {
+          const restorePlayback = () => {
+            if (videoRef.current) {
+              videoRef.current.currentTime = currentPosition;
+              if (wasPlaying) {
+                videoRef.current.play().catch(() => {
+                  // Autoplay may be blocked, that's ok
+                });
+              }
+              console.log('[URL Refresh] Restored playback position:', currentPosition);
+            }
+          };
+
+          // Wait for the new video to be ready
+          if (videoRef.current.readyState >= 1) {
+            restorePlayback();
+          } else {
+            videoRef.current.addEventListener('loadedmetadata', restorePlayback, { once: true });
+          }
+        }
+      });
+    }, timeUntilRefresh);
+
+    return () => {
+      clearTimeout(refreshTimer);
+    };
+  }, [urlGeneratedAt, selectedVideo, videoUrl]);
 
   // Process deferred camera switch when videos array updates
   useEffect(() => {
@@ -1486,6 +1544,9 @@ export default function GameFilmPage() {
 
     if (data?.signedUrl) {
       setVideoUrl(data.signedUrl);
+      setUrlGeneratedAt(Date.now());
+      setUrlRefreshAttempted(false); // Reset refresh flag for new URL
+      console.log('[loadVideo] Signed URL generated, will refresh in 45 minutes');
     }
   }
 
@@ -3774,7 +3835,7 @@ export default function GameFilmPage() {
                             }
                           }}
                           onError={(e) => {
-                            // Handle video load errors to prevent infinite retry loops
+                            // Handle video load errors with URL refresh attempt
                             const video = e.target as HTMLVideoElement;
                             const error = video.error;
                             console.error('[Video Error]', {
@@ -3782,13 +3843,32 @@ export default function GameFilmPage() {
                               message: error?.message,
                               networkState: video.networkState,
                               readyState: video.readyState,
-                              src: video.src?.substring(0, 100) + '...'
+                              src: video.src?.substring(0, 100) + '...',
+                              urlRefreshAttempted,
                             });
+
+                            // Check if this might be an expired URL error (network errors often indicate this)
+                            // Error codes: 1=ABORTED, 2=NETWORK, 3=DECODE, 4=SRC_NOT_SUPPORTED
+                            const isNetworkOrSrcError = error?.code === 2 || error?.code === 4;
+
+                            // If we haven't tried refreshing the URL yet, attempt it
+                            if (!urlRefreshAttempted && selectedVideo && isNetworkOrSrcError) {
+                              console.log('[Video Error] Attempting URL refresh before showing error');
+                              setUrlRefreshAttempted(true);
+                              loadVideo(selectedVideo);
+                              return; // Don't show error yet, wait for refresh result
+                            }
+
+                            // Either we already tried refreshing or it's a different error type
                             // Clear the URL to stop retry attempts
                             if (videoUrl) {
                               console.error('[Video Error] Clearing video URL to prevent retry loop');
                               setVideoUrl('');
-                              setVideoLoadError('Failed to load video. The file may be missing or corrupted.');
+                              setVideoLoadError(
+                                urlRefreshAttempted
+                                  ? 'Failed to load video after refresh. The file may be missing or corrupted.'
+                                  : 'Failed to load video. The file may be missing or corrupted.'
+                              );
                             }
                             setIsSwitchingCamera(false);
                           }}
