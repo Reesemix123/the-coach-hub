@@ -126,31 +126,59 @@ export async function POST(
     );
   }
 
-  // Get video details
+  // Get video details - first check if video exists
   const { data: video, error: videoError } = await supabase
     .from('videos')
     .select(`
       id,
       name,
       file_path,
-      game_id,
-      games!inner(team_id, tagging_tier)
+      game_id
     `)
     .eq('id', videoId)
     .single();
 
   if (videoError || !video) {
-    return new Response(JSON.stringify({ error: 'Video not found' }), {
+    console.error('[AI Tagging] Video lookup error:', videoError, 'videoId:', videoId);
+    return new Response(JSON.stringify({ error: 'Video not found', details: videoError?.message }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!video.game_id) {
+    console.error('[AI Tagging] Video has no game_id:', videoId);
+    return new Response(JSON.stringify({ error: 'Video is not associated with a game' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (!video.file_path) {
+    console.error('[AI Tagging] Video has no file_path:', videoId);
+    return new Response(JSON.stringify({ error: 'Video file not found in storage' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Get game details separately
+  const { data: game, error: gameError } = await supabase
+    .from('games')
+    .select('team_id, tagging_tier')
+    .eq('id', video.game_id)
+    .single();
+
+  if (gameError || !game) {
+    console.error('[AI Tagging] Game lookup error:', gameError, 'game_id:', video.game_id);
+    return new Response(JSON.stringify({ error: 'Game not found for this video' }), {
       status: 404,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
   // Verify video belongs to this team
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gameData = video.games as any;
-  const game = Array.isArray(gameData) ? gameData[0] : gameData;
-  if (!game || game.team_id !== teamId) {
+  if (game.team_id !== teamId) {
     return new Response(JSON.stringify({ error: 'Video does not belong to this team' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json' },
@@ -161,7 +189,7 @@ export async function POST(
 
   // Get video URL from Supabase Storage
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-    .from('game-videos')
+    .from('game_videos')
     .createSignedUrl(video.file_path, 3600);
 
   if (signedUrlError || !signedUrlData?.signedUrl) {
