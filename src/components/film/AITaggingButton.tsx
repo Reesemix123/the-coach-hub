@@ -121,8 +121,8 @@ export function AITaggingButton({
     setStatusMessage('');
 
     try {
-      // Map tagging mode to offense/defense context for AI
-      const offenseOrDefense = taggingMode === 'specialTeams' ? 'offense' : taggingMode;
+      // Map tagging mode to context for AI
+      const offenseOrDefense = taggingMode === 'specialTeams' ? 'special_teams' : taggingMode;
 
       const response = await fetch(`/api/teams/${teamId}/ai-tagging/analyze`, {
         method: 'POST',

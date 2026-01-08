@@ -64,7 +64,7 @@ export interface AnalysisResult {
 // Context for play analysis
 export interface PlayContext {
   teamLevel?: string; // '8U', '10U', '12U', 'Middle School', 'High School'
-  offenseOrDefense?: 'offense' | 'defense';
+  offenseOrDefense?: 'offense' | 'defense' | 'special_teams';
   qualityScore?: number; // 1-10 from film quality assessment
   audioAvailable?: boolean;
   previousPlayContext?: string;

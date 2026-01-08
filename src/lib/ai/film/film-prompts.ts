@@ -260,7 +260,7 @@ export function buildPrompt(
   template: string,
   context: {
     team_level?: string;
-    offense_or_defense?: 'offense' | 'defense';
+    offense_or_defense?: 'offense' | 'defense' | 'special_teams';
     quality_score?: number;
     audio_available?: boolean;
     previous_play_context?: string;

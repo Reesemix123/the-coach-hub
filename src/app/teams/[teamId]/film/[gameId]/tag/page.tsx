@@ -4940,7 +4940,7 @@ export default function GameFilmPage() {
                         }
                       }
                     })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('kick_result')}`}
                   >
                     <option value="">Select result...</option>
                     {getKickResultsForUnit(selectedSpecialTeamsUnit).map(result => (
@@ -4963,7 +4963,7 @@ export default function GameFilmPage() {
                         type="number"
                         min="0"
                         max="99"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('kick_distance')}`}
                         placeholder={selectedSpecialTeamsUnit === 'field_goal' ? '35' : '45'}
                       />
                     </div>
@@ -4978,7 +4978,7 @@ export default function GameFilmPage() {
                         type="number"
                         min="-99"
                         max="109"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('return_yards')}`}
                         placeholder="25"
                       />
                     </div>
