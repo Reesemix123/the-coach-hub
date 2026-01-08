@@ -16,3 +16,21 @@ export {
   type VideoPlaybackPanelProps,
   type VideoPlaybackPanelRef,
 } from './VideoPlaybackPanel';
+
+export {
+  TaggingModeSelector,
+  inferTaggingModeFromPlayType,
+  isSpecialTeamsMode,
+  isDefenseMode,
+  TAGGING_MODE_LABELS,
+  TAGGING_MODE_DESCRIPTIONS,
+  type TaggingModeSelectorProps,
+} from './TaggingModeSelector';
+
+export {
+  TaggingFormContainer,
+  TaggingFormSection,
+  TaggingFormRow,
+  TaggingFormField,
+  type TaggingFormContainerProps,
+} from './TaggingFormContainer';
