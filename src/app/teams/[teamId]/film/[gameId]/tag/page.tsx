@@ -3778,11 +3778,36 @@ export default function GameFilmPage() {
                       <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedVideo.name}</h2>
 
                       {/* Camera Selector - right above video for easy switching */}
+                      {/* First try timeline-based camera selector */}
                       <TimelineCameraSelector
                         gameId={gameId}
                         selectedCameraId={selectedVideo?.id || null}
                         onCameraSwitch={handleCameraSwitch}
                       />
+                      {/* Fallback: Simple camera selector when multiple videos exist but timeline not set up */}
+                      {/* Only show when timelineLanes is empty (no timeline configured) */}
+                      {timelineLanes.length === 0 && videos.filter(v => !v.is_virtual).length > 1 && (
+                        <div className="flex gap-2 mb-4 flex-wrap">
+                          {videos.filter(v => !v.is_virtual).map((video) => (
+                            <button
+                              key={video.id}
+                              onClick={() => {
+                                setSelectedVideo(video);
+                                loadVideo(video);
+                              }}
+                              className={`
+                                px-3 py-1.5 text-sm rounded-full transition-all duration-200
+                                ${selectedVideo?.id === video.id
+                                  ? 'bg-black text-white font-medium'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }
+                              `}
+                            >
+                              {video.camera_label || video.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Video with "No film available" overlay */}
                       <VideoErrorBoundary
