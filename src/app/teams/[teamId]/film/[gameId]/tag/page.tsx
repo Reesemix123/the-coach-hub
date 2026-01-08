@@ -62,7 +62,7 @@ import { filmSessionService } from '@/lib/services/film-session.service';
 import StorageUsageCard from '@/components/StorageUsageCard';
 import type { CameraLane } from '@/types/timeline';
 import { findActiveClipForTime, findLaneForVideo } from '@/types/timeline';
-import { AITaggingButton, type AITagPredictions } from '@/components/film/AITaggingButton';
+import { AITaggingButton, type AITagPredictions, type TaggingMode } from '@/components/film/AITaggingButton';
 
 interface Game {
   id: string;
@@ -413,6 +413,27 @@ export default function GameFilmPage() {
   const [selectedSpecialTeamsUnit, setSelectedSpecialTeamsUnit] = useState<SpecialTeamsUnit | ''>('');
   const [aiPredictions, setAiPredictions] = useState<AITagPredictions | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  // Track which fields were AI-filled and their confidence levels
+  const [aiFilledFields, setAiFilledFields] = useState<Record<string, number>>({});
+
+  /**
+   * Get CSS classes for AI-filled fields based on confidence level
+   * Green (80+): High confidence
+   * Yellow (60-79): Medium confidence
+   * Red (<60): Low confidence
+   */
+  const getAIConfidenceClass = (fieldName: string): string => {
+    const confidence = aiFilledFields[fieldName];
+    if (confidence === undefined) return '';
+
+    if (confidence >= 80) {
+      return 'ring-2 ring-green-400 bg-green-50';
+    } else if (confidence >= 60) {
+      return 'ring-2 ring-yellow-400 bg-yellow-50';
+    } else {
+      return 'ring-2 ring-red-400 bg-red-50';
+    }
+  };
 
   // Helper for backwards compatibility - is it a defensive play (opponent has the ball)?
   const isTaggingOpponent = taggingMode === 'defense';
@@ -2175,8 +2196,8 @@ export default function GameFilmPage() {
 
   /**
    * Handle AI predictions received from the AI tagging button
-   * Applies predictions to form fields with high confidence (> 60)
-   * Note: AI returns confidence as 0-100, not 0-1
+   * Applies predictions to form fields with any confidence (shows color indicator)
+   * Color scale: Green (80+), Yellow (60-79), Red (<60)
    */
   function handleAIPredictions(predictions: AITagPredictions, predictionId: string) {
     console.log('[AI Tagging] Received predictions:', predictions);
@@ -2184,12 +2205,19 @@ export default function GameFilmPage() {
     setAiPredictions(predictions);
     setAiError(null);
 
-    // Apply predictions to form fields (only high confidence predictions > 60%)
-    // Note: Confidence comes as 0-100 from AI, so threshold is 60 not 0.6
-    const CONFIDENCE_THRESHOLD = 60;
+    // Track which fields were AI-filled and their confidence
+    const filledFields: Record<string, number> = {};
+
+    // Helper to set field and track confidence
+    const setFieldWithConfidence = (fieldName: string, value: unknown, confidence: number) => {
+      setValue(fieldName as keyof PlayTagForm, value as never);
+      filledFields[fieldName] = confidence;
+      console.log(`[AI Tagging] Set ${fieldName} = ${value} (confidence: ${confidence})`);
+    };
 
     // Play type - different field for opponent vs own team
-    if (predictions.play_type?.confidence && predictions.play_type.confidence > CONFIDENCE_THRESHOLD) {
+    if (predictions.play_type?.value !== undefined) {
+      const confidence = predictions.play_type.confidence ?? 0;
       if (isTaggingOpponent) {
         // Map AI play type to opponent play type options
         const aiPlayType = predictions.play_type.value.toLowerCase();
@@ -2197,10 +2225,8 @@ export default function GameFilmPage() {
         let opponentPlayType = '';
 
         if (aiPlayType === 'run' || aiPlayType.includes('run')) {
-          // Default to a generic run type - user can refine
           opponentPlayType = 'Other Run';
         } else if (aiPlayType === 'pass' || aiPlayType.includes('pass')) {
-          // Map based on yards gained if available
           if (yardsGained <= 5) opponentPlayType = 'Quick Pass (0-5 yds)';
           else if (yardsGained <= 10) opponentPlayType = 'Short Pass (6-10 yds)';
           else if (yardsGained <= 20) opponentPlayType = 'Medium Pass (11-20 yds)';
@@ -2212,79 +2238,84 @@ export default function GameFilmPage() {
         }
 
         if (opponentPlayType) {
-          console.log('[AI Tagging] Setting opponent_play_type:', opponentPlayType);
-          setValue('opponent_play_type', opponentPlayType);
+          setFieldWithConfidence('opponent_play_type', opponentPlayType, confidence);
         }
       } else {
-        setValue('play_type', predictions.play_type.value);
+        setFieldWithConfidence('play_type', predictions.play_type.value, confidence);
       }
     }
 
     // Direction
-    if (predictions.direction?.confidence && predictions.direction.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('direction', predictions.direction.value);
+    if (predictions.direction?.value !== undefined) {
+      setFieldWithConfidence('direction', predictions.direction.value, predictions.direction.confidence ?? 0);
     }
 
     // Result and yards
-    if (predictions.result?.confidence && predictions.result.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('result_type', predictions.result.value);
+    if (predictions.result?.value !== undefined) {
+      setFieldWithConfidence('result_type', predictions.result.value, predictions.result.confidence ?? 0);
     }
-    if (predictions.yards_gained?.confidence && predictions.yards_gained.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('yards_gained', predictions.yards_gained.value);
+    if (predictions.yards_gained?.value !== undefined) {
+      setFieldWithConfidence('yards_gained', predictions.yards_gained.value, predictions.yards_gained.confidence ?? 0);
     }
 
     // Formation
-    if (predictions.formation?.confidence && predictions.formation.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('formation', predictions.formation.value);
+    if (predictions.formation?.value !== undefined) {
+      setFieldWithConfidence('formation', predictions.formation.value, predictions.formation.confidence ?? 0);
     }
 
     // Context fields
-    if (predictions.down?.confidence && predictions.down.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('down', predictions.down.value);
+    if (predictions.down?.value !== undefined) {
+      setFieldWithConfidence('down', predictions.down.value, predictions.down.confidence ?? 0);
     }
-    if (predictions.distance?.confidence && predictions.distance.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('distance', predictions.distance.value);
+    if (predictions.distance?.value !== undefined) {
+      setFieldWithConfidence('distance', predictions.distance.value, predictions.distance.confidence ?? 0);
     }
-    if (predictions.hash?.confidence && predictions.hash.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('hash_mark', predictions.hash.value);
+    if (predictions.hash?.value !== undefined) {
+      setFieldWithConfidence('hash_mark', predictions.hash.value, predictions.hash.confidence ?? 0);
     }
 
     // Situational flags (only for own team)
     if (!isTaggingOpponent) {
-      if (predictions.motion?.confidence && predictions.motion.confidence > CONFIDENCE_THRESHOLD) {
-        setValue('has_motion', predictions.motion.value);
+      if (predictions.motion?.value !== undefined) {
+        setFieldWithConfidence('has_motion', predictions.motion.value, predictions.motion.confidence ?? 0);
       }
-      if (predictions.play_action?.confidence && predictions.play_action.confidence > CONFIDENCE_THRESHOLD) {
-        setValue('is_play_action', predictions.play_action.value);
+      if (predictions.play_action?.value !== undefined) {
+        setFieldWithConfidence('is_play_action', predictions.play_action.value, predictions.play_action.confidence ?? 0);
       }
     }
 
     // Special teams fields
-    if (predictions.special_teams_unit?.confidence && predictions.special_teams_unit.confidence > CONFIDENCE_THRESHOLD) {
+    if (predictions.special_teams_unit?.value !== undefined) {
       setSelectedSpecialTeamsUnit(predictions.special_teams_unit.value as SpecialTeamsUnit);
       setTaggingMode('specialTeams');
+      filledFields['special_teams_unit'] = predictions.special_teams_unit.confidence ?? 0;
     }
-    if (predictions.kick_result?.confidence && predictions.kick_result.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('kick_result', predictions.kick_result.value);
+    if (predictions.kick_result?.value !== undefined) {
+      setFieldWithConfidence('kick_result', predictions.kick_result.value, predictions.kick_result.confidence ?? 0);
     }
-    if (predictions.kick_distance?.confidence && predictions.kick_distance.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('kick_distance', predictions.kick_distance.value);
+    if (predictions.kick_distance?.value !== undefined) {
+      setFieldWithConfidence('kick_distance', predictions.kick_distance.value, predictions.kick_distance.confidence ?? 0);
     }
-    if (predictions.return_yards?.confidence && predictions.return_yards.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('return_yards', predictions.return_yards.value);
+    if (predictions.return_yards?.value !== undefined) {
+      setFieldWithConfidence('return_yards', predictions.return_yards.value, predictions.return_yards.confidence ?? 0);
     }
-    if (predictions.is_touchback?.confidence && predictions.is_touchback.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('is_touchback', predictions.is_touchback.value);
+    if (predictions.is_touchback?.value !== undefined) {
+      setFieldWithConfidence('is_touchback', predictions.is_touchback.value, predictions.is_touchback.confidence ?? 0);
     }
-    if (predictions.is_fair_catch?.confidence && predictions.is_fair_catch.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('is_fair_catch', predictions.is_fair_catch.value);
+    if (predictions.is_fair_catch?.value !== undefined) {
+      setFieldWithConfidence('is_fair_catch', predictions.is_fair_catch.value, predictions.is_fair_catch.confidence ?? 0);
     }
+
+    // Update the filled fields state to trigger UI update
+    setAiFilledFields(filledFields);
+    console.log('[AI Tagging] Filled fields with confidence:', filledFields);
   }
 
   function handleAIError(error: string) {
     console.error('[AI Tagging] Error:', error);
     setAiError(error);
     setAiPredictions(null);
+    setAiFilledFields({});
   }
 
   async function onSubmitTag(values: PlayTagForm) {
@@ -4384,6 +4415,7 @@ export default function GameFilmPage() {
             setSelectedTacklers([]);
             setPrimaryTacklerId('');
             setAiPredictions(null);
+            setAiFilledFields({});
             setAiError(null);
             reset();
           }}
@@ -4418,6 +4450,7 @@ export default function GameFilmPage() {
                       clipStartSeconds={tagStartTime}
                       clipEndSeconds={tagEndTime}
                       tier={taggingTier || 'quick'}
+                      taggingMode={taggingMode as TaggingMode}
                       onPredictionsReceived={handleAIPredictions}
                       onError={handleAIError}
                       disabled={!tagEndTime || (tagEndTime - tagStartTime) < 2}
@@ -4442,6 +4475,7 @@ export default function GameFilmPage() {
                     setSelectedTacklers([]);
                     setPrimaryTacklerId('');
                     setAiPredictions(null);
+                    setAiFilledFields({});
                     setAiError(null);
                     reset();
                   }}
@@ -5231,7 +5265,7 @@ export default function GameFilmPage() {
                   </label>
                   <select
                     {...register('opponent_play_type', { required: 'Please select play type' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('opponent_play_type')}`}
                   >
                     <option value="">Select play type...</option>
                     <optgroup label="Run Plays">
@@ -5365,7 +5399,7 @@ export default function GameFilmPage() {
                   <input
                     {...register('formation')}
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('formation')}`}
                     placeholder="e.g., Shotgun Spread, I-Formation"
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-filled from playbook when available</p>
@@ -5397,7 +5431,7 @@ export default function GameFilmPage() {
                           <label className="block text-xs font-medium text-gray-700 mb-1">Direction</label>
                           <select
                             {...register('direction')}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+                            className={`w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('direction')}`}
                           >
                             <option value="">-</option>
                             {DIRECTIONS.map(dir => (
@@ -5919,7 +5953,7 @@ export default function GameFilmPage() {
                   </label>
                   <select
                     {...register('result_type', { required: taggingMode !== 'specialTeams' ? 'Please select result' : false })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('result_type')}`}
                   >
                     <option value="">Select result...</option>
                     {RESULT_TYPES.map(result => (
@@ -5976,7 +6010,7 @@ export default function GameFilmPage() {
                       }
                     })}
                     type="number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 ${getAIConfidenceClass('yards_gained')}`}
                     placeholder="Negative for loss, positive for gain"
                   />
                   <p className="text-xs text-gray-500 mt-1">Auto-checks if down is 2nd-4th and yards ≥ distance</p>

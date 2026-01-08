@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { Sparkles, Loader2, Upload, Brain } from 'lucide-react';
 import type { TaggingTier } from '@/types/football';
 
+export type TaggingMode = 'offense' | 'defense' | 'specialTeams';
+
 interface AITaggingButtonProps {
   teamId: string;
   videoId: string;
   clipStartSeconds: number;
   clipEndSeconds: number;
   tier?: TaggingTier;
+  taggingMode?: TaggingMode; // What the user is tagging: offense, defense, or special teams
   onPredictionsReceived: (predictions: AITagPredictions, predictionId: string) => void;
   onError?: (error: string) => void;
   disabled?: boolean;
@@ -89,6 +92,7 @@ export function AITaggingButton({
   clipStartSeconds,
   clipEndSeconds,
   tier = 'quick',
+  taggingMode = 'offense',
   onPredictionsReceived,
   onError,
   disabled = false,
@@ -117,6 +121,9 @@ export function AITaggingButton({
     setStatusMessage('');
 
     try {
+      // Map tagging mode to offense/defense context for AI
+      const offenseOrDefense = taggingMode === 'specialTeams' ? 'offense' : taggingMode;
+
       const response = await fetch(`/api/teams/${teamId}/ai-tagging/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,6 +132,9 @@ export function AITaggingButton({
           clipStartSeconds,
           clipEndSeconds,
           tier,
+          context: {
+            offenseOrDefense,
+          },
         }),
       });
 
