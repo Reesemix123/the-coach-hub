@@ -36,28 +36,39 @@ The film tagging page (`src/app/teams/[teamId]/film/[gameId]/tag/page.tsx`) is a
 
 > Complete this section before starting Phase 1.
 
-### Current Error Rates
-- [ ] Video playback errors per session: _____________
-- [ ] Camera sync failures per switch: _____________
-- [ ] Play tagging errors per submission: _____________
-- [ ] Signed URL failures per day: _____________
+### Server-Side Metrics (from Supabase Dashboard)
 
-### Data Sources
-- [ ] Supabase logs reviewed for video-related errors
-- [ ] Browser console errors documented (if any user reports exist)
-- [ ] Known bugs listed below
+**How to capture:** Supabase Dashboard → Logs → Filter by path/status
+
+| Metric | Filter | Last 7 Days | Notes |
+|--------|--------|-------------|-------|
+| Video upload errors | Path contains `/videos/upload`, Status 4xx/5xx | _____ | |
+| Video sync errors | Path contains `/videos/*/sync`, Status 4xx/5xx | _____ | |
+| AI tagging errors | Path contains `/ai-tagging`, Status 4xx/5xx | _____ | |
+| Storage errors | Storage logs, Status 4xx/5xx | _____ | |
+
+### Client-Side Metrics (Qualitative)
+
+| Metric | Assessment | Notes |
+|--------|------------|-------|
+| Video playback reliability | [ ] Stable / [ ] Occasional issues / [ ] Frequent issues | |
+| Camera sync reliability | [ ] Works reliably / [ ] Sometimes fails / [ ] Often fails | |
+| Play tagging reliability | [ ] Works reliably / [ ] Sometimes fails / [ ] Often fails | |
+| User-reported video bugs (last 4 weeks) | _____ reports | |
 
 ### Known Issues (Pre-Refactor)
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Signed URL expiration | P0 | URLs expire after 1 hour with no refresh mechanism |
-| Double-submit bug | P1 | Fixed in recent commit, verify still resolved |
-| Video 400 error loop | P1 | Fixed in recent commit, verify still resolved |
-| [Add others as discovered] | | |
+
+| Issue | Severity | Status | Description |
+|-------|----------|--------|-------------|
+| Signed URL expiration | P0 | Open | URLs expire after 1 hour with no refresh mechanism |
+| Double-submit bug | P1 | Fixed | Fixed in recent commit, verify still resolved |
+| Video 400 error loop | P1 | Fixed | Fixed in recent commit, verify still resolved |
 
 ### Baseline Captured
-- [ ] Date: _____________
+- [ ] Date: 2025-01-08
 - [ ] Captured by: _____________
+- [ ] Supabase logs reviewed: [ ] Yes / [ ] No
+- [ ] Notes: _____________
 
 ---
 

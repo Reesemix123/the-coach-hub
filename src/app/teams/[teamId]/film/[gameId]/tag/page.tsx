@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import AuthGuard from '@/components/AuthGuard';
 import { useForm } from "react-hook-form";
 import { createClient } from '@/utils/supabase/client';
-import { COMMON_ATTRIBUTES, OPPONENT_PLAY_TYPES } from '@/config/footballConfig';
+import { COMMON_ATTRIBUTES, OPPONENT_PLAY_TYPES, OFFENSIVE_FORMATIONS } from '@/config/footballConfig';
 import {
   RESULT_TYPES,
   SCORING_TYPES,
@@ -63,6 +63,7 @@ import StorageUsageCard from '@/components/StorageUsageCard';
 import type { CameraLane } from '@/types/timeline';
 import { findActiveClipForTime, findLaneForVideo } from '@/types/timeline';
 import { AITaggingButton, type AITagPredictions, type TaggingMode } from '@/components/film/AITaggingButton';
+import { VideoErrorBoundary } from '@/components/film/VideoErrorBoundary';
 
 interface Game {
   id: string;
@@ -355,6 +356,7 @@ export default function GameFilmPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [videoUrl, setVideoUrl] = useState<string>('');
+  const [videoLoadError, setVideoLoadError] = useState<string | null>(null);
   const [plays, setPlays] = useState<Play[]>([]);
   const [playInstances, setPlayInstances] = useState<PlayInstance[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
@@ -476,7 +478,8 @@ export default function GameFilmPage() {
   // Auto-population state for down/distance/yard_line
   const [autoPopulatedFields, setAutoPopulatedFields] = useState<string[]>([]);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<PlayTagForm>();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<PlayTagForm>();
+  const [isSavingPlay, setIsSavingPlay] = useState(false); // Extra guard against double-submit
 
   // ============================================================================
   // AUTO-POPULATION HELPER FUNCTIONS
@@ -1457,17 +1460,29 @@ export default function GameFilmPage() {
   }
 
   async function loadVideo(video: Video) {
+    // Clear any previous error
+    setVideoLoadError(null);
+
     // If it's a virtual video, we don't need to load a URL
     if (video.is_virtual) {
       setVideoUrl(''); // Clear URL for virtual videos
       return;
     }
 
-    if (!video.file_path) return;
+    if (!video.file_path) {
+      setVideoLoadError('Video file path not found. The video may have been deleted.');
+      return;
+    }
 
-    const { data } = await supabase.storage
+    const { data, error } = await supabase.storage
       .from('game_videos')
       .createSignedUrl(video.file_path, 3600);
+
+    if (error) {
+      console.error('[loadVideo] Failed to create signed URL:', error);
+      setVideoLoadError('Failed to access video file. Please try refreshing the page.');
+      return;
+    }
 
     if (data?.signedUrl) {
       setVideoUrl(data.signedUrl);
@@ -2258,9 +2273,45 @@ export default function GameFilmPage() {
       setFieldWithConfidence('yards_gained', predictions.yards_gained.value, predictions.yards_gained.confidence ?? 0);
     }
 
-    // Formation
+    // Formation - validate against known formations
     if (predictions.formation?.value !== undefined) {
-      setFieldWithConfidence('formation', predictions.formation.value, predictions.formation.confidence ?? 0);
+      const aiFormation = predictions.formation.value;
+      const validFormations = Object.keys(OFFENSIVE_FORMATIONS);
+
+      // Check for exact match first
+      if (validFormations.includes(aiFormation)) {
+        setFieldWithConfidence('formation', aiFormation, predictions.formation.confidence ?? 0);
+      } else {
+        // Try to find a close match using case-insensitive comparison
+        const lowerAiFormation = aiFormation.toLowerCase().replace(/[_-]/g, ' ');
+        const matchedFormation = validFormations.find(f =>
+          f.toLowerCase().replace(/[_-]/g, ' ') === lowerAiFormation ||
+          f.toLowerCase().includes(lowerAiFormation) ||
+          lowerAiFormation.includes(f.toLowerCase())
+        );
+
+        if (matchedFormation) {
+          // Found a close match - use it but reduce confidence
+          const adjustedConfidence = Math.max((predictions.formation.confidence ?? 0) - 15, 30);
+          setFieldWithConfidence('formation', matchedFormation, adjustedConfidence);
+          console.log(`[AI Tagging] Mapped formation "${aiFormation}" to "${matchedFormation}"`);
+        } else {
+          // No match found - try keyword matching
+          const keywords = ['shotgun', 'gun', 'i-form', 'i form', 'pro', 'pistol', 'wing', 'goalline', 'singleback', 'empty', 'trips', 'doubles', 'power', 'wishbone', 'flexbone'];
+          const matchedKeyword = keywords.find(k => lowerAiFormation.includes(k));
+
+          if (matchedKeyword) {
+            const keywordMatch = validFormations.find(f => f.toLowerCase().includes(matchedKeyword));
+            if (keywordMatch) {
+              const adjustedConfidence = Math.max((predictions.formation.confidence ?? 0) - 25, 25);
+              setFieldWithConfidence('formation', keywordMatch, adjustedConfidence);
+              console.log(`[AI Tagging] Keyword matched formation "${aiFormation}" to "${keywordMatch}"`);
+            }
+          } else {
+            console.log(`[AI Tagging] No valid formation match for "${aiFormation}" - leaving empty for user`);
+          }
+        }
+      }
     }
 
     // Context fields
@@ -2320,6 +2371,13 @@ export default function GameFilmPage() {
 
   async function onSubmitTag(values: PlayTagForm) {
     if (!selectedVideo || !game?.team_id) return;
+
+    // Prevent double-submit
+    if (isSavingPlay) {
+      console.log('[TagPage] Ignoring duplicate submit - already saving');
+      return;
+    }
+    setIsSavingPlay(true);
 
     try {
       // Handle drive creation/assignment
@@ -3022,6 +3080,8 @@ export default function GameFilmPage() {
       fetchPlayInstances(timelineVideoIds);
     } catch (error: any) {
       alert('Error saving play: ' + error.message);
+    } finally {
+      setIsSavingPlay(false);
     }
   }
 
@@ -3664,6 +3724,17 @@ export default function GameFilmPage() {
                       />
 
                       {/* Video with "No film available" overlay */}
+                      <VideoErrorBoundary
+                        videoId={selectedVideo?.id}
+                        videoName={selectedVideo?.name}
+                        gameId={gameId}
+                        cameraLabel={selectedVideo?.camera_label || undefined}
+                        onReload={() => {
+                          if (selectedVideo) {
+                            loadVideo(selectedVideo);
+                          }
+                        }}
+                      >
                       <div className="relative">
                         <video
                           ref={videoRef}
@@ -3701,6 +3772,25 @@ export default function GameFilmPage() {
                             if (pendingSyncSeek === null && pendingCameraId === null) {
                               setIsSwitchingCamera(false);
                             }
+                          }}
+                          onError={(e) => {
+                            // Handle video load errors to prevent infinite retry loops
+                            const video = e.target as HTMLVideoElement;
+                            const error = video.error;
+                            console.error('[Video Error]', {
+                              code: error?.code,
+                              message: error?.message,
+                              networkState: video.networkState,
+                              readyState: video.readyState,
+                              src: video.src?.substring(0, 100) + '...'
+                            });
+                            // Clear the URL to stop retry attempts
+                            if (videoUrl) {
+                              console.error('[Video Error] Clearing video URL to prevent retry loop');
+                              setVideoUrl('');
+                              setVideoLoadError('Failed to load video. The file may be missing or corrupted.');
+                            }
+                            setIsSwitchingCamera(false);
                           }}
                           onEnded={() => {
                             // Video ended - find next clip on same camera lane
@@ -3785,6 +3875,31 @@ export default function GameFilmPage() {
                               <div className="text-white text-lg font-semibold">
                                 Loading camera...
                               </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Video load error overlay */}
+                        {videoLoadError && (
+                          <div className="absolute inset-0 bg-black/90 flex items-center justify-center rounded-lg">
+                            <div className="text-center p-8">
+                              <div className="text-red-400 text-lg font-semibold mb-2">
+                                Video Load Error
+                              </div>
+                              <div className="text-gray-300 text-sm mb-4 max-w-md">
+                                {videoLoadError}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setVideoLoadError(null);
+                                  if (selectedVideo) {
+                                    loadVideo(selectedVideo);
+                                  }
+                                }}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                              >
+                                Try Again
+                              </button>
                             </div>
                           </div>
                         )}
@@ -3898,6 +4013,7 @@ export default function GameFilmPage() {
                           return null;
                         })()}
                       </div>
+                      </VideoErrorBoundary>
 
                     <div className="mt-4 space-y-4">
                       {/* Play Instances Timeline - synced with game timeline */}
@@ -4462,6 +4578,24 @@ export default function GameFilmPage() {
                       <p className="text-xs text-gray-500 mt-1 max-w-xs truncate" title={aiPredictions.reasoning}>
                         AI: {aiPredictions.reasoning}
                       </p>
+                    )}
+                    {/* Confidence Legend - show when AI has filled fields */}
+                    {Object.keys(aiFilledFields).length > 0 && (
+                      <div className="flex items-center gap-2 mt-2 text-xs">
+                        <span className="text-gray-500">Confidence:</span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-3 h-3 rounded ring-2 ring-green-400 bg-green-50"></span>
+                          <span className="text-gray-600">High</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-3 h-3 rounded ring-2 ring-yellow-400 bg-yellow-50"></span>
+                          <span className="text-gray-600">Med</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-3 h-3 rounded ring-2 ring-red-400 bg-red-50"></span>
+                          <span className="text-gray-600">Low</span>
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
@@ -6172,9 +6306,10 @@ export default function GameFilmPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 font-semibold"
+                  disabled={isSavingPlay || isSubmitting}
+                  className="flex-1 px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingInstance ? 'Update Play' : 'Tag Play'}
+                  {isSavingPlay || isSubmitting ? 'Saving...' : (editingInstance ? 'Update Play' : 'Tag Play')}
                 </button>
                   </div>
                 </form>
