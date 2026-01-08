@@ -18,6 +18,8 @@ export {
   getModelIdForTier,
   getFieldsForTier,
   getPromptForTier,
+  getModelFallbackChain,
+  isModelUnavailableError,
   estimateBatchTime,
   calculateCost,
   type TierConfig,

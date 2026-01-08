@@ -18,10 +18,15 @@ export interface TierConfig {
   costPerPlay: string; // Approximate cost for display
 }
 
-// Model IDs for Gemini
+// Model IDs for Gemini - Use stable versions for production
+// See available models: https://ai.google.dev/gemini-api/docs/models/gemini
 export const GEMINI_MODELS = {
-  FLASH: 'gemini-2.0-flash-exp', // Fast, cost-effective
-  PRO: 'gemini-1.5-pro', // More capable for complex analysis (stable model)
+  // Primary models (stable)
+  FLASH: process.env.GEMINI_FLASH_MODEL || 'gemini-1.5-flash', // Fast, cost-effective
+  PRO: process.env.GEMINI_PRO_MODEL || 'gemini-1.5-pro', // More capable for complex analysis
+  // Fallback models (tried if primary fails)
+  FLASH_FALLBACK: 'gemini-1.5-flash-latest',
+  PRO_FALLBACK: 'gemini-1.5-pro-latest',
 } as const;
 
 // Tier configurations
@@ -120,6 +125,48 @@ export function getConfigForTier(tier: TaggingTier): TierConfig {
  */
 export function getModelIdForTier(tier: TaggingTier): string {
   return TIER_CONFIGS[tier].modelId;
+}
+
+/**
+ * Get fallback models for a tier (used when primary model fails)
+ * Returns array of model IDs to try in order
+ */
+export function getModelFallbackChain(tier: TaggingTier): string[] {
+  const primary = TIER_CONFIGS[tier].modelId;
+
+  if (tier === 'quick') {
+    return [
+      primary,
+      GEMINI_MODELS.FLASH_FALLBACK,
+      'gemini-1.5-flash-8b', // Smaller/faster variant
+      GEMINI_MODELS.PRO, // Fall back to pro if flash unavailable
+    ];
+  }
+
+  // Standard and comprehensive use PRO
+  return [
+    primary,
+    GEMINI_MODELS.PRO_FALLBACK,
+    'gemini-1.5-pro-002', // Specific version
+    GEMINI_MODELS.FLASH, // Fall back to flash if pro unavailable
+  ];
+}
+
+/**
+ * Check if an error indicates a model is unavailable (vs other errors)
+ */
+export function isModelUnavailableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('not found') ||
+      message.includes('not supported') ||
+      message.includes('does not exist') ||
+      message.includes('deprecated') ||
+      message.includes('404')
+    );
+  }
+  return false;
 }
 
 /**

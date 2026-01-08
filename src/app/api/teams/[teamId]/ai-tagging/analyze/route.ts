@@ -10,6 +10,8 @@ import {
   getFilmQuality,
   getConfigForTier,
   getPromptForTier,
+  getModelFallbackChain,
+  isModelUnavailableError,
   buildPrompt,
   calculateCost,
   savePrediction,
@@ -261,9 +263,8 @@ export async function POST(
 
         // Initialize Gemini
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: tierConfig.modelId });
 
-        // Call Gemini with video clip
+        // Build video part (used for all model attempts)
         // Note: videoMetadata is supported by Gemini API but not yet in TypeScript SDK types
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const videoPart: any = {
@@ -276,9 +277,39 @@ export async function POST(
             endOffset: { seconds: Math.ceil(clipEndSeconds) },
           },
         };
-        const result = await model.generateContent([videoPart, { text: prompt }]);
 
-        const response = result.response;
+        // Try models in fallback chain until one works
+        const modelChain = getModelFallbackChain(effectiveTier);
+        let response;
+        let usedModelId = tierConfig.modelId;
+        let lastError: Error | null = null;
+
+        for (const modelId of modelChain) {
+          try {
+            console.log(`[AI Tagging] Trying model: ${modelId}`);
+            const model = genAI.getGenerativeModel({ model: modelId });
+            const result = await model.generateContent([videoPart, { text: prompt }]);
+            response = result.response;
+            usedModelId = modelId;
+            console.log(`[AI Tagging] Success with model: ${modelId}`);
+            break; // Success - exit the loop
+          } catch (modelError) {
+            lastError = modelError instanceof Error ? modelError : new Error(String(modelError));
+            console.warn(`[AI Tagging] Model ${modelId} failed:`, lastError.message);
+
+            // Only try next model if this was a model availability error
+            if (!isModelUnavailableError(modelError)) {
+              // For other errors (rate limit, content policy, etc.), don't try fallback
+              throw modelError;
+            }
+            // Continue to next model in chain
+          }
+        }
+
+        if (!response) {
+          throw lastError || new Error('All AI models failed - please try again later');
+        }
+
         const text = response.text();
 
         // Parse JSON response
@@ -294,7 +325,7 @@ export async function POST(
         const usageMetadata = response.usageMetadata;
         const inputTokens = usageMetadata?.promptTokenCount || 0;
         const outputTokens = usageMetadata?.candidatesTokenCount || 0;
-        const costUsd = calculateCost(tierConfig.modelId, inputTokens, outputTokens);
+        const costUsd = calculateCost(usedModelId, inputTokens, outputTokens);
         const latencyMs = Date.now() - startTime;
 
         // Calculate confidence
