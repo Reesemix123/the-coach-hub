@@ -20,13 +20,17 @@ export interface TierConfig {
 
 // Model IDs for Gemini - Use stable versions for production
 // See available models: https://ai.google.dev/gemini-api/docs/models/gemini
+// As of 2025, stable models are gemini-2.5-flash and gemini-2.5-pro (no suffix)
 export const GEMINI_MODELS = {
-  // Primary models (stable)
-  FLASH: process.env.GEMINI_FLASH_MODEL || 'gemini-1.5-flash', // Fast, cost-effective
-  PRO: process.env.GEMINI_PRO_MODEL || 'gemini-1.5-pro', // More capable for complex analysis
+  // Primary models (stable - Gemini 2.5 series)
+  FLASH: process.env.GEMINI_FLASH_MODEL || 'gemini-2.5-flash', // Fast, cost-effective
+  PRO: process.env.GEMINI_PRO_MODEL || 'gemini-2.5-pro', // More capable for complex analysis
   // Fallback models (tried if primary fails)
-  FLASH_FALLBACK: 'gemini-1.5-flash-latest',
-  PRO_FALLBACK: 'gemini-1.5-pro-latest',
+  FLASH_FALLBACK: 'gemini-2.0-flash', // Previous generation flash
+  PRO_FALLBACK: 'gemini-2.0-pro', // Previous generation pro
+  // Legacy fallbacks (if 2.x models unavailable)
+  FLASH_LEGACY: 'gemini-1.5-flash-001',
+  PRO_LEGACY: 'gemini-1.5-pro-001',
 } as const;
 
 // Tier configurations
@@ -136,19 +140,21 @@ export function getModelFallbackChain(tier: TaggingTier): string[] {
 
   if (tier === 'quick') {
     return [
-      primary,
-      GEMINI_MODELS.FLASH_FALLBACK,
-      'gemini-1.5-flash-8b', // Smaller/faster variant
+      primary, // gemini-2.5-flash
+      GEMINI_MODELS.FLASH_FALLBACK, // gemini-2.0-flash
+      GEMINI_MODELS.FLASH_LEGACY, // gemini-1.5-flash-001
       GEMINI_MODELS.PRO, // Fall back to pro if flash unavailable
+      GEMINI_MODELS.PRO_LEGACY, // gemini-1.5-pro-001
     ];
   }
 
   // Standard and comprehensive use PRO
   return [
-    primary,
-    GEMINI_MODELS.PRO_FALLBACK,
-    'gemini-1.5-pro-002', // Specific version
+    primary, // gemini-2.5-pro
+    GEMINI_MODELS.PRO_FALLBACK, // gemini-2.0-pro
+    GEMINI_MODELS.PRO_LEGACY, // gemini-1.5-pro-001
     GEMINI_MODELS.FLASH, // Fall back to flash if pro unavailable
+    GEMINI_MODELS.FLASH_LEGACY, // gemini-1.5-flash-001
   ];
 }
 
@@ -213,16 +219,22 @@ export function estimateBatchTime(tier: TaggingTier, playCount: number): {
  * See: https://ai.google.dev/pricing
  */
 export const TOKEN_RATES = {
+  // Gemini 2.5 Flash rates
   [GEMINI_MODELS.FLASH]: {
     input: 0.000000075, // $0.075 per 1M input tokens
     output: 0.0000003, // $0.30 per 1M output tokens
   },
+  // Gemini 2.5 Pro rates
   [GEMINI_MODELS.PRO]: {
-    input: 0.00000125, // $1.25 per 1M input tokens (gemini-1.5-pro)
-    output: 0.000005, // $5 per 1M output tokens (gemini-1.5-pro)
+    input: 0.00000125, // $1.25 per 1M input tokens
+    output: 0.000005, // $5 per 1M output tokens
   },
-  // Fallback rates for any model not explicitly listed
-  'gemini-1.5-pro': {
+  // Legacy model rates (for fallback tracking)
+  [GEMINI_MODELS.FLASH_LEGACY]: {
+    input: 0.000000075,
+    output: 0.0000003,
+  },
+  [GEMINI_MODELS.PRO_LEGACY]: {
     input: 0.00000125,
     output: 0.000005,
   },
