@@ -21,7 +21,7 @@ export interface TierConfig {
 // Model IDs for Gemini
 export const GEMINI_MODELS = {
   FLASH: 'gemini-2.0-flash-exp', // Fast, cost-effective
-  PRO: 'gemini-2.0-flash-thinking-exp-01-21', // More capable for complex analysis
+  PRO: 'gemini-1.5-pro', // More capable for complex analysis (stable model)
 } as const;
 
 // Tier configurations
@@ -163,6 +163,7 @@ export function estimateBatchTime(tier: TaggingTier, playCount: number): {
 /**
  * Token cost rates for Gemini models (per token)
  * These are approximate and should be updated as pricing changes
+ * See: https://ai.google.dev/pricing
  */
 export const TOKEN_RATES = {
   [GEMINI_MODELS.FLASH]: {
@@ -170,8 +171,13 @@ export const TOKEN_RATES = {
     output: 0.0000003, // $0.30 per 1M output tokens
   },
   [GEMINI_MODELS.PRO]: {
-    input: 0.00000125, // $1.25 per 1M input tokens
-    output: 0.000005, // $5 per 1M output tokens
+    input: 0.00000125, // $1.25 per 1M input tokens (gemini-1.5-pro)
+    output: 0.000005, // $5 per 1M output tokens (gemini-1.5-pro)
+  },
+  // Fallback rates for any model not explicitly listed
+  'gemini-1.5-pro': {
+    input: 0.00000125,
+    output: 0.000005,
   },
 } as const;
 
