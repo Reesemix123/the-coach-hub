@@ -62,6 +62,7 @@ import { filmSessionService } from '@/lib/services/film-session.service';
 import StorageUsageCard from '@/components/StorageUsageCard';
 import type { CameraLane } from '@/types/timeline';
 import { findActiveClipForTime, findLaneForVideo } from '@/types/timeline';
+import { AITaggingButton, type AITagPredictions } from '@/components/film/AITaggingButton';
 
 interface Game {
   id: string;
@@ -410,6 +411,8 @@ export default function GameFilmPage() {
   const [analyticsTier, setAnalyticsTier] = useState<string>('premium');
   const [selectedTab, setSelectedTab] = useState<'context' | 'players' | 'ol' | 'defense' | 'specialTeams'>('context');
   const [selectedSpecialTeamsUnit, setSelectedSpecialTeamsUnit] = useState<SpecialTeamsUnit | ''>('');
+  const [aiPredictions, setAiPredictions] = useState<AITagPredictions | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Helper for backwards compatibility - is it a defensive play (opponent has the ball)?
   const isTaggingOpponent = taggingMode === 'defense';
@@ -2168,6 +2171,86 @@ export default function GameFilmPage() {
     setAutoPopulatedFields([]);
 
     setShowTagModal(true);
+  }
+
+  /**
+   * Handle AI predictions received from the AI tagging button
+   * Applies predictions to form fields with high confidence (> 0.6)
+   */
+  function handleAIPredictions(predictions: AITagPredictions, predictionId: string) {
+    console.log('[AI Tagging] Received predictions:', predictions);
+    setAiPredictions(predictions);
+    setAiError(null);
+
+    // Apply predictions to form fields (only high confidence predictions > 60%)
+    const CONFIDENCE_THRESHOLD = 0.6;
+
+    // Play type and direction
+    if (predictions.play_type?.confidence && predictions.play_type.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('play_type', predictions.play_type.value);
+    }
+    if (predictions.direction?.confidence && predictions.direction.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('direction', predictions.direction.value);
+    }
+
+    // Result and yards
+    if (predictions.result?.confidence && predictions.result.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('result_type', predictions.result.value);
+    }
+    if (predictions.yards_gained?.confidence && predictions.yards_gained.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('yards_gained', predictions.yards_gained.value);
+    }
+
+    // Formation
+    if (predictions.formation?.confidence && predictions.formation.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('formation', predictions.formation.value);
+    }
+
+    // Context fields
+    if (predictions.down?.confidence && predictions.down.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('down', predictions.down.value);
+    }
+    if (predictions.distance?.confidence && predictions.distance.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('distance', predictions.distance.value);
+    }
+    if (predictions.hash?.confidence && predictions.hash.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('hash_mark', predictions.hash.value);
+    }
+
+    // Situational flags
+    if (predictions.motion?.confidence && predictions.motion.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('has_motion', predictions.motion.value);
+    }
+    if (predictions.play_action?.confidence && predictions.play_action.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('is_play_action', predictions.play_action.value);
+    }
+
+    // Special teams fields
+    if (predictions.special_teams_unit?.confidence && predictions.special_teams_unit.confidence > CONFIDENCE_THRESHOLD) {
+      setSelectedSpecialTeamsUnit(predictions.special_teams_unit.value as SpecialTeamsUnit);
+      setTaggingMode('specialTeams');
+    }
+    if (predictions.kick_result?.confidence && predictions.kick_result.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('kick_result', predictions.kick_result.value);
+    }
+    if (predictions.kick_distance?.confidence && predictions.kick_distance.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('kick_distance', predictions.kick_distance.value);
+    }
+    if (predictions.return_yards?.confidence && predictions.return_yards.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('return_yards', predictions.return_yards.value);
+    }
+    if (predictions.is_touchback?.confidence && predictions.is_touchback.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('is_touchback', predictions.is_touchback.value);
+    }
+    if (predictions.is_fair_catch?.confidence && predictions.is_fair_catch.confidence > CONFIDENCE_THRESHOLD) {
+      setValue('is_fair_catch', predictions.is_fair_catch.value);
+    }
+  }
+
+  function handleAIError(error: string) {
+    console.error('[AI Tagging] Error:', error);
+    setAiError(error);
+    setAiPredictions(null);
   }
 
   async function onSubmitTag(values: PlayTagForm) {
@@ -4266,6 +4349,8 @@ export default function GameFilmPage() {
             setSelectedSpecialTeamsUnit('');
             setSelectedTacklers([]);
             setPrimaryTacklerId('');
+            setAiPredictions(null);
+            setAiError(null);
             reset();
           }}
         >
@@ -4289,23 +4374,50 @@ export default function GameFilmPage() {
                   )}
                 </p>
               </div>
-              <button
-                onClick={() => {
-                  setShowTagModal(false);
-                  setEditingInstance(null);
-                  setIsSettingEndTime(false);
-                  setTaggingMode('offense');
-                  setSelectedSpecialTeamsUnit('');
-                  setSelectedTacklers([]);
-                  setPrimaryTacklerId('');
-                  reset();
-                }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-4">
+                {/* AI Tagging Button */}
+                {tagEndTime && selectedVideo && (
+                  <div className="flex flex-col items-end">
+                    <AITaggingButton
+                      teamId={teamId}
+                      videoId={selectedVideo.id}
+                      clipStartSeconds={tagStartTime}
+                      clipEndSeconds={tagEndTime}
+                      tier={taggingTier || 'quick'}
+                      onPredictionsReceived={handleAIPredictions}
+                      onError={handleAIError}
+                      disabled={!tagEndTime || (tagEndTime - tagStartTime) < 2}
+                    />
+                    {aiError && (
+                      <p className="text-xs text-red-500 mt-1">{aiError}</p>
+                    )}
+                    {aiPredictions?.reasoning && (
+                      <p className="text-xs text-gray-500 mt-1 max-w-xs truncate" title={aiPredictions.reasoning}>
+                        AI: {aiPredictions.reasoning}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    setShowTagModal(false);
+                    setEditingInstance(null);
+                    setIsSettingEndTime(false);
+                    setTaggingMode('offense');
+                    setSelectedSpecialTeamsUnit('');
+                    setSelectedTacklers([]);
+                    setPrimaryTacklerId('');
+                    setAiPredictions(null);
+                    setAiError(null);
+                    reset();
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Split Content: Video + Form */}
