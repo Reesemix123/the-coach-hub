@@ -2175,20 +2175,52 @@ export default function GameFilmPage() {
 
   /**
    * Handle AI predictions received from the AI tagging button
-   * Applies predictions to form fields with high confidence (> 0.6)
+   * Applies predictions to form fields with high confidence (> 60)
+   * Note: AI returns confidence as 0-100, not 0-1
    */
   function handleAIPredictions(predictions: AITagPredictions, predictionId: string) {
     console.log('[AI Tagging] Received predictions:', predictions);
+    console.log('[AI Tagging] Current tagging mode:', taggingMode, 'isTaggingOpponent:', isTaggingOpponent);
     setAiPredictions(predictions);
     setAiError(null);
 
     // Apply predictions to form fields (only high confidence predictions > 60%)
-    const CONFIDENCE_THRESHOLD = 0.6;
+    // Note: Confidence comes as 0-100 from AI, so threshold is 60 not 0.6
+    const CONFIDENCE_THRESHOLD = 60;
 
-    // Play type and direction
+    // Play type - different field for opponent vs own team
     if (predictions.play_type?.confidence && predictions.play_type.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('play_type', predictions.play_type.value);
+      if (isTaggingOpponent) {
+        // Map AI play type to opponent play type options
+        const aiPlayType = predictions.play_type.value.toLowerCase();
+        const yardsGained = predictions.yards_gained?.value ?? 0;
+        let opponentPlayType = '';
+
+        if (aiPlayType === 'run' || aiPlayType.includes('run')) {
+          // Default to a generic run type - user can refine
+          opponentPlayType = 'Other Run';
+        } else if (aiPlayType === 'pass' || aiPlayType.includes('pass')) {
+          // Map based on yards gained if available
+          if (yardsGained <= 5) opponentPlayType = 'Quick Pass (0-5 yds)';
+          else if (yardsGained <= 10) opponentPlayType = 'Short Pass (6-10 yds)';
+          else if (yardsGained <= 20) opponentPlayType = 'Medium Pass (11-20 yds)';
+          else opponentPlayType = 'Deep Pass (20+ yds)';
+        } else if (aiPlayType.includes('screen')) {
+          opponentPlayType = 'Screen';
+        } else if (aiPlayType.includes('rpo')) {
+          opponentPlayType = 'RPO';
+        }
+
+        if (opponentPlayType) {
+          console.log('[AI Tagging] Setting opponent_play_type:', opponentPlayType);
+          setValue('opponent_play_type', opponentPlayType);
+        }
+      } else {
+        setValue('play_type', predictions.play_type.value);
+      }
     }
+
+    // Direction
     if (predictions.direction?.confidence && predictions.direction.confidence > CONFIDENCE_THRESHOLD) {
       setValue('direction', predictions.direction.value);
     }
@@ -2217,12 +2249,14 @@ export default function GameFilmPage() {
       setValue('hash_mark', predictions.hash.value);
     }
 
-    // Situational flags
-    if (predictions.motion?.confidence && predictions.motion.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('has_motion', predictions.motion.value);
-    }
-    if (predictions.play_action?.confidence && predictions.play_action.confidence > CONFIDENCE_THRESHOLD) {
-      setValue('is_play_action', predictions.play_action.value);
+    // Situational flags (only for own team)
+    if (!isTaggingOpponent) {
+      if (predictions.motion?.confidence && predictions.motion.confidence > CONFIDENCE_THRESHOLD) {
+        setValue('has_motion', predictions.motion.value);
+      }
+      if (predictions.play_action?.confidence && predictions.play_action.confidence > CONFIDENCE_THRESHOLD) {
+        setValue('is_play_action', predictions.play_action.value);
+      }
     }
 
     // Special teams fields
