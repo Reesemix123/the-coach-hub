@@ -34,3 +34,10 @@ export {
   TaggingFormField,
   type TaggingFormContainerProps,
 } from './TaggingFormContainer';
+
+export {
+  TimelineControlsPanel,
+  TimelineZoomControls,
+  PlaybackSpeedControl,
+  type TimelineControlsProps,
+} from './TimelineControlsPanel';
