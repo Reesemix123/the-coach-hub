@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useGlobalOnboardingSafe } from './GlobalOnboardingProvider';
 import { TOUR_STEPS } from '@/types/onboarding';
@@ -8,6 +8,11 @@ import { TOUR_STEPS } from '@/types/onboarding';
 export default function OnboardingTourModal() {
   const onboarding = useGlobalOnboardingSafe();
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Swipe gesture state
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const showTour = onboarding?.showTour ?? false;
 
@@ -17,6 +22,41 @@ export default function OnboardingTourModal() {
       setCurrentStep(0);
     }
   }, [showTour]);
+
+  // Swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+
+    // Only register horizontal swipes (ignore vertical scrolling)
+    // Require minimum 50px horizontal movement and horizontal > vertical
+    const minSwipeDistance = 50;
+    if (Math.abs(deltaX) > minSwipeDistance && Math.abs(deltaX) > Math.abs(deltaY)) {
+      if (deltaX < 0) {
+        // Swipe left = next
+        if (currentStep < TOUR_STEPS.length - 1) {
+          setCurrentStep(prev => prev + 1);
+        }
+      } else {
+        // Swipe right = previous
+        if (currentStep > 0) {
+          setCurrentStep(prev => prev - 1);
+        }
+      }
+    }
+
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [currentStep]);
 
   // Don't render if not in provider context
   if (!onboarding) {
@@ -64,7 +104,12 @@ export default function OnboardingTourModal() {
       />
 
       {/* Modal */}
-      <div className="relative bg-[#1a1410]/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div
+        ref={contentRef}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="relative bg-[#1a1410]/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden touch-pan-y"
+      >
         {/* Close button */}
         <button
           onClick={handleClose}
@@ -74,7 +119,7 @@ export default function OnboardingTourModal() {
         </button>
 
         {/* Content */}
-        <div className="p-6 sm:p-8">
+        <div className="p-6 sm:p-8 select-none">
           {/* Image */}
           <div className="relative w-full aspect-[16/10] bg-gray-100 rounded-xl overflow-hidden mb-6 border border-white/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
