@@ -1,5 +1,18 @@
-// src/lib/services/video-marker.service.ts
-// Service for managing video timeline markers
+/**
+ * VideoMarkerService
+ *
+ * Service for managing video timeline markers (quarter starts, halftime, etc.)
+ * Used by the film tagging page and timeline editor.
+ *
+ * Features:
+ * - CRUD operations for markers
+ * - Quarter detection at timestamp
+ * - Auto-generation of quarter markers
+ * - Inference from tagged plays
+ *
+ * @module lib/services/video-marker.service
+ * @since Phase 2 - Film System Refactor (enhanced)
+ */
 
 import { createClient } from '@/utils/supabase/client';
 import type { VideoTimelineMarker, MarkerType } from '@/types/football';
@@ -288,3 +301,20 @@ export class VideoMarkerService {
     return (data as VideoTimelineMarker[]) || [];
   }
 }
+
+/**
+ * Singleton instance for convenience
+ */
+let defaultInstance: VideoMarkerService | null = null;
+
+/**
+ * Get the default VideoMarkerService instance
+ */
+export function getVideoMarkerService(): VideoMarkerService {
+  if (!defaultInstance) {
+    defaultInstance = new VideoMarkerService();
+  }
+  return defaultInstance;
+}
+
+export default VideoMarkerService;
