@@ -3784,9 +3784,9 @@ export default function GameFilmPage() {
                         selectedCameraId={selectedVideo?.id || null}
                         onCameraSwitch={handleCameraSwitch}
                       />
-                      {/* Fallback: Simple camera selector when multiple videos exist but timeline not set up */}
-                      {/* Only show when timelineLanes is empty (no timeline configured) */}
-                      {timelineLanes.length === 0 && videos.filter(v => !v.is_virtual).length > 1 && (
+                      {/* Fallback: Simple camera selector when multiple videos exist */}
+                      {/* Always show when 2+ non-virtual videos - allows quick camera switching */}
+                      {videos.filter(v => !v.is_virtual).length > 1 && (
                         <div className="flex gap-2 mb-4 flex-wrap">
                           {videos.filter(v => !v.is_virtual).map((video) => (
                             <button
