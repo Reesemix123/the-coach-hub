@@ -62,8 +62,9 @@ import { filmSessionService } from '@/lib/services/film-session.service';
 import StorageUsageCard from '@/components/StorageUsageCard';
 import type { CameraLane } from '@/types/timeline';
 import { findActiveClipForTime, findLaneForVideo } from '@/types/timeline';
-import { AITaggingButton, type AITagPredictions, type TaggingMode } from '@/components/film/AITaggingButton';
+import { AITaggingButton, type AITagPredictions } from '@/components/film/AITaggingButton';
 import { VideoErrorBoundary } from '@/components/film/VideoErrorBoundary';
+import { FilmProvider, useSyncLocalStateToContext, type TaggingMode } from '@/components/film/context';
 
 interface Game {
   id: string;
@@ -193,8 +194,7 @@ interface PlayInstance {
   scoring_points?: number;
 }
 
-// Tagging mode: offense, defense, or special teams
-type TaggingMode = 'offense' | 'defense' | 'specialTeams';
+// TaggingMode now imported from @/components/film/context
 
 interface PlayTagForm {
   play_code?: string;
@@ -419,6 +419,8 @@ export default function GameFilmPage() {
   const [aiError, setAiError] = useState<string | null>(null);
   // Track which fields were AI-filled and their confidence levels
   const [aiFilledFields, setAiFilledFields] = useState<Record<string, number>>({});
+
+  // NOTE: State sync to FilmContext is handled by FilmStateSync component inside FilmProvider
 
   /**
    * Get CSS classes for AI-filled fields based on confidence level
@@ -3316,6 +3318,18 @@ export default function GameFilmPage() {
 
   return (
     <AuthGuard>
+      <FilmProvider>
+        <FilmStateSync
+          game={game}
+          videos={videos}
+          selectedVideo={selectedVideo}
+          videoUrl={videoUrl}
+          currentTime={currentTime}
+          videoDuration={videoDuration}
+          isPlaying={isPlaying}
+          timelineLanes={timelineLanes}
+          gameTimelinePositionMs={gameTimelinePositionMs}
+        />
       <div className="min-h-screen bg-white py-8">
         <div className="max-w-7xl mx-auto px-4">
           {/* Header */}
@@ -6607,6 +6621,46 @@ export default function GameFilmPage() {
           </div>
         </div>
       )}
+      </FilmProvider>
     </AuthGuard>
   );
+}
+
+/**
+ * FilmStateSync - Syncs local state to FilmContext
+ * Must be rendered inside FilmProvider to access context
+ */
+function FilmStateSync({
+  game,
+  videos,
+  selectedVideo,
+  videoUrl,
+  currentTime,
+  videoDuration,
+  isPlaying,
+  timelineLanes,
+  gameTimelinePositionMs,
+}: {
+  game: Game | null;
+  videos: Video[];
+  selectedVideo: Video | null;
+  videoUrl: string;
+  currentTime: number;
+  videoDuration: number;
+  isPlaying: boolean;
+  timelineLanes: CameraLane[];
+  gameTimelinePositionMs: number;
+}) {
+  useSyncLocalStateToContext({
+    game: game as Parameters<typeof useSyncLocalStateToContext>[0]['game'],
+    videos: videos as Parameters<typeof useSyncLocalStateToContext>[0]['videos'],
+    selectedVideo: selectedVideo as Parameters<typeof useSyncLocalStateToContext>[0]['selectedVideo'],
+    videoUrl,
+    currentTime,
+    videoDuration,
+    isPlaying,
+    timelineLanes,
+    gameTimelinePositionMs,
+  });
+  return null;
 }

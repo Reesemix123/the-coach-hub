@@ -62,6 +62,12 @@ export {
   useDataActions,
 } from './FilmContext';
 
+// Bridge Hook
+export {
+  useFilmStateBridge,
+  useSyncLocalStateToContext,
+} from './useFilmStateBridge';
+
 // Selectors
 export {
   // Loading
