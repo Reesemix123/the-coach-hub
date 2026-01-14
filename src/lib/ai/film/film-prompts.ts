@@ -111,6 +111,7 @@ export const STANDARD_TAG_PROMPT = `Analyze this football play clip and suggest 
 - Film quality: {quality_score}/10
 - Audio available: {audio_available}
 - Previous play context: {previous_play_context}
+- Valid formations: {playbook_formations}
 
 **Analyze these Standard Tag fields:**
 
@@ -121,7 +122,7 @@ Basic (from Quick):
 - yards_gained: Estimate
 
 Additional Standard fields:
-- formation: Common formations (shotgun, pistol, i_form, singleback, empty, spread, wing_t, goal_line, etc.)
+- formation: MUST be one of the valid formations listed above. Match what you see to the closest option from the list.
 - personnel: If identifiable (11, 12, 21, 22, 10, etc. - first digit = RBs, second = TEs)
 - hash: "left", "middle", "right" (where ball is spotted)
 - down: 1-4 if visible or deducible
@@ -143,7 +144,7 @@ For run/pass plays:
   "direction": { "value": "right", "confidence": 78 },
   "result": { "value": "complete", "confidence": 90 },
   "yards_gained": { "value": 12, "confidence": 55 },
-  "formation": { "value": "shotgun", "confidence": 72, "notes": "4 WR visible" },
+  "formation": { "value": "Shotgun Spread", "confidence": 72, "notes": "4 WR visible" },
   "personnel": { "value": "11", "confidence": 65 },
   "hash": { "value": "left", "confidence": 80 },
   "down": { "value": 2, "confidence": 40, "notes": "Not visible, guessing from context" },
@@ -182,7 +183,7 @@ Basic (Quick):
 - play_type, direction, result, yards_gained
 
 Formation & Personnel (Standard):
-- formation (match to team's playbook if possible)
+- formation: MUST be one of the valid formations from the list above. Match what you see to the closest option.
 - personnel
 - hash
 - down, distance
@@ -222,7 +223,7 @@ For run/pass plays:
   "direction": { "value": "right", "confidence": 78 },
   "result": { "value": "complete", "confidence": 90 },
   "yards_gained": { "value": 12, "confidence": 55 },
-  "formation": { "value": "shotgun", "confidence": 72 },
+  "formation": { "value": "Shotgun Spread", "confidence": 72 },
   "personnel": { "value": "11", "confidence": 65 },
   "hash": { "value": "left", "confidence": 80 },
   "down": { "value": 2, "confidence": 40 },

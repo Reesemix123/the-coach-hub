@@ -21,6 +21,11 @@ import {
   type PlayPrediction,
 } from '@/lib/ai/film';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { OFFENSIVE_FORMATIONS, DEFENSIVE_FORMATIONS } from '@/config/footballConfig';
+
+// Get valid formation names for each mode
+const VALID_OFFENSIVE_FORMATIONS = Object.keys(OFFENSIVE_FORMATIONS);
+const VALID_DEFENSIVE_FORMATIONS = Object.keys(DEFENSIVE_FORMATIONS);
 
 interface AnalyzeRequest {
   videoId: string;
@@ -243,13 +248,24 @@ export async function POST(
         const filmQuality = await getFilmQuality(videoId);
         const tierConfig = getConfigForTier(effectiveTier);
 
+        // Determine valid formations based on the mode
+        // When tagging offense: we're tagging our offensive plays, use offensive formations
+        // When tagging defense: we're analyzing opponent's offense, use offensive formations
+        // When tagging special_teams: we skip formation field (handled separately)
+        const mode = context.offenseOrDefense || 'offense';
+        const validFormations = mode === 'special_teams'
+          ? [] // Special teams don't use standard formations
+          : mode === 'defense'
+            ? VALID_OFFENSIVE_FORMATIONS // When we're on defense, opponent is on offense
+            : VALID_OFFENSIVE_FORMATIONS; // When we're on offense, we use offensive formations
+
         const analysisContext: PlayContext = {
           teamLevel: teamOwner?.level || context.teamLevel,
-          offenseOrDefense: context.offenseOrDefense || 'offense',
+          offenseOrDefense: mode,
           qualityScore: filmQuality?.qualityScore || context.qualityScore,
           audioAvailable: filmQuality?.audioAvailable || context.audioAvailable,
           previousPlayContext: context.previousPlayContext,
-          playbookFormations: context.playbookFormations,
+          playbookFormations: validFormations,
         };
 
         const prompt = buildPrompt(getPromptForTier(effectiveTier), {
