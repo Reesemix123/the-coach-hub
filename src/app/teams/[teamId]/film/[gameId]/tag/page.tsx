@@ -4320,17 +4320,9 @@ export default function GameFilmPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
                   <p className="text-gray-600 text-lg mb-4">No videos for this game yet</p>
-                  <div className="text-center">
-                    <label className="inline-block px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 cursor-pointer font-semibold transition-colors">
-                      Upload Video
-                      <input
-                        type="file"
-                        accept="video/*"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
+                  <p className="text-gray-500 text-sm">
+                    Use the <strong>Upload</strong> button in the Timeline above to add video
+                  </p>
                 </div>
               )}
             </div>
