@@ -5,12 +5,15 @@ import Tooltip from '@/components/Tooltip';
 import { POSITION_GROUPS, isDefensiveLineman, isLinebacker, isDefensiveBack, getGapPositionFromName } from '@/config/footballConfig';
 import { FIELD_CONFIG } from './fieldConstants';
 
-// Modern Color Palette (Hudl-inspired)
+// Modern Color Palette - Light field like competitor
 const COLORS = {
   field: {
-    gradient: ['#065F46', '#047857', '#059669'],
-    lines: '#047857',
-    border: '#064E3B',
+    background: '#E8F5E9',    // Light green/gray
+    lines: '#9CA3AF',         // Gray for yard lines
+    majorLines: '#6B7280',    // Darker gray for 10-yard lines
+    border: '#D1D5DB',        // Light border
+    numbers: '#9CA3AF',       // Yard numbers
+    los: '#3B82F6',           // Blue line of scrimmage
   },
   offense: {
     player: '#DC2626',
@@ -1081,38 +1084,105 @@ export default function FieldDiagram({
           aria-label="Football play diagram - drag players to reposition"
         >
           <defs>
-            {/* Modern field gradient */}
-            <linearGradient id="fieldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor={COLORS.field.gradient[0]} />
-              <stop offset="50%" stopColor={COLORS.field.gradient[1]} />
-              <stop offset="100%" stopColor={COLORS.field.gradient[2]} />
-            </linearGradient>
+            {/* No gradient needed - solid background */}
           </defs>
-          {/* Field background with gradient */}
-          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="url(#fieldGradient)" />
-          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke={COLORS.field.border} strokeWidth="3" />
-          
-          {/* Yard lines */}
+          {/* Field background - light green/gray */}
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill={COLORS.field.background} />
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke={COLORS.field.border} strokeWidth="2" />
+
+          {/* Yard lines - every 40px = 10 yards on our scale */}
+          {/* 10-yard lines (major) */}
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
             <line
-              key={i}
+              key={`major-${i}`}
               x1="0"
               y1={i * 40}
-              x2="700"
+              x2={FIELD_CONFIG.WIDTH}
               y2={i * 40}
-              stroke={COLORS.field.lines}
-              strokeWidth="1"
-              opacity="0.5"
+              stroke={COLORS.field.majorLines}
+              strokeWidth={i === 5 ? 1 : 1}
+              opacity="0.6"
             />
           ))}
 
-          {/* Hash marks */}
-          <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke={COLORS.field.lines} strokeWidth="1" strokeDasharray="5,5" opacity="0.6" />
-          <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke={COLORS.field.lines} strokeWidth="1" strokeDasharray="5,5" opacity="0.6" />
+          {/* 5-yard lines (between major lines) */}
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
+            <line
+              key={`five-${i}`}
+              x1="0"
+              y1={i * 40 + 20}
+              x2={FIELD_CONFIG.WIDTH}
+              y2={i * 40 + 20}
+              stroke={COLORS.field.lines}
+              strokeWidth="0.5"
+              opacity="0.4"
+            />
+          ))}
+
+          {/* Individual yard hash marks on the sides */}
+          {Array.from({ length: 41 }, (_, i) => i).map(i => {
+            const y = i * 10; // Each yard = 10px (40px / 4 yards per 10-yard section)
+            const isMajor = i % 4 === 0; // Every 4th mark is a 10-yard line
+            const isFive = i % 2 === 0 && !isMajor; // Every 2nd mark (not major) is 5-yard
+            if (isMajor || isFive) return null; // Skip major and 5-yard lines, they're full width
+            return (
+              <g key={`hash-${i}`}>
+                {/* Left side hash */}
+                <line x1="0" y1={y} x2="15" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.4" />
+                {/* Right side hash */}
+                <line x1={FIELD_CONFIG.WIDTH - 15} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.4" />
+                {/* Inner hash marks */}
+                <line x1={FIELD_CONFIG.HASH_LEFT - 5} y1={y} x2={FIELD_CONFIG.HASH_LEFT + 5} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                <line x1={FIELD_CONFIG.HASH_RIGHT - 5} y1={y} x2={FIELD_CONFIG.HASH_RIGHT + 5} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+              </g>
+            );
+          })}
+
+          {/* Yard numbers on sides */}
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => {
+            const y = i * 40;
+            const yardNum = Math.abs(5 - i) * 10; // 40, 30, 20, 10, 0, 10, 20, 30, 40
+            const displayNum = yardNum === 0 ? '' : yardNum.toString();
+            if (!displayNum) return null;
+            return (
+              <g key={`num-${i}`}>
+                {/* Left numbers - rotated */}
+                <text
+                  x="25"
+                  y={y}
+                  fill={COLORS.field.numbers}
+                  fontSize="28"
+                  fontWeight="bold"
+                  fontFamily="Arial, sans-serif"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  transform={`rotate(-90, 25, ${y})`}
+                  opacity="0.4"
+                >
+                  {displayNum}
+                </text>
+                {/* Right numbers - rotated opposite */}
+                <text
+                  x={FIELD_CONFIG.WIDTH - 25}
+                  y={y}
+                  fill={COLORS.field.numbers}
+                  fontSize="28"
+                  fontWeight="bold"
+                  fontFamily="Arial, sans-serif"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 25}, ${y})`}
+                  opacity="0.4"
+                >
+                  {displayNum}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Line of scrimmage - hide for kickoff and kick return plays */}
           {formation !== 'Kickoff' && formation !== 'Kick Return' && (
-            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="white" strokeWidth="3" opacity="0.8" />
+            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke={COLORS.field.los} strokeWidth="2" opacity="0.9" />
           )}
 
           {/* Dummy Offense (for defensive plays) */}
