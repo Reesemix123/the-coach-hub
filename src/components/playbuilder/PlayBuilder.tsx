@@ -96,8 +96,10 @@ import FieldDiagram from './FieldDiagram';
 import { ValidationModal } from './ValidationModal';
 import { FIELD_CONFIG } from './fieldConstants';
 import QuickDrawToolbar from './QuickDrawToolbar';
+import RouteTypeModal from './RouteTypeModal';
 import { useQuickDrawEngine } from './hooks/useQuickDrawEngine';
 import { useSVGCoordinates } from './hooks/useSVGCoordinates';
+import { detectRouteType, getRouteOptions, detectBlockingType, type RouteAnalysis } from './utils/routeDetection';
 
 /**
  * Player entity on the field diagram
@@ -279,6 +281,16 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   const { state: quickDrawState, actions: quickDrawActions } = useQuickDrawEngine();
   const { getPointFromMouseEvent } = useSVGCoordinates();
 
+  // Quick Draw modal state
+  const [showRouteModal, setShowRouteModal] = useState(false);
+  const [pendingQuickDraw, setPendingQuickDraw] = useState<{
+    playerId: string;
+    tool: string;
+    path: Array<{ x: number; y: number }>;
+    routeAnalysis: RouteAnalysis | null;
+    relevantOptions: string[];
+  } | null>(null);
+
   // Quick Draw event handlers
   const handleQuickDrawPlayerClick = useCallback((playerId: string) => {
     // If already drawing, clicking another player cancels current and starts new
@@ -311,18 +323,115 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       return;
     }
 
-    // TODO: Phase 3 - Show route confirmation modal and save to routes/players
-    // For now, just log and cancel
-    console.log('Quick Draw finish:', {
+    const player = players.find(p => p.id === quickDrawState.activePlayerId);
+    if (!player) {
+      quickDrawActions.cancelDrawing();
+      return;
+    }
+
+    // Detect route type from drawn path
+    const routeAnalysis = detectRouteType(
+      quickDrawState.ghostLine,
+      player.side,
+      player.x
+    );
+    const relevantOptions = getRouteOptions(routeAnalysis);
+
+    // Store pending draw data and show modal
+    setPendingQuickDraw({
       playerId: quickDrawState.activePlayerId,
       tool: quickDrawState.selectedTool,
-      path: quickDrawState.ghostLine,
+      path: [...quickDrawState.ghostLine],
+      routeAnalysis,
+      relevantOptions,
     });
 
     quickDrawActions.finishDrawing();
-    // Reset active player after a short delay to show the finished state
-    setTimeout(() => quickDrawActions.cancelDrawing(), 100);
-  }, [quickDrawState, quickDrawActions]);
+    setShowRouteModal(true);
+  }, [quickDrawState, quickDrawActions, players]);
+
+  const handleQuickDrawConfirm = useCallback((routeType: string, isPrimary: boolean) => {
+    if (!pendingQuickDraw) return;
+
+    const { playerId, path, tool } = pendingQuickDraw;
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    // Create new route with the drawn path
+    const newRouteId = `route-${Date.now()}`;
+    const newRoute: Route = {
+      id: newRouteId,
+      playerId: playerId,
+      points: path, // Using points internally, will be mapped to path on save
+      assignment: routeType,
+      isPrimary: isPrimary,
+    };
+
+    // Update routes - remove any existing route for this player first
+    setRoutes(prev => {
+      const filtered = prev.filter(r => r.playerId !== playerId);
+      return [...filtered, newRoute];
+    });
+
+    // Update player assignment
+    setPlayers(prev =>
+      prev.map(p => {
+        if (p.id === playerId) {
+          // If marking as primary, unmark others
+          const updates: Partial<Player> = {
+            assignment: routeType,
+            isPrimary: isPrimary,
+          };
+
+          // For blocking assignments, set blockType
+          if (tool === 'block') {
+            updates.blockType = routeType;
+            updates.blockDirection = path.length > 1
+              ? { x: path[path.length - 1].x, y: path[path.length - 1].y }
+              : undefined;
+          }
+
+          return { ...p, ...updates };
+        }
+        // If new route is primary, unmark others
+        if (isPrimary && p.isPrimary) {
+          return { ...p, isPrimary: false };
+        }
+        return p;
+      })
+    );
+
+    // Also update other routes' isPrimary if this one is primary
+    if (isPrimary) {
+      setRoutes(prev =>
+        prev.map(r => r.id === newRouteId ? r : { ...r, isPrimary: false })
+      );
+    }
+
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
+
+    // Push to undo stack
+    quickDrawActions.pushUndo({
+      type: tool === 'block' ? 'block' : 'route',
+      playerId,
+      previousState: null, // Could store previous assignment for true undo
+      newState: { routeType, path, isPrimary },
+    });
+
+    // Close modal and reset state
+    setShowRouteModal(false);
+    setPendingQuickDraw(null);
+    quickDrawActions.cancelDrawing();
+
+    toast.success(`${routeType} assigned to ${player.label}`);
+  }, [pendingQuickDraw, players, quickDrawActions]);
+
+  const handleQuickDrawCancel = useCallback(() => {
+    setShowRouteModal(false);
+    setPendingQuickDraw(null);
+    quickDrawActions.cancelDrawing();
+  }, [quickDrawActions]);
 
   // Note: SVG ref is managed by FieldDiagram component - we use e.currentTarget in handlers
 
@@ -2699,6 +2808,18 @@ const loadSpecialTeamFormation = (teamType: string) => {
           validationModalShown.current = false; // Reset flag for next save
         }}
         onSaveAnyway={handleSaveAnyway}
+      />
+
+      {/* Quick Draw Route Confirmation Modal */}
+      <RouteTypeModal
+        isOpen={showRouteModal}
+        onClose={handleQuickDrawCancel}
+        onConfirm={handleQuickDrawConfirm}
+        tool={pendingQuickDraw?.tool as 'route' | 'block' || 'route'}
+        playerLabel={players.find(p => p.id === pendingQuickDraw?.playerId)?.label || ''}
+        suggestedRoute={pendingQuickDraw?.routeAnalysis?.suggestedRoute || 'Draw Route (Custom)'}
+        routeAnalysis={pendingQuickDraw?.routeAnalysis || null}
+        relevantOptions={pendingQuickDraw?.relevantOptions || []}
       />
     </div>
   );
