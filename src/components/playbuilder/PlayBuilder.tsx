@@ -97,6 +97,7 @@ import { ValidationModal } from './ValidationModal';
 import { FIELD_CONFIG } from './fieldConstants';
 import QuickDrawToolbar from './QuickDrawToolbar';
 import { useQuickDrawEngine } from './hooks/useQuickDrawEngine';
+import { useSVGCoordinates } from './hooks/useSVGCoordinates';
 
 /**
  * Player entity on the field diagram
@@ -276,6 +277,52 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
 
   // Quick Draw Mode
   const { state: quickDrawState, actions: quickDrawActions } = useQuickDrawEngine();
+  const { getPointFromMouseEvent } = useSVGCoordinates();
+
+  // Quick Draw event handlers
+  const handleQuickDrawPlayerClick = useCallback((playerId: string) => {
+    // If already drawing, clicking another player cancels current and starts new
+    if (quickDrawState.isDrawing) {
+      quickDrawActions.cancelDrawing();
+    }
+
+    // Find the player to get their position as the starting point
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+
+    // Start drawing from this player
+    quickDrawActions.startDrawing(playerId);
+
+    // Add player position as first point of ghost line
+    const startPoint = player.motionEndpoint || { x: player.x, y: player.y };
+    quickDrawActions.updateGhostLine(startPoint);
+  }, [quickDrawState.isDrawing, players, quickDrawActions]);
+
+  const handleQuickDrawFieldClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (!quickDrawState.activePlayerId || !quickDrawState.isDrawing) return;
+
+    const point = getPointFromMouseEvent(e);
+    quickDrawActions.updateGhostLine(point);
+  }, [quickDrawState.activePlayerId, quickDrawState.isDrawing, getPointFromMouseEvent, quickDrawActions]);
+
+  const handleQuickDrawFinish = useCallback(() => {
+    if (!quickDrawState.activePlayerId || quickDrawState.ghostLine.length < 2) {
+      quickDrawActions.cancelDrawing();
+      return;
+    }
+
+    // TODO: Phase 3 - Show route confirmation modal and save to routes/players
+    // For now, just log and cancel
+    console.log('Quick Draw finish:', {
+      playerId: quickDrawState.activePlayerId,
+      tool: quickDrawState.selectedTool,
+      path: quickDrawState.ghostLine,
+    });
+
+    quickDrawActions.finishDrawing();
+    // Reset active player after a short delay to show the finished state
+    setTimeout(() => quickDrawActions.cancelDrawing(), 100);
+  }, [quickDrawState, quickDrawActions]);
 
   // Note: SVG ref is managed by FieldDiagram component - we use e.currentTarget in handlers
 
@@ -1682,7 +1729,13 @@ const loadSpecialTeamFormation = (teamType: string) => {
   };
 
   const handleFieldDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    // Now handled by finishDrawing button
+    // Quick Draw mode - double-click finishes drawing
+    if (quickDrawState.isDrawing) {
+      e.preventDefault();
+      handleQuickDrawFinish();
+      return;
+    }
+    // Normal drawing mode - now handled by finishDrawing button
     if (!isDrawingRoute || !selectedPlayer) return;
   };
 
@@ -1915,13 +1968,22 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
       // Escape - Cancel drawing mode or go back
       if (e.key === 'Escape') {
-        if (isDrawingRoute) {
+        if (quickDrawState.isDrawing) {
+          quickDrawActions.cancelDrawing();
+          toast('Drawing cancelled');
+        } else if (isDrawingRoute) {
           setIsDrawingRoute(false);
           setCurrentRoute([]);
-          toast.info('Drawing mode cancelled');
+          toast('Drawing mode cancelled');
         } else if (hasUnsavedChanges) {
           handleBack();
         }
+      }
+
+      // Enter - Finish Quick Draw drawing
+      if (e.key === 'Enter' && quickDrawState.isDrawing) {
+        e.preventDefault();
+        handleQuickDrawFinish();
       }
 
       // Ctrl/Cmd + S - Save
@@ -1944,7 +2006,7 @@ const loadSpecialTeamFormation = (teamType: string) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDrawingRoute, hasUnsavedChanges, isSaving, currentRoute, handleBack, savePlay]);
+  }, [isDrawingRoute, hasUnsavedChanges, isSaving, currentRoute, handleBack, savePlay, quickDrawState.isDrawing, quickDrawActions, handleQuickDrawFinish]);
 
   const handleSaveAnyway = () => {
     setSaveAnywayConfirmed(true);
@@ -2603,6 +2665,13 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onFinishDrawing={finishDrawing}
             onCancelDrawing={cancelDrawing}
             onEditCustomRoute={editCustomRoute}
+            // Quick Draw mode props
+            isQuickDrawMode={quickDrawState.isActive}
+            quickDrawActivePlayer={quickDrawState.activePlayerId}
+            quickDrawGhostLine={quickDrawState.ghostLine}
+            quickDrawSelectedTool={quickDrawState.selectedTool}
+            onQuickDrawPlayerClick={handleQuickDrawPlayerClick}
+            onQuickDrawFieldClick={handleQuickDrawFieldClick}
           />
 
           {/* Quick Draw Toolbar - shown below field in Quick Draw mode */}

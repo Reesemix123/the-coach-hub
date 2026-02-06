@@ -142,6 +142,13 @@ interface FieldDiagramProps {
   onFinishDrawing: () => void;
   onCancelDrawing: () => void;
   onEditCustomRoute?: (playerId: string) => void;
+  // Quick Draw mode props
+  isQuickDrawMode?: boolean;
+  quickDrawActivePlayer?: string | null;
+  quickDrawGhostLine?: Array<{ x: number; y: number }>;
+  quickDrawSelectedTool?: string;
+  onQuickDrawPlayerClick?: (playerId: string) => void;
+  onQuickDrawFieldClick?: (e: React.MouseEvent<SVGSVGElement>) => void;
 }
 
 export default function FieldDiagram({
@@ -173,7 +180,14 @@ export default function FieldDiagram({
   onUndoSegment,
   onFinishDrawing,
   onCancelDrawing,
-  onEditCustomRoute
+  onEditCustomRoute,
+  // Quick Draw mode props
+  isQuickDrawMode = false,
+  quickDrawActivePlayer = null,
+  quickDrawGhostLine = [],
+  quickDrawSelectedTool = 'select',
+  onQuickDrawPlayerClick,
+  onQuickDrawFieldClick,
 }: FieldDiagramProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const clickStartRef = useRef<{ x: number; y: number; playerId: string } | null>(null);
@@ -186,6 +200,13 @@ export default function FieldDiagram({
 
   // Track mouse down position for click detection
   const handlePlayerMouseDown = (playerId: string, e: React.MouseEvent) => {
+    // In Quick Draw mode with select tool, allow dragging
+    // Otherwise, just track for click detection
+    if (isQuickDrawMode && quickDrawSelectedTool !== 'select') {
+      // Don't start drag in Quick Draw mode with drawing tools
+      clickStartRef.current = { x: e.clientX, y: e.clientY, playerId };
+      return;
+    }
     clickStartRef.current = { x: e.clientX, y: e.clientY, playerId };
     onMouseDown(playerId);
   };
@@ -198,8 +219,15 @@ export default function FieldDiagram({
     const dy = Math.abs(e.clientY - clickStartRef.current.y);
 
     // Only count as click if mouse moved less than 5 pixels (not a drag)
-    if (dx < 5 && dy < 5 && hasCustomRoute(playerId) && onEditCustomRoute) {
-      onEditCustomRoute(playerId);
+    if (dx < 5 && dy < 5) {
+      // Quick Draw mode - player click starts drawing
+      if (isQuickDrawMode && quickDrawSelectedTool !== 'select' && onQuickDrawPlayerClick) {
+        e.stopPropagation();
+        onQuickDrawPlayerClick(playerId);
+      } else if (hasCustomRoute(playerId) && onEditCustomRoute) {
+        // Normal mode - edit custom route
+        onEditCustomRoute(playerId);
+      }
     }
 
     clickStartRef.current = null;
@@ -1001,7 +1029,7 @@ export default function FieldDiagram({
           className="w-full h-auto"
           style={{
             touchAction: 'none',
-            cursor: isDrawingRoute ? 'crosshair' : 'default'
+            cursor: isDrawingRoute || (isQuickDrawMode && quickDrawActivePlayer) ? 'crosshair' : 'default'
           }}
           preserveAspectRatio="xMidYMid meet"
           onMouseDown={isDrawingRoute ? onDrawingMouseDown : undefined}
@@ -1021,7 +1049,14 @@ export default function FieldDiagram({
           }}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
-          onClick={onFieldClick}
+          onClick={(e) => {
+            // Quick Draw mode takes precedence when active player is being drawn
+            if (isQuickDrawMode && quickDrawActivePlayer && onQuickDrawFieldClick) {
+              onQuickDrawFieldClick(e);
+            } else {
+              onFieldClick(e);
+            }
+          }}
           onDoubleClick={onFieldDoubleClick}
           role="application"
           aria-label="Football play diagram - drag players to reposition"
@@ -1325,6 +1360,63 @@ export default function FieldDiagram({
                   fill={COLORS.routes.secondary}
                   stroke="#ffffff"
                   strokeWidth="1"
+                />
+              ))}
+            </g>
+          )}
+
+          {/* Quick Draw mode - Active player highlight */}
+          {isQuickDrawMode && quickDrawActivePlayer && (() => {
+            const activePlayer = players.find(p => p.id === quickDrawActivePlayer);
+            if (!activePlayer) return null;
+            return (
+              <circle
+                cx={activePlayer.x}
+                cy={activePlayer.y}
+                r={FIELD_CONFIG.PLAYER_RADIUS + 6}
+                fill="none"
+                stroke="#22C55E"
+                strokeWidth="3"
+                strokeDasharray="4,2"
+                className="animate-pulse"
+              />
+            );
+          })()}
+
+          {/* Quick Draw mode - Ghost line while drawing */}
+          {isQuickDrawMode && quickDrawGhostLine.length > 0 && (
+            <g>
+              {/* Shadow layer */}
+              <path
+                d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                fill="none"
+                stroke={COLORS.routes.outline}
+                strokeWidth="5"
+                strokeDasharray="6,4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                opacity="0.6"
+              />
+              {/* Main ghost path */}
+              <path
+                d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                fill="none"
+                stroke="#22C55E"
+                strokeWidth="3.5"
+                strokeDasharray="6,4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Waypoint markers */}
+              {quickDrawGhostLine.map((point, i) => (
+                <circle
+                  key={i}
+                  cx={point.x}
+                  cy={point.y}
+                  r={i === 0 ? 6 : 4}
+                  fill={i === 0 ? '#22C55E' : '#ffffff'}
+                  stroke={i === 0 ? '#ffffff' : '#22C55E'}
+                  strokeWidth="2"
                 />
               ))}
             </g>
