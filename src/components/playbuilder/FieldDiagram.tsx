@@ -45,6 +45,23 @@ const COLORS = {
 const DEEP_COVERAGE_ROLES = ['Deep Third', 'Deep Half', 'Quarter'];
 
 /**
+ * Generate an angular SVG path with straight line segments.
+ * Used for pass routes which should have sharp breaks (Post, Corner, Out, etc.)
+ *
+ * @param points - Array of {x, y} coordinates
+ * @returns SVG path string with straight lines between points
+ */
+function generateAngularPath(points: Array<{ x: number; y: number }>): string {
+  if (points.length < 2) return '';
+
+  let pathD = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    pathD += ` L ${points[i].x} ${points[i].y}`;
+  }
+  return pathD;
+}
+
+/**
  * Generate a smooth SVG path using Catmull-Rom to Bezier conversion.
  * This creates natural-looking curves through all waypoints instead of angular lines.
  *
@@ -575,8 +592,8 @@ export default function FieldDiagram({
     const player = players.find(p => p.id === route.playerId);
     if (!player || route.points.length < 2) return null;
 
-    // Use smooth Catmull-Rom curves for professional-looking routes
-    const pathD = generateSmoothPath(route.points, 0.5);
+    // Use angular paths for pass routes - routes should have sharp breaks
+    const pathD = generateAngularPath(route.points);
 
     const color = route.isPrimary ? COLORS.routes.primary : COLORS.routes.secondary;
 
@@ -1333,7 +1350,7 @@ export default function FieldDiagram({
             <g>
               {/* Shadow layer */}
               <path
-                d={generateSmoothPath(currentRoute, 0.5)}
+                d={generateAngularPath(currentRoute)}
                 fill="none"
                 stroke={COLORS.routes.outline}
                 strokeWidth="5"
@@ -1343,7 +1360,7 @@ export default function FieldDiagram({
               />
               {/* Main path */}
               <path
-                d={generateSmoothPath(currentRoute, 0.5)}
+                d={generateAngularPath(currentRoute)}
                 fill="none"
                 stroke={COLORS.routes.secondary}
                 strokeWidth="3.5"
@@ -1408,11 +1425,18 @@ export default function FieldDiagram({
             };
             const ghostColor = toolColors[quickDrawSelectedTool] || '#22C55E';
 
+            // Routes and blitz should be angular (sharp breaks), motion should be smooth
+            const useAngularPath = ['route', 'block', 'blitz', 'coverage'].includes(quickDrawSelectedTool);
+            const pathGenerator = useAngularPath ? generateAngularPath : generateSmoothPath;
+            const pathD = useAngularPath
+              ? generateAngularPath(quickDrawGhostLine)
+              : generateSmoothPath(quickDrawGhostLine, 0.5);
+
             return (
               <g>
                 {/* Shadow layer */}
                 <path
-                  d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                  d={pathD}
                   fill="none"
                   stroke={COLORS.routes.outline}
                   strokeWidth="5"
@@ -1423,7 +1447,7 @@ export default function FieldDiagram({
                 />
                 {/* Main ghost path */}
                 <path
-                  d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                  d={pathD}
                   fill="none"
                   stroke={ghostColor}
                   strokeWidth="3.5"

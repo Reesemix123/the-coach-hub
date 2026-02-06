@@ -439,8 +439,30 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     }
 
     // For route and block tools, show confirmation modal
-    const routeAnalysis = detectRouteType(path, player.side, player.x);
-    const relevantOptions = getRouteOptions(routeAnalysis);
+    let routeAnalysis: RouteAnalysis | null = null;
+    let relevantOptions: string[] = [];
+
+    if (tool === 'block') {
+      // Use blocking-specific detection and options
+      const blockAnalysis = detectBlockingType(path);
+      routeAnalysis = {
+        suggestedRoute: blockAnalysis.suggestedType,
+        confidence: blockAnalysis.confidence,
+        characteristics: {
+          totalDistance: 0,
+          netVertical: 0,
+          netHorizontal: 0,
+          direction: 'upfield',
+          curvature: 'straight',
+          endDirection: 'vertical',
+        },
+      };
+      relevantOptions = ['Run Block', 'Pass Block', 'Pull'];
+    } else {
+      // Route tool - use route detection
+      routeAnalysis = detectRouteType(path, player.side, player.x);
+      relevantOptions = getRouteOptions(routeAnalysis);
+    }
 
     // Store pending draw data and show modal
     setPendingQuickDraw({
