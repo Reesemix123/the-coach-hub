@@ -1046,7 +1046,9 @@ export default function FieldDiagram({
           className="w-full h-auto"
           style={{
             touchAction: 'none',
-            cursor: isDrawingRoute || (isQuickDrawMode && quickDrawActivePlayer) ? 'crosshair' : 'default'
+            cursor: isDrawingRoute || (isQuickDrawMode && quickDrawActivePlayer) ? 'crosshair' : 'default',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
           preserveAspectRatio="xMidYMid meet"
           onMouseDown={isDrawingRoute ? onDrawingMouseDown : undefined}
