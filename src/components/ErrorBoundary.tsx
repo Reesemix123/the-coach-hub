@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Component, ReactNode } from 'react';
+import { clientError } from '@/lib/errors/client-error-logger';
 
 interface Props {
   children: ReactNode;
@@ -30,6 +31,12 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+
+    // Send to error logging service
+    clientError('error_boundary_caught', error, {
+      componentStack: errorInfo.componentStack,
+      url: typeof window !== 'undefined' ? window.location.href : undefined,
+    });
   }
 
   handleReset = () => {

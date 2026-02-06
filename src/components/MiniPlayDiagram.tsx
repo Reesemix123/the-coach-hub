@@ -3,6 +3,40 @@
 import { PlayDiagram, Player, Route, PlayAttributes } from '@/types/football';
 import { getGapPositionFromName, isDefensiveLineman, isLinebacker, isDefensiveBack } from '@/config/footballConfig';
 
+// Modern Hudl-inspired color palette
+const COLORS = {
+  field: {
+    gradient: ['#065F46', '#047857', '#059669'],
+    lines: '#047857',
+    border: '#064E3B',
+  },
+  offense: {
+    player: '#DC2626',
+    stroke: '#991B1B',
+  },
+  defense: {
+    player: '#FFFFFF',
+    stroke: '#1F2937',
+  },
+  routes: {
+    primary: '#EF4444',
+    secondary: '#FBBF24',
+    blocking: '#F97316',
+  },
+  motion: {
+    path: '#06B6D4',  // Modern cyan
+  },
+  ballCarrier: {
+    path: '#F97316',  // Orange (distinct from routes)
+  },
+  blitz: {
+    path: '#DC2626',
+  },
+  specialTeams: {
+    path: '#22C55E',
+  },
+} as const;
+
 // Extended player type that may have isDummy from playbuilder
 interface DiagramPlayer extends Player {
   isDummy?: boolean;
@@ -47,10 +81,15 @@ export default function MiniPlayDiagram({
   if (!diagram || !diagram.players || diagram.players.length === 0) {
     return (
       <div
-        className={`rounded flex items-center justify-center border-2 border-emerald-500 ${className}`}
-        style={{ width, height, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
+        className={`rounded flex items-center justify-center border-2 ${className}`}
+        style={{
+          width,
+          height,
+          backgroundColor: COLORS.field.gradient[1],
+          borderColor: COLORS.field.border,
+        }}
       >
-        <span className="text-xs text-emerald-600">No diagram</span>
+        <span className="text-xs text-white/70 font-medium">No diagram</span>
       </div>
     );
   }
@@ -70,18 +109,18 @@ export default function MiniPlayDiagram({
   const getPlayerColor = (player: DiagramPlayer) => {
     // Ball carrier gets red
     if (attributes?.ballCarrier && player.label === attributes.ballCarrier) {
-      return '#FF0000';
+      return COLORS.offense.player;
     }
-    if (player.isPrimary) return '#FF0000'; // Red for primary
-    if (isOffense) return '#3B82F6'; // Blue for offense
-    if (isDefense) return '#EF4444'; // Red for defense
-    return '#22C55E'; // Green for special teams
+    if (player.isPrimary) return COLORS.offense.player;
+    if (isOffense) return COLORS.offense.player;
+    if (isDefense) return COLORS.defense.player;
+    return COLORS.specialTeams.path;
   };
 
   // Get route color - primary is red, others are yellow/gold
   const getRouteColor = (route: DiagramRoute) => {
-    if (route.isPrimary) return '#FF0000'; // Red for primary
-    return '#FFD700'; // Gold for other routes
+    if (route.isPrimary) return COLORS.routes.primary;
+    return COLORS.routes.secondary;
   };
 
   // Get route points (handle both 'path' and 'points' field names)
@@ -188,8 +227,8 @@ export default function MiniPlayDiagram({
 
   return (
     <div
-      className={`rounded overflow-hidden border-2 border-emerald-500 ${className}`}
-      style={{ width, height, backgroundColor: 'rgba(16, 185, 129, 0.1)' }}
+      className={`rounded overflow-hidden border-2 ${className}`}
+      style={{ width, height, borderColor: COLORS.field.border }}
     >
       <svg
         width={width}
@@ -197,61 +236,94 @@ export default function MiniPlayDiagram({
         viewBox={`0 0 ${width} ${height}`}
         className="block"
       >
-        {/* Arrowhead markers for routes */}
         <defs>
+          {/* Field gradient background */}
+          <linearGradient id="mini-field-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor={COLORS.field.gradient[0]} />
+            <stop offset="50%" stopColor={COLORS.field.gradient[1]} />
+            <stop offset="100%" stopColor={COLORS.field.gradient[2]} />
+          </linearGradient>
+
+          {/* Arrowhead markers for routes with depth */}
           <marker
             id="mini-arrowhead-gold"
-            markerWidth="4"
-            markerHeight="4"
-            refX="3"
-            refY="2"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
             orient="auto"
           >
-            <path d="M 0 0 L 4 2 L 0 4 z" fill="#FFD700" />
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.routes.secondary} />
           </marker>
           <marker
             id="mini-arrowhead-red"
-            markerWidth="4"
-            markerHeight="4"
-            refX="3"
-            refY="2"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
             orient="auto"
           >
-            <path d="M 0 0 L 4 2 L 0 4 z" fill="#FF0000" />
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.routes.primary} />
           </marker>
           <marker
             id="mini-arrowhead-orange"
-            markerWidth="4"
-            markerHeight="4"
-            refX="3"
-            refY="2"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
             orient="auto"
           >
-            <path d="M 0 0 L 4 2 L 0 4 z" fill="#F97316" />
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.ballCarrier.path} />
           </marker>
-          {/* Blitz arrow marker */}
+          {/* Blitz arrow marker with depth */}
           <marker
             id="mini-arrowhead-blitz"
-            markerWidth="4"
-            markerHeight="4"
-            refX="3"
-            refY="2"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
             orient="auto"
           >
-            <path d="M 0 0 L 4 2 L 0 4 z" fill="#DC2626" />
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.blitz.path} />
           </marker>
-          {/* Special teams path arrow marker */}
+          {/* Special teams path arrow marker with depth */}
           <marker
             id="mini-arrowhead-st"
-            markerWidth="4"
-            markerHeight="4"
-            refX="3"
-            refY="2"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
             orient="auto"
           >
-            <path d="M 0 0 L 4 2 L 0 4 z" fill="#22C55E" />
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.specialTeams.path} />
+          </marker>
+          {/* Motion arrow marker (cyan) */}
+          <marker
+            id="mini-arrowhead-motion"
+            markerWidth="6"
+            markerHeight="5"
+            refX="5"
+            refY="2.5"
+            orient="auto"
+          >
+            <path d="M 0 0 L 6 2.5 L 0 5 z" fill="rgba(0,0,0,0.25)" />
+            <path d="M 1 1 L 5 2.5 L 1 4 z" fill={COLORS.motion.path} />
           </marker>
         </defs>
+
+        {/* Field background with gradient */}
+        <rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="url(#mini-field-gradient)"
+        />
 
         {/* Line of scrimmage */}
         <line
@@ -259,8 +331,8 @@ export default function MiniPlayDiagram({
           y1={200 * scaleY}
           x2={width}
           y2={200 * scaleY}
-          stroke="#10B981"
-          strokeWidth={1.5}
+          stroke={COLORS.field.lines}
+          strokeWidth={2}
         />
 
         {/* Yard lines (simplified) */}
@@ -271,12 +343,13 @@ export default function MiniPlayDiagram({
             y1={y * scaleY}
             x2={width}
             y2={y * scaleY}
-            stroke="#10B981"
+            stroke={COLORS.field.lines}
             strokeWidth={0.5}
+            opacity={0.4}
           />
         ))}
 
-        {/* Motion paths - dashed yellow */}
+        {/* Motion paths - dashed cyan */}
         {mainPlayers
           .filter(p => p.motionType && p.motionType !== 'None' && p.motionEndpoint)
           .map((player, index) => {
@@ -292,15 +365,15 @@ export default function MiniPlayDiagram({
                 y1={startY}
                 x2={endX}
                 y2={endY}
-                stroke="#FBBF24"
+                stroke={COLORS.motion.path}
                 strokeWidth={1.5}
                 strokeDasharray="3,2"
-                markerEnd="url(#mini-arrowhead-gold)"
+                markerEnd="url(#mini-arrowhead-motion)"
               />
             );
           })}
 
-        {/* Blocking arrows - orange */}
+        {/* Blocking arrows - gray with depth */}
         {mainPlayers
           .filter(p => p.blockType && p.blockDirection)
           .map((player, index) => {
@@ -310,16 +383,27 @@ export default function MiniPlayDiagram({
             const endY = (player.blockDirection?.y ?? player.y) * scaleY;
 
             return (
-              <line
-                key={`block-${player.position}-${index}`}
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke="#F97316"
-                strokeWidth={2}
-                markerEnd="url(#mini-arrowhead-orange)"
-              />
+              <g key={`block-${player.position}-${index}`}>
+                {/* Shadow layer */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke="rgba(0,0,0,0.2)"
+                  strokeWidth={2.5}
+                />
+                {/* Main line */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={COLORS.routes.blocking}
+                  strokeWidth={2}
+                  markerEnd="url(#mini-arrowhead-orange)"
+                />
+              </g>
             );
           })}
 
@@ -389,16 +473,27 @@ export default function MiniPlayDiagram({
             const endY = gapPos.y * scaleY;
 
             return (
-              <line
-                key={`blitz-${player.position}-${index}`}
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke="#DC2626"
-                strokeWidth={2}
-                markerEnd="url(#mini-arrowhead-blitz)"
-              />
+              <g key={`blitz-${player.position}-${index}`}>
+                {/* Shadow layer */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke="rgba(0,0,0,0.2)"
+                  strokeWidth={2.5}
+                />
+                {/* Main line */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={COLORS.blitz.path}
+                  strokeWidth={2}
+                  markerEnd="url(#mini-arrowhead-blitz)"
+                />
+              </g>
             );
           })}
 
@@ -412,31 +507,52 @@ export default function MiniPlayDiagram({
             const endY = (player.specialTeamsPath?.y ?? player.y) * scaleY;
 
             return (
-              <line
-                key={`st-path-${player.position}-${index}`}
-                x1={startX}
-                y1={startY}
-                x2={endX}
-                y2={endY}
-                stroke="#22C55E"
-                strokeWidth={2}
-                markerEnd="url(#mini-arrowhead-st)"
-              />
+              <g key={`st-path-${player.position}-${index}`}>
+                {/* Shadow layer */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke="rgba(0,0,0,0.2)"
+                  strokeWidth={2.5}
+                />
+                {/* Main line */}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke={COLORS.specialTeams.path}
+                  strokeWidth={2}
+                  markerEnd="url(#mini-arrowhead-st)"
+                />
+              </g>
             );
           })}
 
-        {/* Ball carrier run path - red */}
+        {/* Ball carrier run path - orange with depth */}
         {ballCarrierPath && (
-          <path
-            d={ballCarrierPath}
-            fill="none"
-            stroke="#FF0000"
-            strokeWidth={2.5}
-            markerEnd="url(#mini-arrowhead-red)"
-          />
+          <g>
+            {/* Shadow layer */}
+            <path
+              d={ballCarrierPath}
+              fill="none"
+              stroke="rgba(0,0,0,0.25)"
+              strokeWidth={3}
+            />
+            {/* Main path */}
+            <path
+              d={ballCarrierPath}
+              fill="none"
+              stroke={COLORS.ballCarrier.path}
+              strokeWidth={2.5}
+              markerEnd="url(#mini-arrowhead-orange)"
+            />
+          </g>
         )}
 
-        {/* Pass routes with arrowheads */}
+        {/* Pass routes with arrowheads and depth */}
         {sortedRoutes.map(route => {
           const pathD = buildRoutePath(route);
           if (!pathD) return null;
@@ -446,14 +562,23 @@ export default function MiniPlayDiagram({
           const strokeWidth = route.isPrimary ? 2.5 : 2;
 
           return (
-            <path
-              key={route.id}
-              d={pathD}
-              fill="none"
-              stroke={color}
-              strokeWidth={strokeWidth}
-              markerEnd={`url(#${markerId})`}
-            />
+            <g key={route.id}>
+              {/* Shadow layer for depth */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke="rgba(0,0,0,0.25)"
+                strokeWidth={strokeWidth + 0.5}
+              />
+              {/* Main route */}
+              <path
+                d={pathD}
+                fill="none"
+                stroke={color}
+                strokeWidth={strokeWidth}
+                markerEnd={`url(#${markerId})`}
+              />
+            </g>
           );
         })}
 
@@ -470,54 +595,103 @@ export default function MiniPlayDiagram({
           // Determine player shape based on position
           const renderPlayerShape = () => {
             if (isOffense) {
-              // Offense: circles
+              // Offense: red circles with depth
               return (
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={radius}
-                  fill={color}
-                  stroke="#FFFFFF"
-                  strokeWidth={isPrimary ? 1 : 0.5}
-                />
+                <g>
+                  {/* Shadow */}
+                  <circle
+                    cx={x + 0.3}
+                    cy={y + 0.3}
+                    r={radius}
+                    fill="rgba(0,0,0,0.3)"
+                  />
+                  {/* Main circle */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={radius}
+                    fill={COLORS.offense.player}
+                    stroke={COLORS.offense.stroke}
+                    strokeWidth={isPrimary ? 1 : 0.5}
+                  />
+                </g>
               );
             } else if (isDefensiveLineman(player.position)) {
-              // Defensive Linemen: squares
+              // Defensive Linemen: white squares with dark stroke
               const size = radius * 2;
               return (
-                <rect
-                  x={x - radius}
-                  y={y - radius}
-                  width={size}
-                  height={size}
-                  fill="#FFFFFF"
-                  stroke="#000000"
-                  strokeWidth={0.5}
-                />
+                <g>
+                  {/* Shadow */}
+                  <rect
+                    x={x - radius + 0.3}
+                    y={y - radius + 0.3}
+                    width={size}
+                    height={size}
+                    fill="rgba(0,0,0,0.3)"
+                  />
+                  {/* Main square */}
+                  <rect
+                    x={x - radius}
+                    y={y - radius}
+                    width={size}
+                    height={size}
+                    fill={COLORS.defense.player}
+                    stroke={COLORS.defense.stroke}
+                    strokeWidth={0.5}
+                  />
+                </g>
               );
             } else if (isLinebacker(player.position)) {
-              // Linebackers: circles (white)
+              // Linebackers: white circles with dark stroke
               return (
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={radius}
-                  fill="#FFFFFF"
-                  stroke="#000000"
-                  strokeWidth={0.5}
-                />
+                <g>
+                  {/* Shadow */}
+                  <circle
+                    cx={x + 0.3}
+                    cy={y + 0.3}
+                    r={radius}
+                    fill="rgba(0,0,0,0.3)"
+                  />
+                  {/* Main circle */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={radius}
+                    fill={COLORS.defense.player}
+                    stroke={COLORS.defense.stroke}
+                    strokeWidth={0.5}
+                  />
+                </g>
               );
             } else {
-              // DBs (Safeties/Cornerbacks): X shape
+              // DBs (Safeties/Cornerbacks): white X shape with dark stroke
               const xSize = radius * 0.8;
               return (
-                <>
+                <g>
+                  {/* Shadow */}
+                  <line
+                    x1={x - xSize + 0.3}
+                    y1={y - xSize + 0.3}
+                    x2={x + xSize + 0.3}
+                    y2={y + xSize + 0.3}
+                    stroke="rgba(0,0,0,0.3)"
+                    strokeWidth={1.5}
+                  />
+                  <line
+                    x1={x - xSize + 0.3}
+                    y1={y + xSize + 0.3}
+                    x2={x + xSize + 0.3}
+                    y2={y - xSize + 0.3}
+                    stroke="rgba(0,0,0,0.3)"
+                    strokeWidth={1.5}
+                  />
+                  {/* Main X */}
                   <line
                     x1={x - xSize}
                     y1={y - xSize}
                     x2={x + xSize}
                     y2={y + xSize}
-                    stroke="#FFFFFF"
+                    stroke={COLORS.defense.player}
                     strokeWidth={1.5}
                   />
                   <line
@@ -525,10 +699,10 @@ export default function MiniPlayDiagram({
                     y1={y + xSize}
                     x2={x + xSize}
                     y2={y - xSize}
-                    stroke="#FFFFFF"
+                    stroke={COLORS.defense.player}
                     strokeWidth={1.5}
                   />
-                </>
+                </g>
               );
             }
           };

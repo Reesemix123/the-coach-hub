@@ -10,7 +10,7 @@
  * @since Phase 3 - Component Decomposition
  */
 
-import React, { useCallback } from 'react';
+import React, { memo, useCallback } from 'react';
 import type { CameraLane, TimelineClip } from '@/types/timeline';
 import type { Video } from '@/types/football';
 
@@ -88,7 +88,7 @@ function findActiveClip(
 /**
  * TimelineControlsPanel - Controls for timeline navigation
  */
-export function TimelineControlsPanel({
+export const TimelineControlsPanel = memo(function TimelineControlsPanel({
   lanes,
   currentLane,
   videos,
@@ -232,7 +232,7 @@ export function TimelineControlsPanel({
       )}
     </div>
   );
-}
+});
 
 // ============================================
 // ADDITIONAL COMPONENTS
@@ -241,7 +241,7 @@ export function TimelineControlsPanel({
 /**
  * TimelineZoomControls - Zoom level controls for timeline
  */
-export function TimelineZoomControls({
+export const TimelineZoomControls = memo(function TimelineZoomControls({
   zoomLevel,
   onZoomChange,
   minZoom = 1,
@@ -291,12 +291,12 @@ export function TimelineZoomControls({
       </button>
     </div>
   );
-}
+});
 
 /**
  * PlaybackSpeedControl - Playback rate selector
  */
-export function PlaybackSpeedControl({
+export const PlaybackSpeedControl = memo(function PlaybackSpeedControl({
   speed,
   onSpeedChange,
   className = '',
@@ -328,6 +328,6 @@ export function PlaybackSpeedControl({
       ))}
     </div>
   );
-}
+});
 
 export default TimelineControlsPanel;

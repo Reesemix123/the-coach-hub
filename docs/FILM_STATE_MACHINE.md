@@ -1,340 +1,359 @@
-# Film Tagging Page State Machine
+# Film Tag Page - State Machine Documentation
 
-> **Document Status:** Phase 3 - Task 3.1
-> **Created:** 2025-01-08
-> **Purpose:** Map state flow and dependencies to enable safe component decomposition
+> **Task 3.1** from REFACTOR_PLAN.md
+> **Updated:** 2026-02-03
+> **Source:** `src/app/teams/[teamId]/film/[gameId]/tag/page.tsx` (6,657 lines)
+
+---
 
 ## Overview
 
-The film tagging page (`src/app/teams/[teamId]/film/[gameId]/tag/page.tsx`) has:
-- **72 useState** declarations
-- **14 useEffect** hooks
-- **~6,500 lines** of code
-
-This document maps the state machine to identify:
-1. State groupings (what belongs together)
-2. Effect dependencies (what triggers what)
-3. Race condition patterns (timing-sensitive code)
+The tag page has **71 useState declarations**, **14 useEffect hooks**, and **7 useRef declarations**. The FilmContext already defines the target state shape but is only connected via a bridge (`useSyncLocalStateToContext`) that syncs 9 of the 71 state variables. The remaining 62 are local-only.
 
 ---
 
-## State Categories
+## 1. useState Declarations (71 total)
 
-### 1. Core Data State (Fetched from DB)
-| State | Type | Source | Used By |
-|-------|------|--------|---------|
-| `game` | `Game \| null` | Supabase | Entire page |
-| `videos` | `Video[]` | Supabase | Video selection, timeline |
-| `plays` | `Play[]` | Supabase | Play selection dropdown |
-| `playInstances` | `PlayInstance[]` | Supabase | Tagged plays list |
-| `players` | `Player[]` | Supabase | Player dropdowns |
-| `formations` | `Formation[]` | Supabase | Formation dropdown |
-| `drives` | `Drive[]` | Supabase | Drive assignment |
-| `markers` | `Marker[]` | Supabase | Timeline markers |
+### Core Data (7 vars)
 
-### 2. Video Playback State
-| State | Type | Purpose |
-|-------|------|---------|
-| `selectedVideo` | `Video \| null` | Currently playing video |
-| `videoUrl` | `string` | Signed URL for video element |
-| `videoLoadError` | `string \| null` | Error message if load fails |
-| `urlGeneratedAt` | `number \| null` | Timestamp for URL refresh |
-| `urlRefreshAttempted` | `boolean` | Tracks error retry |
-| `currentTime` | `number` | Current playback position (seconds) |
-| `videoDuration` | `number` | Total video length (seconds) |
-| `isPlaying` | `boolean` | Play/pause state |
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 355 | `game` | `Game \| null` | `null` | `data.game` |
+| 362 | `plays` | `Play[]` | `[]` | `data.plays` |
+| 363 | `playInstances` | `PlayInstance[]` | `[]` | `data.playInstances` |
+| 364 | `players` | `any[]` | `[]` | `data.players` |
+| 365 | `formations` | `string[]` | `[]` | `data.formations` |
+| 366 | `drives` | `Drive[]` | `[]` | `data.drives` |
+| 462 | `markers` | `VideoTimelineMarker[]` | `[]` | `data.markers` |
 
-### 3. Camera Sync State
-| State | Type | Purpose |
-|-------|------|---------|
-| `videoOffsetMs` | `number` | Video position on game timeline |
-| `clipDurationMs` | `number` | Duration of current clip |
-| `offsetDataVideoId` | `string \| null` | Which video the offset data belongs to |
-| `isSwitchingCamera` | `boolean` | Camera switch in progress |
-| `pendingCameraId` | `string \| null` | Target camera during switch |
-| `pendingSyncSeek` | `number \| null` | Seek position after switch |
-| `shouldResumePlayback` | `boolean` | Auto-play after switch |
-| `targetGameTimeMs` | `number \| null` | Target time for coverage check |
-| `gameTimelinePositionMs` | `number` | Current position on unified timeline |
-| `timelineDurationMs` | `number` | Total timeline duration |
+### Video Playback (7 vars)
 
-### 4. Multi-Camera Timeline State
-| State | Type | Purpose |
-|-------|------|---------|
-| `timelineLanes` | `CameraLane[]` | Timeline swimlanes with clips |
-| `currentLaneNumber` | `number` | Active camera lane |
-| `isVirtuallyPlaying` | `boolean` | Playing through coverage gap |
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 356 | `videos` | `Video[]` | `[]` | `data.videos` |
+| 357 | `selectedVideo` | `Video \| null` | `null` | `playback.selectedVideo` |
+| 358 | `videoUrl` | `string` | `''` | `playback.videoUrl` |
+| 359 | `videoLoadError` | `string \| null` | `null` | `playback.videoLoadError` |
+| 360 | `urlGeneratedAt` | `number \| null` | `null` | `playback.urlGeneratedAt` |
+| 361 | `urlRefreshAttempted` | `boolean` | `false` | `playback.urlRefreshAttempted` |
+| 399 | `isPlaying` | `boolean` | `false` | `playback.isPlaying` |
 
-### 5. Tagging Form State
-| State | Type | Purpose |
-|-------|------|---------|
-| `tagStartTime` | `number` | Start timestamp of current tag |
-| `tagEndTime` | `number \| null` | End timestamp (optional) |
-| `showTagModal` | `boolean` | Modal visibility |
-| `editingInstance` | `PlayInstance \| null` | Play being edited |
-| `taggingMode` | `string` | 'offense' / 'defense' / 'specialTeams' |
-| `isTaggingOpponent` | `boolean` | Tagging opponent's play |
-| `isSavingPlay` | `boolean` | Prevent double-submit |
-| `driveAssignMode` | `string` | 'new' / 'current' / 'select' |
-| `currentDrive` | `Drive \| null` | Active drive |
+### Video Time (2 vars)
 
-### 6. UI State
-| State | Type | Purpose |
-|-------|------|---------|
-| `showPeriodMarkerMenu` | `boolean` | Quarter marker menu |
-| `showAddMarkerMenu` | `boolean` | Add marker menu |
-| `quarterScores` | `QuarterScore[]` | Score display |
-| `scoreMismatch` | `ScoreMismatch \| null` | Score warning |
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 381 | `currentTime` | `number` | `0` | `playback.currentTime` |
+| 382 | `videoDuration` | `number` | `0` | `playback.videoDuration` |
 
----
+### Camera Sync (11 vars)
 
-## useEffect Dependency Map
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 375 | `cameraLimit` | `number` | `1` | `ui.cameraLimit` |
+| 378 | `pendingSyncSeek` | `number \| null` | `null` | `camera.pendingSyncSeek` |
+| 379 | `shouldResumePlayback` | `boolean` | `false` | `camera.shouldResumePlayback` |
+| 384 | `videoOffsetMs` | `number` | `0` | `camera.videoOffsetMs` |
+| 385 | `clipDurationMs` | `number` | `0` | `camera.clipDurationMs` |
+| 386 | `offsetDataVideoId` | `string \| null` | `null` | `camera.offsetDataVideoId` |
+| 387 | `targetGameTimeMs` | `number \| null` | `null` | `camera.targetGameTimeMs` |
+| 388 | `pendingCameraId` | `string \| null` | `null` | `camera.pendingCameraId` |
+| 389 | `gameTimelinePositionMs` | `number` | `0` | `camera.gameTimelinePositionMs` |
+| 391 | `isSwitchingCamera` | `boolean` | `false` | `camera.isSwitchingCamera` |
+| 383 | `timelineDurationMs` | `number` | `0` | `camera.timelineDurationMs` |
 
-### Effect 1: Cleanup (line 675)
-```
-Dependencies: []
-Reads: virtualPlaybackRef
-Writes: (cleanup only)
-Purpose: Clean up interval on unmount
-```
+### Timeline (3 vars)
 
-### Effect 2: Initial Fetch (line 683)
-```
-Dependencies: [gameId]
-Reads: gameId
-Writes: game, videos, drives, cameraLimit (via fetches)
-Purpose: Load initial data when game ID available
-Triggers: #3, #4
-```
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 390 | `timelineLanes` | `CameraLane[]` | `[]` | `timeline.timelineLanes` |
+| 395 | `currentLaneNumber` | `number` | `1` | `timeline.currentLaneNumber` |
+| 398 | `isVirtuallyPlaying` | `boolean` | `false` | `timeline.isVirtuallyPlaying` |
 
-### Effect 3: Team-Dependent Fetch (line 692)
-```
-Dependencies: [game]
-Reads: game.team_id
-Writes: plays, players, formations, analyticsTier
-Purpose: Load team-specific data
-```
+### Tagging Form (9 vars)
 
-### Effect 4: Play Instances Fetch (line 702)
-```
-Dependencies: [timelineLanes]
-Reads: timelineLanes (video IDs)
-Writes: playInstances
-Purpose: Fetch tagged plays for timeline videos
-```
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 400 | `showTagModal` | `boolean` | `false` | `tagging.showTagModal` |
+| 401 | `editingInstance` | `PlayInstance \| null` | `null` | `tagging.editingInstance` |
+| 402 | `tagStartTime` | `number` | `0` | `tagging.tagStartTime` |
+| 403 | `tagEndTime` | `number \| null` | `null` | `tagging.tagEndTime` |
+| 414 | `taggingMode` | `TaggingMode` | `'offense'` | `tagging.taggingMode` |
+| 486 | `isSavingPlay` | `boolean` | `false` | `tagging.isSavingPlay` |
+| 367 | `currentDrive` | `Drive \| null` | `null` | `tagging.currentDrive` |
+| 368 | `driveAssignMode` | `'current' \| 'new' \| 'select'` | `'current'` | `tagging.driveAssignMode` |
+| 413 | `isSettingEndTime` | `boolean` | `false` | -- (local only) |
 
-### Effect 5: Video Selection (line 712)
-```
-Dependencies: [selectedVideo, videos]
-Reads: selectedVideo, videos
-Writes: selectedVideo, videoUrl, markers
-Purpose: Validate selection, auto-select first video, load video
-CRITICAL: Can cause loop if not careful with setSelectedVideo
-```
+### Upload (4 vars) -- LOCAL ONLY
 
-### Effect 6: URL Refresh Timer (line 743)
-```
-Dependencies: [urlGeneratedAt, selectedVideo, videoUrl]
-Reads: urlGeneratedAt, selectedVideo, videoUrl, videoRef
-Writes: (triggers loadVideo which sets videoUrl, urlGeneratedAt)
-Purpose: Auto-refresh signed URLs at 45 minutes
-```
+| Line | Variable | Type | Initial |
+|------|----------|------|---------|
+| 404 | `uploadingVideo` | `boolean` | `false` |
+| 405 | `uploadProgress` | `number` | `0` |
+| 406 | `uploadStatus` | `string` | `''` |
+| 407 | `uploadDetails` | `{ speed, remaining, uploaded, total } \| null` | `null` |
 
-### Effect 7: Deferred Camera Switch (line 798)
-```
-Dependencies: [videos]
-Reads: deferredCameraSwitch.current, videos
-Writes: (calls handleCameraSwitch)
-Purpose: Process pending camera switch when video becomes available
-```
+### AI Tagging (4 vars) -- LOCAL ONLY
 
-### Effect 8: Video Element Events (line 813)
-```
-Dependencies: [selectedVideo, gameId]
-Reads: videoRef, selectedVideo, gameId
-Writes: currentTime, isPlaying, videoDuration
-Purpose: Attach DOM event listeners to video element
-```
+| Line | Variable | Type | Initial |
+|------|----------|------|---------|
+| 418 | `aiPredictions` | `AITagPredictions \| null` | `null` |
+| 419 | `aiError` | `string \| null` | `null` |
+| 421 | `aiFilledFields` | `Record<string, number>` | `{}` |
+| 483 | `autoPopulatedFields` | `string[]` | `[]` |
 
-### Effect 9: Pending Seek (line 846)
-```
-Dependencies: [pendingSyncSeek, videoDuration, shouldResumePlayback, videoOffsetMs, targetGameTimeMs]
-Reads: pendingSyncSeek, videoDuration, videoRef, targetGameTimeMs, videoOffsetMs
-Writes: currentTime, gameTimelinePositionMs, seekLockRef, pendingSyncSeek, shouldResumePlayback
-Purpose: Apply seek after video metadata loads
-CRITICAL: Part of camera switch state machine
-```
+### Filters (3 vars) -- LOCAL ONLY
 
-### Effect 10: Quarter Scores (line 915)
-```
-Dependencies: [gameId, game]
-Reads: gameId, game
-Writes: quarterScores, scoreMismatch
-Purpose: Load score data
-```
+| Line | Variable | Type | Initial |
+|------|----------|------|---------|
+| 457 | `filterQuarter` | `string` | `'all'` |
+| 458 | `filterOffenseDefense` | `string` | `'all'` |
+| 459 | `filterDrive` | `string` | `'all'` |
 
-### Effect 11: Coverage Check (line 923)
-```
-Dependencies: [targetGameTimeMs, pendingCameraId, videoOffsetMs, clipDurationMs, videoDuration, selectedVideo?.id, selectedVideo?.sync_offset_seconds, offsetDataVideoId]
-Reads: All deps + videoRef
-Writes: targetGameTimeMs, pendingCameraId, isSwitchingCamera, shouldResumePlayback
-Purpose: Verify camera switch landed in valid coverage
-CRITICAL: Complex race condition handling - waits for correct camera data
-```
+### Markers UI (5 vars)
 
-### Effect 12: Video Pause for Overlay (line 1021)
-```
-Dependencies: [pendingCameraId, targetGameTimeMs]
-Reads: videoRef, pendingCameraId, targetGameTimeMs
-Writes: (pauses video element)
-Purpose: Pause video when "No film" overlay shows
-```
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 463 | `showMarkerPanel` | `boolean` | `false` | -- (local) |
+| 464 | `markersCollapsed` | `boolean` | `false` | -- (local) |
+| 465 | `showPeriodMarkerMenu` | `boolean` | `false` | `ui.showPeriodMarkerMenu` |
+| 466 | `showAddMarkerMenu` | `boolean` | `false` | `ui.showAddMarkerMenu` |
+| 467 | `editingMarker` | `VideoTimelineMarker \| null` | `null` | -- (local) |
 
-### Effect 13: Click Outside (line 1043)
-```
-Dependencies: [showPeriodMarkerMenu, showAddMarkerMenu]
-Reads: showPeriodMarkerMenu, showAddMarkerMenu
-Writes: showPeriodMarkerMenu, showAddMarkerMenu
-Purpose: Close menus on outside click
-```
+### Tagging Tier (3 vars)
 
-### Effect 14: Lane Initialization (line 1596)
-```
-Dependencies: [timelineLanes, selectedVideo?.id, currentLaneNumber]
-Reads: timelineLanes, selectedVideo, currentLaneNumber
-Writes: currentLaneNumber
-Purpose: Set initial lane based on selected video
-```
+| Line | Variable | Type | Initial |
+|------|----------|------|---------|
+| 471 | `taggingTier` | `TaggingTier \| null` | `null` |
+| 472 | `showTierSelector` | `boolean` | `false` |
+| 473 | `showTierUpgrade` | `boolean` | `false` |
+
+### Scoring / Film Status (5 vars)
+
+| Line | Variable | Type | Initial | Context Field |
+|------|----------|------|---------|---------------|
+| 476 | `quarterScores` | `GameScoreBreakdown \| null` | `null` | `ui.quarterScores` (partial match) |
+| 477 | `scoreMismatch` | `ScoreMismatchResult \| null` | `null` | `ui.scoreMismatch` (partial match) |
+| 478 | `filmAnalysisStatus` | `FilmAnalysisStatus` | `'not_started'` | -- |
+| 479 | `showTaggingCompleteModal` | `boolean` | `false` | -- (local) |
+| 480 | `finalScoreInputs` | `{ teamScore, opponentScore }` | `{ '', '' }` | -- (local) |
+
+### Misc UI (7 vars) -- LOCAL ONLY
+
+| Line | Variable | Type | Initial |
+|------|----------|------|---------|
+| 371 | `selectedVideoIds` | `Set<string>` | `new Set()` |
+| 372 | `showCombineModal` | `boolean` | `false` |
+| 376 | `showCameraUpload` | `boolean` | `false` |
+| 415 | `analyticsTier` | `string` | `'premium'` |
+| 416 | `selectedTab` | `string` | `'context'` |
+| 417 | `selectedSpecialTeamsUnit` | `SpecialTeamsUnit \| ''` | `''` |
+| 453 | `selectedTacklers` | `string[]` | `[]` |
+| 454 | `primaryTacklerId` | `string` | `''` |
 
 ---
 
-## State Flow Diagram
+## 2. useRef Declarations (7 total)
+
+| Ref | Line | Type | Purpose |
+|-----|------|------|---------|
+| `videoRef` | 350 | `HTMLVideoElement` | Direct video element control (play, pause, seek, currentTime) |
+| `fileInputRef` | 377 | `HTMLInputElement` | Hidden file input for camera upload |
+| `lastCameraSwitchTime` | 392 | `number` | Debounce rapid camera clicks (500ms threshold) |
+| `deferredCameraSwitch` | 393 | `{ videoId, gameTime? } \| null` | Pending camera switch when target video not yet in state |
+| `seekLockRef` | 394 | `boolean` | Prevents onTimeUpdate from overwriting gameTimelinePositionMs for 500ms after programmatic seek |
+| `virtualPlaybackRef` | 396 | `NodeJS.Timeout \| null` | Interval timer for advancing timeline during coverage gaps |
+| `virtualPlaybackTargetRef` | 397 | `number \| null` | Target time for virtual playback stop condition |
+
+---
+
+## 3. useEffect Hooks (14 total)
+
+### Effect 1: Virtual Playback Cleanup (line ~677)
+- **Deps:** `[]`
+- **Reads:** nothing
+- **Writes:** nothing
+- **Side effects:** Clears `virtualPlaybackRef` interval on unmount
+- **Timing:** Independent
+
+### Effect 2: Initial Data Fetch (line ~685)
+- **Deps:** `[gameId]`
+- **Reads:** `gameId`
+- **Writes:** `game`, `taggingMode`, `taggingTier`, `filmAnalysisStatus`, `videos`, `drives`, `currentDrive`, `driveAssignMode`, `cameraLimit`
+- **Side effects:** 4 parallel Supabase queries (fetchGame, fetchVideos, fetchDrives, fetchCameraLimit)
+- **Timing:** Must complete before Effects 3, 4, 5, 7, 10
+
+### Effect 3: Team-Dependent Data Fetch (line ~694)
+- **Deps:** `[game]`
+- **Reads:** `game.team_id`
+- **Writes:** `plays`, `players`, `formations`, `analyticsTier`
+- **Side effects:** 4 parallel Supabase queries
+- **Timing:** Depends on Effect 2 setting `game`
+
+### Effect 4: Fetch Play Instances from Timeline (line ~704)
+- **Deps:** `[timelineLanes]`
+- **Reads:** `timelineLanes`
+- **Writes:** `playInstances`, `filmAnalysisStatus`
+- **Side effects:** Supabase query to play_instances + playbook_plays
+- **Timing:** Depends on `timelineLanes` populated by TagPageUnifiedTimeline component
+
+### Effect 5: Video Selection and Loading (line ~714)
+- **Deps:** `[selectedVideo, videos]`
+- **Reads:** `selectedVideo`, `videos`
+- **Writes:** `selectedVideo` (self-trigger!), `videoUrl`, `urlGeneratedAt`, `urlRefreshAttempted`, `videoLoadError`, `markers`
+- **Side effects:** Supabase Storage signed URL generation, marker query
+- **Timing:** Depends on Effect 2 populating `videos`. **CAUTION: can self-trigger**
+
+### Effect 6: Auto-Refresh Signed URLs (line ~745)
+- **Deps:** `[urlGeneratedAt, selectedVideo, videoUrl]`
+- **Reads:** `urlGeneratedAt`, `selectedVideo`, `videoUrl`
+- **Writes:** `videoUrl`, `urlGeneratedAt`, `urlRefreshAttempted` (via loadVideo callback)
+- **Side effects:** setTimeout (45 min), loadedmetadata event listener
+- **Timing:** Depends on Effect 5 setting `urlGeneratedAt`
+
+### Effect 7: Deferred Camera Switch (line ~800)
+- **Deps:** `[videos]`
+- **Reads:** `videos`, `deferredCameraSwitch` ref
+- **Writes:** Indirectly via `handleCameraSwitch` (many camera state vars)
+- **Side effects:** Triggers camera switch if deferred target now exists
+- **Timing:** Depends on videos array update
+
+### Effect 8: Video Event Listeners (line ~815)
+- **Deps:** `[selectedVideo, gameId]`
+- **Reads:** `selectedVideo`, `gameId`
+- **Writes:** `currentTime`, `isPlaying`, `videoDuration`
+- **Side effects:** 4 DOM event listeners on video element, filmSessionService on pause
+- **Timing:** Depends on videoRef being rendered
+
+### Effect 9: Apply Pending Seek (line ~848)
+- **Deps:** `[pendingSyncSeek, videoDuration, shouldResumePlayback, videoOffsetMs, targetGameTimeMs]`
+- **Reads:** all deps above
+- **Writes:** `currentTime`, `gameTimelinePositionMs`, `pendingSyncSeek` (clears), `shouldResumePlayback` (clears)
+- **Side effects:** videoRef.currentTime seek, videoRef.play(), seekLockRef for 500ms
+- **Timing:** Depends on pending seek + video metadata loaded
+
+### Effect 10: Quarter Scores and Mismatch (line ~917)
+- **Deps:** `[gameId, game]`
+- **Reads:** `gameId`, `game`
+- **Writes:** `quarterScores`, `scoreMismatch`
+- **Side effects:** gameScoreService API calls
+- **Timing:** Depends on Effect 2 setting `game`
+
+### Effect 11: Camera Switch Coverage Verification (line ~925)
+- **Deps:** `[targetGameTimeMs, pendingCameraId, videoOffsetMs, clipDurationMs, videoDuration, selectedVideo?.id, selectedVideo?.sync_offset_seconds, offsetDataVideoId]`
+- **Reads:** all deps above
+- **Writes:** `targetGameTimeMs`, `pendingCameraId`, `isSwitchingCamera`, `shouldResumePlayback`
+- **Side effects:** videoRef.play() or videoRef.pause()
+- **Timing:** **Most timing-sensitive.** Needs selectedVideo, offset data, AND duration all updated for new camera.
+
+### Effect 12: Pause During Overlay (line ~1023)
+- **Deps:** `[pendingCameraId, targetGameTimeMs]`
+- **Reads:** `pendingCameraId`, `targetGameTimeMs`
+- **Writes:** none
+- **Side effects:** videoRef.pause()
+- **Timing:** Runs in parallel with Effect 11
+
+### Effect 13: Click-Outside for Marker Menus (line ~1045)
+- **Deps:** `[showPeriodMarkerMenu, showAddMarkerMenu]`
+- **Reads/Writes:** `showPeriodMarkerMenu`, `showAddMarkerMenu`
+- **Side effects:** Document click listener
+- **Timing:** Independent
+
+### Effect 14: Lane Init from Selected Video (line ~1598)
+- **Deps:** `[timelineLanes, selectedVideo?.id, currentLaneNumber]`
+- **Reads:** `timelineLanes`, `selectedVideo`, `currentLaneNumber`
+- **Writes:** `currentLaneNumber`
+- **Timing:** Depends on timelineLanes + selectedVideo
+
+---
+
+## 4. Effect Dependency Graph
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        PAGE LOAD                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │  Effect 2       │
-                    │  (gameId)       │
-                    │  fetchGame()    │
-                    │  fetchVideos()  │
-                    └────────┬────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-    ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-    │  Effect 3   │  │  Effect 5   │  │  FilmBridge │
-    │  (game)     │  │  (videos)   │  │  sets lanes │
-    │  fetchPlays │  │  select     │  │             │
-    │  fetchPlayers│  │  video      │  │             │
-    └─────────────┘  └──────┬──────┘  └──────┬──────┘
-                            │                │
-                            ▼                ▼
-                   ┌─────────────┐  ┌─────────────┐
-                   │  Effect 8   │  │  Effect 4   │
-                   │  attach DOM │  │  (lanes)    │
-                   │  events     │  │  fetchPlays │
-                   └─────────────┘  └─────────────┘
+Page Mount
+    |
+    v
+Effect 2: fetchGame, fetchVideos, fetchDrives, fetchCameraLimit
+    |                    |
+    v                    v
+Effect 3:             Effect 5: Video Selection & Loading
+(team data)              |           |
+    |                    v           v
+Effect 10:          Effect 6:    Effect 8: Event Listeners
+(scores)            (URL refresh)    |
+                                     v
+                                Effect 14: Lane Init
 
+TagPageUnifiedTimeline component populates timelineLanes
+    |
+    v
+Effect 4: fetchPlayInstances
 
-┌─────────────────────────────────────────────────────────────────┐
-│                     CAMERA SWITCH FLOW                           │
-└─────────────────────────────────────────────────────────────────┘
-
-User clicks camera button
-         │
-         ▼
-┌─────────────────────┐
-│ handleCameraSwitch  │
-│ - set pendingCameraId│
-│ - set targetGameTimeMs│
-│ - set isSwitchingCamera│
-│ - call loadVideo    │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│ loadVideo()         │
-│ - set videoUrl      │
-│ - set selectedVideo │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐     ┌─────────────────────┐
-│ Effect 8            │────▶│ Effect 9            │
-│ video.loadedmetadata│     │ (pendingSyncSeek)   │
-│ sets videoDuration  │     │ apply seek          │
-└─────────────────────┘     └──────────┬──────────┘
-                                       │
-                                       ▼
-                            ┌─────────────────────┐
-                            │ Effect 11           │
-                            │ (coverage check)    │
-                            │ verify offset data  │
-                            │ clear switching state│
-                            └─────────────────────┘
+Camera Switch (user action) --> handleCameraSwitch()
+    |
+    v
+Effect 9: Apply Pending Seek  <-->  Effect 11: Coverage Verification
+                                         |
+                                         v
+                                    Effect 12: Pause During Overlay
 ```
 
 ---
 
-## Race Condition Patterns
+## 5. Race Conditions Identified
 
-### Pattern 1: Stale Offset Data
-**Location:** Effect 11 (coverage check)
-**Problem:** After camera switch, offset data might still be for old camera
-**Solution:** Check `offsetDataVideoId === pendingCameraId` before proceeding
+### RC-1: Effect 5 Self-Triggering Loop
+Effect 5 depends on `[selectedVideo, videos]` and can call `setSelectedVideo`. Guarded by validity checks, but fragile.
 
-### Pattern 2: Seek Lock
-**Location:** Effect 9 (pending seek)
-**Problem:** `onTimeUpdate` fires immediately after seek, overwrites `gameTimelinePositionMs`
-**Solution:** `seekLockRef` blocks updates for 500ms after seek
+### RC-2: Camera Switch State Race (Effects 9 + 11)
+Both depend on `videoDuration`. If `videoDuration` updates before `offsetDataVideoId`, Effect 11 may evaluate with stale offset data. Guarded by `offsetDataVideoId` check.
 
-### Pattern 3: Video Not Yet Loaded
-**Location:** Effect 7 (deferred camera switch)
-**Problem:** User clicks camera before `videos` array contains it
-**Solution:** Store in `deferredCameraSwitch.current`, process when videos update
+### RC-3: URL Refresh During Camera Switch (Effects 6 + 5)
+45-min timer could fire during a camera switch. Timer cleanup runs on dependency change but there's a window where callback fires after `selectedVideo` changes.
 
-### Pattern 4: URL Expiration
-**Location:** Effect 6 (URL refresh)
-**Problem:** Signed URLs expire after 1 hour
-**Solution:** Timer at 45 minutes, restore playback position after refresh
+### RC-4: Deferred Camera Switch + Video Selection (Effects 7 + 5)
+When `videos` updates, both effects run. Effect 5 may auto-select a video, then Effect 7 may switch to a different one.
+
+### RC-5: Film Status Stale Closure (Effect 4)
+`filmAnalysisStatus` captured in closure when Effect 4 runs. If updated between trigger and async completion, stale value may cause incorrect status update.
+
+### RC-6: Parallel Initial Fetches (Effect 2)
+4 async fetches without `Promise.all`. Resolution order is nondeterministic, but downstream effects are independent so no functional race.
 
 ---
 
-## Recommended State Groupings for Context
+## 6. Migration Plan
 
-Based on this analysis, the state should be grouped into these contexts:
+### Move to Context (shared across panels) -- ~43 vars
+All variables with a "Context Field" mapping in the tables above. These need to be readable/writable by child panel components (VideoPlaybackPanel, TaggingPanel, TimelinePanel).
 
-### FilmPlaybackContext
-- `selectedVideo`, `videoUrl`, `videoLoadError`
-- `currentTime`, `videoDuration`, `isPlaying`
-- `urlGeneratedAt`, `urlRefreshAttempted`
+### Stay Local (panel-specific or ephemeral) -- ~28 vars
 
-### FilmCameraContext
-- `videoOffsetMs`, `clipDurationMs`, `offsetDataVideoId`
-- `isSwitchingCamera`, `pendingCameraId`, `pendingSyncSeek`
-- `shouldResumePlayback`, `targetGameTimeMs`
-- `gameTimelinePositionMs`, `timelineDurationMs`
-- `timelineLanes`, `currentLaneNumber`
-- `isVirtuallyPlaying`
+| Category | Variables | Reason |
+|----------|-----------|--------|
+| Upload | `uploadingVideo`, `uploadProgress`, `uploadStatus`, `uploadDetails` | Upload UI only |
+| AI Tagging | `aiPredictions`, `aiError`, `aiFilledFields`, `autoPopulatedFields` | Tagging form only |
+| Filters | `filterQuarter`, `filterOffenseDefense`, `filterDrive` | Play list panel only |
+| Markers UI | `showMarkerPanel`, `markersCollapsed`, `editingMarker` | Marker panel only |
+| Tier Modals | `showTierSelector`, `showTierUpgrade` | Modal toggles, local |
+| Scoring Modals | `showTaggingCompleteModal`, `finalScoreInputs` | Modal toggles, local |
+| Form | `isSettingEndTime`, `selectedTab`, `selectedSpecialTeamsUnit`, `selectedTacklers`, `primaryTacklerId` | Tagging form internal |
+| Video Combine | `selectedVideoIds`, `showCombineModal` | Video management UI |
+| Camera Upload | `showCameraUpload` | Upload toggle |
 
-### FilmTaggingContext
-- `tagStartTime`, `tagEndTime`, `showTagModal`
-- `editingInstance`, `taggingMode`, `isTaggingOpponent`
-- `isSavingPlay`, `driveAssignMode`, `currentDrive`
+### Refs -- Stay in tag page or move to hooks
+All 7 refs are tightly coupled to video element manipulation. They belong in the tag page or in a `useVideoPlayback` hook.
 
-### FilmDataContext
-- `game`, `videos`, `plays`, `playInstances`
-- `players`, `formations`, `drives`, `markers`
+### Effect Migration Strategy
+
+| Effect | Target Location | Notes |
+|--------|----------------|-------|
+| Effects 5, 6, 8, 9 | `useVideoPlayback` hook | Video selection, URL refresh, event listeners, seek |
+| Effects 11, 12, 14 | `useCameraSync` hook | Coverage verification, overlay pause, lane init |
+| Effects 2, 3, 4, 10 | `useFilmData` hook (or stay in page) | Data fetching on mount |
+| Effect 1 | Stay in page | Cleanup only |
+| Effect 7 | Move with camera logic | Deferred camera switch |
+| Effect 13 | `useClickOutside` utility hook | Generic behavior |
 
 ---
 
-## Next Steps (Task 3.2)
-
-1. Create `FilmContext` combining all state
-2. Implement `useReducer` with typed actions
-3. Create selector hooks for derived state
-4. Migrate effects to use context dispatch
+*This document is a living reference for Phase 3 of the film refactor.*

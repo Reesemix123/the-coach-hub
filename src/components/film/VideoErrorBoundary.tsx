@@ -2,6 +2,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { filmError } from '@/lib/errors/client-error-logger';
 
 /**
  * Error context for logging and debugging
@@ -92,8 +93,11 @@ export class VideoErrorBoundary extends Component<VideoErrorBoundaryProps, Video
     // Store error info for potential display
     this.setState({ errorInfo });
 
-    // Future: Send to error tracking service (Sentry, LogRocket, etc.)
-    // this.reportToErrorService(error, context, errorInfo);
+    // Send to error logging service
+    filmError('video_boundary_caught', error, {
+      ...context,
+      componentStack: errorInfo.componentStack,
+    });
   }
 
   /**

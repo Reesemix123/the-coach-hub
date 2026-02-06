@@ -5,10 +5,80 @@ import Tooltip from '@/components/Tooltip';
 import { POSITION_GROUPS, isDefensiveLineman, isLinebacker, isDefensiveBack, getGapPositionFromName } from '@/config/footballConfig';
 import { FIELD_CONFIG } from './fieldConstants';
 
+// Modern Color Palette (Hudl-inspired)
+const COLORS = {
+  field: {
+    gradient: ['#065F46', '#047857', '#059669'],
+    lines: '#047857',
+    border: '#064E3B',
+  },
+  offense: {
+    player: '#DC2626',
+    stroke: '#991B1B',
+  },
+  routes: {
+    primary: '#EF4444',
+    secondary: '#FBBF24',
+    blocking: '#6B7280',
+    outline: 'rgba(0,0,0,0.2)',
+    highlight: 'rgba(255,255,255,0.4)',
+  },
+  motion: {
+    path: '#06B6D4',      // Modern cyan (not dated #00BFFF)
+    endpoint: '#0891B2',
+    guide: '#06B6D4',
+  },
+  ballCarrier: {
+    path: '#F97316',      // Orange (distinct from routes!)
+    shadow: 'rgba(0,0,0,0.25)',
+  },
+  blitz: {
+    path: '#DC2626',
+  },
+  coverage: {
+    deep: '#1E40AF',      // Deep zones
+    shallow: '#CA8A04',   // Shallow zones
+  },
+} as const;
+
 // Deep coverage roles that get blue zones (darker blue for visibility)
 const DEEP_COVERAGE_ROLES = ['Deep Third', 'Deep Half', 'Quarter'];
-const DEEP_ZONE_COLOR = '#1E40AF'; // Darker blue for better visibility
-const SHALLOW_ZONE_COLOR = '#CA8A04'; // Darker gold/yellow
+
+/**
+ * Generate a smooth SVG path using Catmull-Rom to Bezier conversion.
+ * This creates natural-looking curves through all waypoints instead of angular lines.
+ *
+ * @param points - Array of {x, y} coordinates
+ * @param tension - Controls curve tightness (0.5 = natural, lower = tighter curves)
+ * @returns SVG path string with smooth bezier curves
+ */
+function generateSmoothPath(points: Array<{ x: number; y: number }>, tension = 0.5): string {
+  if (points.length < 2) return '';
+  if (points.length === 2) {
+    // Just 2 points: straight line
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  let pathD = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    // Get 4 points for Catmull-Rom calculation (p0, p1, p2, p3)
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    // Calculate control points using Catmull-Rom to Bezier formula
+    const cp1x = p1.x + (p2.x - p0.x) * tension / 3;
+    const cp1y = p1.y + (p2.y - p0.y) * tension / 3;
+    const cp2x = p2.x - (p3.x - p1.x) * tension / 3;
+    const cp2y = p2.y - (p3.y - p1.y) * tension / 3;
+
+    pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+  }
+
+  return pathD;
+}
 
 interface Player {
   id: string;
@@ -232,29 +302,50 @@ export default function FieldDiagram({
     const endX = holePos.x;
     const endY = holePos.y;
 
-    let pathD = `M ${startX} ${startY}`;
+    // Create smooth curved path through intermediate waypoints
     const midY = Math.max(startY, 205);
-    pathD += ` L ${startX} ${midY} L ${endX} ${midY} L ${endX} ${endY}`;
+    const waypoints = [
+      { x: startX, y: startY },
+      { x: startX, y: midY },
+      { x: endX, y: midY },
+      { x: endX, y: endY }
+    ];
+    const pathD = generateSmoothPath(waypoints, 0.4);
 
     return (
       <g key={`ball-carrier-${player.id}`}>
         <defs>
           <marker
             id={`arrowhead-ball-${player.id}`}
-            markerWidth="6"
-            markerHeight="6"
-            refX="5"
-            refY="3"
+            markerWidth="12"
+            markerHeight="10"
+            refX="10"
+            refY="5"
             orient="auto"
           >
-            <path d="M 0 0 L 6 3 L 0 6 z" fill="#FF0000" />
+            {/* Shadow layer */}
+            <path d="M 0 0 L 12 5 L 0 10 z" fill={COLORS.ballCarrier.shadow} />
+            {/* Main arrowhead with outline */}
+            <path d="M 2 2 L 10 5 L 2 8 z" fill={COLORS.ballCarrier.path} stroke="white" strokeWidth="0.6" />
           </marker>
         </defs>
+        {/* Shadow/outline layer */}
         <path
           d={pathD}
           fill="none"
-          stroke="#FF0000"
-          strokeWidth="2.5"
+          stroke={COLORS.routes.outline}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Main path */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke={COLORS.ballCarrier.path}
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           markerEnd={`url(#arrowhead-ball-${player.id})`}
         />
       </g>
@@ -276,27 +367,47 @@ export default function FieldDiagram({
 
     return (
       <g key={`block-${player.id}`}>
+        {/* Shadow layer */}
         <line
           x1={startX}
           y1={startY}
           x2={arrowEnd.endX}
           y2={arrowEnd.endY}
-          stroke="#888888"
+          stroke={COLORS.routes.outline}
+          strokeWidth="4"
+        />
+        {/* Main line */}
+        <line
+          x1={startX}
+          y1={startY}
+          x2={arrowEnd.endX}
+          y2={arrowEnd.endY}
+          stroke={COLORS.routes.blocking}
           strokeWidth="2"
         />
+        {/* Shadow for T-bar */}
         <line
           x1={arrowEnd.endX - perpX}
           y1={arrowEnd.endY - perpY}
           x2={arrowEnd.endX + perpX}
           y2={arrowEnd.endY + perpY}
-          stroke="#888888"
+          stroke={COLORS.routes.outline}
+          strokeWidth="4"
+        />
+        {/* T-bar */}
+        <line
+          x1={arrowEnd.endX - perpX}
+          y1={arrowEnd.endY - perpY}
+          x2={arrowEnd.endX + perpX}
+          y2={arrowEnd.endY + perpY}
+          stroke={COLORS.routes.blocking}
           strokeWidth="2"
         />
         <circle
           cx={arrowEnd.endX}
           cy={arrowEnd.endY}
           r="6"
-          fill="#888888"
+          fill={COLORS.routes.blocking}
           stroke="#ffffff"
           strokeWidth="2"
           className="cursor-move"
@@ -332,52 +443,60 @@ export default function FieldDiagram({
         <defs>
           <marker
             id={`motion-arrow-${player.id}`}
-            markerWidth="8"
-            markerHeight="8"
-            refX="6"
-            refY="4"
+            markerWidth="12"
+            markerHeight="10"
+            refX="10"
+            refY="5"
             orient="auto"
           >
-            <path d="M 0 0 L 8 4 L 0 8 z" fill="#00BFFF" />
+            {/* Shadow layer */}
+            <path d="M 0 0 L 12 5 L 0 10 z" fill={COLORS.ballCarrier.shadow} />
+            {/* Main arrowhead with outline */}
+            <path d="M 2 2 L 10 5 L 2 8 z" fill={COLORS.motion.path} stroke="white" strokeWidth="0.6" />
           </marker>
         </defs>
 
-        {/* Control point guide lines (dashed lines from start/end to control point) */}
+        {/* Control point guide lines - very subtle */}
         <line
           x1={startX}
           y1={startY}
           x2={controlX}
           y2={controlY}
-          stroke="#00BFFF"
+          stroke={COLORS.motion.guide}
           strokeWidth="1"
           strokeDasharray="3,3"
-          opacity="0.5"
+          opacity="0.2"
         />
         <line
           x1={endX}
           y1={endY}
           x2={controlX}
           y2={controlY}
-          stroke="#00BFFF"
+          stroke={COLORS.motion.guide}
           strokeWidth="1"
           strokeDasharray="3,3"
-          opacity="0.5"
+          opacity="0.2"
         />
 
-        {/* Motion path with outline for better visibility */}
+        {/* Shadow/outline layer */}
         <path
           d={pathD}
           fill="none"
-          stroke="#000000"
+          stroke={COLORS.routes.outline}
           strokeWidth="5"
           strokeDasharray="8,4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        {/* Motion path */}
         <path
           d={pathD}
           fill="none"
-          stroke="#00BFFF"
+          stroke={COLORS.motion.path}
           strokeWidth="3"
           strokeDasharray="8,4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           markerEnd={`url(#motion-arrow-${player.id})`}
         />
 
@@ -387,8 +506,8 @@ export default function FieldDiagram({
           y={controlY - 6}
           width="12"
           height="12"
-          fill="#00BFFF"
-          stroke="#000000"
+          fill={COLORS.motion.path}
+          stroke="white"
           strokeWidth="2"
           transform={`rotate(45 ${controlX} ${controlY})`}
           className="cursor-move"
@@ -407,8 +526,8 @@ export default function FieldDiagram({
           cx={endX}
           cy={endY}
           r="8"
-          fill="#00BFFF"
-          stroke="#000000"
+          fill={COLORS.motion.path}
+          stroke="white"
           strokeWidth="2"
           className="cursor-move"
           onMouseDown={(e) => {
@@ -428,12 +547,10 @@ export default function FieldDiagram({
     const player = players.find(p => p.id === route.playerId);
     if (!player || route.points.length < 2) return null;
 
-    let pathD = `M ${route.points[0].x} ${route.points[0].y}`;
-    for (let i = 1; i < route.points.length; i++) {
-      pathD += ` L ${route.points[i].x} ${route.points[i].y}`;
-    }
+    // Use smooth Catmull-Rom curves for professional-looking routes
+    const pathD = generateSmoothPath(route.points, 0.5);
 
-    const color = route.isPrimary ? '#FF0000' : '#FFD700';
+    const color = route.isPrimary ? COLORS.routes.primary : COLORS.routes.secondary;
 
     // Check if this is a blocking assignment
     const isBlockingRoute = route.assignment === 'Block';
@@ -453,33 +570,70 @@ export default function FieldDiagram({
           <defs>
             <marker
               id={`arrowhead-route-${route.id}`}
-              markerWidth="6"
-              markerHeight="6"
-              refX="5"
-              refY="3"
+              markerWidth="12"
+              markerHeight="10"
+              refX="10"
+              refY="5"
               orient="auto"
             >
-              <path d="M 0 0 L 6 3 L 0 6 z" fill={color} />
+              {/* Shadow layer */}
+              <path d="M 0 0 L 12 5 L 0 10 z" fill={COLORS.routes.outline} />
+              {/* Main arrowhead with outline */}
+              <path d="M 2 2 L 10 5 L 2 8 z" fill={color} stroke="white" strokeWidth="0.6" />
             </marker>
           </defs>
         )}
+        {/* Shadow/outline layer */}
+        <path
+          d={pathD}
+          fill="none"
+          stroke={COLORS.routes.outline}
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Main route path */}
         <path
           d={pathD}
           fill="none"
           stroke={color}
-          strokeWidth="2.5"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           markerEnd={!isBlockingRoute ? `url(#arrowhead-route-${route.id})` : undefined}
         />
-        {isBlockingRoute && (
-          /* T-shape blocking symbol for WR/RB blocks */
-          <line
-            x1={lastPoint.x - perpX}
-            y1={lastPoint.y - perpY}
-            x2={lastPoint.x + perpX}
-            y2={lastPoint.y + perpY}
-            stroke={color}
-            strokeWidth="2.5"
+        {/* Optional highlight for primary routes */}
+        {route.isPrimary && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke={COLORS.routes.highlight}
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
+        )}
+        {isBlockingRoute && (
+          <>
+            {/* T-shape blocking symbol for WR/RB blocks - shadow */}
+            <line
+              x1={lastPoint.x - perpX}
+              y1={lastPoint.y - perpY}
+              x2={lastPoint.x + perpX}
+              y2={lastPoint.y + perpY}
+              stroke={COLORS.routes.outline}
+              strokeWidth="5"
+            />
+            {/* T-shape main */}
+            <line
+              x1={lastPoint.x - perpX}
+              y1={lastPoint.y - perpY}
+              x2={lastPoint.x + perpX}
+              y2={lastPoint.y + perpY}
+              stroke={color}
+              strokeWidth="3.5"
+            />
+          </>
         )}
         {route.assignment && route.assignment !== 'Draw Route (Custom)' && (
           <text
@@ -509,7 +663,7 @@ export default function FieldDiagram({
     const endpoint = player.zoneEndpoint || { x: player.x, y: player.y - defaultDepth };
 
     const isDeep = DEEP_COVERAGE_ROLES.includes(player.coverageRole);
-    const zoneColor = isDeep ? DEEP_ZONE_COLOR : SHALLOW_ZONE_COLOR;
+    const zoneColor = isDeep ? COLORS.coverage.deep : COLORS.coverage.shallow;
 
     // Calculate ellipse dimensions
     const width = Math.abs(endpoint.x - startX) || 50;
@@ -576,23 +730,37 @@ export default function FieldDiagram({
         <defs>
           <marker
             id={`arrowhead-blitz-${player.id}`}
-            markerWidth="6"
-            markerHeight="6"
-            refX="5"
-            refY="3"
+            markerWidth="12"
+            markerHeight="10"
+            refX="10"
+            refY="5"
             orient="auto"
           >
-            <path d="M 0 0 L 6 3 L 0 6 z" fill="#DC2626" />
+            {/* Shadow layer */}
+            <path d="M 0 0 L 12 5 L 0 10 z" fill={COLORS.routes.outline} />
+            {/* Main arrowhead with outline */}
+            <path d="M 2 2 L 10 5 L 2 8 z" fill={COLORS.blitz.path} stroke="white" strokeWidth="0.6" />
           </marker>
         </defs>
+        {/* Shadow layer */}
+        <line
+          x1={startX}
+          y1={startY}
+          x2={endX}
+          y2={endY}
+          stroke={COLORS.routes.outline}
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
         {/* Blitz arrow */}
         <line
           x1={startX}
           y1={startY}
           x2={endX}
           y2={endY}
-          stroke="#DC2626"
-          strokeWidth="2.5"
+          stroke={COLORS.blitz.path}
+          strokeWidth="3.5"
+          strokeLinecap="round"
           markerEnd={`url(#arrowhead-blitz-${player.id})`}
         />
         {/* Draggable blitz endpoint handle */}
@@ -600,7 +768,7 @@ export default function FieldDiagram({
           cx={endX}
           cy={endY}
           r="6"
-          fill="#DC2626"
+          fill={COLORS.blitz.path}
           stroke="#ffffff"
           strokeWidth="2"
           className="cursor-move"
@@ -858,9 +1026,17 @@ export default function FieldDiagram({
           role="application"
           aria-label="Football play diagram - drag players to reposition"
         >
-          {/* Field background - light teal/mint with border */}
-          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="#10B981" fillOpacity="0.1" />
-          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke="#10B981" strokeWidth="2" />
+          <defs>
+            {/* Modern field gradient */}
+            <linearGradient id="fieldGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={COLORS.field.gradient[0]} />
+              <stop offset="50%" stopColor={COLORS.field.gradient[1]} />
+              <stop offset="100%" stopColor={COLORS.field.gradient[2]} />
+            </linearGradient>
+          </defs>
+          {/* Field background with gradient */}
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="url(#fieldGradient)" />
+          <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke={COLORS.field.border} strokeWidth="3" />
           
           {/* Yard lines */}
           {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
@@ -870,18 +1046,19 @@ export default function FieldDiagram({
               y1={i * 40}
               x2="700"
               y2={i * 40}
-              stroke="#10B981"
+              stroke={COLORS.field.lines}
               strokeWidth="1"
+              opacity="0.5"
             />
           ))}
 
           {/* Hash marks */}
-          <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
-          <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke="#10B981" strokeWidth="1" strokeDasharray="5,5" />
+          <line x1={FIELD_CONFIG.HASH_LEFT} y1="0" x2={FIELD_CONFIG.HASH_LEFT} y2={FIELD_CONFIG.HEIGHT} stroke={COLORS.field.lines} strokeWidth="1" strokeDasharray="5,5" opacity="0.6" />
+          <line x1={FIELD_CONFIG.HASH_RIGHT} y1="0" x2={FIELD_CONFIG.HASH_RIGHT} y2={FIELD_CONFIG.HEIGHT} stroke={COLORS.field.lines} strokeWidth="1" strokeDasharray="5,5" opacity="0.6" />
 
           {/* Line of scrimmage - hide for kickoff and kick return plays */}
           {formation !== 'Kickoff' && formation !== 'Kick Return' && (
-            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="#10B981" strokeWidth="2" />
+            <line x1="0" y1={FIELD_CONFIG.LINE_OF_SCRIMMAGE} x2={FIELD_CONFIG.WIDTH} y2={FIELD_CONFIG.LINE_OF_SCRIMMAGE} stroke="white" strokeWidth="3" opacity="0.8" />
           )}
 
           {/* Dummy Offense (for defensive plays) */}
@@ -891,9 +1068,9 @@ export default function FieldDiagram({
                 cx={player.x}
                 cy={player.y}
                 r={FIELD_CONFIG.PLAYER_RADIUS}
-                fill="#DC2626"
+                fill={COLORS.offense.player}
                 fillOpacity={0.4}
-                stroke="black"
+                stroke="white"
                 strokeWidth={2}
                 strokeDasharray="3,3"
                 className="cursor-move"
@@ -1039,8 +1216,8 @@ export default function FieldDiagram({
                     cx={player.x}
                     cy={player.y}
                     r={FIELD_CONFIG.PLAYER_RADIUS}
-                    fill={player.isPrimary ? '#DC2626' : '#DC2626'}
-                    stroke={player.isPrimary ? '#FBBF24' : 'black'}
+                    fill={COLORS.offense.player}
+                    stroke={player.isPrimary ? COLORS.routes.secondary : COLORS.offense.stroke}
                     strokeWidth={player.isPrimary ? 3 : 2}
                     className={playerHasCustomRoute ? 'cursor-pointer' : 'cursor-move'}
                     onMouseDown={(e) => handlePlayerMouseDown(player.id, e)}
@@ -1119,12 +1296,25 @@ export default function FieldDiagram({
           {/* Current route being drawn */}
           {isDrawingRoute && currentRoute.length > 0 && (
             <g>
+              {/* Shadow layer */}
               <path
-                d={currentRoute.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')}
+                d={generateSmoothPath(currentRoute, 0.5)}
                 fill="none"
-                stroke="#FFD700"
-                strokeWidth="2.5"
+                stroke={COLORS.routes.outline}
+                strokeWidth="5"
                 strokeDasharray="5,5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              {/* Main path */}
+              <path
+                d={generateSmoothPath(currentRoute, 0.5)}
+                fill="none"
+                stroke={COLORS.routes.secondary}
+                strokeWidth="3.5"
+                strokeDasharray="5,5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
               {currentRoute.map((point, i) => (
                 <circle
@@ -1132,7 +1322,7 @@ export default function FieldDiagram({
                   cx={point.x}
                   cy={point.y}
                   r="4"
-                  fill="#FFD700"
+                  fill={COLORS.routes.secondary}
                   stroke="#ffffff"
                   strokeWidth="1"
                 />

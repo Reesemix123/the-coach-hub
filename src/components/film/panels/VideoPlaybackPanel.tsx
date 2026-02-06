@@ -16,6 +16,7 @@
 
 import React, {
   forwardRef,
+  memo,
   useCallback,
   useImperativeHandle,
   useRef,
@@ -95,7 +96,7 @@ export interface VideoPlaybackPanelRef {
 /**
  * VideoPlaybackPanel - Video player with playback controls
  */
-export const VideoPlaybackPanel = forwardRef<
+export const VideoPlaybackPanel = memo(forwardRef<
   VideoPlaybackPanelRef,
   VideoPlaybackPanelProps
 >(function VideoPlaybackPanel(
@@ -290,7 +291,7 @@ export const VideoPlaybackPanel = forwardRef<
       </div>
     </VideoErrorBoundary>
   );
-});
+}));
 
 // ============================================
 // HELPER HOOKS
