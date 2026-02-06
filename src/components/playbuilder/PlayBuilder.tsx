@@ -99,7 +99,15 @@ import QuickDrawToolbar from './QuickDrawToolbar';
 import RouteTypeModal from './RouteTypeModal';
 import { useQuickDrawEngine } from './hooks/useQuickDrawEngine';
 import { useSVGCoordinates } from './hooks/useSVGCoordinates';
-import { detectRouteType, getRouteOptions, detectBlockingType, type RouteAnalysis } from './utils/routeDetection';
+import {
+  detectRouteType,
+  getRouteOptions,
+  detectBlockingType,
+  detectCoverageZone,
+  detectBlitzGap,
+  detectMotionType,
+  type RouteAnalysis,
+} from './utils/routeDetection';
 
 /**
  * Player entity on the field diagram
@@ -302,13 +310,44 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
     const player = players.find(p => p.id === playerId);
     if (!player) return;
 
+    // Eraser tool - immediately remove assignment without drawing
+    if (quickDrawState.selectedTool === 'eraser') {
+      // Remove route for this player
+      setRoutes(prev => prev.filter(r => r.playerId !== playerId));
+
+      // Clear player assignment and related fields
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id === playerId) {
+            return {
+              ...p,
+              assignment: undefined,
+              blockType: undefined,
+              blockDirection: undefined,
+              isPrimary: false,
+              motionType: 'None' as const,
+              motionEndpoint: undefined,
+              motionControlPoint: undefined,
+              blitzGap: undefined,
+              zoneEndpoint: undefined,
+            };
+          }
+          return p;
+        })
+      );
+
+      setHasUnsavedChanges(true);
+      toast.success(`Cleared assignment for ${player.label}`);
+      return;
+    }
+
     // Start drawing from this player
     quickDrawActions.startDrawing(playerId);
 
     // Add player position as first point of ghost line
     const startPoint = player.motionEndpoint || { x: player.x, y: player.y };
     quickDrawActions.updateGhostLine(startPoint);
-  }, [quickDrawState.isDrawing, players, quickDrawActions]);
+  }, [quickDrawState.isDrawing, quickDrawState.selectedTool, players, quickDrawActions]);
 
   const handleQuickDrawFieldClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!quickDrawState.activePlayerId || !quickDrawState.isDrawing) return;
@@ -329,19 +368,85 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
       return;
     }
 
-    // Detect route type from drawn path
-    const routeAnalysis = detectRouteType(
-      quickDrawState.ghostLine,
-      player.side,
-      player.x
-    );
+    const tool = quickDrawState.selectedTool;
+    const path = [...quickDrawState.ghostLine];
+
+    // Handle defense tools directly without modal
+    if (tool === 'coverage') {
+      const coverage = detectCoverageZone(path, player.y);
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id === player.id) {
+            return {
+              ...p,
+              coverageRole: coverage.zoneType,
+              zoneEndpoint: coverage.zoneEndpoint,
+              blitzGap: undefined,
+            };
+          }
+          return p;
+        })
+      );
+      setHasUnsavedChanges(true);
+      quickDrawActions.finishDrawing();
+      quickDrawActions.cancelDrawing();
+      toast.success(`${coverage.zoneType} zone assigned to ${player.label}`);
+      return;
+    }
+
+    if (tool === 'blitz') {
+      const blitz = detectBlitzGap(path, player.x);
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id === player.id) {
+            return {
+              ...p,
+              blitzGap: blitz.suggestedGap,
+              zoneEndpoint: blitz.blitzEndpoint,
+              coverageRole: undefined,
+            };
+          }
+          return p;
+        })
+      );
+      setHasUnsavedChanges(true);
+      quickDrawActions.finishDrawing();
+      quickDrawActions.cancelDrawing();
+      toast.success(`${blitz.suggestedGap} blitz assigned to ${player.label}`);
+      return;
+    }
+
+    if (tool === 'motion') {
+      const motion = detectMotionType(path, player.x);
+      setPlayers(prev =>
+        prev.map(p => {
+          if (p.id === player.id) {
+            return {
+              ...p,
+              motionType: motion.motionType,
+              motionEndpoint: motion.motionEndpoint,
+              motionDirection: motion.motionDirection,
+            };
+          }
+          return p;
+        })
+      );
+      setHasUnsavedChanges(true);
+      quickDrawActions.finishDrawing();
+      quickDrawActions.cancelDrawing();
+      toast.success(`${motion.motionType} motion assigned to ${player.label}`);
+      return;
+    }
+
+    // For route and block tools, show confirmation modal
+    const routeAnalysis = detectRouteType(path, player.side, player.x);
     const relevantOptions = getRouteOptions(routeAnalysis);
 
     // Store pending draw data and show modal
     setPendingQuickDraw({
       playerId: quickDrawState.activePlayerId,
       tool: quickDrawState.selectedTool,
-      path: [...quickDrawState.ghostLine],
+      path,
       routeAnalysis,
       relevantOptions,
     });

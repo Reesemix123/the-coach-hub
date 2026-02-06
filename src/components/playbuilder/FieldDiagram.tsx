@@ -1369,13 +1369,25 @@ export default function FieldDiagram({
           {isQuickDrawMode && quickDrawActivePlayer && (() => {
             const activePlayer = players.find(p => p.id === quickDrawActivePlayer);
             if (!activePlayer) return null;
+
+            // Tool-specific highlight colors
+            const highlightColors: Record<string, string> = {
+              route: '#EF4444',
+              block: '#6B7280',
+              motion: '#06B6D4',
+              coverage: '#1E40AF',
+              blitz: '#DC2626',
+              select: '#22C55E',
+            };
+            const highlightColor = highlightColors[quickDrawSelectedTool] || '#22C55E';
+
             return (
               <circle
                 cx={activePlayer.x}
                 cy={activePlayer.y}
                 r={FIELD_CONFIG.PLAYER_RADIUS + 6}
                 fill="none"
-                stroke="#22C55E"
+                stroke={highlightColor}
                 strokeWidth="3"
                 strokeDasharray="4,2"
                 className="animate-pulse"
@@ -1384,43 +1396,56 @@ export default function FieldDiagram({
           })()}
 
           {/* Quick Draw mode - Ghost line while drawing */}
-          {isQuickDrawMode && quickDrawGhostLine.length > 0 && (
-            <g>
-              {/* Shadow layer */}
-              <path
-                d={generateSmoothPath(quickDrawGhostLine, 0.5)}
-                fill="none"
-                stroke={COLORS.routes.outline}
-                strokeWidth="5"
-                strokeDasharray="6,4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.6"
-              />
-              {/* Main ghost path */}
-              <path
-                d={generateSmoothPath(quickDrawGhostLine, 0.5)}
-                fill="none"
-                stroke="#22C55E"
-                strokeWidth="3.5"
-                strokeDasharray="6,4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Waypoint markers */}
-              {quickDrawGhostLine.map((point, i) => (
-                <circle
-                  key={i}
-                  cx={point.x}
-                  cy={point.y}
-                  r={i === 0 ? 6 : 4}
-                  fill={i === 0 ? '#22C55E' : '#ffffff'}
-                  stroke={i === 0 ? '#ffffff' : '#22C55E'}
-                  strokeWidth="2"
+          {isQuickDrawMode && quickDrawGhostLine.length > 0 && (() => {
+            // Tool-specific colors
+            const toolColors: Record<string, string> = {
+              route: '#EF4444',     // Red for routes
+              block: '#6B7280',     // Gray for blocks
+              motion: '#06B6D4',    // Cyan for motion
+              coverage: '#1E40AF',  // Blue for coverage
+              blitz: '#DC2626',     // Red for blitz
+              select: '#22C55E',    // Green default
+            };
+            const ghostColor = toolColors[quickDrawSelectedTool] || '#22C55E';
+
+            return (
+              <g>
+                {/* Shadow layer */}
+                <path
+                  d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                  fill="none"
+                  stroke={COLORS.routes.outline}
+                  strokeWidth="5"
+                  strokeDasharray="6,4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity="0.6"
                 />
-              ))}
-            </g>
-          )}
+                {/* Main ghost path */}
+                <path
+                  d={generateSmoothPath(quickDrawGhostLine, 0.5)}
+                  fill="none"
+                  stroke={ghostColor}
+                  strokeWidth="3.5"
+                  strokeDasharray="6,4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Waypoint markers */}
+                {quickDrawGhostLine.map((point, i) => (
+                  <circle
+                    key={i}
+                    cx={point.x}
+                    cy={point.y}
+                    r={i === 0 ? 6 : 4}
+                    fill={i === 0 ? ghostColor : '#ffffff'}
+                    stroke={i === 0 ? '#ffffff' : ghostColor}
+                    strokeWidth="2"
+                  />
+                ))}
+              </g>
+            );
+          })()}
         </svg>
       </div>
     </div>

@@ -312,3 +312,185 @@ export function detectBlockingType(path: Point[]): {
   // Pass Block: Default for medium distance
   return { suggestedType: 'Pass Block', confidence: 'medium' };
 }
+
+/**
+ * Detect coverage zone type from drawn path
+ * Returns zone depth classification and endpoint
+ */
+export function detectCoverageZone(
+  path: Point[],
+  playerStartY: number
+): {
+  zoneType: 'Deep Third' | 'Deep Half' | 'Quarter' | 'Hook/Curl' | 'Flat' | 'Man';
+  zoneEndpoint: Point;
+  confidence: 'high' | 'medium' | 'low';
+} {
+  if (path.length < 2) {
+    return {
+      zoneType: 'Man',
+      zoneEndpoint: path[0] || { x: 0, y: 0 },
+      confidence: 'low',
+    };
+  }
+
+  const end = path[path.length - 1];
+  const verticalDrop = playerStartY - end.y; // Positive = dropping back (upfield for defense)
+
+  // Deep zones: dropping back significantly (>100 pixels = ~10+ yards)
+  if (verticalDrop > 120) {
+    // Check if centered or on a side
+    if (end.x > FIELD_CONFIG.CENTER_X - 80 && end.x < FIELD_CONFIG.CENTER_X + 80) {
+      return { zoneType: 'Deep Third', zoneEndpoint: end, confidence: 'high' };
+    } else {
+      return { zoneType: 'Deep Half', zoneEndpoint: end, confidence: 'high' };
+    }
+  }
+
+  // Quarter/Hook zones: medium drop (60-120 pixels)
+  if (verticalDrop > 60) {
+    return { zoneType: 'Quarter', zoneEndpoint: end, confidence: 'medium' };
+  }
+
+  // Shallow zones
+  if (verticalDrop > 20) {
+    return { zoneType: 'Hook/Curl', zoneEndpoint: end, confidence: 'medium' };
+  }
+
+  // Flat zone: minimal drop, moving to sideline
+  if (Math.abs(end.x - FIELD_CONFIG.CENTER_X) > 150) {
+    return { zoneType: 'Flat', zoneEndpoint: end, confidence: 'high' };
+  }
+
+  // Default to man coverage
+  return { zoneType: 'Man', zoneEndpoint: end, confidence: 'low' };
+}
+
+/**
+ * Detect blitz gap from drawn path
+ * Analyzes path to determine which gap the defender is attacking
+ */
+export function detectBlitzGap(
+  path: Point[],
+  playerStartX: number
+): {
+  suggestedGap: string;
+  blitzEndpoint: Point;
+  confidence: 'high' | 'medium' | 'low';
+} {
+  if (path.length < 2) {
+    return {
+      suggestedGap: 'A-gap',
+      blitzEndpoint: path[0] || { x: FIELD_CONFIG.CENTER_X, y: FIELD_CONFIG.LINE_OF_SCRIMMAGE },
+      confidence: 'low',
+    };
+  }
+
+  const end = path[path.length - 1];
+  const center = FIELD_CONFIG.CENTER_X;
+
+  // Determine side based on where path ends relative to center
+  const isLeftSide = end.x < center;
+  const distanceFromCenter = Math.abs(end.x - center);
+
+  // Gap detection based on horizontal position
+  let gap: string;
+  let confidence: 'high' | 'medium' | 'low' = 'medium';
+
+  if (distanceFromCenter < 30) {
+    // A-gap (center)
+    gap = isLeftSide ? 'Strong A-gap' : 'Weak A-gap';
+    confidence = 'high';
+  } else if (distanceFromCenter < 70) {
+    // B-gap
+    gap = isLeftSide ? 'Strong B-gap' : 'Weak B-gap';
+    confidence = 'high';
+  } else if (distanceFromCenter < 120) {
+    // C-gap
+    gap = isLeftSide ? 'Strong C-gap' : 'Weak C-gap';
+    confidence = 'medium';
+  } else {
+    // D-gap (edge)
+    gap = isLeftSide ? 'Strong D-gap' : 'Weak D-gap';
+    confidence = 'medium';
+  }
+
+  return {
+    suggestedGap: gap,
+    blitzEndpoint: end,
+    confidence,
+  };
+}
+
+/**
+ * Detect motion type from drawn path
+ * Analyzes pre-snap motion path to determine motion type
+ */
+export function detectMotionType(
+  path: Point[],
+  playerStartX: number
+): {
+  motionType: 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
+  motionEndpoint: Point;
+  motionDirection: 'toward-center' | 'away-from-center';
+  confidence: 'high' | 'medium' | 'low';
+} {
+  if (path.length < 2) {
+    return {
+      motionType: 'Shift',
+      motionEndpoint: path[0] || { x: playerStartX, y: FIELD_CONFIG.LINE_OF_SCRIMMAGE },
+      motionDirection: 'toward-center',
+      confidence: 'low',
+    };
+  }
+
+  const start = path[0];
+  const end = path[path.length - 1];
+  const center = FIELD_CONFIG.CENTER_X;
+
+  // Determine direction
+  const startDistFromCenter = Math.abs(start.x - center);
+  const endDistFromCenter = Math.abs(end.x - center);
+  const movingTowardCenter = endDistFromCenter < startDistFromCenter;
+
+  const motionDirection: 'toward-center' | 'away-from-center' =
+    movingTowardCenter ? 'toward-center' : 'away-from-center';
+
+  const horizontalDistance = Math.abs(end.x - start.x);
+  const verticalDistance = Math.abs(end.y - start.y);
+
+  let motionType: 'Jet' | 'Orbit' | 'Across' | 'Return' | 'Shift';
+  let confidence: 'high' | 'medium' | 'low' = 'medium';
+
+  // Jet: Fast horizontal motion toward backfield, typically ending behind QB
+  if (horizontalDistance > 100 && movingTowardCenter && end.y > FIELD_CONFIG.LINE_OF_SCRIMMAGE + 20) {
+    motionType = 'Jet';
+    confidence = 'high';
+  }
+  // Orbit: Curved motion, typically going around behind
+  else if (path.length > 3 && verticalDistance > 30 && horizontalDistance > 60) {
+    motionType = 'Orbit';
+    confidence = 'medium';
+  }
+  // Across: Horizontal motion across the formation
+  else if (horizontalDistance > 80 && verticalDistance < 30) {
+    motionType = 'Across';
+    confidence = 'high';
+  }
+  // Return: Motion that comes back
+  else if (!movingTowardCenter && horizontalDistance > 40) {
+    motionType = 'Return';
+    confidence = 'medium';
+  }
+  // Shift: Short positional change
+  else {
+    motionType = 'Shift';
+    confidence = 'low';
+  }
+
+  return {
+    motionType,
+    motionEndpoint: end,
+    motionDirection,
+    confidence,
+  };
+}
