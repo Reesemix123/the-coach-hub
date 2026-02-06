@@ -95,6 +95,8 @@ import AssignmentPanel from './AssignmentPanel';
 import FieldDiagram from './FieldDiagram';
 import { ValidationModal } from './ValidationModal';
 import { FIELD_CONFIG } from './fieldConstants';
+import QuickDrawToolbar from './QuickDrawToolbar';
+import { useQuickDrawEngine } from './hooks/useQuickDrawEngine';
 
 /**
  * Player entity on the field diagram
@@ -271,6 +273,9 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const draftRestorePromptShown = useRef(false);
   const validationModalShown = useRef(false);
+
+  // Quick Draw Mode
+  const { state: quickDrawState, actions: quickDrawActions } = useQuickDrawEngine();
 
   // Note: SVG ref is managed by FieldDiagram component - we use e.currentTarget in handlers
 
@@ -2492,7 +2497,36 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onDummyDefenseChange={loadDummyDefense}
           />
 
-          <AssignmentPanel
+          {/* Mode Toggle */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <span className="text-sm font-medium text-gray-700">Build Mode</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => quickDrawActions.setActive(false)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  !quickDrawState.isActive
+                    ? 'bg-black text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Form-Based
+              </button>
+              <button
+                onClick={() => quickDrawActions.setActive(true)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  quickDrawState.isActive
+                    ? 'bg-black text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Quick Draw
+              </button>
+            </div>
+          </div>
+
+          {/* Assignment Panel - hidden in Quick Draw mode */}
+          {!quickDrawState.isActive && (
+            <AssignmentPanel
             odk={odk}
             playType={playType}
             coverage={coverage}
@@ -2517,10 +2551,28 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onResetToRole={resetPlayerToRole}
             onEditCustomRoute={editCustomRoute}
           />
+          )}
+
+          {/* Quick Draw Instructions - shown in Quick Draw mode */}
+          {quickDrawState.isActive && (
+            <div className="p-4 bg-gray-800 rounded-lg text-white">
+              <h3 className="font-semibold mb-2">Quick Draw Mode</h3>
+              <p className="text-sm text-gray-300 mb-3">
+                Click on a player, then draw their route or assignment on the field.
+              </p>
+              <ul className="text-sm text-gray-400 space-y-1">
+                <li>• Select a tool from the toolbar below the field</li>
+                <li>• Click a player to start drawing</li>
+                <li>• Click points to draw the path</li>
+                <li>• Double-click or press Enter to finish</li>
+                <li>• Press Escape to cancel</li>
+              </ul>
+            </div>
+          )}
 
         </div>
 
-        <div className="lg:sticky lg:top-6 lg:h-fit">
+        <div className="lg:sticky lg:top-6 lg:h-fit space-y-4">
           <FieldDiagram
             players={players}
             routes={routes}
@@ -2552,6 +2604,19 @@ const loadSpecialTeamFormation = (teamType: string) => {
             onCancelDrawing={cancelDrawing}
             onEditCustomRoute={editCustomRoute}
           />
+
+          {/* Quick Draw Toolbar - shown below field in Quick Draw mode */}
+          {quickDrawState.isActive && (
+            <QuickDrawToolbar
+              selectedTool={quickDrawState.selectedTool}
+              onSelectTool={quickDrawActions.selectTool}
+              odk={odk}
+              canUndo={quickDrawState.undoStack.length > 0}
+              canRedo={quickDrawState.redoStack.length > 0}
+              onUndo={quickDrawActions.undo}
+              onRedo={quickDrawActions.redo}
+            />
+          )}
         </div>
 
       </div>
