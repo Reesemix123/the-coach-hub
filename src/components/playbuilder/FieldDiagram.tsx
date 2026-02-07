@@ -1090,88 +1090,95 @@ export default function FieldDiagram({
           <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill={COLORS.field.background} />
           <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke={COLORS.field.border} strokeWidth="2" />
 
-          {/* Yard lines - showing 40 yards (100px per 10 yards) */}
-          {/* 10-yard lines (major) at 0, 100, 200, 300, 400 */}
-          {[0, 1, 2, 3, 4].map(i => (
+          {/*
+            Field shows 40 yards total (10px per yard, 100px per 10 yards)
+            From bottom to top: 30 → 40 → 50 (LOS) → 40 → 30
+            y=400 (bottom): 30-yard line
+            y=300: 40-yard line
+            y=200: 50-yard line (LOS)
+            y=100: 40-yard line
+            y=0 (top): 30-yard line
+          */}
+
+          {/* 10-yard lines at 0, 100, 200, 300, 400 */}
+          {[0, 100, 200, 300, 400].map(y => (
             <line
-              key={`major-${i}`}
+              key={`major-${y}`}
               x1="0"
-              y1={i * 100}
+              y1={y}
               x2={FIELD_CONFIG.WIDTH}
-              y2={i * 100}
+              y2={y}
               stroke={COLORS.field.majorLines}
               strokeWidth="1"
               opacity="0.5"
             />
           ))}
 
-          {/* 5-yard lines (between major lines) at 50, 150, 250, 350 */}
-          {[0, 1, 2, 3].map(i => (
+          {/* 5-yard lines between each 10-yard line: 50, 150, 250, 350 */}
+          {[50, 150, 250, 350].map(y => (
             <line
-              key={`five-${i}`}
+              key={`five-${y}`}
               x1="0"
-              y1={i * 100 + 50}
+              y1={y}
               x2={FIELD_CONFIG.WIDTH}
-              y2={i * 100 + 50}
+              y2={y}
               stroke={COLORS.field.lines}
               strokeWidth="0.5"
               opacity="0.3"
             />
           ))}
 
-          {/* Individual yard hash marks on the sides - 10px per yard */}
+          {/* Individual yard hash marks - every 10px (1 yard) */}
           {Array.from({ length: 41 }, (_, i) => i).map(i => {
             const y = i * 10;
-            const isMajor = i % 10 === 0; // Every 10th mark is a 10-yard line
-            const isFive = i % 5 === 0 && !isMajor; // Every 5th mark (not major) is 5-yard
-            if (isMajor || isFive) return null; // Skip major and 5-yard lines
+            const isMajor = y % 100 === 0; // 10-yard lines
+            const isFive = y % 50 === 0 && !isMajor; // 5-yard lines
+            if (isMajor || isFive) return null; // Skip, already drawn
             return (
               <g key={`hash-${i}`}>
                 {/* Left side hash */}
-                <line x1="0" y1={y} x2="12" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                <line x1="0" y1={y} x2="10" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.25" />
                 {/* Right side hash */}
-                <line x1={FIELD_CONFIG.WIDTH - 12} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
-                {/* Inner hash marks at hash positions */}
-                <line x1={FIELD_CONFIG.HASH_LEFT - 4} y1={y} x2={FIELD_CONFIG.HASH_LEFT + 4} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.2" />
-                <line x1={FIELD_CONFIG.HASH_RIGHT - 4} y1={y} x2={FIELD_CONFIG.HASH_RIGHT + 4} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.2" />
+                <line x1={FIELD_CONFIG.WIDTH - 10} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.25" />
               </g>
             );
           })}
 
-          {/* Yard numbers on sides - 30, 40, 50, 40, 30 */}
+          {/* Yard numbers: bottom=30, 40, 50(LOS), 40, 30=top */}
           {[
-            { y: 100, num: '30' },
-            { y: 200, num: '40' },
-            { y: 300, num: '30' },
+            { y: 350, num: '30' },  // Between bottom edge and 40
+            { y: 250, num: '40' },  // Between 40 and 50
+            { y: 150, num: '40' },  // Between 50 and 40
+            { y: 50, num: '30' },   // Between 40 and top edge
           ].map(({ y, num }) => (
             <g key={`num-${y}`}>
               {/* Left numbers - rotated */}
               <text
-                x="30"
+                x="35"
                 y={y}
                 fill={COLORS.field.numbers}
-                fontSize="32"
+                fontSize="36"
                 fontWeight="bold"
                 fontFamily="Arial, sans-serif"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                transform={`rotate(-90, 30, ${y})`}
-                opacity="0.35"
+                transform={`rotate(-90, 35, ${y})`}
+                opacity="0.3"
               >
                 {num}
               </text>
               {/* Right numbers - rotated opposite */}
               <text
-                x={FIELD_CONFIG.WIDTH - 30}
+                x={FIELD_CONFIG.WIDTH - 35}
                 y={y}
                 fill={COLORS.field.numbers}
-                fontSize="32"
+                fontSize="36"
                 fontWeight="bold"
                 fontFamily="Arial, sans-serif"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 30}, ${y})`}
-                opacity="0.35"
+                transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 35}, ${y})`}
+                opacity="0.3"
               >
                 {num}
               </text>
