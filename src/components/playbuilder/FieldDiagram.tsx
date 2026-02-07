@@ -1090,95 +1090,93 @@ export default function FieldDiagram({
           <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill={COLORS.field.background} />
           <rect width={FIELD_CONFIG.WIDTH} height={FIELD_CONFIG.HEIGHT} fill="none" stroke={COLORS.field.border} strokeWidth="2" />
 
-          {/* Yard lines - every 40px = 10 yards on our scale */}
-          {/* 10-yard lines (major) */}
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
+          {/* Yard lines - showing 40 yards (100px per 10 yards) */}
+          {/* 10-yard lines (major) at 0, 100, 200, 300, 400 */}
+          {[0, 1, 2, 3, 4].map(i => (
             <line
               key={`major-${i}`}
               x1="0"
-              y1={i * 40}
+              y1={i * 100}
               x2={FIELD_CONFIG.WIDTH}
-              y2={i * 40}
+              y2={i * 100}
               stroke={COLORS.field.majorLines}
-              strokeWidth={i === 5 ? 1 : 1}
-              opacity="0.6"
+              strokeWidth="1"
+              opacity="0.5"
             />
           ))}
 
-          {/* 5-yard lines (between major lines) */}
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => (
+          {/* 5-yard lines (between major lines) at 50, 150, 250, 350 */}
+          {[0, 1, 2, 3].map(i => (
             <line
               key={`five-${i}`}
               x1="0"
-              y1={i * 40 + 20}
+              y1={i * 100 + 50}
               x2={FIELD_CONFIG.WIDTH}
-              y2={i * 40 + 20}
+              y2={i * 100 + 50}
               stroke={COLORS.field.lines}
               strokeWidth="0.5"
-              opacity="0.4"
+              opacity="0.3"
             />
           ))}
 
-          {/* Individual yard hash marks on the sides */}
+          {/* Individual yard hash marks on the sides - 10px per yard */}
           {Array.from({ length: 41 }, (_, i) => i).map(i => {
-            const y = i * 10; // Each yard = 10px (40px / 4 yards per 10-yard section)
-            const isMajor = i % 4 === 0; // Every 4th mark is a 10-yard line
-            const isFive = i % 2 === 0 && !isMajor; // Every 2nd mark (not major) is 5-yard
-            if (isMajor || isFive) return null; // Skip major and 5-yard lines, they're full width
+            const y = i * 10;
+            const isMajor = i % 10 === 0; // Every 10th mark is a 10-yard line
+            const isFive = i % 5 === 0 && !isMajor; // Every 5th mark (not major) is 5-yard
+            if (isMajor || isFive) return null; // Skip major and 5-yard lines
             return (
               <g key={`hash-${i}`}>
                 {/* Left side hash */}
-                <line x1="0" y1={y} x2="15" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.4" />
+                <line x1="0" y1={y} x2="12" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
                 {/* Right side hash */}
-                <line x1={FIELD_CONFIG.WIDTH - 15} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.4" />
-                {/* Inner hash marks */}
-                <line x1={FIELD_CONFIG.HASH_LEFT - 5} y1={y} x2={FIELD_CONFIG.HASH_LEFT + 5} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
-                <line x1={FIELD_CONFIG.HASH_RIGHT - 5} y1={y} x2={FIELD_CONFIG.HASH_RIGHT + 5} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                <line x1={FIELD_CONFIG.WIDTH - 12} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                {/* Inner hash marks at hash positions */}
+                <line x1={FIELD_CONFIG.HASH_LEFT - 4} y1={y} x2={FIELD_CONFIG.HASH_LEFT + 4} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.2" />
+                <line x1={FIELD_CONFIG.HASH_RIGHT - 4} y1={y} x2={FIELD_CONFIG.HASH_RIGHT + 4} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.2" />
               </g>
             );
           })}
 
-          {/* Yard numbers on sides */}
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => {
-            const y = i * 40;
-            const yardNum = Math.abs(5 - i) * 10; // 40, 30, 20, 10, 0, 10, 20, 30, 40
-            const displayNum = yardNum === 0 ? '' : yardNum.toString();
-            if (!displayNum) return null;
-            return (
-              <g key={`num-${i}`}>
-                {/* Left numbers - rotated */}
-                <text
-                  x="25"
-                  y={y}
-                  fill={COLORS.field.numbers}
-                  fontSize="28"
-                  fontWeight="bold"
-                  fontFamily="Arial, sans-serif"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  transform={`rotate(-90, 25, ${y})`}
-                  opacity="0.4"
-                >
-                  {displayNum}
-                </text>
-                {/* Right numbers - rotated opposite */}
-                <text
-                  x={FIELD_CONFIG.WIDTH - 25}
-                  y={y}
-                  fill={COLORS.field.numbers}
-                  fontSize="28"
-                  fontWeight="bold"
-                  fontFamily="Arial, sans-serif"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 25}, ${y})`}
-                  opacity="0.4"
-                >
-                  {displayNum}
-                </text>
-              </g>
-            );
-          })}
+          {/* Yard numbers on sides - 30, 40, 50, 40, 30 */}
+          {[
+            { y: 100, num: '30' },
+            { y: 200, num: '40' },
+            { y: 300, num: '30' },
+          ].map(({ y, num }) => (
+            <g key={`num-${y}`}>
+              {/* Left numbers - rotated */}
+              <text
+                x="30"
+                y={y}
+                fill={COLORS.field.numbers}
+                fontSize="32"
+                fontWeight="bold"
+                fontFamily="Arial, sans-serif"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                transform={`rotate(-90, 30, ${y})`}
+                opacity="0.35"
+              >
+                {num}
+              </text>
+              {/* Right numbers - rotated opposite */}
+              <text
+                x={FIELD_CONFIG.WIDTH - 30}
+                y={y}
+                fill={COLORS.field.numbers}
+                fontSize="32"
+                fontWeight="bold"
+                fontFamily="Arial, sans-serif"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 30}, ${y})`}
+                opacity="0.35"
+              >
+                {num}
+              </text>
+            </g>
+          ))}
 
           {/* Line of scrimmage - hide for kickoff and kick return plays */}
           {formation !== 'Kickoff' && formation !== 'Kick Return' && (
