@@ -15,6 +15,7 @@ import { GuideSlideOver } from "@/components/guide";
 import { ChatWidget } from "@/components/chat";
 import { Toaster } from "react-hot-toast";
 import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
+import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
   title: "Youth Coach Hub",
@@ -124,6 +125,9 @@ export default function RootLayout({
         {/* Floating AI Assistant Chat Widget */}
         <ChatWidget />
         </GuideProvider>
+
+        {/* Vercel Analytics */}
+        <Analytics />
       </body>
     </html>
   );
