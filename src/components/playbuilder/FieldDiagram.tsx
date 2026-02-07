@@ -1093,17 +1093,16 @@ export default function FieldDiagram({
           {/*
             Field shows 40 yards total (10px per yard, 100px per 10 yards)
             From bottom to top: 30 → 40 → 50 (LOS) → 40 → 30
-            y=400 (bottom): 30-yard line
-            y=300: 40-yard line
-            y=200: 50-yard line (LOS)
-            y=100: 40-yard line
-            y=0 (top): 30-yard line
+
+            10-yard lines at: 0, 100, 200, 300, 400 (full width, darker)
+            5-yard lines at: 50, 150, 250, 350 (full width, lighter)
+            1-yard hash marks: every 10px on sides (except 5 and 10-yard positions)
           */}
 
-          {/* 10-yard lines at 0, 100, 200, 300, 400 */}
+          {/* 10-yard lines (full width, darker) */}
           {[0, 100, 200, 300, 400].map(y => (
             <line
-              key={`major-${y}`}
+              key={`ten-${y}`}
               x1="0"
               y1={y}
               x2={FIELD_CONFIG.WIDTH}
@@ -1114,7 +1113,7 @@ export default function FieldDiagram({
             />
           ))}
 
-          {/* 5-yard lines between each 10-yard line: 50, 150, 250, 350 */}
+          {/* 5-yard lines (full width, lighter) */}
           {[50, 150, 250, 350].map(y => (
             <line
               key={`five-${y}`}
@@ -1123,23 +1122,22 @@ export default function FieldDiagram({
               x2={FIELD_CONFIG.WIDTH}
               y2={y}
               stroke={COLORS.field.lines}
-              strokeWidth="0.5"
-              opacity="0.3"
+              strokeWidth="0.75"
+              opacity="0.35"
             />
           ))}
 
-          {/* Individual yard hash marks - every 10px (1 yard) */}
-          {Array.from({ length: 41 }, (_, i) => i).map(i => {
-            const y = i * 10;
-            const isMajor = y % 100 === 0; // 10-yard lines
-            const isFive = y % 50 === 0 && !isMajor; // 5-yard lines
-            if (isMajor || isFive) return null; // Skip, already drawn
+          {/* 1-yard hash marks on sides (every 10px, skip 5 and 10-yard lines) */}
+          {Array.from({ length: 40 }, (_, i) => (i + 1) * 10).map(y => {
+            const isTenYard = y % 100 === 0; // 10-yard lines at 100, 200, 300, 400
+            const isFiveYard = y % 100 === 50; // 5-yard lines at 50, 150, 250, 350
+            if (isTenYard || isFiveYard) return null; // Skip, already drawn as full lines
             return (
-              <g key={`hash-${i}`}>
-                {/* Left side hash */}
-                <line x1="0" y1={y} x2="10" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.25" />
-                {/* Right side hash */}
-                <line x1={FIELD_CONFIG.WIDTH - 10} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.25" />
+              <g key={`hash-${y}`}>
+                {/* Left side hash marks */}
+                <line x1="0" y1={y} x2="12" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                {/* Right side hash marks */}
+                <line x1={FIELD_CONFIG.WIDTH - 12} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
               </g>
             );
           })}
