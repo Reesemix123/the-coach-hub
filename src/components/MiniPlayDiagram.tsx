@@ -3,12 +3,13 @@
 import { PlayDiagram, Player, Route, PlayAttributes } from '@/types/football';
 import { getGapPositionFromName, isDefensiveLineman, isLinebacker, isDefensiveBack } from '@/config/footballConfig';
 
-// Modern Hudl-inspired color palette
+// Light field color palette - matches FieldDiagram
 const COLORS = {
   field: {
-    gradient: ['#065F46', '#047857', '#059669'],
-    lines: '#047857',
-    border: '#064E3B',
+    background: '#E8F5E9',    // Light green/gray
+    lines: '#9CA3AF',         // Gray for yard lines
+    los: '#3B82F6',           // Blue line of scrimmage
+    border: '#D1D5DB',        // Light border
   },
   offense: {
     player: '#DC2626',
@@ -21,7 +22,7 @@ const COLORS = {
   routes: {
     primary: '#EF4444',
     secondary: '#FBBF24',
-    blocking: '#F97316',
+    blocking: '#6B7280',
   },
   motion: {
     path: '#06B6D4',  // Modern cyan
@@ -81,15 +82,15 @@ export default function MiniPlayDiagram({
   if (!diagram || !diagram.players || diagram.players.length === 0) {
     return (
       <div
-        className={`rounded flex items-center justify-center border-2 ${className}`}
+        className={`rounded flex items-center justify-center border ${className}`}
         style={{
           width,
           height,
-          backgroundColor: COLORS.field.gradient[1],
+          backgroundColor: COLORS.field.background,
           borderColor: COLORS.field.border,
         }}
       >
-        <span className="text-xs text-white/70 font-medium">No diagram</span>
+        <span className="text-xs text-gray-400 font-medium">No diagram</span>
       </div>
     );
   }
@@ -227,7 +228,7 @@ export default function MiniPlayDiagram({
 
   return (
     <div
-      className={`rounded overflow-hidden border-2 ${className}`}
+      className={`rounded overflow-hidden border ${className}`}
       style={{ width, height, borderColor: COLORS.field.border }}
     >
       <svg
@@ -237,12 +238,6 @@ export default function MiniPlayDiagram({
         className="block"
       >
         <defs>
-          {/* Field gradient background */}
-          <linearGradient id="mini-field-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={COLORS.field.gradient[0]} />
-            <stop offset="50%" stopColor={COLORS.field.gradient[1]} />
-            <stop offset="100%" stopColor={COLORS.field.gradient[2]} />
-          </linearGradient>
 
           {/* Arrowhead markers for routes with depth */}
           <marker
@@ -316,38 +311,92 @@ export default function MiniPlayDiagram({
           </marker>
         </defs>
 
-        {/* Field background with gradient */}
+        {/* Field background - light green */}
         <rect
           x={0}
           y={0}
           width={width}
           height={height}
-          fill="url(#mini-field-gradient)"
+          fill={COLORS.field.background}
         />
 
-        {/* Line of scrimmage */}
+        {/* 5-yard lines (full width) - more visible */}
+        {[0, 50, 100, 150, 200, 250, 300, 350, 400].map(y => (
+          <line
+            key={`yard-${y}`}
+            x1={0}
+            y1={y * scaleY}
+            x2={width}
+            y2={y * scaleY}
+            stroke="#6B7280"
+            strokeWidth={1}
+            opacity={0.6}
+          />
+        ))}
+
+        {/* 1-yard hash marks on sides */}
+        {Array.from({ length: 41 }, (_, i) => i * 10).map(y => {
+          const isFiveYard = y % 50 === 0;
+          if (isFiveYard) return null;
+          return (
+            <g key={`hash-${y}`}>
+              <line x1={0} y1={y * scaleY} x2={6} y2={y * scaleY} stroke="#6B7280" strokeWidth={1} opacity={0.5} />
+              <line x1={width - 6} y1={y * scaleY} x2={width} y2={y * scaleY} stroke="#6B7280" strokeWidth={1} opacity={0.5} />
+            </g>
+          );
+        })}
+
+        {/* Yard numbers on BOTH sides */}
+        {[
+          { y: 350, num: '30' },
+          { y: 250, num: '40' },
+          { y: 150, num: '40' },
+          { y: 50, num: '30' },
+        ].map(({ y, num }) => (
+          <g key={`num-${y}`}>
+            {/* Left side number */}
+            <text
+              x={12}
+              y={y * scaleY}
+              fill="#6B7280"
+              fontSize="10"
+              fontWeight="bold"
+              fontFamily="Arial, sans-serif"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(-90, 12, ${y * scaleY})`}
+              opacity={0.4}
+            >
+              {num}
+            </text>
+            {/* Right side number */}
+            <text
+              x={width - 12}
+              y={y * scaleY}
+              fill="#6B7280"
+              fontSize="10"
+              fontWeight="bold"
+              fontFamily="Arial, sans-serif"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(90, ${width - 12}, ${y * scaleY})`}
+              opacity={0.4}
+            >
+              {num}
+            </text>
+          </g>
+        ))}
+
+        {/* Line of scrimmage - blue */}
         <line
           x1={0}
           y1={200 * scaleY}
           x2={width}
           y2={200 * scaleY}
-          stroke={COLORS.field.lines}
-          strokeWidth={2}
+          stroke={COLORS.field.los}
+          strokeWidth={1.5}
+          opacity={0.8}
         />
-
-        {/* Yard lines (simplified) */}
-        {[100, 300].map(y => (
-          <line
-            key={y}
-            x1={0}
-            y1={y * scaleY}
-            x2={width}
-            y2={y * scaleY}
-            stroke={COLORS.field.lines}
-            strokeWidth={0.5}
-            opacity={0.4}
-          />
-        ))}
 
         {/* Motion paths - dashed cyan */}
         {mainPlayers
@@ -716,7 +765,7 @@ export default function MiniPlayDiagram({
                   x={x}
                   y={y + 8}
                   fontSize="6"
-                  fill="#FFFFFF"
+                  fill="#374151"
                   textAnchor="middle"
                   fontWeight="bold"
                 >

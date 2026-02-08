@@ -1099,84 +1099,69 @@ export default function FieldDiagram({
             1-yard hash marks: every 10px on sides (except 5 and 10-yard positions)
           */}
 
-          {/* 10-yard lines (full width, darker) */}
-          {[0, 100, 200, 300, 400].map(y => (
+          {/* 5-yard lines - FULL WIDTH */}
+          {[0, 50, 100, 150, 200, 250, 300, 350, 400].map(y => (
             <line
-              key={`ten-${y}`}
-              x1="0"
-              y1={y}
-              x2={FIELD_CONFIG.WIDTH}
-              y2={y}
-              stroke={COLORS.field.majorLines}
-              strokeWidth="1"
-              opacity="0.5"
-            />
-          ))}
-
-          {/* 5-yard lines (full width, lighter) */}
-          {[50, 150, 250, 350].map(y => (
-            <line
-              key={`five-${y}`}
+              key={`yard-line-${y}`}
               x1="0"
               y1={y}
               x2={FIELD_CONFIG.WIDTH}
               y2={y}
               stroke={COLORS.field.lines}
-              strokeWidth="0.75"
-              opacity="0.35"
+              strokeWidth="1"
+              opacity="0.5"
             />
           ))}
 
-          {/* 1-yard hash marks on sides (every 10px, skip 5 and 10-yard lines) */}
-          {Array.from({ length: 40 }, (_, i) => (i + 1) * 10).map(y => {
-            const isTenYard = y % 100 === 0; // 10-yard lines at 100, 200, 300, 400
-            const isFiveYard = y % 100 === 50; // 5-yard lines at 50, 150, 250, 350
-            if (isTenYard || isFiveYard) return null; // Skip, already drawn as full lines
+          {/* 1-yard hash marks on BOTH sides (4 marks between each 5-yard line) */}
+          {Array.from({ length: 41 }, (_, i) => i * 10).map(y => {
+            const isFiveYard = y % 50 === 0; // Skip 5-yard lines (already drawn full width)
+            if (isFiveYard) return null;
             return (
               <g key={`hash-${y}`}>
                 {/* Left side hash marks */}
-                <line x1="0" y1={y} x2="12" y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                <line x1="0" y1={y} x2="20" y2={y} stroke={COLORS.field.lines} strokeWidth="1" opacity="0.5" />
                 {/* Right side hash marks */}
-                <line x1={FIELD_CONFIG.WIDTH - 12} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="0.5" opacity="0.3" />
+                <line x1={FIELD_CONFIG.WIDTH - 20} y1={y} x2={FIELD_CONFIG.WIDTH} y2={y} stroke={COLORS.field.lines} strokeWidth="1" opacity="0.5" />
               </g>
             );
           })}
 
-          {/* Yard numbers: bottom=30, 40, 50(LOS), 40, 30=top */}
+          {/* Yard numbers on BOTH sides - large and faded like Hudl */}
           {[
-            { y: 350, num: '30' },  // Between bottom edge and 40
-            { y: 250, num: '40' },  // Between 40 and 50
-            { y: 150, num: '40' },  // Between 50 and 40
-            { y: 50, num: '30' },   // Between 40 and top edge
+            { y: 350, num: '30' },
+            { y: 250, num: '40' },
+            { y: 150, num: '40' },
+            { y: 50, num: '30' },
           ].map(({ y, num }) => (
             <g key={`num-${y}`}>
-              {/* Left numbers - rotated */}
+              {/* Left side numbers */}
               <text
-                x="35"
+                x="90"
                 y={y}
                 fill={COLORS.field.numbers}
-                fontSize="36"
+                fontSize="48"
                 fontWeight="bold"
                 fontFamily="Arial, sans-serif"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                transform={`rotate(-90, 35, ${y})`}
-                opacity="0.3"
+                transform={`rotate(-90, 90, ${y})`}
+                opacity="0.15"
               >
                 {num}
               </text>
-              {/* Right numbers - rotated opposite */}
+              {/* Right side numbers */}
               <text
-                x={FIELD_CONFIG.WIDTH - 35}
+                x={FIELD_CONFIG.WIDTH - 90}
                 y={y}
                 fill={COLORS.field.numbers}
-                fontSize="36"
+                fontSize="48"
                 fontWeight="bold"
                 fontFamily="Arial, sans-serif"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 35}, ${y})`}
-                opacity="0.3"
+                transform={`rotate(90, ${FIELD_CONFIG.WIDTH - 90}, ${y})`}
+                opacity="0.15"
               >
                 {num}
               </text>
