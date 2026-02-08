@@ -43,7 +43,7 @@ No competitor combines team communication with integrated film/video sharing. Te
 | **Assistant Coach** | Can share video and reports, cannot delete or manage billing | `team_memberships.role = 'coach'` |
 | **Team Admin** | Manages logistics, invitations, purchases. Cannot share video or reports | `team_memberships.role = 'team_admin'` (NEW) |
 | **Parent** | Consumes content, RSVPs, messages coach | `parent_profiles` table |
-| **Parent Champion** | Trusted parent who can resend invites and view onboarding status | `parent_profiles.is_champion = true` |
+| **Parent Champion** | Trusted parent who can resend invites and view onboarding status | `parent_profiles.is_champion = true` (set by head coach only) |
 
 ### Permission Matrix
 
@@ -112,6 +112,9 @@ Purchased as a one-time payment per season (6 months from activation date). Typi
 - All tiers include both SMS and email notifications
 - "Season" = 6 months from activation date
 
+**Mid-season tier upgrades:**
+Teams can upgrade to a higher tier mid-season (e.g., Rookie → Varsity). Stripe handles prorated pricing — the team pays the difference between tiers. The upgrade takes effect immediately with the new parent limit.
+
 ### Video Top-Up Packs
 
 Teams that need more than 10 team videos can purchase additional packs:
@@ -152,6 +155,17 @@ Stripe Products:
 - Extends existing `team_memberships` table with new role
 - Extends existing `team_events` table with new columns
 
+**Existing `team_events` schema (verified compatible):**
+```sql
+-- Already has UUID primary key
+id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+team_id UUID REFERENCES teams(id) ON DELETE CASCADE
+event_type VARCHAR(50) CHECK (event_type IN ('practice', 'meeting', 'other'))
+-- Plus: title, description, date, start_time, end_time, location, created_by, timestamps
+```
+
+The `event_type` constraint will be altered in-place to add new values (not a new column).
+
 ### Update Existing Tables
 
 ```sql
@@ -164,8 +178,16 @@ ADD CONSTRAINT team_memberships_role_check
 CHECK (role IN ('owner', 'coach', 'analyst', 'viewer', 'team_admin'));
 
 -- Extend team_events table for Communication Hub
+-- First, alter the event_type constraint in place (not a new column)
 ALTER TABLE team_events
-  ADD COLUMN IF NOT EXISTS event_type_v2 TEXT CHECK (event_type_v2 IN ('practice', 'game', 'meeting', 'team_event', 'other')),
+DROP CONSTRAINT IF EXISTS team_events_event_type_check;
+
+ALTER TABLE team_events
+ADD CONSTRAINT team_events_event_type_check
+CHECK (event_type IN ('practice', 'game', 'meeting', 'scrimmage', 'team_bonding', 'film_session', 'parent_meeting', 'fundraiser', 'other'));
+
+-- Add new columns for enhanced event data
+ALTER TABLE team_events
   ADD COLUMN IF NOT EXISTS location_address TEXT,
   ADD COLUMN IF NOT EXISTS location_lat DECIMAL(10,7),
   ADD COLUMN IF NOT EXISTS location_lng DECIMAL(10,7),
@@ -176,9 +198,6 @@ ALTER TABLE team_events
   ADD COLUMN IF NOT EXISTS notification_channel TEXT DEFAULT 'both' CHECK (notification_channel IN ('sms', 'email', 'both')),
   ADD COLUMN IF NOT EXISTS start_datetime TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS end_datetime TIMESTAMPTZ;
-
--- Migrate existing event_type to event_type_v2 if needed
-UPDATE team_events SET event_type_v2 = event_type WHERE event_type_v2 IS NULL;
 ```
 
 ### Parent System
@@ -285,8 +304,8 @@ CREATE TABLE team_communication_plans (
   includes_reports BOOLEAN DEFAULT true,
   activated_at TIMESTAMPTZ DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL, -- activated_at + 6 months
-  content_accessible_until TIMESTAMPTZ, -- expires_at + 30 days
-  mux_cleanup_at TIMESTAMPTZ, -- expires_at + 30 days (aligned with access cutoff)
+  content_accessible_until TIMESTAMPTZ, -- expires_at + 30 days (parent access window)
+  mux_cleanup_at TIMESTAMPTZ, -- expires_at + 60 days (30-day buffer for late renewals)
   coach_override_status TEXT CHECK (coach_override_status IN ('grace_period', 'limited')),
   grace_period_ends_at TIMESTAMPTZ,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expired', 'cancelled')),
@@ -326,7 +345,7 @@ CREATE TABLE announcements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL,
-  sender_role TEXT NOT NULL CHECK (sender_role IN ('coach', 'assistant_coach', 'team_admin')),
+  sender_role TEXT NOT NULL CHECK (sender_role IN ('owner', 'coach', 'team_admin')), -- Matches team_memberships roles
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   priority TEXT DEFAULT 'normal' CHECK (priority IN ('normal', 'important', 'urgent')),
@@ -553,12 +572,14 @@ CREATE TABLE game_summaries (
 ### Mux Asset Cleanup
 
 ```sql
--- Automated Mux asset cleanup queue (30-day cleanup aligned with parent access)
+-- Automated Mux asset cleanup queue
+-- Parent access ends at 30 days post-expiration
+-- Mux assets deleted at 60 days post-expiration (30-day buffer for late renewals)
 CREATE TABLE mux_cleanup_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   communication_plan_id UUID REFERENCES team_communication_plans(id),
   mux_asset_id TEXT NOT NULL,
-  scheduled_cleanup_at TIMESTAMPTZ NOT NULL, -- plan expires_at + 30 days
+  scheduled_cleanup_at TIMESTAMPTZ NOT NULL, -- plan expires_at + 60 days
   cleaned_up_at TIMESTAMPTZ,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'retained')),
   created_at TIMESTAMPTZ DEFAULT now()
@@ -596,13 +617,15 @@ EXPIRED
   Communication plan expires (6 months from activation)
   → 30-day read-only grace period for parents
   → No new content can be created
-  → After 30 days: parent access deactivated, Mux assets deleted
+  → After 30 days: parent access deactivated
+  → After 60 days: Mux assets deleted (buffer for late renewals)
 
 ARCHIVED
-  30 days after plan expiration with no renewal
+  60 days after plan expiration with no renewal
   → Mux assets deleted to stop storage charges
   → Content preserved in database but not accessible
   → Parent accounts persist for future seasons
+  → If team renews within 60 days, videos are still available
 ```
 
 ### Key Rules
@@ -650,6 +673,16 @@ ARCHIVED
 | **Team video** | YES (10/season + top-ups) | All parents |
 | **Individual clip** | NO (unlimited) | Specific player's parents |
 
+### Video Count Enforcement Logic (FIFO)
+
+When a team video is shared, the system checks available capacity in this order:
+
+1. **Base plan first:** If `team_videos_used < max_team_videos` on the communication plan, increment `team_videos_used`
+2. **Top-up packs second:** If base plan is exhausted, check top-up packs in **purchase order (FIFO)**. Increment `videos_used` on the oldest pack with remaining capacity (`videos_used < videos_added`)
+3. **Block if exhausted:** If all packs are exhausted, block the share and prompt to purchase another 5-pack
+
+This ensures top-up packs are consumed fairly and predictably.
+
 ---
 
 ## 8. External Video Sharing (Vimeo Only)
@@ -680,6 +713,7 @@ ARCHIVED
 1. **Global preference:** Parents set default channel preference (SMS, email, or both)
 2. **Urgent override:** Announcements marked "urgent" use BOTH channels regardless of parent preference
 3. **One-way SMS:** Inbound SMS replies trigger auto-response: "This number doesn't receive replies. Message your coach through the app."
+4. **Team admin notifications:** Team admins receive all notifications by default (plan status, expiration warnings, etc.). Granular preferences deferred to post-MVP.
 
 ### Position Group Targeting
 
@@ -798,6 +832,10 @@ GOOGLE_PLACES_API_KEY=
 
 ### Phase 5: External Sharing & Messaging (June-July 2026)
 
+**Pre-requisites:**
+- [ ] Enable Supabase Vault in project settings (for encrypted token storage)
+
+**Tasks:**
 - [ ] Vimeo OAuth integration
 - [ ] External share with required watermark
 - [ ] Direct messaging (coach ↔ parent)
@@ -823,7 +861,153 @@ GOOGLE_PLACES_API_KEY=
 
 ---
 
-## 14. Git Strategy
+## 14. File & Route Structure
+
+### Next.js App Router Structure
+
+```
+src/app/
+├── teams/[teamId]/
+│   └── communication/
+│       ├── page.tsx                    # Communication hub dashboard
+│       ├── announcements/
+│       │   ├── page.tsx                # Announcements list
+│       │   ├── new/page.tsx            # Create announcement
+│       │   └── [announcementId]/page.tsx # View/edit announcement
+│       ├── calendar/
+│       │   ├── page.tsx                # Team calendar view
+│       │   └── [eventId]/
+│       │       ├── page.tsx            # Event detail
+│       │       └── rsvps/page.tsx      # RSVP list for event
+│       ├── parents/
+│       │   ├── page.tsx                # Parent roster
+│       │   ├── invite/page.tsx         # Invite parents form
+│       │   └── [parentId]/page.tsx     # Parent detail
+│       ├── videos/
+│       │   ├── page.tsx                # Shared videos list
+│       │   ├── share/page.tsx          # Share video form
+│       │   └── [videoId]/page.tsx      # Video detail
+│       ├── reports/
+│       │   ├── page.tsx                # Shared reports list
+│       │   └── [reportId]/page.tsx     # Report detail
+│       ├── messages/
+│       │   ├── page.tsx                # Direct messages inbox
+│       │   └── [threadId]/page.tsx     # Message thread
+│       └── settings/
+│           ├── page.tsx                # Communication settings
+│           └── plan/page.tsx           # Plan status & upgrade
+│
+├── parent/                             # Parent-facing routes (separate layout)
+│   ├── layout.tsx                      # Parent layout (mobile-first)
+│   ├── page.tsx                        # Parent dashboard
+│   ├── teams/[teamId]/
+│   │   ├── page.tsx                    # Team view for parent
+│   │   ├── announcements/page.tsx      # View announcements
+│   │   ├── calendar/page.tsx           # View calendar & RSVP
+│   │   ├── videos/page.tsx             # Watch shared videos
+│   │   ├── reports/page.tsx            # View reports
+│   │   └── messages/page.tsx           # Message coach
+│   └── settings/page.tsx               # Parent profile & preferences
+│
+├── auth/
+│   ├── parent-invite/page.tsx          # Magic link landing for parents
+│   └── parent-signup/page.tsx          # Parent account creation
+│
+└── api/
+    └── communication/
+        ├── announcements/
+        │   ├── route.ts                # CRUD announcements
+        │   └── [id]/read/route.ts      # Mark as read
+        ├── events/
+        │   ├── route.ts                # CRUD events
+        │   └── [id]/rsvp/route.ts      # Submit RSVP
+        ├── parents/
+        │   ├── route.ts                # Parent roster
+        │   ├── invite/route.ts         # Send invitations
+        │   └── [id]/
+        │       ├── route.ts            # Parent detail
+        │       └── champion/route.ts   # Toggle champion status
+        ├── videos/
+        │   ├── route.ts                # Video list
+        │   ├── share/route.ts          # Share video
+        │   ├── [id]/
+        │   │   ├── route.ts            # Video detail
+        │   │   └── signed-url/route.ts # Generate signed playback URL
+        │   └── topup/route.ts          # Purchase top-up pack
+        ├── reports/
+        │   ├── route.ts                # Report list
+        │   └── [id]/route.ts           # Report detail
+        ├── messages/
+        │   └── route.ts                # Direct messages
+        ├── plan/
+        │   ├── route.ts                # Plan status
+        │   ├── purchase/route.ts       # Purchase plan
+        │   └── upgrade/route.ts        # Upgrade tier
+        ├── webhooks/
+        │   ├── mux/route.ts            # Mux webhook handler
+        │   ├── twilio/route.ts         # Twilio inbound SMS handler
+        │   └── stripe/route.ts         # Stripe webhook (extends existing)
+        └── external/
+            └── vimeo/
+                ├── auth/route.ts       # OAuth callback
+                └── upload/route.ts     # Upload to Vimeo
+```
+
+### Component Structure
+
+```
+src/components/communication/
+├── announcements/
+│   ├── AnnouncementCard.tsx
+│   ├── AnnouncementForm.tsx
+│   └── PositionGroupSelector.tsx
+├── calendar/
+│   ├── EventCard.tsx
+│   ├── EventForm.tsx
+│   ├── RSVPButton.tsx
+│   └── FamilyRSVPModal.tsx
+├── parents/
+│   ├── ParentRoster.tsx
+│   ├── InviteParentForm.tsx
+│   ├── ParentCard.tsx
+│   └── ChampionBadge.tsx
+├── videos/
+│   ├── VideoPlayer.tsx              # Mux player wrapper
+│   ├── ShareVideoForm.tsx
+│   ├── VideoCard.tsx
+│   └── VideoCounter.tsx
+├── reports/
+│   ├── ReportCard.tsx
+│   └── GameSummaryEditor.tsx
+├── messages/
+│   ├── MessageThread.tsx
+│   └── MessageInput.tsx
+├── plan/
+│   ├── PlanStatusBadge.tsx
+│   ├── PlanUpgradeModal.tsx
+│   └── TopUpPurchaseButton.tsx
+└── shared/
+    ├── NotificationChannelPicker.tsx
+    ├── LocationAutocomplete.tsx      # Google Places
+    └── UrgentBadge.tsx
+```
+
+### Services
+
+```
+src/lib/services/
+├── parent.service.ts                 # Parent CRUD, invitations
+├── announcement.service.ts           # Announcements, targeting
+├── rsvp.service.ts                   # RSVP logic, family handling
+├── video-sharing.service.ts          # Mux integration, counting
+├── notification.service.ts           # Email + SMS dispatch
+├── communication-plan.service.ts     # Plan status, upgrades
+└── external-share.service.ts         # Vimeo integration
+```
+
+---
+
+## 15. Git Strategy
 
 ```
 v-comm-hub-phase-1  → Foundation
@@ -838,7 +1022,9 @@ v-comm-hub-v1.0     → Production Launch
 
 ## End of Document
 
-This plan incorporates all decisions from the planning review:
+This plan incorporates all decisions from the planning review sessions:
+
+**Original decisions:**
 - Uses existing `players` table
 - Adds 'team_admin' to existing `team_memberships`
 - Family RSVP with per-child exceptions
@@ -846,6 +1032,17 @@ This plan incorporates all decisions from the planning review:
 - One-way SMS with auto-response
 - Position group announcement targeting
 - 24-hour Mux signed URLs
-- 30-day Mux cleanup
-- Parent Champion with limited admin
+- Parent Champion with limited admin (head coach designates)
 - Vimeo only (YouTube deferred)
+
+**Review refinements (10 items addressed):**
+1. Verified existing `team_events` schema compatibility
+2. 60-day Mux cleanup (30-day parent access + 30-day buffer for late renewals)
+3. Migrate `event_type` constraint in place (no `event_type_v2` column)
+4. `sender_role` matches `team_memberships` roles: `('owner', 'coach', 'team_admin')`
+5. Team admin notification preferences deferred to post-MVP
+6. Supabase Vault added to Phase 5 pre-requisites
+7. FIFO video counting logic documented (base plan → oldest top-up pack)
+8. Parent Champion designation restricted to head coach (owner) only
+9. Prorated mid-season tier upgrades via Stripe
+10. Full route structure restored for implementation reference
