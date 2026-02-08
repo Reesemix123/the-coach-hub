@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -26,6 +26,22 @@ const CONSENT_TEXT = `I consent to creating an account with Youth Coach Hub. I u
 By creating an account, I confirm I am the parent or legal guardian of the player(s) I am linked to and have authority to receive information about their participation.`;
 
 export default function ParentSignupPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <ParentSignupContent />
+    </Suspense>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Loader2 className="w-12 h-12 animate-spin text-gray-400" />
+    </div>
+  );
+}
+
+function ParentSignupContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get('token');
