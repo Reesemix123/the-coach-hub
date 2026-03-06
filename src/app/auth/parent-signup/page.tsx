@@ -70,59 +70,17 @@ function ParentSignupContent() {
       }
 
       try {
-        const supabase = createClient();
+        const res = await fetch(`/api/communication/parents/validate-token?token=${token}`);
+        const data = await res.json();
 
-        const { data: inv, error: invError } = await supabase
-          .from('parent_invitations')
-          .select(`
-            id,
-            team_id,
-            player_id,
-            parent_email,
-            parent_name,
-            relationship,
-            status,
-            token_expires_at
-          `)
-          .eq('invitation_token', token)
-          .single();
-
-        if (invError || !inv) {
-          setError('Invalid invitation link');
+        if (!res.ok) {
+          setError(data.error || 'Invalid invitation link');
           setLoading(false);
           return;
         }
 
-        if (new Date(inv.token_expires_at) < new Date()) {
-          setError('This invitation has expired');
-          setLoading(false);
-          return;
-        }
-
-        if (inv.status !== 'pending') {
-          setError('This invitation is no longer valid');
-          setLoading(false);
-          return;
-        }
-
-        // Get team and player names
-        const { data: team } = await supabase
-          .from('teams')
-          .select('name')
-          .eq('id', inv.team_id)
-          .single();
-
-        const { data: player } = await supabase
-          .from('players')
-          .select('first_name, last_name')
-          .eq('id', inv.player_id)
-          .single();
-
-        setInvitation({
-          ...inv,
-          team_name: team?.name,
-          player_name: player ? `${player.first_name} ${player.last_name}` : undefined,
-        });
+        const inv = data.invitation;
+        setInvitation(inv);
 
         // Pre-fill name if provided
         if (inv.parent_name) {

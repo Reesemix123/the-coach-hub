@@ -212,6 +212,66 @@ async function handleCheckoutCompleted(
     return;
   }
 
+  // Handle communication plan purchase
+  if (purchaseType === 'communication_plan' && teamId) {
+    const planTier = session.metadata?.plan_tier;
+    const userId = session.metadata?.user_id;
+    const maxParentsStr = session.metadata?.max_parents;
+
+    if (!planTier) {
+      console.error('Communication plan checkout missing plan_tier');
+      return;
+    }
+
+    const maxParents = maxParentsStr === 'unlimited' ? null : parseInt(maxParentsStr || '20', 10);
+    const activatedAt = new Date();
+    const expiresAt = new Date(activatedAt);
+    expiresAt.setMonth(expiresAt.getMonth() + 6); // 6-month season
+    const contentAccessibleUntil = new Date(expiresAt);
+    contentAccessibleUntil.setDate(contentAccessibleUntil.getDate() + 30);
+    const muxCleanupAt = new Date(expiresAt);
+    muxCleanupAt.setDate(muxCleanupAt.getDate() + 60);
+
+    const { error: insertError } = await supabase
+      .from('team_communication_plans')
+      .insert({
+        team_id: teamId,
+        purchased_by: userId,
+        purchaser_role: 'coach',
+        stripe_payment_id: session.payment_intent as string,
+        stripe_product_id: session.metadata?.stripe_product_id || null,
+        plan_tier: planTier,
+        max_parents: maxParents,
+        max_team_videos: 10,
+        team_videos_used: 0,
+        activated_at: activatedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        content_accessible_until: contentAccessibleUntil.toISOString(),
+        mux_cleanup_at: muxCleanupAt.toISOString(),
+        status: 'active',
+      });
+
+    if (insertError) {
+      console.error('Failed to create communication plan:', insertError);
+    }
+
+    await supabase.from('audit_logs').insert({
+      action: 'communication_plan.purchased',
+      target_type: 'team',
+      target_id: teamId,
+      metadata: {
+        plan_tier: planTier,
+        max_parents: maxParents,
+        expires_at: expiresAt.toISOString(),
+        session_id: session.id,
+        payment_intent: session.payment_intent,
+      },
+    });
+
+    console.log(`Communication plan (${planTier}) created for team ${teamId}`);
+    return;
+  }
+
   // Handle regular subscription checkout
   const tier = session.metadata?.tier;
   const billingCycle = session.metadata?.billing_cycle;

@@ -9,10 +9,17 @@ export * from './parent.service';
 // Plan and billing
 export * from './plan.service';
 
-// TODO: Phase 2
-// export * from './announcement.service';
-// export * from './rsvp.service';
-// export * from './notification.service';
+// Notification dispatch (email + SMS)
+export * from './notification.service';
+
+// Announcements
+export * from './announcement.service';
+
+// Calendar + Events
+export * from './event.service';
+
+// RSVP
+export * from './rsvp.service';
 
 // TODO: Phase 3
 // export * from './video-sharing.service';

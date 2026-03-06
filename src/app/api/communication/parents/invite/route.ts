@@ -6,13 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import {
-  inviteParent,
-  getPendingInvitations,
-  resendInvitation,
-  revokeInvitation,
-} from '@/lib/services/communication';
-import type { ParentRelationship } from '@/types/communication';
+// Note: services use browser client, so we query Supabase directly in API routes
+import { sendEmail, getParentInvitationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,16 +72,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Player not found on this team' }, { status: 404 });
     }
 
-    const invitation = await inviteParent({
-      teamId,
-      playerId,
-      parentEmail,
-      parentName,
-      relationship: relationship as ParentRelationship,
-    });
+    // Insert invitation directly using the server client (service uses browser client which won't work here)
+    const { data: invitation, error: insertError } = await supabase
+      .from('parent_invitations')
+      .insert({
+        team_id: teamId,
+        player_id: playerId,
+        invited_by: user.id,
+        parent_email: parentEmail.toLowerCase().trim(),
+        parent_name: parentName || null,
+        relationship: relationship || null,
+      })
+      .select()
+      .single();
 
-    // TODO: Send invitation email via Resend
-    // await sendParentInvitationEmail(invitation);
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return NextResponse.json(
+          { error: 'This email has already been invited to this team' },
+          { status: 409 }
+        );
+      }
+      throw insertError;
+    }
+
+    // Send invitation email — fire-and-forget, do not fail the request on email error
+    try {
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', teamId)
+        .single();
+
+      const { data: playerData } = await supabase
+        .from('players')
+        .select('first_name, last_name')
+        .eq('id', playerId)
+        .single();
+
+      const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/parent-invite?token=${invitation.invitation_token}`;
+
+      const emailTemplate = getParentInvitationEmail({
+        parentName: invitation.parent_name,
+        parentEmail: invitation.parent_email,
+        teamName: teamData?.name ?? teamId,
+        playerName: playerData
+          ? `${playerData.first_name} ${playerData.last_name}`
+          : 'your player',
+        inviteLink,
+      });
+
+      await sendEmail({
+        to: invitation.parent_email,
+        subject: emailTemplate.subject,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+      });
+    } catch (emailError) {
+      console.error('Failed to send parent invitation email:', emailError);
+    }
 
     return NextResponse.json({ invitation }, { status: 201 });
   } catch (error) {
@@ -153,9 +197,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const invitations = await getPendingInvitations(teamId);
+    const { data: invitations, error: invError } = await supabase
+      .from('parent_invitations')
+      .select('*')
+      .eq('team_id', teamId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
 
-    return NextResponse.json({ invitations });
+    if (invError) {
+      throw invError;
+    }
+
+    return NextResponse.json({ invitations: invitations || [] });
   } catch (error) {
     console.error('Error fetching invitations:', error);
     return NextResponse.json(
@@ -237,11 +290,72 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action === 'resend') {
-      const updated = await resendInvitation(invitationId);
-      // TODO: Send invitation email via Resend
+      // Reset token and expiry directly using server client
+      const newToken = crypto.randomUUID();
+      const newExpiry = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+
+      const { data: updated, error: updateError } = await supabase
+        .from('parent_invitations')
+        .update({
+          invitation_token: newToken,
+          token_expires_at: newExpiry,
+          status: 'pending',
+        })
+        .eq('id', invitationId)
+        .select()
+        .single();
+
+      if (updateError || !updated) {
+        return NextResponse.json({ error: 'Failed to resend invitation' }, { status: 500 });
+      }
+
+      // Send invitation email — fire-and-forget
+      try {
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('name')
+          .eq('id', updated.team_id)
+          .single();
+
+        const { data: playerData } = await supabase
+          .from('players')
+          .select('first_name, last_name')
+          .eq('id', updated.player_id)
+          .single();
+
+        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com'}/auth/parent-invite?token=${updated.invitation_token}`;
+
+        const emailTemplate = getParentInvitationEmail({
+          parentName: updated.parent_name,
+          parentEmail: updated.parent_email,
+          teamName: teamData?.name ?? updated.team_id,
+          playerName: playerData
+            ? `${playerData.first_name} ${playerData.last_name}`
+            : 'your player',
+          inviteLink,
+        });
+
+        await sendEmail({
+          to: updated.parent_email,
+          subject: emailTemplate.subject,
+          html: emailTemplate.html,
+          text: emailTemplate.text,
+        });
+      } catch (emailError) {
+        console.error('Failed to send parent invitation email on resend:', emailError);
+      }
+
       return NextResponse.json({ invitation: updated });
     } else {
-      await revokeInvitation(invitationId);
+      // Revoke directly using server client
+      const { error: revokeError } = await supabase
+        .from('parent_invitations')
+        .update({ status: 'revoked' })
+        .eq('id', invitationId);
+
+      if (revokeError) {
+        return NextResponse.json({ error: 'Failed to revoke invitation' }, { status: 500 });
+      }
       return NextResponse.json({ success: true });
     }
   } catch (error) {

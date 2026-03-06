@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/utils/supabase/client';
 import { CheckCircle, XCircle, Loader2, Users } from 'lucide-react';
 
 interface InvitationDetails {
@@ -55,68 +54,16 @@ function ParentInviteContent() {
       }
 
       try {
-        const supabase = createClient();
+        const res = await fetch(`/api/communication/parents/validate-token?token=${token}`);
+        const data = await res.json();
 
-        // Fetch invitation details
-        const { data: inv, error: invError } = await supabase
-          .from('parent_invitations')
-          .select(`
-            id,
-            team_id,
-            player_id,
-            parent_email,
-            parent_name,
-            relationship,
-            status,
-            token_expires_at
-          `)
-          .eq('invitation_token', token)
-          .single();
-
-        if (invError || !inv) {
-          setError('Invalid invitation link');
+        if (!res.ok) {
+          setError(data.error || 'Invalid invitation link');
           setLoading(false);
           return;
         }
 
-        // Check if expired
-        if (new Date(inv.token_expires_at) < new Date()) {
-          setError('This invitation has expired. Please ask the coach to resend it.');
-          setLoading(false);
-          return;
-        }
-
-        // Check status
-        if (inv.status === 'accepted') {
-          setError('This invitation has already been accepted. Please sign in.');
-          setLoading(false);
-          return;
-        }
-
-        if (inv.status === 'revoked') {
-          setError('This invitation has been revoked. Please contact the coach.');
-          setLoading(false);
-          return;
-        }
-
-        // Get team and player names for display
-        const { data: team } = await supabase
-          .from('teams')
-          .select('name')
-          .eq('id', inv.team_id)
-          .single();
-
-        const { data: player } = await supabase
-          .from('players')
-          .select('first_name, last_name')
-          .eq('id', inv.player_id)
-          .single();
-
-        setInvitation({
-          ...inv,
-          team_name: team?.name,
-          player_name: player ? `${player.first_name} ${player.last_name}` : undefined,
-        });
+        setInvitation(data.invitation);
         setLoading(false);
       } catch (err) {
         console.error('Error validating invitation:', err);
