@@ -5,6 +5,7 @@ import { Calendar as CalendarIcon, Plus, Filter, ChevronLeft } from 'lucide-reac
 import Link from 'next/link';
 import { EventCard } from '@/components/communication/calendar/EventCard';
 import { EventForm } from '@/components/communication/calendar/EventForm';
+import { RSVPAttendanceModal } from '@/components/communication/calendar/RSVPAttendanceModal';
 import type { TeamEventExtended, EventType } from '@/types/communication';
 
 interface EventWithRsvpSummary extends TeamEventExtended {
@@ -28,6 +29,7 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
   const [showForm, setShowForm] = useState(false);
   const [filterMode, setFilterMode] = useState<FilterMode>('upcoming');
   const [eventTypeFilter, setEventTypeFilter] = useState<EventType | 'all'>('all');
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   // Load Google Places API
   useEffect(() => {
@@ -64,17 +66,34 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
 
       const data = await response.json();
 
-      // For coaches, we need to fetch RSVP summaries separately
-      // The API returns events without summaries for coaches currently
-      const eventsWithSummaries: EventWithRsvpSummary[] = (data.events || []).map((event: TeamEventExtended) => ({
-        ...event,
-        rsvp_summary: {
-          attending: 0,
-          not_attending: 0,
-          maybe: 0,
-          no_response: 0,
-        },
-      }));
+      const rawEvents: TeamEventExtended[] = data.events || [];
+
+      // Fetch RSVP summaries for each event in parallel
+      const eventsWithSummaries: EventWithRsvpSummary[] = await Promise.all(
+        rawEvents.map(async (event) => {
+          try {
+            const rsvpResponse = await fetch(`/api/communication/events/${event.id}/rsvp`);
+            if (rsvpResponse.ok) {
+              const rsvpData = await rsvpResponse.json();
+              return {
+                ...event,
+                rsvp_summary: {
+                  attending: rsvpData.summary?.attending || 0,
+                  not_attending: rsvpData.summary?.not_attending || 0,
+                  maybe: rsvpData.summary?.maybe || 0,
+                  no_response: rsvpData.summary?.no_response || 0,
+                },
+              };
+            }
+          } catch {
+            // Silently fail for individual RSVP fetches
+          }
+          return {
+            ...event,
+            rsvp_summary: { attending: 0, not_attending: 0, maybe: 0, no_response: 0 },
+          };
+        })
+      );
 
       setEvents(eventsWithSummaries);
     } catch (err) {
@@ -241,12 +260,10 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
                   {groupEvents.map((event) => (
                     <EventCard
                       key={event.id}
-                      event={{
-                        ...event,
-                        rsvp: null,
-                        rsvp_summary: event.rsvp_summary,
-                      }}
+                      event={event}
                       showRsvpSummary={true}
+                      rsvpSummary={event.rsvp_summary}
+                      onViewDetails={(id) => setSelectedEventId(id)}
                     />
                   ))}
                 </div>
@@ -255,6 +272,14 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
           </div>
         )}
       </div>
+
+      {/* RSVP Attendance Modal */}
+      <RSVPAttendanceModal
+        eventId={selectedEventId || ''}
+        eventTitle={events.find(e => e.id === selectedEventId)?.title || ''}
+        isOpen={!!selectedEventId}
+        onClose={() => setSelectedEventId(null)}
+      />
     </div>
   );
 }

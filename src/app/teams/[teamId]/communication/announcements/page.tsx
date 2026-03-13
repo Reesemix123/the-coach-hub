@@ -1,26 +1,31 @@
 'use client';
 
 import React, { use, useState, useEffect } from 'react';
-import { Bell, Plus, Users, Clock, Loader2 } from 'lucide-react';
+import { Bell, Plus, Users, Clock, Loader2, Eye } from 'lucide-react';
 import { AnnouncementCard } from '@/components/communication/announcements/AnnouncementCard';
 import { AnnouncementForm } from '@/components/communication/announcements/AnnouncementForm';
+import { ReadReceiptModal } from '@/components/communication/announcements/ReadReceiptModal';
 import { Announcement } from '@/types/communication';
 
 interface PageProps {
   params: Promise<{ teamId: string }>;
 }
 
-interface AnnouncementWithReceipts extends Announcement {
-  read_count: number;
-  total_recipients: number;
+interface AnnouncementReadStats {
+  [announcementId: string]: {
+    read_count: number;
+    total_recipients: number;
+  };
 }
 
 export default function CoachAnnouncementsPage({ params }: PageProps) {
   const { teamId } = use(params);
-  const [announcements, setAnnouncements] = useState<AnnouncementWithReceipts[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [readStats, setReadStats] = useState<AnnouncementReadStats>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedAnnouncementId, setSelectedAnnouncementId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -34,12 +39,17 @@ export default function CoachAnnouncementsPage({ params }: PageProps) {
       const response = await fetch(`/api/communication/announcements?teamId=${teamId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Announcements API error:', response.status, errorData);
         throw new Error(errorData.details || errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      setAnnouncements(data.announcements || []);
+      const fetchedAnnouncements: Announcement[] = data.announcements || [];
+      setAnnouncements(fetchedAnnouncements);
+
+      // Fetch read stats for each announcement
+      if (fetchedAnnouncements.length > 0) {
+        fetchReadStats(fetchedAnnouncements.map(a => a.id));
+      }
     } catch (err) {
       console.error('Failed to fetch announcements:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -48,10 +58,45 @@ export default function CoachAnnouncementsPage({ params }: PageProps) {
     }
   }
 
+  async function fetchReadStats(announcementIds: string[]) {
+    const stats: AnnouncementReadStats = {};
+
+    // Fetch stats in parallel (max 10 at a time)
+    const batchSize = 10;
+    for (let i = 0; i < announcementIds.length; i += batchSize) {
+      const batch = announcementIds.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(async (id) => {
+          const response = await fetch(`/api/communication/announcements/${id}/stats`);
+          if (response.ok) {
+            const data = await response.json();
+            return { id, read_count: data.read_count, total_recipients: data.total_recipients };
+          }
+          return { id, read_count: 0, total_recipients: 0 };
+        })
+      );
+
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          stats[result.value.id] = {
+            read_count: result.value.read_count,
+            total_recipients: result.value.total_recipients,
+          };
+        }
+      });
+    }
+
+    setReadStats(stats);
+  }
+
   function handleSuccess() {
     setShowForm(false);
     fetchAnnouncements();
   }
+
+  const selectedAnnouncement = selectedAnnouncementId
+    ? announcements.find(a => a.id === selectedAnnouncementId)
+    : null;
 
   if (loading) {
     return (
@@ -126,26 +171,34 @@ export default function CoachAnnouncementsPage({ params }: PageProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {announcements.map((announcement) => (
-              <div key={announcement.id} className="relative">
-                <AnnouncementCard
-                  announcement={announcement}
-                  isRead={true}
-                  showReadReceipts={true}
-                />
-                {/* Read receipt overlay */}
-                <div className="absolute bottom-4 right-6 flex items-center gap-2 text-sm text-gray-500">
-                  <Users className="w-4 h-4" />
-                  <span>
-                    {announcement.read_count} of {announcement.total_recipients} read
-                  </span>
+            {announcements.map((announcement) => {
+              const stats = readStats[announcement.id];
+              return (
+                <div key={announcement.id} className="relative">
+                  <AnnouncementCard
+                    announcement={announcement}
+                    isRead={true}
+                    showReadReceipts={true}
+                  />
+                  {/* Read receipt overlay */}
+                  <button
+                    onClick={() => setSelectedAnnouncementId(announcement.id)}
+                    className="absolute bottom-4 right-6 flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>
+                      {stats
+                        ? `${stats.read_count} of ${stats.total_recipients} read`
+                        : 'Loading...'}
+                    </span>
+                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Stats Summary (if there are announcements) */}
+        {/* Stats Summary */}
         {announcements.length > 0 && (
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
@@ -164,7 +217,7 @@ export default function CoachAnnouncementsPage({ params }: PageProps) {
                 <span className="text-sm font-medium">Avg. Read Rate</span>
               </div>
               <p className="text-2xl font-semibold text-gray-900">
-                {calculateAverageReadRate(announcements)}%
+                {calculateAverageReadRate(announcements, readStats)}%
               </p>
             </div>
 
@@ -180,19 +233,32 @@ export default function CoachAnnouncementsPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* Read Receipt Modal */}
+      <ReadReceiptModal
+        announcementId={selectedAnnouncementId || ''}
+        announcementTitle={selectedAnnouncement?.title || ''}
+        isOpen={!!selectedAnnouncementId}
+        onClose={() => setSelectedAnnouncementId(null)}
+      />
     </div>
   );
 }
 
-function calculateAverageReadRate(announcements: AnnouncementWithReceipts[]): number {
-  if (announcements.length === 0) return 0;
+function calculateAverageReadRate(
+  announcements: Announcement[],
+  readStats: AnnouncementReadStats
+): number {
+  const announcementsWithStats = announcements.filter(a => readStats[a.id]);
+  if (announcementsWithStats.length === 0) return 0;
 
-  const totalRate = announcements.reduce((sum, announcement) => {
-    if (announcement.total_recipients === 0) return sum;
-    return sum + (announcement.read_count / announcement.total_recipients) * 100;
+  const totalRate = announcementsWithStats.reduce((sum, announcement) => {
+    const stats = readStats[announcement.id];
+    if (!stats || stats.total_recipients === 0) return sum;
+    return sum + (stats.read_count / stats.total_recipients) * 100;
   }, 0);
 
-  return Math.round(totalRate / announcements.length);
+  return Math.round(totalRate / announcementsWithStats.length);
 }
 
 function formatLastSent(timestamp: string | undefined): string {
