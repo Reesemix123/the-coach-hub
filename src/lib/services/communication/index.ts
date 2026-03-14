@@ -21,8 +21,8 @@ export * from './event.service';
 // RSVP
 export * from './rsvp.service';
 
-// TODO: Phase 3
-// export * from './video-sharing.service';
+// Phase 3: Video sharing
+export * from './video.service';
 
 // TODO: Phase 4
 // export * from './report.service';
