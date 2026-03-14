@@ -24,8 +24,11 @@ export * from './rsvp.service';
 // Phase 3: Video sharing
 export * from './video.service';
 
+// Direct messaging (coach <-> parent)
+export * from './messaging.service';
+
 // TODO: Phase 4
 // export * from './report.service';
 
-// TODO: Phase 5
-// export * from './external-share.service';
+// Phase 5: Vimeo OAuth + external video sharing
+export * from './vimeo.service';

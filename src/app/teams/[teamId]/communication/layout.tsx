@@ -3,7 +3,7 @@
 import { use } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Calendar, Users, CreditCard } from 'lucide-react';
+import { Bell, Calendar, Users, CreditCard, MessageSquare } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +14,7 @@ const tabs = [
   { label: 'Announcements', href: 'announcements', icon: Bell },
   { label: 'Calendar', href: 'calendar', icon: Calendar },
   { label: 'Parents', href: 'parents', icon: Users },
+  { label: 'Messages', href: 'messages', icon: MessageSquare },
   { label: 'Plan', href: 'plan', icon: CreditCard },
 ];
 
