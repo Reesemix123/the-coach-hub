@@ -40,6 +40,7 @@ export default function RootLayout({
       <body className="bg-gray-50">
         <GuideProvider>
         <GlobalOnboardingProvider>
+        <div id="coach-nav">
         <ScrollingNavbar>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-20">
@@ -78,9 +79,10 @@ export default function RootLayout({
             </div>
           </div>
         </ScrollingNavbar>
+        </div>
 
         {/* Payment warning banner - shows when payment is past due or suspended */}
-        <div className="fixed top-20 left-0 right-0 z-40">
+        <div id="coach-banner" className="fixed top-20 left-0 right-0 z-40">
           <PaymentWarningBanner />
         </div>
 

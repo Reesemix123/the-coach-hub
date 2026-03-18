@@ -102,22 +102,19 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-3xl mx-auto px-4 py-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 bg-gray-200 rounded-xl"></div>
-            ))}
-          </div>
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-48 bg-gray-200 rounded-xl"></div>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-6">
+    <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Link
@@ -225,7 +222,6 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
             </p>
           </div>
         )}
-      </div>
     </div>
   );
 }

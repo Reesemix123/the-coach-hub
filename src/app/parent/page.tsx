@@ -7,7 +7,6 @@ import {
   Bell,
   FileText,
   MessageCircle,
-  ChevronRight,
   Users,
 } from 'lucide-react';
 
@@ -169,16 +168,6 @@ export default async function ParentDashboard() {
         </div>
       )}
 
-      {/* Settings link */}
-      <div className="mt-8">
-        <Link
-          href="/parent/settings"
-          className="flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-gray-700">Account Settings</span>
-          <ChevronRight className="w-5 h-5 text-gray-400" />
-        </Link>
-      </div>
     </div>
   );
 }
