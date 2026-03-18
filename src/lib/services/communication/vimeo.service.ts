@@ -9,7 +9,7 @@
  * call is skipped.
  */
 
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import type { CoachExternalAccount, ExternalVideoShare, PrivacySetting } from '@/types/communication';
 
 // ============================================================================
@@ -129,26 +129,31 @@ export async function saveVimeoConnection(
   accountId: string,
   accountName: string,
 ): Promise<void> {
-  const supabase = await createClient();
+  // Use service client — Vault RPC functions are restricted to service_role
+  const serviceClient = createServiceClient();
 
-  // Store token in Vault and save the vault reference ID
+  // Store token in Vault via insert_secret (name-based, so reconnecting overwrites)
+  const secretName = `vimeo_token_${coachId}`;
   let vaultId: string;
 
-  const { data: vaultResult, error: vaultError } = await supabase
-    .rpc('store_vimeo_token', {
-      p_coach_id: coachId,
-      p_access_token: accessToken,
+  // Delete existing secret if reconnecting
+  await serviceClient.rpc('delete_secret', { secret_name: secretName }).catch(() => {});
+
+  const { data: vaultResult, error: vaultError } = await serviceClient
+    .rpc('insert_secret', {
+      name: secretName,
+      secret: accessToken,
     });
 
   if (vaultError) {
-    console.error('Failed to store token in vault, falling back to direct storage:', vaultError);
-    // Fallback: store a sentinel so the row is created but token retrieval is a no-op
+    console.error('Failed to store token in Vault, falling back to direct storage:', vaultError);
     vaultId = `direct_${coachId}`;
   } else {
-    vaultId = vaultResult as string;
+    // insert_secret returns the vault secret UUID
+    vaultId = String(vaultResult);
   }
 
-  const { error } = await supabase
+  const { error } = await serviceClient
     .from('coach_external_accounts')
     .upsert(
       {
@@ -156,7 +161,7 @@ export async function saveVimeoConnection(
         platform: 'vimeo',
         platform_account_id: accountId,
         platform_account_name: accountName,
-        access_token_vault_id: vaultId,
+        access_token_vault_id: secretName, // Store the secret NAME for retrieval
         status: 'active',
         connected_at: new Date().toISOString(),
       },
@@ -224,9 +229,9 @@ export async function disconnectVimeo(coachId: string): Promise<void> {
  * @param coachId - Supabase auth user ID of the coach
  */
 export async function getVimeoAccessToken(coachId: string): Promise<string | null> {
-  const supabase = await createClient();
+  const serviceClient = createServiceClient();
 
-  const { data } = await supabase
+  const { data } = await serviceClient
     .from('coach_external_accounts')
     .select('access_token_vault_id, status')
     .eq('coach_id', coachId)
@@ -236,16 +241,15 @@ export async function getVimeoAccessToken(coachId: string): Promise<string | nul
 
   if (!data) return null;
 
-  // Try Vault first, fall back to direct storage
-  const vaultId = data.access_token_vault_id as string | null;
+  const secretRef = data.access_token_vault_id as string | null;
+  if (!secretRef) return null;
 
-  if (!vaultId) return null;
+  // Sentinel value means Vault was unavailable at connection time
+  if (secretRef.startsWith('direct_')) return null;
 
-  // Sentinel value means Vault was unavailable at connection time — no usable token
-  if (vaultId.startsWith('direct_')) return null;
-
-  const { data: vaultResult } = await supabase
-    .rpc('get_vimeo_token', { p_vault_id: vaultId });
+  // Retrieve decrypted token from Vault via read_secret (service_role only)
+  const { data: vaultResult } = await serviceClient
+    .rpc('read_secret', { secret_name: secretRef });
 
   if (vaultResult) return vaultResult as string;
 
