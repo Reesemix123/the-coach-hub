@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import ScrollingNavbar from "@/components/ScrollingNavbar";
@@ -17,9 +17,14 @@ import { Toaster } from "react-hot-toast";
 import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
 import { Analytics } from "@vercel/analytics/react";
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
+
 export const metadata: Metadata = {
   title: "Youth Coach Hub",
   description: "Football coaching made simple",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -40,6 +45,7 @@ export default function RootLayout({
       <body className="bg-gray-50">
         <GuideProvider>
         <GlobalOnboardingProvider>
+        <div id="coach-nav">
         <ScrollingNavbar>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-20">
@@ -78,9 +84,10 @@ export default function RootLayout({
             </div>
           </div>
         </ScrollingNavbar>
+        </div>
 
         {/* Payment warning banner - shows when payment is past due or suspended */}
-        <div className="fixed top-20 left-0 right-0 z-40">
+        <div id="coach-banner" className="fixed top-20 left-0 right-0 z-40">
           <PaymentWarningBanner />
         </div>
 
@@ -128,6 +135,19 @@ export default function RootLayout({
 
         {/* Vercel Analytics */}
         <Analytics />
+
+        {/* PWA Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

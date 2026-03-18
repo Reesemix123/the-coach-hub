@@ -398,6 +398,93 @@ ${appUrl}
   return { subject, html, text };
 }
 
+export function getParentInvitationEmail(options: {
+  parentName: string | null;
+  parentEmail: string;
+  teamName: string;
+  playerName: string;
+  inviteLink: string;
+}): { subject: string; html: string; text: string } {
+  const { parentName, teamName, playerName, inviteLink } = options;
+  const greeting = parentName ? `Hello ${parentName},` : 'Hello,';
+
+  const subject = `You're invited to follow ${playerName} on Youth Coach Hub`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Parent Invitation</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
+        <h2 style="margin-top: 0; color: #111;">You're Invited!</h2>
+
+        <p>${greeting}</p>
+
+        <p>The coaching staff at <strong>${teamName}</strong> has invited you to follow <strong>${playerName}</strong> on Youth Coach Hub — the platform their team uses to stay connected with families.</p>
+
+        <p>Once you create your account, you'll be able to:</p>
+        <ul style="padding-left: 20px;">
+          <li>Receive team announcements directly from the coaches</li>
+          <li>View the game and practice schedule, and RSVP to events</li>
+          <li>Access game film highlights shared by the staff</li>
+          <li>View player reports and season summaries</li>
+          <li>Send direct messages to the coaching staff</li>
+        </ul>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteLink}" style="display: inline-block; background: #000; color: #fff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Create Your Account</a>
+        </div>
+
+        <p style="color: #666; font-size: 14px;">This invitation expires in 72 hours. Click the button above to get started.</p>
+
+        <p style="color: #666; font-size: 14px;">If you're having trouble with the button, copy and paste this link into your browser:</p>
+        <p style="color: #000; font-size: 12px; word-break: break-all; background: #fff; padding: 10px; border-radius: 4px;">${inviteLink}</p>
+
+        <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
+
+        <p style="font-size: 12px; color: #666; margin-bottom: 0;">
+          If you didn't expect this invitation, you can safely ignore this email.
+        </p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+You're Invited to Follow ${playerName} on Youth Coach Hub!
+
+${greeting}
+
+The coaching staff at ${teamName} has invited you to follow ${playerName} on Youth Coach Hub — the platform their team uses to stay connected with families.
+
+Once you create your account, you'll be able to:
+- Receive team announcements directly from the coaches
+- View the game and practice schedule, and RSVP to events
+- Access game film highlights shared by the staff
+- View player reports and season summaries
+- Send direct messages to the coaching staff
+
+Create your account: ${inviteLink}
+
+This invitation expires in 72 hours.
+
+If you didn't expect this invitation, you can safely ignore this email.
+
+---
+Youth Coach Hub
+  `.trim();
+
+  return { subject, html, text };
+}
+
 export function getUserReactivatedEmail(options: {
   userName: string;
   adminName: string;

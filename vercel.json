@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/expire-games",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/mux-cleanup",
+      "schedule": "0 3 * * *"
     }
   ]
 }

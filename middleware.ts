@@ -86,8 +86,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Logged-in user visiting home page → redirect to primary team
+  // Logged-in user visiting home page → redirect to primary team or parent dashboard
   if (user && url.pathname === '/') {
+    // Check if user is a parent
+    const { data: parentProfile } = await supabase
+      .from('parent_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (parentProfile) {
+      const redirectUrl = url.clone()
+      redirectUrl.pathname = '/parent'
+      return NextResponse.redirect(redirectUrl)
+    }
+
     const primaryTeamId = await getPrimaryTeam(supabase, user.id)
 
     if (primaryTeamId) {

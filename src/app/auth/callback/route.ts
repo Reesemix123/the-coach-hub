@@ -295,7 +295,21 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${origin}/teams/${inviteRedirectTeamId}?welcome=invited`)
     }
 
-    // Route based on selected tier
+    // Check if user is a parent — route to parent dashboard
+    if (user?.id) {
+      const serviceClient = createServiceClient();
+      const { data: parentProfile } = await serviceClient
+        .from('parent_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (parentProfile) {
+        return NextResponse.redirect(`${origin}/parent`)
+      }
+    }
+
+    // Route based on selected tier (coach/owner flow)
     if (selectedTier && selectedTier !== 'basic') {
       // Paid tier - redirect to checkout
       return NextResponse.redirect(`${origin}/checkout?tier=${selectedTier}`)
