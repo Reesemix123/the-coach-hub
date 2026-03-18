@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import ScrollingNavbar from "@/components/ScrollingNavbar";
@@ -17,9 +17,14 @@ import { Toaster } from "react-hot-toast";
 import SessionTimeoutProvider from "@/components/SessionTimeoutProvider";
 import { Analytics } from "@vercel/analytics/react";
 
+export const viewport: Viewport = {
+  themeColor: "#000000",
+};
+
 export const metadata: Metadata = {
   title: "Youth Coach Hub",
   description: "Football coaching made simple",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -130,6 +135,19 @@ export default function RootLayout({
 
         {/* Vercel Analytics */}
         <Analytics />
+
+        {/* PWA Service Worker Registration */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
