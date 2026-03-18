@@ -3,7 +3,7 @@
 import { use } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Calendar, Users, CreditCard, MessageSquare } from 'lucide-react';
+import { Bell, Calendar, Users, CreditCard, MessageSquare, ChevronLeft } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,7 +27,15 @@ export default function CommunicationLayout({ children, params }: LayoutProps) {
       {/* Sub-navigation */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4">
-          <nav className="flex gap-1 overflow-x-auto" aria-label="Communication sections">
+          <nav className="flex items-center gap-1 overflow-x-auto" aria-label="Communication sections">
+            <Link
+              href={`/teams/${teamId}`}
+              className="flex items-center gap-1 px-3 py-3 text-sm font-medium text-gray-400 hover:text-gray-700 border-b-2 border-transparent whitespace-nowrap"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Team
+            </Link>
+            <div className="w-px h-6 bg-gray-200 mx-1" />
             {tabs.map((tab) => {
               const href = `/teams/${teamId}/communication/${tab.href}`;
               const isActive = pathname.startsWith(href);
