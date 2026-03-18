@@ -52,7 +52,22 @@ function LoginForm() {
       // Determine where to route the user
       const user = data.user
 
-      // Check if user has a team
+      // Check if user is a parent — parents skip plan selection entirely
+      // Use a server-side API call since RLS context may not be ready on the client yet
+      try {
+        const meResponse = await fetch('/api/auth/me')
+        if (meResponse.ok) {
+          const meData = await meResponse.json()
+          if (meData.parentProfileId) {
+            window.location.href = '/parent'
+            return
+          }
+        }
+      } catch {
+        // Non-critical — fall through to coach flow
+      }
+
+      // Check if user has a team (coach/owner flow)
       const { data: teams } = await supabase
         .from('teams')
         .select('id')

@@ -68,7 +68,7 @@ export default function ParentVideosPage({ params }: PageProps) {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/parent/teams/${teamId}`}
+            href="/parent"
             className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 mb-4 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />

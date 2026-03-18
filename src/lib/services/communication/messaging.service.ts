@@ -4,7 +4,7 @@
  * Parents can only message coaches, not other parents.
  */
 
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import type { DirectMessage, MessageSenderType } from '@/types/communication';
 
 // ============================================================================
@@ -41,7 +41,8 @@ export interface ConversationSummary {
  * @returns The created DirectMessage record
  */
 export async function sendMessage(input: SendMessageInput): Promise<DirectMessage> {
-  const supabase = await createClient();
+  // Use service client for insert — RLS is enforced by the API route's auth checks
+  const supabase = createServiceClient();
 
   // Business rule: parents can only message coaches
   if (input.senderType === 'parent' && input.recipientType !== 'coach') {
@@ -80,7 +81,7 @@ export async function getConversation(
   otherUserId: string,
   limit: number = 50
 ): Promise<DirectMessage[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from('direct_messages')
@@ -109,7 +110,7 @@ export async function markMessagesAsRead(
   senderId: string,
   teamId: string
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase
     .from('direct_messages')
@@ -133,7 +134,7 @@ export async function getCoachInbox(
   teamId: string,
   coachId: string
 ): Promise<ConversationSummary[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Fetch all messages where coach is a participant, newest first for grouping
   const { data: messages, error } = await supabase
@@ -209,7 +210,7 @@ export async function getUnreadCount(
   teamId: string,
   userId: string
 ): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { count, error } = await supabase
     .from('direct_messages')

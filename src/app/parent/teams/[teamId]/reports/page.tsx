@@ -62,7 +62,7 @@ export default function ParentReportsPage({ params }: { params: Promise<{ teamId
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="mb-8">
           <Link
-            href={`/parent/teams/${teamId}`}
+            href="/parent"
             className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 mb-4 transition-colors"
           >
             <ChevronLeft className="w-4 h-4" /> Back

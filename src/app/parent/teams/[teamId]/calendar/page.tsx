@@ -121,7 +121,7 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <Link
-            href={`/parent/teams/${teamId}`}
+            href="/parent"
             className="text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ChevronLeft className="w-6 h-6" />

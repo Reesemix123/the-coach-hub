@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   sendMessage,
   getConversation,
@@ -107,6 +107,15 @@ export async function POST(request: NextRequest) {
       recipientType = 'parent';
     }
 
+    console.log('[Messages API] Insert attempt:', {
+      teamId,
+      senderType,
+      senderId,
+      recipientType,
+      recipientId,
+      authUid: user.id,
+    });
+
     const msg = await sendMessage({
       teamId,
       senderType,
@@ -172,7 +181,9 @@ export async function GET(request: NextRequest) {
 
     // --- Coach: inbox view (list of all conversations) ---
     if (view === 'inbox' && !isParent) {
+      console.log('[Messages GET] Coach inbox request. coachId:', user.id, 'teamId:', teamId);
       const conversations = await getCoachInbox(teamId, user.id);
+      console.log('[Messages GET] Coach inbox result:', conversations.length, 'conversations');
       return NextResponse.json({ conversations });
     }
 
@@ -189,7 +200,9 @@ export async function GET(request: NextRequest) {
 
     // --- Parent: default view — conversation with team owner/coach ---
     if (isParent) {
-      const { data: team } = await supabase
+      // Use service client to bypass RLS for team lookup
+      const serviceClient = createServiceClient();
+      const { data: team } = await serviceClient
         .from('teams')
         .select('user_id')
         .eq('id', teamId)
@@ -206,6 +219,7 @@ export async function GET(request: NextRequest) {
       );
       await markMessagesAsRead(parentProfile!.id, team.user_id, teamId);
 
+      console.log('[Messages GET] Parent default view:', { parentId: parentProfile!.id, coachId: team.user_id, messageCount: messages.length });
       return NextResponse.json({ messages, coachId: team.user_id });
     }
 
