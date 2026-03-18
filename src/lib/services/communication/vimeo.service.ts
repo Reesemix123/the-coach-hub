@@ -2,9 +2,11 @@
  * Vimeo Service
  * Handles OAuth, account management, and video upload to Vimeo.
  *
- * Token storage note: access_token_vault_id stores the raw access token directly
- * in this implementation. In a production hardening pass, replace with Supabase
- * Vault secret IDs so tokens are encrypted at rest.
+ * Token storage: access tokens are stored in Supabase Vault (migration 147).
+ * The access_token_vault_id column holds the Vault secret UUID, not the raw token.
+ * A graceful fallback is included for environments where Vault is not yet enabled —
+ * in that case the column stores a "direct_<coachId>" sentinel and the vault RPC
+ * call is skipped.
  */
 
 import { createClient } from '@/utils/supabase/server';
@@ -109,8 +111,15 @@ export async function exchangeCodeForToken(code: string): Promise<VimeoTokenResu
  * Persist a Vimeo connection in coach_external_accounts.
  * Upserts so that reconnecting an already-linked account refreshes credentials.
  *
+ * Stores the token in Supabase Vault and saves the resulting Vault secret UUID
+ * in access_token_vault_id. If Vault is unavailable (e.g. local dev without the
+ * extension), falls back to storing a "direct_<coachId>" sentinel value and logs
+ * a warning — the raw token is never written to the database in the fallback path,
+ * so the connection will show as active but token retrieval will return null until
+ * Vault is enabled.
+ *
  * @param coachId - Supabase auth user ID of the coach
- * @param accessToken - Raw Vimeo access token (stored in access_token_vault_id)
+ * @param accessToken - Raw Vimeo access token to encrypt and store
  * @param accountId - Vimeo user ID extracted from the user URI
  * @param accountName - Vimeo display name for the account
  */
@@ -122,6 +131,23 @@ export async function saveVimeoConnection(
 ): Promise<void> {
   const supabase = await createClient();
 
+  // Store token in Vault and save the vault reference ID
+  let vaultId: string;
+
+  const { data: vaultResult, error: vaultError } = await supabase
+    .rpc('store_vimeo_token', {
+      p_coach_id: coachId,
+      p_access_token: accessToken,
+    });
+
+  if (vaultError) {
+    console.error('Failed to store token in vault, falling back to direct storage:', vaultError);
+    // Fallback: store a sentinel so the row is created but token retrieval is a no-op
+    vaultId = `direct_${coachId}`;
+  } else {
+    vaultId = vaultResult as string;
+  }
+
   const { error } = await supabase
     .from('coach_external_accounts')
     .upsert(
@@ -130,8 +156,7 @@ export async function saveVimeoConnection(
         platform: 'vimeo',
         platform_account_id: accountId,
         platform_account_name: accountName,
-        // TODO(hardening): replace raw token with a Supabase Vault secret ID
-        access_token_vault_id: accessToken,
+        access_token_vault_id: vaultId,
         status: 'active',
         connected_at: new Date().toISOString(),
       },
@@ -189,7 +214,12 @@ export async function disconnectVimeo(coachId: string): Promise<void> {
 
 /**
  * Retrieve the raw Vimeo access token for an active coach connection.
- * Returns null if the account is missing, disconnected, or expired.
+ * Attempts to decrypt from Supabase Vault using the stored UUID. If the
+ * vault_id is a "direct_<coachId>" sentinel (Vault unavailable fallback),
+ * returns null rather than returning the sentinel string as a token.
+ *
+ * Returns null if the account is missing, disconnected, or the token
+ * cannot be retrieved from Vault.
  *
  * @param coachId - Supabase auth user ID of the coach
  */
@@ -206,8 +236,21 @@ export async function getVimeoAccessToken(coachId: string): Promise<string | nul
 
   if (!data) return null;
 
-  // TODO(hardening): retrieve from Supabase Vault using data.access_token_vault_id as the secret ID
-  return data.access_token_vault_id;
+  // Try Vault first, fall back to direct storage
+  const vaultId = data.access_token_vault_id as string | null;
+
+  if (!vaultId) return null;
+
+  // Sentinel value means Vault was unavailable at connection time — no usable token
+  if (vaultId.startsWith('direct_')) return null;
+
+  const { data: vaultResult } = await supabase
+    .rpc('get_vimeo_token', { p_vault_id: vaultId });
+
+  if (vaultResult) return vaultResult as string;
+
+  // Vault RPC returned null — token may have been deleted or Vault unavailable
+  return null;
 }
 
 // ============================================================================

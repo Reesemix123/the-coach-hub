@@ -17,13 +17,7 @@ interface InvitationDetails {
   player_name?: string;
 }
 
-const CONSENT_TEXT = `I consent to creating an account with Youth Coach Hub. I understand that:
-• My contact information will be used to send team communications
-• I may receive SMS and/or email notifications based on my preferences
-• Video content shared by coaches may include footage of team activities
-• I can update my notification preferences or delete my account at any time
-
-By creating an account, I confirm I am the parent or legal guardian of the player(s) I am linked to and have authority to receive information about their participation.`;
+const COPPA_CONSENT_TEXT = `I consent to my child's information being stored and shared within this team's platform, including video content featuring my child.`;
 
 export default function ParentSignupPage() {
   return (
@@ -214,7 +208,7 @@ function ParentSignupContent() {
         console.error('Access grant error:', accessError);
       }
 
-      // 5. Log consent
+      // 5. Log COPPA consent
       const { error: consentError } = await supabase
         .from('parent_consent_log')
         .insert({
@@ -222,7 +216,9 @@ function ParentSignupContent() {
           team_id: invitation.team_id,
           consent_type: 'account_creation',
           consented: true,
-          consent_text: CONSENT_TEXT,
+          consent_text: COPPA_CONSENT_TEXT,
+          ip_address: null,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
         });
 
       if (consentError) {
@@ -427,33 +423,30 @@ function ParentSignupContent() {
               </div>
             </div>
 
-            {/* Consent */}
-            <div className="p-4 bg-gray-50 rounded-lg">
+            {/* COPPA Consent */}
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={consentChecked}
                   onChange={(e) => setConsentChecked(e.target.checked)}
-                  className="w-5 h-5 mt-0.5 text-gray-900 rounded"
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-gray-900 flex-shrink-0"
                 />
-                <span className="text-sm text-gray-600">
-                  I have read and agree to the{' '}
-                  <button
-                    type="button"
-                    onClick={() => alert(CONSENT_TEXT)}
-                    className="text-black font-medium underline"
-                  >
-                    terms and conditions
-                  </button>
-                  {' '}for creating a parent account.
+                <span className="text-sm text-gray-700 leading-relaxed">
+                  {COPPA_CONSENT_TEXT}
                 </span>
               </label>
+              {!consentChecked && (
+                <p className="mt-2 ml-8 text-xs text-red-600">
+                  You must provide consent to create an account.
+                </p>
+              )}
             </div>
 
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !consentChecked}
               className="w-full py-3 px-4 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {submitting ? (
