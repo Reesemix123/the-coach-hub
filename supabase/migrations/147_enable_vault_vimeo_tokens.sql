@@ -1,56 +1,64 @@
--- Migration 147: Enable Supabase Vault for encrypted Vimeo token storage
+-- Migration 147: Vault wrapper functions for encrypted Vimeo token storage
 --
--- Vault stores sensitive data (API tokens) encrypted at rest.
--- We create helper functions so application code never touches raw tokens directly.
+-- Supabase Vault is enabled via the Dashboard (Integrations > Vault), not via SQL.
+-- These wrapper functions use vault.create_secret() and vault.decrypted_secrets
+-- to store and retrieve tokens. Only the service_role can call them.
 
--- Enable the vault extension
-CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
+-- Function to store a secret in the vault
+-- Returns the vault secret UUID
+create or replace function insert_secret(name text, secret text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return vault.create_secret(secret, name);
+end;
+$$;
 
--- Function to store a Vimeo access token in the vault
--- Returns the vault secret ID (UUID) for storing in coach_external_accounts
-CREATE OR REPLACE FUNCTION store_vimeo_token(p_coach_id UUID, p_access_token TEXT)
-RETURNS UUID AS $$
-DECLARE
-  secret_id UUID;
-  secret_name TEXT;
-BEGIN
-  secret_name := 'vimeo_token_' || p_coach_id::TEXT;
+-- Function to read a decrypted secret from the vault by name
+create or replace function read_secret(secret_name text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  secret text;
+begin
+  select decrypted_secret
+  from vault.decrypted_secrets
+  where name = secret_name
+  into secret;
+  return secret;
+end;
+$$;
 
-  -- Delete existing secret if any (update scenario)
-  DELETE FROM vault.secrets WHERE name = secret_name;
+-- Function to delete a secret from the vault by name
+create or replace function delete_secret(secret_name text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from vault.decrypted_secrets where name = secret_name;
+end;
+$$;
 
-  -- Insert new secret
-  INSERT INTO vault.secrets (name, secret, description)
-  VALUES (secret_name, p_access_token, 'Vimeo access token for coach ' || p_coach_id::TEXT)
-  RETURNING id INTO secret_id;
+-- Restrict access to service_role only
+revoke execute on function insert_secret from public;
+revoke execute on function insert_secret from anon;
+revoke execute on function insert_secret from authenticated;
+grant execute on function insert_secret to service_role;
 
-  RETURN secret_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+revoke execute on function read_secret from public;
+revoke execute on function read_secret from anon;
+revoke execute on function read_secret from authenticated;
+grant execute on function read_secret to service_role;
 
--- Function to retrieve a decrypted Vimeo token from the vault
-CREATE OR REPLACE FUNCTION get_vimeo_token(p_vault_id UUID)
-RETURNS TEXT AS $$
-DECLARE
-  token TEXT;
-BEGIN
-  SELECT decrypted_secret INTO token
-  FROM vault.decrypted_secrets
-  WHERE id = p_vault_id;
-
-  RETURN token;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to delete a Vimeo token from the vault
-CREATE OR REPLACE FUNCTION delete_vimeo_token(p_vault_id UUID)
-RETURNS VOID AS $$
-BEGIN
-  DELETE FROM vault.secrets WHERE id = p_vault_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute to authenticated users (functions are SECURITY DEFINER so they run as owner)
-GRANT EXECUTE ON FUNCTION store_vimeo_token(UUID, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_vimeo_token(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION delete_vimeo_token(UUID) TO authenticated;
+revoke execute on function delete_secret from public;
+revoke execute on function delete_secret from anon;
+revoke execute on function delete_secret from authenticated;
+grant execute on function delete_secret to service_role;
