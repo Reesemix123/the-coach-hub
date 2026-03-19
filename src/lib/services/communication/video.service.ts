@@ -4,7 +4,7 @@
  */
 
 import Mux from '@mux/mux-node';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import type {
   SharedVideo,
   VideoShareTarget,
@@ -107,7 +107,7 @@ export interface VideoCredits {
  */
 export async function createVideoUpload(input: CreateUploadInput): Promise<CreateUploadResult> {
   const mux = getMuxClient();
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Create a Mux direct upload. The asset is created by Mux once the upload completes.
   const upload = await mux.video.uploads.create({
@@ -164,7 +164,7 @@ export async function createAssetFromUrl(
   input: CreateUploadInput,
 ): Promise<string> {
   const mux = getMuxClient();
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const asset = await mux.video.assets.create({
     input: [{ url }],
@@ -217,7 +217,7 @@ export async function updateAssetStatus(
   playbackId?: string,
   duration?: number,
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const updates: Record<string, unknown> = { mux_asset_status: status };
 
@@ -353,7 +353,7 @@ export async function getSignedThumbnailUrl(
  * @throws If the video is not found, already published, or no credits remain
  */
 export async function publishVideo(input: PublishVideoInput): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: video, error: fetchError } = await supabase
     .from('shared_videos')
@@ -419,7 +419,7 @@ export async function publishVideo(input: PublishVideoInput): Promise<void> {
  * @returns Number of parents the video was shared with
  */
 export async function shareWithPlayer(input: ShareWithPlayerInput): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: parentLinks, error: linksError } = await supabase
     .from('player_parent_links')
@@ -464,7 +464,7 @@ export async function shareWithPlayer(input: ShareWithPlayerInput): Promise<numb
  * @returns Number of parents the video was shared with
  */
 export async function shareWithTeam(videoId: string, teamId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: parentAccess, error: accessError } = await supabase
     .from('team_parent_access')
@@ -507,7 +507,7 @@ export async function shareWithTeam(videoId: string, teamId: string): Promise<nu
  * @param teamId - The team to check
  */
 export async function canShareTeamVideo(teamId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data, error } = await supabase.rpc('can_share_team_video', { p_team_id: teamId });
 
   if (error) {
@@ -525,7 +525,7 @@ export async function canShareTeamVideo(teamId: string): Promise<boolean> {
  * @param teamId - The team to query
  */
 export async function getRemainingCredits(teamId: string): Promise<VideoCredits> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data, error } = await supabase.rpc('get_remaining_video_credits', {
     p_team_id: teamId,
   });
@@ -557,7 +557,7 @@ export async function getTeamVideos(
   teamId: string,
   options: { limit?: number; shareType?: VideoShareType } = {},
 ): Promise<SharedVideo[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   let query = supabase
     .from('shared_videos')
@@ -589,7 +589,7 @@ export async function getTeamVideos(
  * @param videoId - The shared_videos row ID
  */
 export async function getVideoById(videoId: string): Promise<SharedVideo | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from('shared_videos')
@@ -617,7 +617,7 @@ export async function getVideosForParent(
   teamId: string,
   parentId: string,
 ): Promise<Array<SharedVideo & { viewed_at: string | null; view_count: number }>> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // 1. All published, ready team-wide videos for this team
   const { data: teamVideos } = await supabase
@@ -701,7 +701,7 @@ export async function getVideosForParent(
  * @param parentId - The parent who viewed the video
  */
 export async function recordVideoView(videoId: string, parentId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Ensure a share target exists for team videos viewed for the first time
   const { data: existing } = await supabase
@@ -735,7 +735,7 @@ export async function recordVideoView(videoId: string, parentId: string): Promis
  * @param videoId - The shared_videos row ID to delete
  */
 export async function deleteSharedVideo(videoId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: video } = await supabase
     .from('shared_videos')
