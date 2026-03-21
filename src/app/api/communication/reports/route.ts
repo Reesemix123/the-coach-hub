@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   createReport,
   getTeamReports,
@@ -100,8 +100,9 @@ export async function POST(request: NextRequest) {
       notificationChannel: notificationChannel as NotificationChannel,
     });
 
-    // Send notifications to relevant parents
-    const { data: parentAccess } = await supabase
+    // Send notifications to relevant parents (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: parentAccess } = await serviceClient
       .from('team_parent_access')
       .select('parent_id, parent_profiles!inner(id, email, phone, notification_preference)')
       .eq('team_id', teamId)
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
         });
     } else if (playerId) {
       // For player-specific reports, notify only that player's parents
-      const { data: playerParents } = await supabase
+      const { data: playerParents } = await serviceClient
         .from('player_parent_links')
         .select('parent_id')
         .eq('player_id', playerId);

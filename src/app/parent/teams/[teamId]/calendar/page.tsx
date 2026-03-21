@@ -61,6 +61,14 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
     }
   };
 
+  // Refresh upcoming events (and past events if already loaded) after an RSVP changes
+  const handleRsvpChange = async (_eventId: string, _newStatus: string) => {
+    await fetchUpcomingEvents();
+    if (showPastEvents && pastEvents.length > 0) {
+      await fetchPastEvents();
+    }
+  };
+
   // Initial load
   useEffect(() => {
     const loadData = async () => {
@@ -157,8 +165,10 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
                     <EventCard
                       key={event.id}
                       event={event}
+                      rsvpStatus={event.rsvp?.family_status ?? null}
+                      teamId={teamId}
+                      onRsvpChange={handleRsvpChange}
                       showRsvpSummary={false}
-                      expandable={true}
                     />
                   ))}
                 </div>
@@ -201,8 +211,10 @@ export default function ParentCalendarPage({ params }: { params: Promise<{ teamI
                           <EventCard
                             key={event.id}
                             event={event}
+                            rsvpStatus={event.rsvp?.family_status ?? null}
+                            teamId={teamId}
+                            onRsvpChange={handleRsvpChange}
                             showRsvpSummary={false}
-                            expandable={true}
                           />
                         ))}
                       </div>

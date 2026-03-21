@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   createVideoUpload,
   getTeamVideos,
@@ -141,7 +141,9 @@ export async function GET(request: NextRequest) {
 
     if (parentProfile) {
       // Parent path: only published, ready videos they have been explicitly shared with
-      const { data: parentAccess } = await supabase
+      // Use service client to avoid RLS recursion on team_parent_access
+      const serviceClient = createServiceClient();
+      const { data: parentAccess } = await serviceClient
         .from('team_parent_access')
         .select('id')
         .eq('team_id', teamId)

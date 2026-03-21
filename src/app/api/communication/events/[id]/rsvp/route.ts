@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 
 interface RouteContext {
   params: Promise<{
@@ -87,8 +87,9 @@ export async function POST(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    // Verify parent has access to this team
-    const { data: parentAccess } = await supabase
+    // Verify parent has access to this team (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: parentAccess } = await serviceClient
       .from('team_parent_access')
       .select('id')
       .eq('team_id', event.team_id)
@@ -104,7 +105,7 @@ export async function POST(
     }
 
     // Upsert RSVP
-    const { data: rsvp, error: rsvpError } = await supabase
+    const { data: rsvp, error: rsvpError } = await serviceClient
       .from('event_rsvps')
       .upsert(
         {
@@ -202,11 +203,14 @@ export async function GET(
 
     const isCoach = isOwner || !!membership;
 
+    // Use service client for all parent-related table queries in this handler
+    const serviceClient = createServiceClient();
+
     if (parentProfile) {
       // Parent response: their RSVP + their children
 
-      // Verify parent has access to this team
-      const { data: parentAccess } = await supabase
+      // Verify parent has access to this team (use service client to avoid RLS recursion)
+      const { data: parentAccess } = await serviceClient
         .from('team_parent_access')
         .select('id')
         .eq('team_id', event.team_id)
@@ -222,7 +226,7 @@ export async function GET(
       }
 
       // Get their RSVP
-      const { data: rsvp } = await supabase
+      const { data: rsvp } = await serviceClient
         .from('event_rsvps')
         .select('*')
         .eq('event_id', eventId)
@@ -230,7 +234,7 @@ export async function GET(
         .single();
 
       // Get their children on this team
-      const { data: children } = await supabase
+      const { data: children } = await serviceClient
         .from('player_parent_links')
         .select(`
           player_id,
@@ -257,7 +261,7 @@ export async function GET(
       // Coach response: all RSVPs with summary
 
       // Get all RSVPs for this event with parent info
-      const { data: rsvps } = await supabase
+      const { data: rsvps } = await serviceClient
         .from('event_rsvps')
         .select(`
           *,
@@ -273,7 +277,7 @@ export async function GET(
         .order('responded_at', { ascending: false });
 
       // Get total parent count for this team
-      const { data: allParents } = await supabase
+      const { data: allParents } = await serviceClient
         .from('team_parent_access')
         .select('parent_id')
         .eq('team_id', event.team_id)

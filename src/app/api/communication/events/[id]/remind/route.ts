@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   sendBulkNotification,
   getRsvpReminderEmailBody,
@@ -80,8 +80,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    // Get all active parents for the team
-    const { data: allParents, error: parentsError } = await supabase
+    // Get all active parents for the team (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: allParents, error: parentsError } = await serviceClient
       .from('team_parent_access')
       .select(`
         parent_id,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get parents who already responded
-    const { data: existingRsvps } = await supabase
+    const { data: existingRsvps } = await serviceClient
       .from('event_rsvps')
       .select('parent_id')
       .eq('event_id', eventId);

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   publishVideo,
   shareWithTeam,
@@ -99,8 +99,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Send notifications to targeted parents (best-effort; failure does not roll back the publish)
+    // Use service client to avoid RLS recursion on video_share_targets + parent_profiles join
     if (sharedCount > 0) {
-      const { data: targets } = await supabase
+      const serviceClient = createServiceClient();
+      const { data: targets } = await serviceClient
         .from('video_share_targets')
         .select(`
           parent_id,

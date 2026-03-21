@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 
 interface RouteContext {
   params: Promise<{
@@ -57,8 +57,9 @@ export async function POST(
       return NextResponse.json({ error: 'Announcement not found' }, { status: 404 });
     }
 
-    // Verify parent has access to this team
-    const { data: parentAccess } = await supabase
+    // Verify parent has access to this team (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: parentAccess } = await serviceClient
       .from('team_parent_access')
       .select('id')
       .eq('team_id', announcement.team_id)

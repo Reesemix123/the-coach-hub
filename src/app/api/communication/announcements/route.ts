@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   sendBulkNotification,
   getCommHubEmailTemplate,
@@ -101,7 +101,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Get targeted parents based on position group
-    let parentsQuery = supabase
+    const serviceClient = createServiceClient();
+    let parentsQuery = serviceClient
       .from('team_parent_access')
       .select(`
         parent_id,
@@ -120,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     // If position group is specified, filter by players in that group
     if (targetPositionGroup) {
-      const { data: playerLinks } = await supabase
+      const { data: playerLinks } = await serviceClient
         .from('player_parent_links')
         .select(`
           parent_id,
@@ -234,9 +235,10 @@ export async function GET(request: NextRequest) {
     const isParent = !!parentProfile;
 
     // Verify user has access to this team
+    const serviceClient = createServiceClient();
     if (isParent) {
-      // Verify parent has access to this team
-      const { data: parentAccess } = await supabase
+      // Verify parent has access to this team (use service client to avoid RLS recursion)
+      const { data: parentAccess } = await serviceClient
         .from('team_parent_access')
         .select('id')
         .eq('team_id', teamId)
@@ -309,7 +311,7 @@ export async function GET(request: NextRequest) {
 
       if (targetedAnnouncements.length > 0) {
         // Get position groups of parent's children on this team
-        const { data: childPositions } = await supabase
+        const { data: childPositions } = await serviceClient
           .from('player_parent_links')
           .select(`
             player_id,
