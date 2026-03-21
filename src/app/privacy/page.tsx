@@ -228,6 +228,17 @@ export default function PrivacyPage() {
                   </span>
                 </li>
                 <li>
+                  <strong className="text-white">Twilio</strong> (twilio.com)<br />
+                  <span className="text-sm text-gray-400">
+                    SMS delivery for team notifications to parents who have opted in.
+                    See our{' '}
+                    <Link href="/sms-policy" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
+                      SMS Policy
+                    </Link>{' '}
+                    for details.
+                  </span>
+                </li>
+                <li>
                   <strong className="text-white">Vercel</strong> (vercel.com)<br />
                   <span className="text-sm text-gray-400">
                     Web hosting and content delivery. Serves our application and static
@@ -415,6 +426,21 @@ export default function PrivacyPage() {
               You can opt out of promotional emails by clicking &quot;unsubscribe&quot; in any
               marketing email. Note that you cannot opt out of service-related
               communications (billing, security alerts, account notifications).
+            </p>
+
+            <h3 className="text-lg font-medium text-white mt-6 mb-3">
+              6.5 SMS Text Messages
+            </h3>
+            <p className="text-gray-300 leading-relaxed">
+              Parents and guardians who opt in to SMS notifications during account
+              creation may receive team-related text messages such as announcements,
+              schedule updates, and video notifications. You can opt out at any time by
+              replying STOP to any message or changing your notification preference to
+              &quot;Email only&quot; in your account settings. Message and data rates may apply.
+              For full details, see our{' '}
+              <Link href="/sms-policy" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
+                SMS Policy
+              </Link>.
             </p>
           </section>
 

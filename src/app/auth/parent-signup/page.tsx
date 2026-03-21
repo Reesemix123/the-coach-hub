@@ -421,6 +421,15 @@ function ParentSignupContent() {
                   </label>
                 ))}
               </div>
+              {(notificationPref === 'sms' || notificationPref === 'both') && (
+                <p className="text-xs text-gray-500 mt-2 ml-1">
+                  By selecting SMS, you consent to receive team notifications via text message.
+                  Reply STOP to opt out. Msg &amp; data rates may apply.{' '}
+                  <a href="/sms-policy" target="_blank" rel="noopener noreferrer" className="text-gray-900 underline hover:text-gray-700">
+                    SMS Policy
+                  </a>
+                </p>
+              )}
             </div>
 
             {/* COPPA Consent */}

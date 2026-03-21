@@ -143,8 +143,17 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Only include players who have an active parent that can be contacted
+    const activeParentIds = new Set(parents.map((p: { id: string }) => p.id));
+    const contactablePlayers = (players || []).filter(player =>
+      (parentLinks || []).some(
+        link => link.player_id === player.id && activeParentIds.has(link.parent_id)
+      )
+    );
+
     return NextResponse.json({
       parents,
+      players: contactablePlayers,
       invitations: enrichedInvitations,
       total_parents: parents.length,
     });
