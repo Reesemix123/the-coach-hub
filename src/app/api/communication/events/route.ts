@@ -119,8 +119,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all active parents for the team
-    const { data: parentAccessRecords, error: parentsError } = await supabase
+    // Get all active parents for the team (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: parentAccessRecords, error: parentsError } = await serviceClient
       .from('team_parent_access')
       .select(`
         parent_id,

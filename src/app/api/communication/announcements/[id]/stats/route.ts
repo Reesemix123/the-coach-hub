@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -54,11 +54,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get all targeted parents (respects position group)
+    const serviceClient = createServiceClient();
     let targetedParentIds: string[] = [];
 
     if (announcement.target_position_group) {
       // Get parents of players in the target position group
-      const { data: playerLinks } = await supabase
+      const { data: playerLinks } = await serviceClient
         .from('player_parent_links')
         .select(`
           parent_id,
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       const matchingParentIds = new Set((playerLinks || []).map(l => l.parent_id));
 
-      const { data: accessRecords } = await supabase
+      const { data: accessRecords } = await serviceClient
         .from('team_parent_access')
         .select('parent_id')
         .eq('team_id', announcement.team_id)
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       targetedParentIds = (accessRecords || []).map(r => r.parent_id);
     } else {
-      const { data: accessRecords } = await supabase
+      const { data: accessRecords } = await serviceClient
         .from('team_parent_access')
         .select('parent_id')
         .eq('team_id', announcement.team_id)
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get parent profiles
-    const { data: parentProfiles } = await supabase
+    const { data: parentProfiles } = await serviceClient
       .from('parent_profiles')
       .select('id, first_name, last_name, email')
       .in('id', targetedParentIds);

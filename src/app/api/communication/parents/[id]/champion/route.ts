@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 
 export async function PATCH(
   request: NextRequest,
@@ -55,8 +55,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    // Verify parent has access to this team
-    const { data: access } = await supabase
+    // Verify parent has access to this team (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: access } = await serviceClient
       .from('team_parent_access')
       .select('id')
       .eq('team_id', teamId)
@@ -68,8 +69,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Parent not found on this team' }, { status: 404 });
     }
 
-    // Update champion status
-    const { data: updated, error: updateError } = await supabase
+    // Update champion status on another user's parent_profiles row — requires service client
+    const { data: updated, error: updateError } = await serviceClient
       .from('parent_profiles')
       .update({ is_champion: isChampion, updated_at: new Date().toISOString() })
       .eq('id', parentId)

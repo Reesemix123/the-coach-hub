@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,8 +48,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get active parents with their children
-    const { data: parentAccess } = await supabase
+    // Get active parents with their children (use service client to avoid RLS recursion)
+    const serviceClient = createServiceClient();
+    const { data: parentAccess } = await serviceClient
       .from('team_parent_access')
       .select(`
         parent_id,
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
 
     const playerIds = (players || []).map(p => p.id);
 
-    const { data: parentLinks } = await supabase
+    const { data: parentLinks } = await serviceClient
       .from('player_parent_links')
       .select('player_id, parent_id, relationship, is_primary_contact')
       .in('player_id', playerIds.length > 0 ? playerIds : ['00000000-0000-0000-0000-000000000000']);

@@ -2,6 +2,7 @@
 
 import React, { memo } from 'react';
 import { Calendar, MapPin, Clock, Users, ChevronRight, Check, X, HelpCircle } from 'lucide-react';
+import { RSVPButton } from './RSVPButton';
 
 interface EventCardProps {
   event: {
@@ -28,6 +29,8 @@ interface EventCardProps {
     no_response: number;
   };
   showRsvpSummary?: boolean;
+  teamId?: string;
+  onRsvpChange?: (eventId: string, newStatus: string) => void;
   onViewDetails?: (eventId: string) => void;
   onOpenMap?: (lat: number, lng: number, name: string) => void;
 }
@@ -61,6 +64,8 @@ export const EventCard = memo(function EventCard({
   rsvpStatus,
   rsvpSummary,
   showRsvpSummary = false,
+  teamId,
+  onRsvpChange,
   onViewDetails,
   onOpenMap,
 }: EventCardProps) {
@@ -198,19 +203,31 @@ export const EventCard = memo(function EventCard({
           </p>
         )}
 
-        {/* RSVP Status (Parent View) */}
-        {rsvpStatus && !showRsvpSummary && (
+        {/* RSVP (Parent View) */}
+        {teamId && !showRsvpSummary && (
+          <div className="mb-3">
+            <RSVPButton
+              eventId={event.id}
+              teamId={teamId}
+              currentStatus={rsvpStatus ?? null}
+              onRSVPSubmitted={(newStatus) => onRsvpChange?.(event.id, newStatus)}
+            />
+          </div>
+        )}
+
+        {/* RSVP Status badge — shown only when no interactive button is available */}
+        {rsvpStatus && !teamId && !showRsvpSummary && (
           <div className="flex items-center mb-3">
             {rsvpStatus === 'attending' && (
               <div className="flex items-center text-sm text-green-700 bg-green-50 px-2.5 py-1 rounded-md">
                 <Check className="w-4 h-4 mr-1.5" />
-                <span className="font-medium">You're attending</span>
+                <span className="font-medium">You&apos;re attending</span>
               </div>
             )}
             {rsvpStatus === 'not_attending' && (
               <div className="flex items-center text-sm text-red-700 bg-red-50 px-2.5 py-1 rounded-md">
                 <X className="w-4 h-4 mr-1.5" />
-                <span className="font-medium">You're not attending</span>
+                <span className="font-medium">You&apos;re not attending</span>
               </div>
             )}
             {rsvpStatus === 'maybe' && (
