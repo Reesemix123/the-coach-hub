@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ych-v1';
+const CACHE_NAME = 'ych-v2';
 const OFFLINE_URL = '/offline';
 
 // Assets to pre-cache for offline
@@ -27,8 +27,11 @@ self.addEventListener('fetch', (event) => {
   // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API requests and auth routes
+  // Skip cross-origin requests (Mux streams, CDN assets, etc.)
   const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Skip API requests and auth routes
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) return;
 
   event.respondWith(
