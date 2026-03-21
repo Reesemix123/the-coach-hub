@@ -239,6 +239,22 @@ export default function PrivacyPage() {
                   </span>
                 </li>
                 <li>
+                  <strong className="text-white">Google Cloud / Gemini</strong> (cloud.google.com)<br />
+                  <span className="text-sm text-gray-400">
+                    AI-powered features including play analysis, game film tagging
+                    suggestions, practice plan generation, and coaching insights. Only
+                    anonymized play data is sent to Google&apos;s API — no personally
+                    identifiable information about players or families.
+                  </span>
+                </li>
+                <li>
+                  <strong className="text-white">Mux</strong> (mux.com)<br />
+                  <span className="text-sm text-gray-400">
+                    Video processing and streaming for shared game film and team video
+                    content delivered to parents.
+                  </span>
+                </li>
+                <li>
                   <strong className="text-white">Vercel</strong> (vercel.com)<br />
                   <span className="text-sm text-gray-400">
                     Web hosting and content delivery. Serves our application and static
@@ -641,6 +657,7 @@ export default function PrivacyPage() {
               <Link href="/contact" className="text-gray-400 hover:text-white transition-colors text-sm">Contact</Link>
               <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm">Privacy</Link>
               <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm">Terms</Link>
+              <Link href="/sms-policy" className="text-gray-400 hover:text-white transition-colors text-sm">SMS Policy</Link>
             </div>
             <p className="text-gray-500 text-sm">
               © {new Date().getFullYear()} Youth Coach Hub

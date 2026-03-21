@@ -156,6 +156,7 @@ export default function About() {
               <Link href="/contact" className="text-gray-400 hover:text-white transition-colors text-sm">Contact</Link>
               <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm">Privacy</Link>
               <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm">Terms</Link>
+              <Link href="/sms-policy" className="text-gray-400 hover:text-white transition-colors text-sm">SMS Policy</Link>
             </div>
 
             {/* Copyright */}
