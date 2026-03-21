@@ -221,6 +221,67 @@ export default function TermsPage() {
               <strong className="text-white">Camera Angles:</strong> Each tier limits the number of camera angles you can upload per game.
               This allows you to upload multiple views (e.g., sideline, end zone, all-22) for comprehensive film review.
             </p>
+
+            <h3 className="text-lg font-medium text-white mt-8 mb-3">
+              4.2 Parent Communication Hub
+            </h3>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              The Communication Hub is an optional add-on that allows coaches to share
+              announcements, schedules, videos, reports, and direct messages with
+              parents and guardians. Plans are billed as a one-time payment for a
+              6-month season with no recurring charges.
+            </p>
+
+            <div className="bg-[#1a1410]/60 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-4 space-y-4 shadow-xl shadow-black/30">
+              <div>
+                <h4 className="text-white font-semibold">Rookie — $149/season</h4>
+                <ul className="text-gray-400 text-sm mt-2 space-y-1">
+                  <li>Up to 20 parents</li>
+                  <li>10 team video shares per season</li>
+                  <li>Unlimited individual player clips</li>
+                  <li>SMS + email notifications, family RSVP, player reports</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-white font-semibold">Varsity — $249/season</h4>
+                <ul className="text-gray-400 text-sm mt-2 space-y-1">
+                  <li>Up to 40 parents</li>
+                  <li>10 team video shares per season</li>
+                  <li>Unlimited individual player clips</li>
+                  <li>SMS + email notifications, family RSVP, player reports</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-white font-semibold">All-Conference — $349/season</h4>
+                <ul className="text-gray-400 text-sm mt-2 space-y-1">
+                  <li>Up to 60 parents</li>
+                  <li>10 team video shares per season</li>
+                  <li>Unlimited individual player clips</li>
+                  <li>SMS + email notifications, family RSVP, player reports</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-white font-semibold">All-State — $449/season</h4>
+                <ul className="text-gray-400 text-sm mt-2 space-y-1">
+                  <li>Unlimited parents</li>
+                  <li>10 team video shares per season</li>
+                  <li>Unlimited individual player clips</li>
+                  <li>SMS + email notifications, family RSVP, player reports</li>
+                </ul>
+              </div>
+            </div>
+
+            <p className="text-gray-300 leading-relaxed mt-4">
+              <strong className="text-white">Video Top-Up:</strong> Additional team video
+              shares can be purchased in packs of 5 for $39 per pack. Individual player
+              clips are always unlimited on all tiers.
+            </p>
+            <p className="text-gray-300 leading-relaxed mt-4">
+              <strong className="text-white">Season Duration:</strong> Each Communication
+              Hub plan is valid for 6 months from the date of purchase. Upon
+              expiration, a 30-day grace period allows parents continued read-only
+              access to existing content before video assets are removed.
+            </p>
           </section>
 
           {/* Section 5 */}
@@ -518,6 +579,7 @@ export default function TermsPage() {
               <Link href="/contact" className="text-gray-400 hover:text-white transition-colors text-sm">Contact</Link>
               <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm">Privacy</Link>
               <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm">Terms</Link>
+              <Link href="/sms-policy" className="text-gray-400 hover:text-white transition-colors text-sm">SMS Policy</Link>
             </div>
             <p className="text-gray-500 text-sm">
               © {new Date().getFullYear()} Youth Coach Hub

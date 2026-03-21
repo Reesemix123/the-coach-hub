@@ -48,14 +48,14 @@ export default function SmsPolicyPage() {
         <div className="mb-12">
           <Link
             href="/"
-            className="text-sm text-gray-400 hover:text-[#B8CA6E] mb-4 inline-block transition-colors"
+            className="text-sm text-gray-200 hover:text-[#B8CA6E] mb-4 inline-block transition-colors"
           >
             &larr; Back to Home
           </Link>
           <h1 className="text-4xl font-bold text-white tracking-tight">
             SMS Messaging Policy
           </h1>
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-gray-300">
             Last updated: March 20, 2026
           </p>
         </div>
@@ -242,6 +242,7 @@ export default function SmsPolicyPage() {
               <Link href="/contact" className="text-gray-400 hover:text-white transition-colors text-sm">Contact</Link>
               <Link href="/privacy" className="text-gray-400 hover:text-white transition-colors text-sm">Privacy</Link>
               <Link href="/terms" className="text-gray-400 hover:text-white transition-colors text-sm">Terms</Link>
+              <Link href="/sms-policy" className="text-gray-400 hover:text-white transition-colors text-sm">SMS Policy</Link>
             </div>
             <p className="text-gray-500 text-sm">
               &copy; {new Date().getFullYear()} Youth Coach Hub
