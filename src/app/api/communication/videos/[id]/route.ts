@@ -13,6 +13,7 @@ import {
   deleteSharedVideo,
   recordVideoView,
 } from '@/lib/services/communication/video.service';
+import { createServiceClient } from '@/utils/supabase/server';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -48,7 +49,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: 'Video not available' }, { status: 404 });
       }
 
-      const { data: shareTarget } = await supabase
+      // Use service client for access checks to avoid RLS recursion issues
+      const serviceClient = createServiceClient();
+
+      const { data: shareTarget } = await serviceClient
         .from('video_share_targets')
         .select('id')
         .eq('video_id', videoId)
@@ -57,7 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
       // Team-wide published videos are visible to all active parents on the team
       if (!shareTarget) {
-        const { data: parentAccess } = await supabase
+        const { data: parentAccess } = await serviceClient
           .from('team_parent_access')
           .select('id')
           .eq('team_id', video.team_id)
