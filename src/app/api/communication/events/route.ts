@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import {
   sendBulkNotification,
   getCommHubEmailTemplate,
@@ -269,9 +269,11 @@ export async function GET(request: NextRequest) {
     const isParent = !!parentProfile;
 
     // Verify user has access to this team
+    const serviceClient = createServiceClient();
+
     if (isParent) {
-      // Verify parent has access to this team
-      const { data: parentAccess } = await supabase
+      // Verify parent has access to this team (use service client to avoid RLS recursion)
+      const { data: parentAccess } = await serviceClient
         .from('team_parent_access')
         .select('id')
         .eq('team_id', teamId)
@@ -306,8 +308,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build the query
-    let query = supabase
+    // Build the query (use service client for parents to avoid RLS issues)
+    const queryClient = isParent ? serviceClient : supabase;
+    let query = queryClient
       .from('team_events')
       .select('*')
       .eq('team_id', teamId)
@@ -346,7 +349,7 @@ export async function GET(request: NextRequest) {
     // For parents, include RSVPs
     if (isParent && events && events.length > 0) {
       const eventIds = events.map(e => e.id);
-      const { data: rsvps } = await supabase
+      const { data: rsvps } = await serviceClient
         .from('event_rsvps')
         .select('*')
         .eq('parent_id', parentProfile.id)
