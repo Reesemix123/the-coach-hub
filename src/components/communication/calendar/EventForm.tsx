@@ -143,20 +143,20 @@ export function EventForm({ teamId, initialData, onSuccess, onCancel }: EventFor
 
     try {
       const payload = {
-        team_id: teamId,
-        event_type: eventType,
+        teamId,
+        eventType,
         title: title.trim(),
         description: description.trim() || null,
         date,
-        start_time: startTime || null,
-        end_time: endTime || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
         location: location.trim() || null,
-        location_address: locationAddress.trim() || null,
-        location_lat: locationLat,
-        location_lng: locationLng,
-        location_notes: locationNotes.trim() || null,
+        locationAddress: locationAddress.trim() || null,
+        locationLat: locationLat,
+        locationLng: locationLng,
+        locationNotes: locationNotes.trim() || null,
         opponent: (eventType === 'game' || eventType === 'scrimmage') ? opponent.trim() || null : null,
-        notification_channel: notificationChannel,
+        notificationChannel,
       };
 
       const endpoint = initialData?.id
@@ -405,7 +405,7 @@ export function EventForm({ teamId, initialData, onSuccess, onCancel }: EventFor
         )}
         <button
           type="submit"
-          disabled={isSubmitting || !isValid()}
+          disabled={isSubmitting}
           className="px-6 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? 'Saving...' : initialData?.id ? 'Update Event' : 'Create Event'}
