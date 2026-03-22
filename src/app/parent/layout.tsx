@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Settings } from 'lucide-react';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
+import { BottomTabBar } from '@/components/parent/BottomTabBar';
 
 export default async function ParentLayout({
   children,
@@ -28,6 +28,19 @@ export default async function ParentLayout({
     redirect('/');
   }
 
+  // Fetch all active teams this parent has access to
+  const { data: teamAccess } = await supabase
+    .from('team_parent_access')
+    .select('team_id, teams (id, name)')
+    .eq('parent_id', parentProfile.id)
+    .eq('status', 'active');
+
+  const teams = (teamAccess || [])
+    .map(ta => ta.teams as unknown as { id: string; name: string })
+    .filter(Boolean);
+  const teamId = teams.length > 0 ? teams[0].id : null;
+  const parentName = `${parentProfile.first_name} ${parentProfile.last_name}`;
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hide the root layout coach navbar and payment banner when parent layout is active */}
@@ -37,51 +50,33 @@ export default async function ParentLayout({
         main.pt-24 { padding-top: 0 !important; }
       `}</style>
 
-      {/* Parent Navigation */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/parent" className="flex items-center gap-2">
-              <Image
-                src="/apple-touch-icon.png"
-                alt="Youth Coach Hub"
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-              <span className="font-semibold text-gray-900 hidden sm:inline">
-                Youth Coach Hub
-              </span>
-            </Link>
+      {/* Minimal top bar: logo + parent name only */}
+      <header className="bg-white/95 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-40">
+        <div className="flex items-center justify-between h-12 px-4">
+          <Link href="/parent" className="flex items-center gap-2">
+            <Image
+              src="/apple-touch-icon.png"
+              alt="Youth Coach Hub"
+              width={28}
+              height={28}
+              className="rounded-lg"
+            />
+            <span className="text-sm font-semibold text-gray-900 hidden sm:inline">
+              Youth Coach Hub
+            </span>
+          </Link>
 
-            {/* User info + actions */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600 hidden sm:inline">
-                {parentProfile.first_name} {parentProfile.last_name}
-              </span>
-              <Link
-                href="/parent/settings"
-                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Account settings"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Sign Out
-                </button>
-              </form>
-            </div>
-          </div>
+          <span className="text-sm text-gray-500">
+            {parentProfile.first_name} {parentProfile.last_name}
+          </span>
         </div>
-      </nav>
+      </header>
 
-      {/* Main content */}
-      <main>{children}</main>
+      {/* Main content — pb-24 keeps content clear of the tab bar */}
+      <main className="pb-24">{children}</main>
+
+      {/* iOS-style bottom tab bar */}
+      <BottomTabBar teamId={teamId} teams={teams} parentName={parentName} />
     </div>
   );
 }
