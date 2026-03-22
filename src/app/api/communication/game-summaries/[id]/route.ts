@@ -52,6 +52,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       opponent: body.opponent,
       scoreUs: body.scoreUs,
       scoreThem: body.scoreThem,
+      gameDate: body.gameDate,
+      gameId: body.gameId,
       notificationChannel: body.notificationChannel as NotificationChannel | undefined,
     });
 

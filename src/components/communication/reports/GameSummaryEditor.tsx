@@ -5,6 +5,16 @@ import { Sparkles, Loader2, Plus, X, Send } from 'lucide-react';
 import { NotificationChannelPicker } from '@/components/communication/shared/NotificationChannelPicker';
 import type { NotificationChannel, PlayerHighlight } from '@/types/communication';
 
+export interface GameOption {
+  id: string;
+  name: string;
+  opponent: string | null;
+  date: string | null;
+  team_score: number | null;
+  opponent_score: number | null;
+  game_result: string | null;
+}
+
 interface GameSummaryEditorProps {
   teamId: string;
   summaryId: string | null;
@@ -19,13 +29,14 @@ interface GameSummaryEditorProps {
     playerHighlights: PlayerHighlight[];
     notificationChannel: NotificationChannel;
   };
+  games: GameOption[];
   players: Array<{ id: string; name: string; jersey_number: number | null }>;
   onSave: (data: GameSummaryFormData) => Promise<void>;
   onPublish: (summaryId: string) => Promise<void>;
   onCancel: () => void;
 }
 
-interface GameSummaryFormData {
+export interface GameSummaryFormData {
   coachRawNotes: string;
   aiDraft: string;
   publishedText: string;
@@ -35,17 +46,37 @@ interface GameSummaryFormData {
   gameDate: string;
   playerHighlights: PlayerHighlight[];
   notificationChannel: NotificationChannel;
+  gameId?: string;
+}
+
+/**
+ * Formats a game option for display in the dropdown.
+ * Shows "vs {opponent} — {date}" or "{name} — {date}" if no opponent.
+ */
+function formatGameOption(game: GameOption): string {
+  const label = game.opponent ? `vs ${game.opponent}` : game.name;
+  const date = game.date
+    ? new Date(game.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    : '';
+  return date ? `${label} — ${date}` : label;
 }
 
 export function GameSummaryEditor({
   teamId: _teamId,
   summaryId,
   initialData,
+  games,
   players,
   onSave,
   onPublish,
   onCancel,
 }: GameSummaryEditorProps) {
+  const [selectedGameId, setSelectedGameId] = useState<string>('');
   const [opponent, setOpponent] = useState(initialData?.opponent ?? '');
   const [scoreUs, setScoreUs] = useState(initialData?.scoreUs?.toString() ?? '');
   const [scoreThem, setScoreThem] = useState(initialData?.scoreThem?.toString() ?? '');
@@ -64,6 +95,25 @@ export function GameSummaryEditor({
   const [newHighlightPlayerId, setNewHighlightPlayerId] = useState('');
   const [newHighlightText, setNewHighlightText] = useState('');
 
+  /**
+   * When a game is selected from the dropdown, auto-fill the game detail
+   * fields. Selecting the blank option (manual entry) clears the selection
+   * but does NOT wipe the manually entered values.
+   */
+  function handleGameSelect(gameId: string) {
+    setSelectedGameId(gameId);
+
+    if (!gameId) return;
+
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+
+    if (game.opponent) setOpponent(game.opponent);
+    if (game.date) setGameDate(game.date);
+    if (game.team_score !== null) setScoreUs(game.team_score.toString());
+    if (game.opponent_score !== null) setScoreThem(game.opponent_score.toString());
+  }
+
   function buildFormData(): GameSummaryFormData {
     return {
       coachRawNotes: coachNotes,
@@ -75,6 +125,7 @@ export function GameSummaryEditor({
       gameDate,
       playerHighlights: highlights,
       notificationChannel: channel,
+      gameId: selectedGameId || undefined,
     };
   }
 
@@ -159,6 +210,28 @@ export function GameSummaryEditor({
 
   return (
     <div className="space-y-6">
+      {/* Game selector — pulls data from existing film-tagged games */}
+      {games.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Select Game{' '}
+            <span className="text-gray-400 font-normal">(auto-fills details below)</span>
+          </label>
+          <select
+            value={selectedGameId}
+            onChange={e => handleGameSelect(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+          >
+            <option value="">— Enter manually —</option>
+            {games.map(game => (
+              <option key={game.id} value={game.id}>
+                {formatGameOption(game)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Game details */}
       <div className="grid grid-cols-2 gap-4">
         <div>
