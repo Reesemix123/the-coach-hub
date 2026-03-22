@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
       recipientId: bodyRecipientId,
       recipientType: bodyRecipientType,
       message: messageBody,
+      imageUrl,
     } = body;
 
-    if (!teamId || !messageBody?.trim()) {
+    // A message must have text, an image, or both
+    if (!teamId || (!messageBody?.trim() && !imageUrl)) {
       return NextResponse.json(
-        { error: 'teamId and message are required' },
+        { error: 'teamId and at least one of message or imageUrl are required' },
         { status: 400 }
       );
     }
@@ -169,7 +171,8 @@ export async function POST(request: NextRequest) {
       senderId,
       recipientType,
       recipientId,
-      body: messageBody.trim(),
+      body: messageBody?.trim() ?? '',
+      imageUrl: typeof imageUrl === 'string' ? imageUrl : undefined,
     });
 
     // Send a non-blocking email notification to the recipient

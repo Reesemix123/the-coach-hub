@@ -70,12 +70,24 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
       href: teamId ? `/parent/teams/${teamId}/videos` : null,
       isActive: (p) => p.includes('/videos'),
     },
+    {
+      key: 'reports',
+      label: 'Reports',
+      icon: FileText,
+      href: teamId ? `/parent/teams/${teamId}/reports` : null,
+      isActive: (p) => p.includes('/reports'),
+    },
+    {
+      key: 'directory',
+      label: 'Directory',
+      icon: Users,
+      href: teamId ? `/parent/teams/${teamId}/directory` : null,
+      isActive: (p) => p.includes('/directory'),
+    },
   ];
 
   const moreIsActive =
     pathname.includes('/announcements') ||
-    pathname.includes('/reports') ||
-    pathname.includes('/directory') ||
     pathname.includes('/settings');
 
   const moreMenuItems = [
@@ -84,18 +96,6 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
       label: 'Announcements',
       icon: Bell,
       href: teamId ? `/parent/teams/${teamId}/announcements` : null,
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      icon: FileText,
-      href: teamId ? `/parent/teams/${teamId}/reports` : null,
-    },
-    {
-      key: 'directory',
-      label: 'Directory',
-      icon: Users,
-      href: teamId ? `/parent/teams/${teamId}/directory` : null,
     },
     {
       key: 'settings',

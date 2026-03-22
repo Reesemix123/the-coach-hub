@@ -88,7 +88,7 @@ export default function CoachMessagesPage({
     [teamId]
   );
 
-  async function handleSendMessage(body: string) {
+  async function handleSendMessage(body: string, imageUrl?: string) {
     if (!selectedParentId) return;
 
     const res = await fetch('/api/communication/messages', {
@@ -98,6 +98,7 @@ export default function CoachMessagesPage({
         teamId,
         recipientId: selectedParentId,
         message: body,
+        ...(imageUrl ? { imageUrl } : {}),
       }),
     });
 
@@ -215,6 +216,7 @@ export default function CoachMessagesPage({
                 currentUserId={currentUserId}
                 participantName={selectedConversation?.participantName ?? 'Parent'}
                 onSendMessage={handleSendMessage}
+                teamId={teamId}
                 loading={threadLoading}
               />
             </>
