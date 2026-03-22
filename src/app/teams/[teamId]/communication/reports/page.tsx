@@ -1,7 +1,7 @@
 'use client';
 
 import React, { use, useState, useEffect, useCallback } from 'react';
-import { FileText, Plus, Loader2, ChevronLeft, BarChart3, Newspaper } from 'lucide-react';
+import { FileText, Plus, Loader2, ChevronLeft, BarChart3, Newspaper, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { ReportCard } from '@/components/communication/reports/ReportCard';
@@ -270,6 +270,28 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
     setEditingSummary(null);
   }
 
+  async function handleDeleteSummary(summaryId: string) {
+    if (!confirm('Delete this game summary? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/communication/game-summaries/${summaryId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      void fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete summary');
+    }
+  }
+
+  async function handleDeleteReport(reportId: string) {
+    if (!confirm('Delete this report? This cannot be undone.')) return;
+    try {
+      const res = await fetch(`/api/communication/reports/${reportId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
+      void fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete report');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Derived helpers
   // ---------------------------------------------------------------------------
@@ -526,12 +548,20 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
               {reports.map(report => {
                 const player = players.find(p => p.id === report.player_id);
                 return (
-                  <ReportCard
-                    key={report.id}
-                    report={report}
-                    playerName={player?.name}
-                    isCoachView
-                  />
+                  <div key={report.id} className="relative group">
+                    <ReportCard
+                      report={report}
+                      playerName={player?.name}
+                      isCoachView
+                    />
+                    <button
+                      onClick={() => void handleDeleteReport(report.id)}
+                      className="absolute top-3 right-3 p-1.5 text-gray-400 hover:text-red-600 bg-white rounded-lg shadow-sm border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete report"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -570,14 +600,23 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
                       {summary.status === 'published' ? 'Published' : 'Draft'}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-400">
-                    {summary.game_date
-                      ? new Date(summary.game_date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                      : ''}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">
+                      {summary.game_date
+                        ? new Date(summary.game_date.length === 10 ? `${summary.game_date}T12:00:00` : summary.game_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : ''}
+                    </span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); void handleDeleteSummary(summary.id); }}
+                      className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                      title="Delete summary"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 {summary.published_text && (
