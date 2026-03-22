@@ -286,7 +286,7 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
 
 // Helper: Format date group header
 function formatDateGroup(dateString: string): string {
-  const date = new Date(dateString);
+  const date = new Date(dateString.length === 10 ? `${dateString}T12:00:00` : dateString);
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -297,7 +297,7 @@ function formatDateGroup(dateString: string): string {
     return d;
   };
 
-  const eventDate = resetTime(new Date(date));
+  const eventDate = resetTime(new Date(date.getFullYear(), date.getMonth(), date.getDate()));
   const todayReset = resetTime(new Date(today));
   const tomorrowReset = resetTime(new Date(tomorrow));
 

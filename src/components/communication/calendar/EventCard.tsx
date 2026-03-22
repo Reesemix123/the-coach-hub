@@ -85,7 +85,8 @@ export const EventCard = memo(function EventCard({
 
   // Format date and time
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Append T12:00:00 to avoid UTC midnight shifting the date back in western timezones
+    const date = new Date(dateString.length === 10 ? `${dateString}T12:00:00` : dateString);
     return new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
       month: 'short',
