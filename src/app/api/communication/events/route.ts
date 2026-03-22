@@ -315,7 +315,7 @@ export async function GET(request: NextRequest) {
       .from('team_events')
       .select('*')
       .eq('team_id', teamId)
-      .order('start_datetime', { ascending: true }); // Chronological order for events
+      .order('start_datetime', { ascending: true });
 
     if (upcoming) {
       query = query.gte('start_datetime', new Date().toISOString());
@@ -347,25 +347,110 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // For parents, include RSVPs
-    if (isParent && events && events.length > 0) {
-      const eventIds = events.map(e => e.id);
-      const { data: rsvps } = await serviceClient
-        .from('event_rsvps')
-        .select('*')
-        .eq('parent_id', parentProfile.id)
-        .in('event_id', eventIds);
+    // For parents, also fetch team games and merge with events
+    if (isParent) {
+      // Fetch team games (not opponent scouting games)
+      const skipGames = eventType && eventType !== 'game';
 
-      const rsvpMap = new Map(
-        (rsvps || []).map(r => [r.event_id, r])
-      );
+      let games: Array<Record<string, unknown>> = [];
 
-      const eventsWithRSVPs = events.map(event => ({
-        ...event,
-        rsvp: rsvpMap.get(event.id) || null,
+      if (!skipGames) {
+        let gamesQuery = serviceClient
+          .from('games')
+          .select('id, name, date, opponent, location, start_time, notes, team_score, opponent_score, game_result, game_type, season_phase, week_number')
+          .eq('team_id', teamId)
+          .eq('game_type', 'team');
+
+        if (upcoming) {
+          gamesQuery = gamesQuery.gte('date', new Date().toISOString().split('T')[0]);
+        }
+
+        if (startDate) {
+          gamesQuery = gamesQuery.gte('date', startDate);
+        }
+
+        if (endDate) {
+          gamesQuery = gamesQuery.lte('date', endDate);
+        }
+
+        const { data: gamesData } = await gamesQuery;
+        games = gamesData || [];
+      }
+
+      // Map games to event-compatible shape
+      const mappedGames = games.map((game: Record<string, unknown>) => ({
+        id: `game-${game.id}`,
+        team_id: teamId,
+        created_by: null,
+        event_type: 'game',
+        title: game.opponent ? `vs ${game.opponent}` : (game.name as string) || 'Game',
+        description: (game.notes as string) || null,
+        date: game.date,
+        start_time: game.start_time || null,
+        end_time: null,
+        start_datetime: game.start_time
+          ? `${game.date}T${game.start_time}`
+          : `${game.date}T00:00:00`,
+        end_datetime: null,
+        location: game.location || null,
+        location_address: null,
+        location_lat: null,
+        location_lng: null,
+        location_notes: null,
+        opponent: game.opponent || null,
+        notification_channel: 'email',
+        is_recurring: false,
+        recurrence_rule: null,
+        created_at: null,
+        source: 'game' as const,
+        game_result: game.game_result || null,
+        team_score: game.team_score ?? null,
+        opponent_score: game.opponent_score ?? null,
+        season_phase: game.season_phase || null,
+        week_number: game.week_number ?? null,
+        rsvp: null,
       }));
 
-      return NextResponse.json({ events: eventsWithRSVPs, rsvps: rsvps || [] });
+      // Mark real events with source
+      const eventsWithSource = (events || []).map(event => ({
+        ...event,
+        source: 'event' as const,
+        game_result: null,
+        team_score: null,
+        opponent_score: null,
+        season_phase: null,
+        week_number: null,
+      }));
+
+      // Merge and sort by start_datetime
+      const allItems = [...eventsWithSource, ...mappedGames].sort((a, b) => {
+        const dateA = (a.start_datetime as string) || (a.date as string) || '';
+        const dateB = (b.start_datetime as string) || (b.date as string) || '';
+        return dateA.localeCompare(dateB);
+      });
+
+      // Enrich real events with RSVP data (games don't have RSVPs)
+      const realEventIds = (events || []).map(e => e.id);
+      let rsvpMap = new Map();
+
+      if (realEventIds.length > 0) {
+        const { data: rsvps } = await serviceClient
+          .from('event_rsvps')
+          .select('*')
+          .eq('parent_id', parentProfile.id)
+          .in('event_id', realEventIds);
+
+        rsvpMap = new Map(
+          (rsvps || []).map(r => [r.event_id, r])
+        );
+      }
+
+      const enrichedItems = allItems.map(item => ({
+        ...item,
+        rsvp: item.source === 'event' ? (rsvpMap.get(item.id) || null) : null,
+      }));
+
+      return NextResponse.json({ events: enrichedItems });
     }
 
     // For coaches, return events as-is

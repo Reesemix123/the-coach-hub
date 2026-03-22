@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
-import { Calendar, MapPin, Clock, Users, ChevronRight, Check, X, HelpCircle } from 'lucide-react';
+import { Calendar, MapPin, Clock, Users, ChevronRight, Check, X, HelpCircle, Trophy } from 'lucide-react';
 import { RSVPButton } from './RSVPButton';
 
 interface EventCardProps {
@@ -20,6 +20,10 @@ interface EventCardProps {
     opponent: string | null;
     start_datetime: string | null;
     notification_channel: string;
+    source?: 'event' | 'game';
+    game_result?: 'win' | 'loss' | 'tie' | null;
+    team_score?: number | null;
+    opponent_score?: number | null;
   };
   rsvpStatus?: 'attending' | 'not_attending' | 'maybe' | null;
   rsvpSummary?: {
@@ -48,7 +52,7 @@ const EVENT_TYPE_CONFIG: Record<string, { label: string; color: string; bgColor:
 };
 
 const ACCENT_COLORS: Record<string, string> = {
-  practice: 'border-l-blue-500',
+  practice: 'border-l-red-500',
   game: 'border-l-red-500',
   scrimmage: 'border-l-orange-500',
   meeting: 'border-l-purple-500',
@@ -57,6 +61,12 @@ const ACCENT_COLORS: Record<string, string> = {
   parent_meeting: 'border-l-amber-500',
   fundraiser: 'border-l-pink-500',
   other: 'border-l-gray-500',
+};
+
+const RESULT_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
+  win: { label: 'W', color: 'text-green-700', bgColor: 'bg-green-50' },
+  loss: { label: 'L', color: 'text-red-700', bgColor: 'bg-red-50' },
+  tie: { label: 'T', color: 'text-amber-700', bgColor: 'bg-amber-50' },
 };
 
 export const EventCard = memo(function EventCard({
@@ -69,6 +79,7 @@ export const EventCard = memo(function EventCard({
   onViewDetails,
   onOpenMap,
 }: EventCardProps) {
+  const isGameSource = event.source === 'game';
   const typeConfig = EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.other;
   const accentColor = ACCENT_COLORS[event.event_type] || ACCENT_COLORS.other;
 
@@ -102,6 +113,10 @@ export const EventCard = memo(function EventCard({
     return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
   };
 
+  // Game score display
+  const resultConfig = event.game_result ? RESULT_CONFIG[event.game_result] : null;
+  const hasScore = event.team_score != null && event.opponent_score != null;
+
   const dateDisplay = formatDate(event.date);
   const timeDisplay =
     event.start_time && event.end_time
@@ -120,16 +135,31 @@ export const EventCard = memo(function EventCard({
       `}
     >
       <div className="p-5">
-        {/* Event Type Badge */}
-        <div className="mb-3">
-          <span
-            className={`
-              inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border
-              ${typeConfig.bgColor} ${typeConfig.color}
-            `}
-          >
-            {typeConfig.label}
-          </span>
+        {/* Event Type Badge + Game Score */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={`
+                inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border
+                ${typeConfig.bgColor} ${typeConfig.color}
+              `}
+            >
+              {isGameSource && <Trophy className="w-3 h-3 mr-1" />}
+              {typeConfig.label}
+            </span>
+          </div>
+
+          {/* Score display for completed games */}
+          {isGameSource && hasScore && resultConfig && (
+            <span
+              className={`
+                inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold
+                ${resultConfig.bgColor} ${resultConfig.color}
+              `}
+            >
+              {resultConfig.label} {event.team_score}-{event.opponent_score}
+            </span>
+          )}
         </div>
 
         {/* Title and Opponent */}
@@ -137,7 +167,7 @@ export const EventCard = memo(function EventCard({
           <h3 className="text-lg font-semibold text-gray-900 mb-1">
             {event.title}
           </h3>
-          {event.opponent && (
+          {event.opponent && !isGameSource && (
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
               vs {event.opponent}
             </span>
@@ -203,8 +233,8 @@ export const EventCard = memo(function EventCard({
           </p>
         )}
 
-        {/* RSVP (Parent View) */}
-        {teamId && !showRsvpSummary && (
+        {/* RSVP (Parent View) — hidden for game-sourced items */}
+        {teamId && !showRsvpSummary && !isGameSource && (
           <div className="mb-3">
             <RSVPButton
               eventId={event.id}
@@ -216,7 +246,7 @@ export const EventCard = memo(function EventCard({
         )}
 
         {/* RSVP Status badge — shown only when no interactive button is available */}
-        {rsvpStatus && !teamId && !showRsvpSummary && (
+        {rsvpStatus && !teamId && !showRsvpSummary && !isGameSource && (
           <div className="flex items-center mb-3">
             {rsvpStatus === 'attending' && (
               <div className="flex items-center text-sm text-green-700 bg-green-50 px-2.5 py-1 rounded-md">
