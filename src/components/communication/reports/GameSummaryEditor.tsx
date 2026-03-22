@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Sparkles, Loader2, Plus, X, Send } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sparkles, Loader2, Plus, X, Send, ChevronDown, ChevronUp } from 'lucide-react';
 import { NotificationChannelPicker } from '@/components/communication/shared/NotificationChannelPicker';
 import type { NotificationChannel, PlayerHighlight } from '@/types/communication';
 
@@ -66,8 +66,191 @@ function formatGameOption(game: GameOption): string {
   return date ? `${label} — ${date}` : label;
 }
 
+// ============================================================================
+// Game stats types (mirrors the API response shape)
+// ============================================================================
+
+interface GameStatsOverview {
+  totalPlays: number;
+  totalYards: number;
+  yardsPerPlay: number;
+  passingYards: number;
+  rushingYards: number;
+  passAttempts: number;
+  passCompletions: number;
+  completionPct: number;
+  rushAttempts: number;
+  touchdowns: number;
+  turnovers: number;
+  penalties: number;
+  penaltyYards: number;
+  firstDowns: number;
+  thirdDownConversions: number;
+  thirdDownAttempts: number;
+}
+
+interface TopPlayer {
+  id: string;
+  name: string;
+  jerseyNumber: string;
+  role: string;
+  statLine: string;
+}
+
+interface GameStats {
+  overview: GameStatsOverview | null;
+  topPlayers: TopPlayer[];
+}
+
+// ============================================================================
+// Role badge color map
+// ============================================================================
+
+const ROLE_BADGE_CLASSES: Record<string, string> = {
+  Passing: 'bg-blue-100 text-blue-700',
+  Rushing: 'bg-green-100 text-green-700',
+  Receiving: 'bg-purple-100 text-purple-700',
+  Defense: 'bg-orange-100 text-orange-700',
+  Player: 'bg-gray-100 text-gray-600',
+};
+
+// ============================================================================
+// GameStatsPanel — collapsible film data preview
+// ============================================================================
+
+interface GameStatsPanelProps {
+  stats: GameStats;
+  isCollapsed: boolean;
+  onToggle: () => void;
+}
+
+function GameStatsPanel({ stats, isCollapsed, onToggle }: GameStatsPanelProps) {
+  const { overview, topPlayers } = stats;
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">
+      {/* Header row */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-100 transition-colors"
+      >
+        <span className="text-sm font-semibold text-blue-900">
+          Film Analysis Preview
+        </span>
+        {isCollapsed ? (
+          <ChevronDown className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        ) : (
+          <ChevronUp className="w-4 h-4 text-blue-600 flex-shrink-0" />
+        )}
+      </button>
+
+      {!isCollapsed && (
+        <div className="px-4 pb-4 space-y-4">
+          {overview === null ? (
+            <p className="text-xs text-blue-700">
+              No film analysis data available for this game.
+            </p>
+          ) : (
+            <>
+              {/* Team overview grid */}
+              <div>
+                <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">
+                  Team Overview
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {/* Row 1 */}
+                  <StatCell label="Total Plays" value={String(overview.totalPlays)} />
+                  <StatCell label="Total Yards" value={String(overview.totalYards)} />
+                  <StatCell label="Yds / Play" value={overview.yardsPerPlay.toFixed(1)} />
+
+                  {/* Row 2 */}
+                  <StatCell
+                    label="Pass"
+                    value={`${overview.passCompletions}/${overview.passAttempts} (${overview.completionPct.toFixed(0)}%)`}
+                  />
+                  <StatCell
+                    label="Rush"
+                    value={`${overview.rushAttempts} att, ${overview.rushingYards} yds`}
+                  />
+                  <StatCell label="TDs" value={String(overview.touchdowns)} />
+
+                  {/* Row 3 */}
+                  <StatCell label="Turnovers" value={String(overview.turnovers)} />
+                  <StatCell
+                    label="Penalties"
+                    value={`${overview.penalties} (${overview.penaltyYards} yds)`}
+                  />
+                  <StatCell label="1st Downs" value={String(overview.firstDowns)} />
+
+                  {/* Row 4 — 3rd down spans full width so the label fits */}
+                  <div className="col-span-3">
+                    <StatCell
+                      label="3rd Down"
+                      value={`${overview.thirdDownConversions}/${overview.thirdDownAttempts}`}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Top players list */}
+              {topPlayers.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">
+                    Top Players
+                  </p>
+                  <ul className="space-y-1.5">
+                    {topPlayers.map(player => {
+                      const badgeClass =
+                        ROLE_BADGE_CLASSES[player.role] ?? ROLE_BADGE_CLASSES['Player'];
+                      return (
+                        <li key={player.id} className="flex items-start gap-2">
+                          {player.jerseyNumber && (
+                            <span className="text-xs font-bold text-blue-800 w-6 flex-shrink-0">
+                              #{player.jerseyNumber}
+                            </span>
+                          )}
+                          <span className="text-xs font-medium text-gray-900 whitespace-nowrap">
+                            {player.name}
+                          </span>
+                          <span
+                            className={`text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${badgeClass}`}
+                          >
+                            {player.role}
+                          </span>
+                          <span className="text-xs text-gray-600">{player.statLine}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A single labeled stat cell for the overview grid.
+ */
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white rounded border border-blue-100 px-2 py-1.5">
+      <p className="text-xs text-blue-600 leading-none mb-0.5">{label}</p>
+      <p className="text-sm font-semibold text-gray-900 leading-tight">{value}</p>
+    </div>
+  );
+}
+
+// ============================================================================
+// GameSummaryEditor
+// ============================================================================
+
 export function GameSummaryEditor({
-  teamId: _teamId,
+  teamId,
   summaryId,
   initialData,
   games,
@@ -94,6 +277,51 @@ export function GameSummaryEditor({
 
   const [newHighlightPlayerId, setNewHighlightPlayerId] = useState('');
   const [newHighlightText, setNewHighlightText] = useState('');
+
+  // Game stats preview state
+  const [gameStats, setGameStats] = useState<GameStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
+
+  /**
+   * Fetch film analysis stats whenever a game is selected.
+   * Clears prior stats immediately so stale data is never shown.
+   */
+  const fetchGameStats = useCallback(
+    async (gameId: string) => {
+      setGameStats(null);
+      setStatsLoading(true);
+
+      try {
+        const url =
+          `/api/communication/game-stats?teamId=${encodeURIComponent(teamId)}&gameId=${encodeURIComponent(gameId)}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          // Non-fatal — stats panel simply won't render
+          setStatsLoading(false);
+          return;
+        }
+
+        const data = await response.json() as GameStats;
+        setGameStats(data);
+        setStatsCollapsed(false);
+      } catch {
+        // Silently suppress — stats are a preview, not required
+      } finally {
+        setStatsLoading(false);
+      }
+    },
+    [teamId]
+  );
+
+  useEffect(() => {
+    if (!selectedGameId) {
+      setGameStats(null);
+      return;
+    }
+    void fetchGameStats(selectedGameId);
+  }, [selectedGameId, fetchGameStats]);
 
   /**
    * When a game is selected from the dropdown, auto-fill the game detail
@@ -230,6 +458,24 @@ export function GameSummaryEditor({
             ))}
           </select>
         </div>
+      )}
+
+      {/* Film analysis stats preview — shown when a game is selected */}
+      {selectedGameId && (
+        <>
+          {statsLoading ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-600 flex-shrink-0" />
+              <span className="text-sm text-blue-700">Loading film analysis data...</span>
+            </div>
+          ) : gameStats !== null ? (
+            <GameStatsPanel
+              stats={gameStats}
+              isCollapsed={statsCollapsed}
+              onToggle={() => setStatsCollapsed(prev => !prev)}
+            />
+          ) : null}
+        </>
       )}
 
       {/* Game details */}
