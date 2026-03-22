@@ -95,7 +95,6 @@ function ParentCard({ parent }: ParentCardProps) {
                   ? `#${child.jersey_number} `
                   : ''}
                 {child.player_name}
-                {child.relationship ? ` — ${child.relationship}` : ''}
               </li>
             ))}
           </ul>
