@@ -45,7 +45,29 @@ export async function GET(request: NextRequest) {
     const isStaff = ['owner', 'coach', 'team_admin'].includes(membership?.role || '');
 
     if (!isOwner && !isStaff) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      // Check if user is an active parent on this team
+      const serviceCheck = createServiceClient();
+      const { data: parentProfile } = await supabase
+        .from('parent_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!parentProfile) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+
+      const { data: parentAccess } = await serviceCheck
+        .from('team_parent_access')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('parent_id', parentProfile.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (!parentAccess) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     // Get active parents with their children (use service client to avoid RLS recursion)

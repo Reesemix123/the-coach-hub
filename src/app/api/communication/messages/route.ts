@@ -2,10 +2,11 @@
  * API: /api/communication/messages
  *
  * POST - Send a direct message
- * GET  - Fetch a conversation thread or coach inbox
+ * GET  - Fetch a conversation thread, coach inbox, or parent inbox
  *
  * Access rules:
- * - Parents can only send messages to coaches (enforced in service layer too)
+ * - Parents can message coaches; parent-to-parent messaging is allowed when
+ *   team_communication_settings.allow_parent_to_parent_messaging is true
  * - Coaches can message any parent on their team
  * - Both parties can only read conversations they are part of (enforced by RLS)
  */
@@ -16,6 +17,7 @@ import {
   sendMessage,
   getConversation,
   getCoachInbox,
+  getParentInbox,
   markMessagesAsRead,
 } from '@/lib/services/communication/messaging.service';
 import { sendEmail } from '@/lib/email';
@@ -38,11 +40,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { teamId, recipientId, message: messageBody } = body;
+    const {
+      teamId,
+      recipientId: bodyRecipientId,
+      recipientType: bodyRecipientType,
+      message: messageBody,
+    } = body;
 
-    if (!teamId || !recipientId || !messageBody?.trim()) {
+    if (!teamId || !messageBody?.trim()) {
       return NextResponse.json(
-        { error: 'teamId, recipientId, and message are required' },
+        { error: 'teamId and message are required' },
         { status: 400 }
       );
     }
@@ -59,9 +66,10 @@ export async function POST(request: NextRequest) {
     let senderType: MessageSenderType;
     let senderId: string;
     let recipientType: 'coach' | 'parent';
+    let recipientId: string;
 
     if (isParent) {
-      // Verify parent has access to this team
+      // Verify sender has active access to this team
       const { data: parentAccess } = await supabase
         .from('team_parent_access')
         .select('id')
@@ -76,7 +84,38 @@ export async function POST(request: NextRequest) {
 
       senderType = 'parent';
       senderId = parentProfile.id;
-      recipientType = 'coach';
+
+      // Determine recipient: explicit parent-to-parent or fall back to coach
+      if (bodyRecipientId && bodyRecipientType === 'parent') {
+        // Verify the recipient parent is also active on this team
+        const { data: recipientAccess } = await supabase
+          .from('team_parent_access')
+          .select('id')
+          .eq('team_id', teamId)
+          .eq('parent_id', bodyRecipientId)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (!recipientAccess) {
+          return NextResponse.json(
+            { error: 'Recipient parent not found on this team' },
+            { status: 404 }
+          );
+        }
+
+        recipientType = 'parent';
+        recipientId = bodyRecipientId;
+      } else {
+        // Fall back to existing behaviour: message the team owner/coach
+        if (!bodyRecipientId) {
+          return NextResponse.json(
+            { error: 'recipientId is required' },
+            { status: 400 }
+          );
+        }
+        recipientType = 'coach';
+        recipientId = bodyRecipientId;
+      }
     } else {
       // Verify coach/owner has access to this team
       const { data: team } = await supabase
@@ -102,9 +141,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
+      if (!bodyRecipientId) {
+        return NextResponse.json(
+          { error: 'recipientId is required' },
+          { status: 400 }
+        );
+      }
+
       senderType = isOwner ? 'owner' : (membership?.role as MessageSenderType) ?? 'coach';
       senderId = user.id;
       recipientType = 'parent';
+      recipientId = bodyRecipientId;
     }
 
     console.log('[Messages API] Insert attempt:', {
@@ -164,7 +211,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
     const participantId = searchParams.get('participantId');
-    const view = searchParams.get('view'); // 'inbox' returns conversation list for coaches
+    const view = searchParams.get('view'); // 'inbox' returns conversation list
 
     if (!teamId) {
       return NextResponse.json({ error: 'teamId is required' }, { status: 400 });
@@ -184,6 +231,14 @@ export async function GET(request: NextRequest) {
       console.log('[Messages GET] Coach inbox request. coachId:', user.id, 'teamId:', teamId);
       const conversations = await getCoachInbox(teamId, user.id);
       console.log('[Messages GET] Coach inbox result:', conversations.length, 'conversations');
+      return NextResponse.json({ conversations });
+    }
+
+    // --- Parent: inbox view (all conversations, including other parents) ---
+    if (view === 'inbox' && isParent) {
+      console.log('[Messages GET] Parent inbox request. parentId:', parentProfile!.id, 'teamId:', teamId);
+      const conversations = await getParentInbox(teamId, parentProfile!.id);
+      console.log('[Messages GET] Parent inbox result:', conversations.length, 'conversations');
       return NextResponse.json({ conversations });
     }
 
