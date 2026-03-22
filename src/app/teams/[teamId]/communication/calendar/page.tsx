@@ -277,6 +277,8 @@ export default function TeamCalendarPage({ params }: { params: Promise<{ teamId:
       <RSVPAttendanceModal
         eventId={selectedEventId || ''}
         eventTitle={events.find(e => e.id === selectedEventId)?.title || ''}
+        eventType={events.find(e => e.id === selectedEventId)?.event_type || 'other'}
+        teamId={teamId}
         isOpen={!!selectedEventId}
         onClose={() => setSelectedEventId(null)}
       />
