@@ -3,7 +3,7 @@
 import { use } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Calendar, Users, CreditCard, MessageSquare, Video, ChevronLeft } from 'lucide-react';
+import { Bell, Calendar, Users, CreditCard, MessageSquare, Video, Settings, ChevronLeft } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,6 +17,7 @@ const tabs = [
   { label: 'Videos', href: 'videos', icon: Video },
   { label: 'Messages', href: 'messages', icon: MessageSquare },
   { label: 'Plan', href: 'plan', icon: CreditCard },
+  { label: 'Settings', href: 'settings', icon: Settings },
 ];
 
 export default function CommunicationLayout({ children, params }: LayoutProps) {
