@@ -1,9 +1,183 @@
 'use client';
 
 import React, { use, useState, useEffect } from 'react';
-import { ChevronLeft, Loader2, Trophy, Star } from 'lucide-react';
+import { ChevronLeft, Loader2, Trophy, Star, BarChart2, Users } from 'lucide-react';
 import Link from 'next/link';
 import type { GameSummary, PlayerHighlight } from '@/types/communication';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+interface GameOverview {
+  totalPlays: number;
+  totalYards: number;
+  yardsPerPlay: number;
+  passingYards: number;
+  rushingYards: number;
+  passAttempts: number;
+  passCompletions: number;
+  completionPct: number;
+  rushAttempts: number;
+  touchdowns: number;
+  turnovers: number;
+  penalties: number;
+  penaltyYards: number;
+  firstDowns: number;
+  thirdDownConversions: number;
+  thirdDownAttempts: number;
+}
+
+interface TopPlayer {
+  id: string;
+  name: string;
+  jerseyNumber: string;
+  role: string;
+  statLine: string;
+}
+
+interface GameStats {
+  overview: GameOverview;
+  topPlayers: TopPlayer[];
+}
+
+// ============================================================================
+// Sub-components
+// ============================================================================
+
+interface StatCellProps {
+  label: string;
+  value: string | number;
+}
+
+function StatCell({ label, value }: StatCellProps) {
+  return (
+    <div className="flex flex-col items-center py-3 px-2">
+      <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</span>
+      <span className="text-lg font-bold text-gray-900">{value}</span>
+    </div>
+  );
+}
+
+const ROLE_BADGE_CLASSES: Record<string, string> = {
+  Passing: 'bg-green-100 text-green-700',
+  Rushing: 'bg-blue-100 text-blue-700',
+  Receiving: 'bg-amber-100 text-amber-700',
+  Defense: 'bg-red-100 text-red-700',
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const classes = ROLE_BADGE_CLASSES[role] ?? 'bg-gray-100 text-gray-600';
+  return (
+    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${classes}`}>
+      {role}
+    </span>
+  );
+}
+
+interface GameStatsCardProps {
+  overview: GameOverview;
+}
+
+function GameStatsCard({ overview }: GameStatsCardProps) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+        <BarChart2 className="w-5 h-5 text-gray-500" />
+        <h2 className="font-semibold text-gray-900">Game Stats</h2>
+      </div>
+
+      {/* Row 1: Total Plays / Total Yards / Yds per Play */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+        <StatCell label="Total Plays" value={overview.totalPlays} />
+        <StatCell label="Total Yards" value={overview.totalYards} />
+        <StatCell label="Yds / Play" value={overview.yardsPerPlay} />
+      </div>
+
+      {/* Row 2: Passing / Rushing / TDs */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+        <StatCell
+          label="Passing"
+          value={
+            overview.passAttempts > 0
+              ? `${overview.passCompletions}/${overview.passAttempts} (${overview.completionPct}%)`
+              : '—'
+          }
+        />
+        <StatCell
+          label="Rushing"
+          value={
+            overview.rushAttempts > 0
+              ? `${overview.rushAttempts} car, ${overview.rushingYards} yds`
+              : '—'
+          }
+        />
+        <StatCell label="TDs" value={overview.touchdowns} />
+      </div>
+
+      {/* Row 3: Turnovers / Penalties / 3rd Down */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100">
+        <StatCell label="Turnovers" value={overview.turnovers} />
+        <StatCell
+          label="Penalties"
+          value={
+            overview.penalties > 0
+              ? `${overview.penalties} (${overview.penaltyYards} yds)`
+              : '0'
+          }
+        />
+        <StatCell
+          label="3rd Down"
+          value={
+            overview.thirdDownAttempts > 0
+              ? `${overview.thirdDownConversions}/${overview.thirdDownAttempts}`
+              : '—'
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+interface TopPlayersCardProps {
+  players: TopPlayer[];
+}
+
+function TopPlayersCard({ players }: TopPlayersCardProps) {
+  if (players.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100">
+        <Users className="w-5 h-5 text-gray-500" />
+        <h2 className="font-semibold text-gray-900">Top Performers</h2>
+      </div>
+      <ul className="divide-y divide-gray-100">
+        {players.map(player => (
+          <li key={player.id} className="flex items-center gap-3 px-6 py-3">
+            {/* Jersey number badge */}
+            <div className="w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {player.jerseyNumber || '#'}
+            </div>
+
+            {/* Name + stat line */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{player.name}</p>
+              <p className="text-xs text-gray-500 truncate">{player.statLine}</p>
+            </div>
+
+            {/* Role badge */}
+            <RoleBadge role={player.role} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ============================================================================
+// Page
+// ============================================================================
 
 export default function ParentGameSummaryPage({
   params,
@@ -12,6 +186,7 @@ export default function ParentGameSummaryPage({
 }) {
   const { teamId, summaryId } = use(params);
   const [summary, setSummary] = useState<GameSummary | null>(null);
+  const [gameStats, setGameStats] = useState<GameStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +198,7 @@ export default function ParentGameSummaryPage({
         if (!response.ok) throw new Error('Summary not found');
         const data = await response.json();
         setSummary(data.summary);
+        setGameStats(data.gameStats ?? null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load');
       } finally {
@@ -99,6 +275,14 @@ export default function ParentGameSummaryPage({
               {summary.published_text}
             </p>
           </div>
+        )}
+
+        {/* Game Stats — shown when play data is linked */}
+        {gameStats && <GameStatsCard overview={gameStats.overview} />}
+
+        {/* Top Performers — shown alongside game stats */}
+        {gameStats && gameStats.topPlayers.length > 0 && (
+          <TopPlayersCard players={gameStats.topPlayers} />
         )}
 
         {/* Player Highlights */}
