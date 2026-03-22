@@ -248,6 +248,8 @@ export interface DirectMessage {
   recipient_type: 'coach' | 'parent';
   recipient_id: string;
   body: string;
+  /** Public URL of an image attachment, or null when no image was attached */
+  image_url: string | null;
   read_at: string | null;
   created_at: string;
 }

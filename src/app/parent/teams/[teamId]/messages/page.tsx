@@ -607,7 +607,7 @@ function ThreadView({
   }, [fetchThread]);
 
   const handleSendMessage = useCallback(
-    async (body: string) => {
+    async (body: string, imageUrl?: string) => {
       const recipientId =
         conversation.participantType === 'coach'
           ? coachIdRef.current
@@ -628,6 +628,7 @@ function ThreadView({
           message: body,
           recipientId,
           recipientType,
+          ...(imageUrl ? { imageUrl } : {}),
         }),
       });
 
@@ -701,6 +702,7 @@ function ThreadView({
             currentUserId={myParentProfileId}
             participantName={conversation.participantName}
             onSendMessage={handleSendMessage}
+            teamId={teamId}
             loading={loading}
           />
         </div>

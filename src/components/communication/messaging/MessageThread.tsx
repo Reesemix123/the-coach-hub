@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect, memo } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { Send, Loader2, ImagePlus, X } from 'lucide-react';
 import type { DirectMessage } from '@/types/communication';
 
 // ============================================================================
@@ -13,9 +13,26 @@ interface MessageThreadProps {
   /** The current user's ID — used to determine which messages are "mine" */
   currentUserId: string;
   participantName: string;
-  onSendMessage: (body: string) => Promise<void>;
+  /**
+   * Called when the user submits a message.
+   * @param body - The text body (may be empty string when image-only)
+   * @param imageUrl - Optional public URL of an uploaded image attachment
+   */
+  onSendMessage: (body: string, imageUrl?: string) => Promise<void>;
+  /**
+   * teamId is required for scoping the storage upload path.
+   * It is passed through to the upload API so the server can namespace files.
+   */
+  teamId: string;
   loading?: boolean;
 }
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 // ============================================================================
 // Component
@@ -23,6 +40,9 @@ interface MessageThreadProps {
 
 /**
  * Renders a scrollable message thread with an inline compose input.
+ * Supports optional image attachments: selecting a file shows a preview
+ * thumbnail; the image is uploaded when the message is sent.
+ *
  * Handles its own sending state; error propagation is the parent's responsibility.
  */
 export const MessageThread = memo(function MessageThread({
@@ -30,22 +50,78 @@ export const MessageThread = memo(function MessageThread({
   currentUserId,
   participantName,
   onSendMessage,
+  teamId,
   loading = false,
 }: MessageThreadProps) {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Image attachment state
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Revoke the object URL when the preview changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] ?? null;
+
+      // Reset the input so the same file can be re-selected after removal
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      if (!file) return;
+
+      setUploadError(null);
+
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setUploadError('Only JPEG, PNG, GIF, and WebP images are allowed.');
+        return;
+      }
+
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setUploadError('Image must be 5 MB or smaller.');
+        return;
+      }
+
+      // Revoke any previous preview URL before creating a new one
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+
+      setAttachedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    },
+    [previewUrl]
+  );
+
+  const handleRemoveAttachment = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setAttachedFile(null);
+    setPreviewUrl(null);
+    setUploadError(null);
+  }, [previewUrl]);
+
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!newMessage.trim() || sending) return;
+
+    const hasText = newMessage.trim().length > 0;
+    const hasImage = attachedFile !== null;
+
+    if ((!hasText && !hasImage) || sending) return;
 
     const body = newMessage.trim();
     setNewMessage('');
@@ -53,15 +129,45 @@ export const MessageThread = memo(function MessageThread({
 
     try {
       setSending(true);
-      await onSendMessage(body);
+
+      let imageUrl: string | undefined;
+
+      if (attachedFile) {
+        const form = new FormData();
+        form.append('image', attachedFile);
+        form.append('teamId', teamId);
+
+        const res = await fetch('/api/communication/messages/upload', {
+          method: 'POST',
+          body: form,
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? 'Failed to upload image');
+        }
+
+        const data = await res.json();
+        imageUrl = data.url;
+
+        // Clear the attachment after a successful upload
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        setAttachedFile(null);
+        setPreviewUrl(null);
+      }
+
+      await onSendMessage(body, imageUrl);
     } catch (err) {
       setSendError(err instanceof Error ? err.message : 'Failed to send message');
-      setNewMessage(body); // Restore on failure so the user doesn't lose their text
+      // Restore the text so the user doesn't lose it
+      if (body) setNewMessage(body);
     } finally {
       setSending(false);
       inputRef.current?.focus();
     }
   }
+
+  const canSend = (newMessage.trim().length > 0 || attachedFile !== null) && !sending;
 
   if (loading) {
     return (
@@ -92,6 +198,35 @@ export const MessageThread = memo(function MessageThread({
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Upload error */}
+      {uploadError && (
+        <div className="px-4 py-2 bg-amber-50 border-t border-amber-200">
+          <p className="text-xs text-amber-700">{uploadError}</p>
+        </div>
+      )}
+
+      {/* Image attachment preview */}
+      {previewUrl && (
+        <div className="px-4 pt-3 pb-1 border-t border-gray-100 flex items-start gap-2">
+          <div className="relative inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewUrl}
+              alt="Attachment preview"
+              className="rounded-lg max-h-24 max-w-[160px] object-cover border border-gray-200"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveAttachment}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-900 text-white rounded-full flex items-center justify-center hover:bg-gray-700 transition-colors"
+              aria-label="Remove attachment"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Send error */}
       {sendError && (
         <div className="px-4 py-2 bg-red-50 border-t border-red-200">
@@ -104,6 +239,28 @@ export const MessageThread = memo(function MessageThread({
         onSubmit={handleSend}
         className="border-t border-gray-200 px-4 py-3 flex gap-2 items-center"
       >
+        {/* Hidden file picker */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          onChange={handleFileChange}
+          className="sr-only"
+          aria-hidden="true"
+          tabIndex={-1}
+        />
+
+        {/* Photo attach button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={sending}
+          className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-700 disabled:opacity-40 transition-colors rounded-full hover:bg-gray-100"
+          aria-label="Attach an image"
+        >
+          <ImagePlus className="w-5 h-5" />
+        </button>
+
         <input
           ref={inputRef}
           type="text"
@@ -116,7 +273,7 @@ export const MessageThread = memo(function MessageThread({
         />
         <button
           type="submit"
-          disabled={!newMessage.trim() || sending}
+          disabled={!canSend}
           className="flex-shrink-0 p-2.5 bg-gray-900 text-white rounded-full hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           aria-label="Send message"
         >
@@ -144,18 +301,43 @@ const MessageBubble = memo(function MessageBubble({
   message,
   isMine,
 }: MessageBubbleProps) {
+  const hasText = message.body.trim().length > 0;
+  const hasImage = !!message.image_url;
+
   return (
     <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
       <div className="max-w-[75%]">
-        <div
-          className={`px-4 py-2.5 rounded-2xl text-sm break-words ${
-            isMine
-              ? 'bg-gray-900 text-white rounded-br-md'
-              : 'bg-gray-100 text-gray-900 rounded-bl-md'
-          }`}
-        >
-          {message.body}
-        </div>
+        {/* Bubble: only render if there is text, or if there is no image (fallback) */}
+        {(hasText || !hasImage) && (
+          <div
+            className={`px-4 py-2.5 rounded-2xl text-sm break-words ${
+              isMine
+                ? 'bg-gray-900 text-white rounded-br-md'
+                : 'bg-gray-100 text-gray-900 rounded-bl-md'
+            } ${hasImage ? 'mb-2' : ''}`}
+          >
+            {message.body}
+          </div>
+        )}
+
+        {/* Image attachment */}
+        {hasImage && (
+          <a
+            href={message.image_url!}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View full-size image"
+            className={`block ${isMine ? 'ml-auto' : ''}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={message.image_url!}
+              alt="Message attachment"
+              className="rounded-lg max-w-[250px] max-h-[300px] object-cover cursor-pointer hover:opacity-90 transition-opacity"
+            />
+          </a>
+        )}
+
         <div
           className={`flex items-center gap-1 mt-1 ${
             isMine ? 'justify-end' : 'justify-start'

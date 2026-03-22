@@ -18,6 +18,8 @@ export interface SendMessageInput {
   recipientType: 'coach' | 'parent';
   recipientId: string;
   body: string;
+  /** Optional URL of an image attachment stored in Supabase Storage */
+  imageUrl?: string;
 }
 
 export interface ConversationSummary {
@@ -68,6 +70,7 @@ export async function sendMessage(input: SendMessageInput): Promise<DirectMessag
       recipient_type: input.recipientType,
       recipient_id: input.recipientId,
       body: input.body.trim(),
+      image_url: input.imageUrl ?? null,
     })
     .select()
     .single();
