@@ -287,14 +287,11 @@ export async function getParentInbox(
   if (coachPartnerIds.length > 0) {
     const { data: coachProfiles } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, email')
+      .select('id, full_name, email')
       .in('id', coachPartnerIds);
 
     (coachProfiles || []).forEach(p => {
-      const name =
-        p.first_name && p.last_name
-          ? `${p.first_name} ${p.last_name}`
-          : (p.email ?? 'Unknown Coach');
+      const name = p.full_name || p.email || 'Coach';
       nameMap.set(p.id, name);
     });
   }
