@@ -3,6 +3,7 @@
 import React, { memo } from 'react';
 import { Calendar, MapPin, Clock, Users, ChevronRight, Check, X, HelpCircle, Trophy } from 'lucide-react';
 import { RSVPButton } from './RSVPButton';
+import { TreatSignup } from './TreatSignup';
 
 interface EventCardProps {
   event: {
@@ -232,6 +233,15 @@ export const EventCard = memo(function EventCard({
           <p className="text-sm text-gray-600 mb-4 line-clamp-2">
             {event.description}
           </p>
+        )}
+
+        {/* Team Treats — parent view, games only */}
+        {teamId && event.event_type === 'game' && (
+          <TreatSignup
+            teamId={teamId}
+            gameId={isGameSource ? event.id.replace('game-', '') : undefined}
+            eventId={!isGameSource ? event.id : undefined}
+          />
         )}
 
         {/* RSVP (Parent View) — hidden for game-sourced items */}
