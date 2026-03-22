@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Check, XCircle, HelpCircle, Clock, Users, Loader2, Send } from 'lucide-react';
+import { X, Check, XCircle, HelpCircle, Clock, Users, Loader2, Send, Cookie } from 'lucide-react';
 
 interface ParentProfile {
   id: string;
@@ -34,9 +34,18 @@ interface RSVPSummary {
   total_parents: number;
 }
 
+interface TreatSignup {
+  id: string;
+  parent_name: string;
+  description: string | null;
+  signed_up_at: string;
+}
+
 interface RSVPAttendanceModalProps {
   eventId: string;
   eventTitle: string;
+  eventType?: string;
+  teamId?: string;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -53,6 +62,8 @@ const TAB_CONFIG: Record<TabType, { label: string; icon: React.ElementType; colo
 export function RSVPAttendanceModal({
   eventId,
   eventTitle,
+  eventType,
+  teamId,
   isOpen,
   onClose,
 }: RSVPAttendanceModalProps) {
@@ -63,11 +74,17 @@ export function RSVPAttendanceModal({
   const [activeTab, setActiveTab] = useState<TabType>('attending');
   const [sendingReminder, setSendingReminder] = useState(false);
   const [reminderResult, setReminderResult] = useState<string | null>(null);
+  const [treatSignups, setTreatSignups] = useState<TreatSignup[]>([]);
+  const [treatsEnabled, setTreatsEnabled] = useState(false);
+  const [maxTreatSlots, setMaxTreatSlots] = useState(2);
 
   useEffect(() => {
     if (isOpen) {
       fetchRSVPs();
       setReminderResult(null);
+      if (teamId && eventType === 'game') {
+        fetchTreats();
+      }
     }
   }, [isOpen, eventId]);
 
@@ -88,6 +105,21 @@ export function RSVPAttendanceModal({
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchTreats() {
+    try {
+      const response = await fetch(
+        `/api/communication/treats?teamId=${teamId}&eventId=${eventId}`
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setTreatsEnabled(data.treats_enabled ?? false);
+      setMaxTreatSlots(data.max_slots ?? 2);
+      setTreatSignups(data.signups || []);
+    } catch {
+      // Non-critical — treats section just won't show
     }
   }
 
@@ -281,6 +313,38 @@ export function RSVPAttendanceModal({
                 </ul>
               )}
             </div>
+
+            {/* Team Treats Section */}
+            {treatsEnabled && eventType === 'game' && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Cookie className="w-4 h-4 text-amber-600" />
+                  <h3 className="text-sm font-semibold text-gray-900">Team Treats</h3>
+                  <span className="text-xs text-gray-500">
+                    {treatSignups.length} of {maxTreatSlots} slots filled
+                  </span>
+                </div>
+                {treatSignups.length === 0 ? (
+                  <p className="text-sm text-gray-500">No one has signed up yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {treatSignups.map((signup) => (
+                      <li key={signup.id} className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium text-gray-900">{signup.parent_name}</span>
+                          {signup.description && (
+                            <span className="text-gray-500"> — {signup.description}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400">
+                          {formatResponseTime(signup.signed_up_at)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {/* Footer */}
             {summary && (
