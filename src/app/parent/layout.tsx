@@ -1,8 +1,7 @@
-import Link from 'next/link';
-import Image from 'next/image';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { BottomTabBar } from '@/components/parent/BottomTabBar';
+import { ParentTopBar } from '@/components/parent/ParentTopBar';
 
 export default async function ParentLayout({
   children,
@@ -50,27 +49,11 @@ export default async function ParentLayout({
         main.pt-24 { padding-top: 0 !important; }
       `}</style>
 
-      {/* Minimal top bar: logo + parent name only */}
-      <header className="bg-white/95 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-40">
-        <div className="flex items-center justify-between h-12 px-4">
-          <Link href="/parent" className="flex items-center gap-2">
-            <Image
-              src="/apple-touch-icon.png"
-              alt="Youth Coach Hub"
-              width={28}
-              height={28}
-              className="rounded-lg"
-            />
-            <span className="text-sm font-semibold text-gray-900 hidden sm:inline">
-              Youth Coach Hub
-            </span>
-          </Link>
-
-          <span className="text-sm text-gray-500">
-            {parentProfile.first_name} {parentProfile.last_name}
-          </span>
-        </div>
-      </header>
+      <ParentTopBar
+        parentName={parentName}
+        teams={teams}
+        defaultTeamId={teamId}
+      />
 
       {/* Main content — pb-24 keeps content clear of the tab bar */}
       <main className="pb-24">{children}</main>

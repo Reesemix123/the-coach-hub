@@ -5,7 +5,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
-  House,
   Calendar,
   MessageCircle,
   Video,
@@ -45,19 +44,11 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
   const urlTeamMatch = pathname.match(/\/parent\/teams\/([^/]+)/);
   const activeTeamId = urlTeamMatch ? urlTeamMatch[1] : defaultTeamId;
   const teamId = activeTeamId;
-  const activeTeamName = teams.find(t => t.id === teamId)?.name;
 
   const openMoreMenu = useCallback(() => setMoreMenuOpen(true), []);
   const closeMoreMenu = useCallback(() => setMoreMenuOpen(false), []);
 
   const tabs: TabItem[] = [
-    {
-      key: 'home',
-      label: 'Home',
-      icon: House,
-      href: '/parent',
-      isActive: (p) => p === '/parent',
-    },
     {
       key: 'schedule',
       label: 'Schedule',
@@ -229,41 +220,6 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
                 <X size={18} />
               </button>
             </div>
-
-            {/* Team switcher (only if multiple teams) */}
-            {teams.length > 1 && (
-              <div className="px-3 py-2 border-b border-gray-100">
-                <p className="px-3 pb-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider">Switch Team</p>
-                {teams.map(team => (
-                  <Link
-                    key={team.id}
-                    href={`/parent/teams/${team.id}/calendar`}
-                    onClick={closeMoreMenu}
-                    className={[
-                      'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors',
-                      team.id === teamId
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-700 hover:bg-gray-50',
-                    ].join(' ')}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center text-white text-xs font-bold">
-                      {team.name.charAt(0)}
-                    </div>
-                    <span className="text-[15px] font-medium">{team.name}</span>
-                    {team.id === teamId && (
-                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-black" />
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* Active team label */}
-            {activeTeamName && (
-              <div className="px-6 pt-3 pb-1">
-                <p className="text-xs text-gray-400">{activeTeamName}</p>
-              </div>
-            )}
 
             {/* Menu items */}
             <nav className="px-3 py-2">
