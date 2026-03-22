@@ -52,6 +52,8 @@ export interface UpdateGameSummaryInput {
   opponent?: string;
   scoreUs?: number;
   scoreThem?: number;
+  gameDate?: string;
+  gameId?: string;
   notificationChannel?: NotificationChannel;
 }
 
@@ -369,6 +371,8 @@ export async function updateGameSummary(
   if (input.opponent !== undefined) updates.opponent = input.opponent?.trim() || null;
   if (input.scoreUs !== undefined) updates.score_us = input.scoreUs;
   if (input.scoreThem !== undefined) updates.score_them = input.scoreThem;
+  if (input.gameDate !== undefined) updates.game_date = input.gameDate || null;
+  if (input.gameId !== undefined) updates.game_id = input.gameId || null;
   if (input.notificationChannel !== undefined) updates.notification_channel = input.notificationChannel;
 
   const { data, error } = await supabase

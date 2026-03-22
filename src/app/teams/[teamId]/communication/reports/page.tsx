@@ -3,8 +3,10 @@
 import React, { use, useState, useEffect, useCallback } from 'react';
 import { FileText, Plus, Loader2, ChevronLeft, BarChart3, Newspaper } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 import { ReportCard } from '@/components/communication/reports/ReportCard';
 import { GameSummaryEditor } from '@/components/communication/reports/GameSummaryEditor';
+import type { GameOption } from '@/components/communication/reports/GameSummaryEditor';
 import { NotificationChannelPicker } from '@/components/communication/shared/NotificationChannelPicker';
 import type {
   SharedReport,
@@ -36,6 +38,7 @@ interface GameSummaryFormData {
   gameDate: string;
   playerHighlights: PlayerHighlight[];
   notificationChannel: NotificationChannel;
+  gameId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,6 +52,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
   const [reports, setReports] = useState<SharedReport[]>([]);
   const [summaries, setSummaries] = useState<GameSummary[]>([]);
   const [players, setPlayers] = useState<RosterPlayer[]>([]);
+  const [games, setGames] = useState<GameOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,6 +60,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
   const [showCreateReport, setShowCreateReport] = useState(false);
   const [reportType, setReportType] = useState<ReportType>('player_summary');
   const [selectedPlayerId, setSelectedPlayerId] = useState('');
+  const [reportGameId, setReportGameId] = useState('');
   const [coachNotes, setCoachNotes] = useState('');
   const [channel, setChannel] = useState<NotificationChannel>('email');
   const [creating, setCreating] = useState(false);
@@ -74,10 +79,18 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
       setLoading(true);
       setError(null);
 
-      const [reportsRes, summariesRes, playersRes] = await Promise.all([
+      const supabase = createClient();
+
+      const [reportsRes, summariesRes, playersRes, gamesResult] = await Promise.all([
         fetch(`/api/communication/reports?teamId=${teamId}`),
         fetch(`/api/communication/game-summaries?teamId=${teamId}`),
         fetch(`/api/communication/parents/roster?teamId=${teamId}`).catch(() => null),
+        supabase
+          .from('games')
+          .select('id, name, opponent, date, team_score, opponent_score, game_result')
+          .eq('team_id', teamId)
+          .eq('game_type', 'team')
+          .order('date', { ascending: false }),
       ]);
 
       if (reportsRes.ok) {
@@ -103,6 +116,27 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
           }))
           .filter(p => Boolean(p.id));
         setPlayers(normalized);
+      }
+
+      if (!gamesResult.error && gamesResult.data) {
+        const normalized: GameOption[] = (gamesResult.data as Array<{
+          id: string;
+          name: string;
+          opponent: string | null;
+          date: string | null;
+          team_score: number | null;
+          opponent_score: number | null;
+          game_result: string | null;
+        }>).map(g => ({
+          id: g.id,
+          name: g.name,
+          opponent: g.opponent,
+          date: g.date,
+          team_score: g.team_score,
+          opponent_score: g.opponent_score,
+          game_result: g.game_result,
+        }));
+        setGames(normalized);
       }
     } catch {
       setError('Failed to load data');
@@ -131,6 +165,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
           teamId,
           reportType,
           playerId: selectedPlayerId || undefined,
+          gameId: reportGameId || undefined,
           coachNotes: coachNotes.trim() || undefined,
           notificationChannel: channel,
           visibility: 'parents',
@@ -145,6 +180,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
       setShowCreateReport(false);
       setCoachNotes('');
       setSelectedPlayerId('');
+      setReportGameId('');
       void fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create report');
@@ -183,7 +219,11 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
       const createRes = await fetch('/api/communication/game-summaries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, notificationChannel: data.notificationChannel }),
+        body: JSON.stringify({
+          teamId,
+          notificationChannel: data.notificationChannel,
+          gameId: data.gameId,
+        }),
       });
       if (!createRes.ok) throw new Error('Failed to create summary');
       const { summary } = await createRes.json() as { summary: GameSummary };
@@ -334,6 +374,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
                   onChange={e => {
                     setReportType(e.target.value as ReportType);
                     setSelectedPlayerId('');
+                    setReportGameId('');
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
                 >
@@ -343,6 +384,39 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
                   <option value="game_recap">Game Recap</option>
                 </select>
               </div>
+
+              {/* Game selector — only shown for game_recap type */}
+              {!requiresPlayer && games.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Game{' '}
+                    <span className="text-gray-400 font-normal">(optional — links AI stats)</span>
+                  </label>
+                  <select
+                    value={reportGameId}
+                    onChange={e => setReportGameId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  >
+                    <option value="">— No specific game —</option>
+                    {games.map(game => {
+                      const label = game.opponent ? `vs ${game.opponent}` : game.name;
+                      const date = game.date
+                        ? new Date(game.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                            timeZone: 'UTC',
+                          })
+                        : '';
+                      return (
+                        <option key={game.id} value={game.id}>
+                          {date ? `${label} — ${date}` : label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
 
               {requiresPlayer && (
                 <div>
@@ -428,6 +502,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
                     }
                   : undefined
               }
+              games={games}
               players={players}
               onSave={handleSaveSummary}
               onPublish={handlePublishSummary}
