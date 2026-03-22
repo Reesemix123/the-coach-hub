@@ -362,7 +362,11 @@ export async function GET(request: NextRequest) {
           .eq('game_type', 'team');
 
         if (upcoming) {
-          gamesQuery = gamesQuery.gte('date', new Date().toISOString().split('T')[0]);
+          // Subtract 1 day to account for UTC vs local timezone offset
+          // (e.g., it's still March 21 locally but March 22 in UTC)
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          gamesQuery = gamesQuery.gte('date', yesterday.toISOString().split('T')[0]);
         }
 
         if (startDate) {
