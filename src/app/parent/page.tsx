@@ -161,6 +161,11 @@ export default async function ParentDashboard() {
                     label="Messages"
                     badge={0}
                   />
+                  <QuickAction
+                    href={`/parent/teams/${teamData.id}/directory`}
+                    icon={Users}
+                    label="Directory"
+                  />
                 </div>
               </div>
             );
