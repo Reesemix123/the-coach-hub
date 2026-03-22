@@ -213,7 +213,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
     }
   }
 
-  async function handleSaveSummary(data: GameSummaryFormData) {
+  async function handleSaveSummary(data: GameSummaryFormData): Promise<string | void> {
     // If we don't yet have an ID, create first then update
     if (!editingSummaryId) {
       const createRes = await fetch('/api/communication/game-summaries', {
@@ -235,7 +235,7 @@ export default function CoachReportsPage({ params }: { params: Promise<{ teamId:
         body: JSON.stringify(data),
       });
       if (!patchRes.ok) throw new Error('Failed to save summary');
-      return;
+      return summary.id;
     }
 
     const response = await fetch(`/api/communication/game-summaries/${editingSummaryId}`, {

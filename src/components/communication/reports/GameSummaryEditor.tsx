@@ -31,7 +31,7 @@ interface GameSummaryEditorProps {
   };
   games: GameOption[];
   players: Array<{ id: string; name: string; jersey_number: number | null }>;
-  onSave: (data: GameSummaryFormData) => Promise<void>;
+  onSave: (data: GameSummaryFormData) => Promise<string | void>;
   onPublish: (summaryId: string) => Promise<void>;
   onCancel: () => void;
 }
@@ -370,19 +370,21 @@ export function GameSummaryEditor({
   }
 
   async function handleGenerate() {
-    if (!summaryId) {
-      setError('Save the summary first before generating an AI draft');
-      return;
-    }
-
     try {
       setGenerating(true);
       setError(null);
 
-      // Persist the current form state before calling generate
-      await onSave(buildFormData());
+      // Auto-save first — if no summaryId, onSave will create one and return the ID
+      const returnedId = await onSave(buildFormData());
+      const idToUse = returnedId || summaryId;
 
-      const response = await fetch(`/api/communication/game-summaries/${summaryId}/generate`, {
+      if (!idToUse) {
+        setError('Failed to save summary before generating');
+        setGenerating(false);
+        return;
+      }
+
+      const response = await fetch(`/api/communication/game-summaries/${idToUse}/generate`, {
         method: 'POST',
       });
 
