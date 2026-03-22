@@ -111,6 +111,26 @@ export default function CoachMessagesPage({
     await Promise.all([loadConversation(selectedParentId), fetchInbox()]);
   }
 
+  // Poll for new messages every 5s when a conversation is open
+  useEffect(() => {
+    if (!selectedParentId) return;
+    const interval = setInterval(() => {
+      fetch(`/api/communication/messages?teamId=${teamId}&participantId=${selectedParentId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data?.messages) setMessages(data.messages); })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [teamId, selectedParentId]);
+
+  // Poll inbox every 15s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchInbox();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [fetchInbox]);
+
   const selectedConversation = conversations.find(
     c => c.participantId === selectedParentId
   );

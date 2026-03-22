@@ -431,6 +431,14 @@ function InboxView({
     fetchInbox();
   }, [fetchInbox]);
 
+  // Poll inbox every 15s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchInbox();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [fetchInbox]);
+
   function handlePickerSelect(conv: SelectedConversation) {
     setShowPicker(false);
     onSelectConversation(conv);
@@ -605,6 +613,17 @@ function ThreadView({
   useEffect(() => {
     fetchThread();
   }, [fetchThread]);
+
+  // Poll for new messages every 5s
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(`/api/communication/messages?teamId=${teamId}&participantId=${conversation.participantId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data?.messages) setMessages(data.messages); })
+        .catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [teamId, conversation.participantId]);
 
   const handleSendMessage = useCallback(
     async (body: string, imageUrl?: string) => {
