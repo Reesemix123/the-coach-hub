@@ -76,8 +76,9 @@ export async function POST(
       );
     }
 
-    // Verify event exists and get team_id
-    const { data: event, error: eventError } = await supabase
+    // Verify event exists and get team_id (use service client to avoid RLS blocking parents)
+    const serviceClient = createServiceClient();
+    const { data: event, error: eventError } = await serviceClient
       .from('team_events')
       .select('id, team_id')
       .eq('id', eventId)
@@ -87,8 +88,7 @@ export async function POST(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    // Verify parent has access to this team (use service client to avoid RLS recursion)
-    const serviceClient = createServiceClient();
+    // Verify parent has access to this team
     const { data: parentAccess } = await serviceClient
       .from('team_parent_access')
       .select('id')
@@ -166,8 +166,9 @@ export async function GET(
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }
 
-    // Verify event exists and get team_id
-    const { data: event, error: eventError } = await supabase
+    // Verify event exists and get team_id (use service client to avoid RLS blocking parents)
+    const serviceClient = createServiceClient();
+    const { data: event, error: eventError } = await serviceClient
       .from('team_events')
       .select('id, team_id')
       .eq('id', eventId)
@@ -202,9 +203,6 @@ export async function GET(
       .single();
 
     const isCoach = isOwner || !!membership;
-
-    // Use service client for all parent-related table queries in this handler
-    const serviceClient = createServiceClient();
 
     if (parentProfile) {
       // Parent response: their RSVP + their children
