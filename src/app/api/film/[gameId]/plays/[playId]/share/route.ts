@@ -20,7 +20,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
 import { extractAndUploadClip } from '@/lib/services/clip-extraction.service';
 import {
-  publishVideo,
   shareWithTeam,
   shareWithPlayer,
   canShareTeamVideo,
@@ -245,17 +244,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const sharedVideoId = sharedVideo.id;
 
     // -------------------------------------------------------------------
-    // 7. Consume credit + create share targets
+    // 7. Create share targets (credit consumption DEFERRED to webhook)
     // -------------------------------------------------------------------
+    // Credit is NOT consumed here. It is consumed in the Mux webhook handler
+    // when the clip asset is confirmed ready. This ensures coaches are never
+    // charged for a clip that failed to extract or encode.
+    //
+    // The shared_videos record has publish_confirmed = false at this point.
+    // The webhook will:
+    //   1. Consume the credit (team shares only)
+    //   2. Set publish_confirmed = true
+    //   3. Trigger parent notification
+    //
+    // We store the confirmationText on the play record so the webhook can
+    // use it when calling publishVideo().
 
-    // Publish (consumes credit for team shares, records confirmation)
-    await publishVideo({
-      videoId: sharedVideoId,
-      coachId: user.id,
-      confirmationText: confirmationText.trim(),
-    });
-
-    // Create share targets
+    // Create share targets (parents who will see the clip once it's ready)
     let sharedCount = 0;
 
     if (shareType === 'team') {
