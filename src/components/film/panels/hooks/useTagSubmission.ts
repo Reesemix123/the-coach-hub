@@ -189,6 +189,15 @@ function buildInstanceData(
     is_touchdown: values.scoring_type === 'touchdown',
     opponent_scored: values.opponent_scored || false,
 
+    // Running score at snap (from auto-population or manual override)
+    team_score_at_snap: values.team_score_at_snap != null
+      ? parseInt(String(values.team_score_at_snap))
+      : undefined,
+    opponent_score_at_snap: values.opponent_score_at_snap != null
+      ? parseInt(String(values.opponent_score_at_snap))
+      : undefined,
+    score_source: values.score_source || 'manual',
+
     // Penalty
     penalty_on_play: values.penalty_type ? true : false,
     penalty_type: values.penalty_type || undefined,

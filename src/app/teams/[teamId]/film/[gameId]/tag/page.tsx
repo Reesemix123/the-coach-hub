@@ -11,6 +11,8 @@ import { TagPageFilmBridge } from '@/components/film/TagPageFilmBridge';
 import { TagPageUnifiedTimeline } from '@/components/film/TagPageUnifiedTimeline';
 import { TimelineCameraSelector } from '@/components/film/TimelineCameraSelector';
 import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { ScoreboardOverlay } from '@/components/film/ScoreboardOverlay';
+import { SharePlayModal } from '@/components/film/SharePlayModal';
 
 // Dynamic imports for modals and features (loaded on demand)
 const CombineVideosModal = dynamic(() => import('@/components/CombineVideosModal'), { ssr: false });
@@ -68,6 +70,8 @@ function GameFilmPageInner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showMarkerPanel, setShowMarkerPanel] = useState(true);
   const [markersCollapsed, setMarkersCollapsed] = useState(false);
+  const [showScoreboard, setShowScoreboard] = useState(true);
+  const [sharePlayInstance, setSharePlayInstance] = useState<any | null>(null);
 
 
   // ========== VIDEO ELEMENT CALLBACKS ==========
@@ -197,6 +201,14 @@ function GameFilmPageInner() {
     const labels: Record<string, string> = { '1': '1st', '2': '2nd', '3': '3rd', '4': '4th' };
     return labels[value] || value;
   }
+
+  // Find the active play at the current video time for scoreboard overlay
+  const activePlay = playInstances.find(
+    (p) => p.timestamp_start != null &&
+           p.timestamp_end != null &&
+           currentTime >= p.timestamp_start &&
+           currentTime <= p.timestamp_end
+  );
 
 
   if (!game) {
@@ -540,6 +552,22 @@ function GameFilmPageInner() {
                           }}
                         />
 
+                        {/* Scoreboard overlay — shows active play metadata */}
+                        <ScoreboardOverlay
+                          teamName={game?.name || 'Team'}
+                          opponentName={game?.opponent || 'Opponent'}
+                          teamScore={activePlay?.team_score_at_snap ?? null}
+                          opponentScore={activePlay?.opponent_score_at_snap ?? null}
+                          quarter={activePlay?.quarter ?? null}
+                          clock={activePlay?.clock_start ?? null}
+                          down={activePlay?.down ?? null}
+                          distance={activePlay?.distance ?? null}
+                          yardLine={activePlay?.yard_line ?? null}
+                          visible={showScoreboard && !!activePlay}
+                          showToggle={true}
+                          onToggle={() => setShowScoreboard(prev => !prev)}
+                        />
+
                         {/* Loading overlay - shows while switching cameras */}
                         {timelinePlayback.isSwitchingCamera && (
                           <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg z-10">
@@ -738,6 +766,7 @@ function GameFilmPageInner() {
               onEditInstance={playTagging.handleEditInstance}
               onDeleteInstance={playTagging.deletePlayInstance}
               onJumpToPlay={playTagging.jumpToPlay}
+              onSharePlay={(instance) => setSharePlayInstance(instance)}
               videoRef={videoRef}
             />
           </div>
@@ -756,6 +785,7 @@ function GameFilmPageInner() {
         tagEndTime={tagEndTime}
         editingInstance={editingInstance}
         game={game}
+        playInstances={playInstances}
         selectedVideo={selectedVideo}
         players={players}
         plays={plays}
@@ -833,6 +863,28 @@ function GameFilmPageInner() {
           onCancel={() => gameScoring.setShowTierUpgrade(false)}
         />
       )}
+
+      {/* Share Play Clip Modal */}
+      <SharePlayModal
+        isOpen={!!sharePlayInstance}
+        play={sharePlayInstance || { id: '' }}
+        game={game}
+        players={players.map(p => ({
+          id: p.id,
+          name: `${p.first_name} ${p.last_name}`,
+          jersey_number: p.jersey_number ? parseInt(String(p.jersey_number)) : null,
+        }))}
+        teamId={teamId}
+        onClose={() => setSharePlayInstance(null)}
+        onSuccess={() => {
+          setSharePlayInstance(null);
+          // Refresh play instances to update clip status
+          const timelineVideoIds = [...new Set(timelinePlayback.timelineLanes.flatMap(lane => lane.clips.map(clip => clip.videoId)))];
+          if (timelineVideoIds.length > 0) {
+            dataFetching.fetchPlayInstances(timelineVideoIds);
+          }
+        }}
+      />
 
       {/* Film Tagging Complete Confirmation Modal */}
       <TaggingCompleteModal
