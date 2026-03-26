@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, memo, type RefObject } from 'react';
+import { Check, Loader2, Share2 } from 'lucide-react';
 import { SPECIAL_TEAMS_UNITS, RESULT_TYPES } from '@/types/football';
 import type { Drive } from '@/types/football';
 
@@ -26,6 +27,9 @@ interface PlayInstance {
   special_teams_unit?: string;
   drive_id?: string;
   quarter?: number;
+  mux_clip_status?: string | null;
+  clip_shared_at?: string | null;
+  clip_share_type?: string | null;
 }
 
 interface PlayListPanelProps {
@@ -37,6 +41,24 @@ interface PlayListPanelProps {
   onDeleteInstance: (instanceId: string) => void;
   onJumpToPlay: (timestamp: number, endTimestamp?: number, sourceCameraId?: string) => void;
   videoRef: RefObject<HTMLVideoElement | null>;
+  onSharePlay?: (instance: PlayInstance) => void;
+}
+
+// ============================================
+// HELPERS
+// ============================================
+
+function formatRelativeTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMs / 3600000);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffMs / 86400000);
+  return `${diffDays}d ago`;
 }
 
 // ============================================
@@ -52,6 +74,7 @@ export const PlayListPanel = memo(function PlayListPanel({
   onDeleteInstance,
   onJumpToPlay,
   videoRef,
+  onSharePlay,
 }: PlayListPanelProps) {
   const [filterQuarter, setFilterQuarter] = useState<string>('all');
   const [filterOffenseDefense, setFilterOffenseDefense] = useState<string>('all');
@@ -257,6 +280,39 @@ export const PlayListPanel = memo(function PlayListPanel({
                     <div className="text-gray-700 mt-1 text-xs bg-yellow-50 p-2 rounded border border-yellow-200">
                       {instance.notes}
                     </div>
+                  )}
+                </div>
+
+                {/* Clip sharing status */}
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  {instance.clip_shared_at ? (
+                    instance.mux_clip_status === 'ready' ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded">
+                        <Check className="w-3 h-3" /> Shared {formatRelativeTime(instance.clip_shared_at)}
+                      </span>
+                    ) : instance.mux_clip_status === 'errored' ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-600">Failed</span>
+                        {onSharePlay && (
+                          <button onClick={(e) => { e.stopPropagation(); onSharePlay(instance); }} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                            Retry
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Processing
+                      </span>
+                    )
+                  ) : (
+                    onSharePlay && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onSharePlay(instance); }}
+                        className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors"
+                      >
+                        <Share2 className="w-3 h-3" /> Share with Parents
+                      </button>
+                    )
                   )}
                 </div>
 

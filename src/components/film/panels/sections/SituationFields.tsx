@@ -36,6 +36,8 @@ interface SituationFieldsProps {
   getFieldClassName: (fieldName: string, baseClass: string) => string;
   handleFieldChange: (fieldName: string) => void;
   getAIConfidenceClass: (fieldName: string) => string;
+  teamName?: string;
+  opponentName?: string;
 }
 
 // ============================================
@@ -53,6 +55,8 @@ export function SituationFields({
   getFieldClassName,
   handleFieldChange,
   getAIConfidenceClass,
+  teamName,
+  opponentName,
 }: SituationFieldsProps) {
   const { register, watch, setValue } = useFormContext();
 
@@ -240,6 +244,48 @@ export function SituationFields({
             <span>Auto-calculated from previous play</span>
           </div>
         )}
+
+        {/* Score at Snap */}
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              {teamName || 'Team'} Score
+              {watch('score_source') === 'auto' && (
+                <span className="ml-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded font-medium">auto</span>
+              )}
+              {watch('score_source') === 'manual' && watch('team_score_at_snap') !== '' && (
+                <span className="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded font-medium">manual</span>
+              )}
+            </label>
+            <input
+              type="number"
+              min={0}
+              {...register('team_score_at_snap')}
+              onChange={(e) => {
+                register('team_score_at_snap').onChange(e);
+                setValue('score_source', 'manual');
+              }}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              {opponentName || 'Opponent'} Score
+            </label>
+            <input
+              type="number"
+              min={0}
+              {...register('opponent_score_at_snap')}
+              onChange={(e) => {
+                register('opponent_score_at_snap').onChange(e);
+                setValue('score_source', 'manual');
+              }}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900"
+              placeholder="0"
+            />
+          </div>
+        </div>
       </div>
     </>
   );

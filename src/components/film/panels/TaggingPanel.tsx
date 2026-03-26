@@ -22,6 +22,7 @@ import {
 } from '@/types/football';
 import type { TaggingMode } from '@/components/film/context/types';
 import { getPositionDisplay } from '@/utils/playerHelpers';
+import { calculateRunningScore } from '@/lib/services/score-auto-populate';
 
 // ============================================
 // TYPES
@@ -33,7 +34,7 @@ export interface TaggingPanelProps {
   tagStartTime: number;
   tagEndTime: number | null;
   editingInstance: any | null;
-  game: { id: string; name: string; team_id: string; is_opponent_game?: boolean };
+  game: { id: string; name: string; team_id: string; is_opponent_game?: boolean; opponent?: string };
   selectedVideo: { id: string; url?: string } | null;
   players: any[];
   plays: { play_code: string; play_name: string; attributes: any }[];
@@ -49,6 +50,7 @@ export interface TaggingPanelProps {
   gameId: string;
   previousPlay: any | null;
   quarterFromTimestamp: number | null;
+  playInstances: any[];
 }
 
 // ============================================
@@ -135,7 +137,7 @@ export const TaggingPanel = memo(function TaggingPanel({
   game, selectedVideo, players, plays, drives, currentDrive,
   taggingTier, onSaveComplete, onDriveCreated, fetchDrives,
   filmAnalysisStatus, onStatusChange, teamId, gameId,
-  previousPlay, quarterFromTimestamp,
+  previousPlay, quarterFromTimestamp, playInstances,
 }: TaggingPanelProps) {
   const methods = useForm<any>({ defaultValues: {} });
   const { handleSubmit, setValue, formState: { isSubmitting } } = methods;
@@ -194,6 +196,11 @@ export const TaggingPanel = memo(function TaggingPanel({
     } else {
       taggingForm.setAutoPopulatedFields([]);
     }
+
+    const autoScore = calculateRunningScore(playInstances, tagStartTime);
+    setValue('team_score_at_snap', autoScore.teamScore.value);
+    setValue('opponent_score_at_snap', autoScore.opponentScore.value);
+    setValue('score_source', 'auto');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -233,6 +240,9 @@ export const TaggingPanel = memo(function TaggingPanel({
     setValue('yards_gained', editingInstance.yards_gained);
     setValue('notes', editingInstance.notes || '');
     setValue('quarter', editingInstance.quarter);
+    setValue('team_score_at_snap', editingInstance.team_score_at_snap ?? '');
+    setValue('opponent_score_at_snap', editingInstance.opponent_score_at_snap ?? '');
+    setValue('score_source', editingInstance.score_source ?? 'manual');
 
     // Player attribution
     setValue('qb_id', editingInstance.qb_id);
@@ -495,6 +505,8 @@ export const TaggingPanel = memo(function TaggingPanel({
                 getFieldClassName={taggingForm.getFieldClassName}
                 handleFieldChange={taggingForm.handleFieldChange}
                 getAIConfidenceClass={taggingForm.getAIConfidenceClass}
+                teamName={game.name}
+                opponentName={game.opponent}
               />
 
               {/* Offense fields */}
