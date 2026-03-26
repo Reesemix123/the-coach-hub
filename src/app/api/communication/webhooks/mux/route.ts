@@ -330,20 +330,32 @@ async function notifyParents(
       : '';
 
     const contentType = isClip ? 'play clip' : 'video';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
+
+    // Build a direct link for clips so parents land on the right page
+    const clipLink = isClip && sharedVideo.source_tag_id
+      ? `${appUrl}/parent/teams/${sharedVideo.team_id}/clips/${sharedVideo.source_tag_id}`
+      : null;
+
+    const watchCta = clipLink
+      ? `<p><a href="${clipLink}" style="display:inline-block;padding:12px 24px;background:#B8CA6E;color:#1a1410;font-weight:bold;text-decoration:none;border-radius:8px;margin-top:8px;">Watch Clip</a></p>`
+      : '<p>Open the app to watch.</p>';
 
     const emailBody = getCommHubEmailTemplate({
       title: `New ${isClip ? 'Play Clip' : 'Video'}: ${sharedVideo.title}`,
       body: `
         <p style="margin-bottom: 16px;">A new ${contentType} has been shared with you.</p>
         ${coachNotesHtml}
-        <p>Open the app to watch.</p>
+        ${watchCta}
       `,
       teamName,
     });
 
     const smsBody = formatSmsBody(
       teamName,
-      `New ${contentType} shared: "${sharedVideo.title}". Open the app to watch.`,
+      clipLink
+        ? `New play clip: "${sharedVideo.title}". Watch: ${clipLink}`
+        : `New ${contentType} shared: "${sharedVideo.title}". Open the app to watch.`,
     );
 
     await sendBulkNotification({
