@@ -1,8 +1,9 @@
 {
   "name": "Youth Coach Hub",
   "short_name": "Coach Hub",
-  "description": "Stay connected with your player's team",
+  "description": "Stay connected with your player's team on Youth Coach Hub.",
   "start_url": "/parent",
+  "scope": "/parent",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#000000",
