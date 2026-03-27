@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { useFormContext } from 'react-hook-form';
+import { Camera, Loader2, AlertCircle } from 'lucide-react';
 import { COMMON_ATTRIBUTES } from '@/config/footballConfig';
 import type { Drive } from '@/types/football';
 
@@ -38,6 +39,24 @@ interface SituationFieldsProps {
   getAIConfidenceClass: (fieldName: string) => string;
   teamName?: string;
   opponentName?: string;
+  teamId?: string;
+  gameId?: string;
+  tagStartTime?: number;
+}
+
+// Confidence thresholds per field
+const CONFIDENCE_THRESHOLDS: Record<string, number> = {
+  quarter: 50,
+  clock: 50,
+  homeScore: 70,
+  awayScore: 70,
+  down: 70,
+  distance: 70,
+};
+
+interface AIFieldState {
+  confidence: number;
+  fieldName: string;
 }
 
 // ============================================
@@ -57,8 +76,117 @@ export function SituationFields({
   getAIConfidenceClass,
   teamName,
   opponentName,
+  teamId,
+  gameId,
+  tagStartTime,
 }: SituationFieldsProps) {
   const { register, watch, setValue } = useFormContext();
+
+  // OCR state
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [noCamera, setNoCamera] = useState(false);
+  const [aiFields, setAiFields] = useState<AIFieldState[]>([]);
+  const [partialNote, setPartialNote] = useState<string | null>(null);
+
+  const handleReadScoreboard = useCallback(async () => {
+    if (!teamId || !gameId || tagStartTime == null) return;
+
+    setOcrLoading(true);
+    setOcrError(null);
+    setNoCamera(false);
+    setPartialNote(null);
+    setAiFields([]);
+
+    try {
+      const res = await fetch(`/api/teams/${teamId}/ai-tagging/scoreboard-ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, timestampSeconds: tagStartTime }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error === 'NO_SCOREBOARD_CAMERA') {
+          setNoCamera(true);
+          return;
+        }
+        throw new Error(data.message || 'Scoreboard read failed');
+      }
+
+      if (!data.reading) {
+        throw new Error('No reading returned');
+      }
+
+      const reading = data.reading;
+      const filled: AIFieldState[] = [];
+      let skipped = 0;
+
+      // Apply fields that meet confidence thresholds
+      if (reading.quarter?.confidence >= CONFIDENCE_THRESHOLDS.quarter) {
+        setValue('quarter', reading.quarter.value);
+        filled.push({ confidence: reading.quarter.confidence, fieldName: 'quarter' });
+      } else if (reading.quarter) {
+        skipped++;
+      }
+
+      if (reading.clock?.confidence >= CONFIDENCE_THRESHOLDS.clock) {
+        setValue('clock_start', reading.clock.value);
+        filled.push({ confidence: reading.clock.confidence, fieldName: 'clock_start' });
+      } else if (reading.clock) {
+        skipped++;
+      }
+
+      if (reading.homeScore?.confidence >= CONFIDENCE_THRESHOLDS.homeScore) {
+        setValue('team_score_at_snap', reading.homeScore.value);
+        filled.push({ confidence: reading.homeScore.confidence, fieldName: 'team_score_at_snap' });
+      } else if (reading.homeScore) {
+        skipped++;
+      }
+
+      if (reading.awayScore?.confidence >= CONFIDENCE_THRESHOLDS.awayScore) {
+        setValue('opponent_score_at_snap', reading.awayScore.value);
+        filled.push({ confidence: reading.awayScore.confidence, fieldName: 'opponent_score_at_snap' });
+      } else if (reading.awayScore) {
+        skipped++;
+      }
+
+      if (reading.down?.confidence >= CONFIDENCE_THRESHOLDS.down) {
+        setValue('down', reading.down.value);
+        filled.push({ confidence: reading.down.confidence, fieldName: 'down' });
+      } else if (reading.down) {
+        skipped++;
+      }
+
+      if (reading.distance?.confidence >= CONFIDENCE_THRESHOLDS.distance) {
+        setValue('distance', reading.distance.value);
+        filled.push({ confidence: reading.distance.confidence, fieldName: 'distance' });
+      } else if (reading.distance) {
+        skipped++;
+      }
+
+      if (filled.length > 0) {
+        setValue('score_source', 'ai');
+      }
+
+      setAiFields(filled);
+
+      if (skipped > 0) {
+        setPartialNote(`${skipped} field${skipped > 1 ? 's' : ''} could not be read clearly`);
+      }
+    } catch (err) {
+      setOcrError(err instanceof Error ? err.message : 'Scoreboard read failed');
+    } finally {
+      setOcrLoading(false);
+    }
+  }, [teamId, gameId, tagStartTime, setValue]);
+
+  // Helper: get AI confidence for a specific field
+  const getAIFieldConfidence = (fieldName: string): number | null => {
+    const field = aiFields.find(f => f.fieldName === fieldName);
+    return field ? field.confidence : null;
+  };
 
   return (
     <>
@@ -164,7 +292,14 @@ export function SituationFields({
 
         <div className="grid grid-cols-2 gap-2 mb-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Down</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Down
+              {getAIFieldConfidence('down') != null && (
+                <span className="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded font-medium">
+                  AI {getAIFieldConfidence('down')}%
+                </span>
+              )}
+            </label>
             <select
               {...register('down', {
                 onChange: (e) => {
@@ -191,7 +326,14 @@ export function SituationFields({
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Distance</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Distance
+              {getAIFieldConfidence('distance') != null && (
+                <span className="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded font-medium">
+                  AI {getAIFieldConfidence('distance')}%
+                </span>
+              )}
+            </label>
             <input
               {...register('distance', {
                 onChange: () => {
@@ -245,6 +387,60 @@ export function SituationFields({
           </div>
         )}
 
+        {/* Scoreboard OCR */}
+        {teamId && gameId && (
+          <div className="mt-3 mb-2">
+            <div className="flex items-center gap-2">
+              {noCamera ? (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Camera className="w-3.5 h-3.5 text-gray-400" />
+                  <span>No scoreboard camera designated</span>
+                  <span className="text-gray-300">·</span>
+                  <a
+                    href={`/teams/${teamId}/film`}
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                    title="Go to Film page to set a camera's role to Scoreboard"
+                  >
+                    Designate a camera &rarr;
+                  </a>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleReadScoreboard}
+                  disabled={ocrLoading || tagStartTime == null}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {ocrLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Camera className="w-3 h-3" />
+                  )}
+                  {ocrLoading ? 'Reading...' : 'Read Scoreboard'}
+                </button>
+              )}
+            </div>
+
+            {ocrError && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-red-600">
+                <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                <span>{ocrError}</span>
+                <button
+                  type="button"
+                  onClick={handleReadScoreboard}
+                  className="text-blue-600 hover:text-blue-700 font-medium ml-1"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {partialNote && (
+              <p className="mt-1.5 text-[10px] text-amber-600">{partialNote}</p>
+            )}
+          </div>
+        )}
+
         {/* Score at Snap */}
         <div className="grid grid-cols-2 gap-3 mt-3">
           <div>
@@ -252,6 +448,11 @@ export function SituationFields({
               {teamName || 'Team'} Score
               {watch('score_source') === 'auto' && (
                 <span className="ml-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded font-medium">auto</span>
+              )}
+              {watch('score_source') === 'ai' && getAIFieldConfidence('team_score_at_snap') != null && (
+                <span className="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded font-medium">
+                  AI {getAIFieldConfidence('team_score_at_snap')}%
+                </span>
               )}
               {watch('score_source') === 'manual' && watch('team_score_at_snap') !== '' && (
                 <span className="ml-1 px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] rounded font-medium">manual</span>
@@ -272,6 +473,11 @@ export function SituationFields({
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               {opponentName || 'Opponent'} Score
+              {watch('score_source') === 'ai' && getAIFieldConfidence('opponent_score_at_snap') != null && (
+                <span className="ml-1 px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[10px] rounded font-medium">
+                  AI {getAIFieldConfidence('opponent_score_at_snap')}%
+                </span>
+              )}
             </label>
             <input
               type="number"
