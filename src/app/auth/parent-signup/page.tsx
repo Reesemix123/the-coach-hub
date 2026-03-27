@@ -19,6 +19,8 @@ interface InvitationDetails {
 
 const COPPA_CONSENT_TEXT = `I consent to my child's information being stored and shared within this team's platform, including video content featuring my child.`;
 
+const SMS_CONSENT_TEXT = `I agree to receive text messages from Youth Coach Hub, including game alerts, coaching updates, and team notifications. Message & data rates may apply. Reply STOP at any time to opt out.`;
+
 export default function ParentSignupPage() {
   return (
     <Suspense fallback={<LoadingState />}>
@@ -54,6 +56,7 @@ function ParentSignupContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [notificationPref, setNotificationPref] = useState<'email' | 'sms' | 'both'>('both');
   const [consentChecked, setConsentChecked] = useState(false);
+  const [smsConsentChecked, setSmsConsentChecked] = useState(false);
 
   useEffect(() => {
     async function validateToken() {
@@ -160,6 +163,11 @@ function ParentSignupContent() {
       }
 
       // 2. Create parent profile
+      // If parent selected SMS/both but did not consent to SMS, downgrade to email-only
+      const effectivePref = (notificationPref === 'sms' || notificationPref === 'both') && !smsConsentChecked
+        ? 'email'
+        : notificationPref;
+
       const { data: profile, error: profileError } = await supabase
         .from('parent_profiles')
         .insert({
@@ -168,7 +176,10 @@ function ParentSignupContent() {
           last_name: lastName.trim(),
           email: invitation.parent_email,
           phone: phone.trim() || null,
-          notification_preference: notificationPref,
+          notification_preference: effectivePref,
+          sms_consent: smsConsentChecked,
+          sms_consent_at: smsConsentChecked ? new Date().toISOString() : null,
+          sms_consent_ip: null, // Client-side — IP captured server-side if needed
         })
         .select()
         .single();
@@ -223,6 +234,23 @@ function ParentSignupContent() {
 
       if (consentError) {
         console.error('Consent log error:', consentError);
+      }
+
+      // 5b. Log SMS consent (regardless of checked/unchecked — audit trail)
+      const { error: smsConsentError } = await supabase
+        .from('parent_consent_log')
+        .insert({
+          parent_id: profile.id,
+          team_id: invitation.team_id,
+          consent_type: 'sms_consent',
+          consented: smsConsentChecked,
+          consent_text: SMS_CONSENT_TEXT,
+          ip_address: null,
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        });
+
+      if (smsConsentError) {
+        console.error('SMS consent log error:', smsConsentError);
       }
 
       // 6. Mark invitation as accepted
@@ -450,6 +478,31 @@ function ParentSignupContent() {
                   You must provide consent to create an account.
                 </p>
               )}
+            </div>
+
+            {/* SMS Consent (Optional) */}
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm font-medium text-gray-900">SMS Notifications</span>
+                <span className="text-xs text-gray-400 font-normal">(Optional)</span>
+              </div>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={smsConsentChecked}
+                  onChange={(e) => setSmsConsentChecked(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-gray-900 flex-shrink-0"
+                />
+                <span className="text-sm text-gray-700 leading-relaxed">
+                  {SMS_CONSENT_TEXT}
+                </span>
+              </label>
+              <p className="mt-2 ml-8 text-xs text-gray-500">
+                View our{' '}
+                <a href="/sms-policy" target="_blank" rel="noopener noreferrer" className="text-gray-900 underline hover:text-gray-700">
+                  SMS Policy
+                </a>
+              </p>
             </div>
 
             {/* Submit */}

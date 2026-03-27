@@ -376,6 +376,13 @@ async function sendEmailNotification(
 async function sendSmsNotification(
   input: SendNotificationInput
 ): Promise<NotificationResult> {
+  // TODO: PRE-LAUNCH — Before sending any SMS, verify the recipient's
+  // sms_consent field is true in parent_profiles. Never send SMS to a parent
+  // who has not explicitly opted in. The consent flag is set during the parent
+  // invite acceptance flow (parent-signup page) and stored on parent_profiles.
+  // Callers (sendBulkNotification) should filter out non-consenting parents
+  // before reaching this function, but this is the last line of defense.
+
   try {
     const client = getTwilioClient();
     const fromNumber = getTwilioPhoneNumber();
