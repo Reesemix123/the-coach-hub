@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { BottomTabBar } from '@/components/parent/BottomTabBar';
 import { ParentTopBar } from '@/components/parent/ParentTopBar';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 
 export default async function ParentLayout({
   children,
@@ -60,6 +61,9 @@ export default async function ParentLayout({
 
       {/* iOS-style bottom tab bar */}
       <BottomTabBar teamId={teamId} teams={teams} parentName={parentName} />
+
+      {/* PWA install prompt — parent-only, self-contained client component */}
+      <InstallPrompt />
     </div>
   );
 }
