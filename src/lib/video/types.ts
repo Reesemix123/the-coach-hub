@@ -19,6 +19,7 @@ export interface VideoMetadata {
   url?: string | null;
   camera_label?: string | null;
   camera_order?: number;
+  camera_role?: string | null;
   sync_offset_seconds?: number;
   is_virtual?: boolean;
   game_id?: string;

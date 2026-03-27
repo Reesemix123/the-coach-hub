@@ -275,6 +275,7 @@ export interface Video {
   // Camera identification
   camera_label?: string | null;  // Display name (End Zone, Sideline, Press Box, etc.)
   camera_order?: number;  // Order for display (1 = primary)
+  camera_role?: string | null;  // Semantic role: sideline, end_zone, press_box, scoreboard, other
   sync_offset_seconds?: number;  // Camera sync offset in seconds
 
   // File metadata
