@@ -1,6 +1,10 @@
 // src/config/footballRules.ts
 // Football Rules & Validation System
 // Enforces legal formations, motion, and positioning
+//
+// TODO: MULTI-SPORT — When adding a second sport, create a sport-specific rules
+// file (e.g., basketballRules.ts) and update the sport config router to include it.
+// This file remains football-only.
 
 import { Player } from '@/types/football';
 
