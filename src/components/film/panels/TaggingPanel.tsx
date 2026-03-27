@@ -507,6 +507,9 @@ export const TaggingPanel = memo(function TaggingPanel({
                 getAIConfidenceClass={taggingForm.getAIConfidenceClass}
                 teamName={game.name}
                 opponentName={game.opponent}
+                teamId={teamId}
+                gameId={gameId}
+                tagStartTime={tagStartTime}
               />
 
               {/* Offense fields */}
