@@ -3,6 +3,10 @@
 // Used by: PlayBuilder, Film Analysis, Analytics, Reports
 // ALL FORMATIONS VALIDATED AGAINST footballRules.ts
 // Updated with accurate formations based on Throw Deep Publishing research
+//
+// TODO: MULTI-SPORT — When adding a second sport, components that import directly
+// from this file should be updated to use the sport config router (src/config/sportConfig.ts)
+// instead. The router returns the correct config based on the team's sport field.
 
 import { Player } from '@/types/football';
 

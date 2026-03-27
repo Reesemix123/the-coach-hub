@@ -136,6 +136,8 @@ export interface Team {
   id: string;
   name: string;
   level: string;
+  sport?: string;       // Default: 'football'. Drives which config is loaded.
+  program_id?: string;  // Future FK to programs table for athletic director groupings.
   colors: {
     primary?: string;
     secondary?: string;
