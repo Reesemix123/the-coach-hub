@@ -9,9 +9,18 @@ interface CameraOption {
   name: string;
   label: string;
   order: number;
+  role: string | null;
   syncOffsetSeconds: number;
   url: string;
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  sideline: 'SL',
+  end_zone: 'EZ',
+  press_box: 'PB',
+  scoreboard: 'SB',
+  other: '',
+};
 
 interface TimelineCameraSelectorProps {
   gameId: string;
@@ -82,7 +91,7 @@ export function TimelineCameraSelector({
         // Fetch video details
         const { data: videos, error: videosError } = await supabase
           .from('videos')
-          .select('id, name, url, camera_label, camera_order, sync_offset_seconds')
+          .select('id, name, url, camera_label, camera_order, camera_role, sync_offset_seconds')
           .in('id', videoIds)
           .eq('is_virtual', false);
 
@@ -91,10 +100,11 @@ export function TimelineCameraSelector({
         if (videos && videos.length > 0) {
           // Group by camera_lane - one pill per lane, collect ALL video IDs per lane
           const laneMap = new Map<number, {
-            videoIds: string[];  // All video IDs on this lane
+            videoIds: string[];
             primaryVideoId: string;
             label: string;
             lane: number;
+            role: string | null;
             syncOffsetSeconds: number;
             url: string;
           }>();
@@ -105,12 +115,12 @@ export function TimelineCameraSelector({
 
             if (video && video.url) {
               if (!laneMap.has(lane)) {
-                // First video on this lane
                 laneMap.set(lane, {
                   videoIds: [video.id],
                   primaryVideoId: video.id,
                   label: member.camera_label || video.camera_label || `Camera ${lane}`,
                   lane,
+                  role: (video as Record<string, unknown>).camera_role as string | null ?? null,
                   syncOffsetSeconds: video.sync_offset_seconds || 0,
                   url: video.url,
                 });
@@ -130,6 +140,7 @@ export function TimelineCameraSelector({
             name: item.label,
             label: item.label,
             order: item.lane,
+            role: item.role,
             syncOffsetSeconds: item.syncOffsetSeconds,
             url: item.url,
           }));
@@ -177,6 +188,11 @@ export function TimelineCameraSelector({
             `}
           >
             {camera.label}
+            {camera.role && ROLE_LABELS[camera.role] && (
+              <span className="ml-1 text-[10px] opacity-50">
+                {ROLE_LABELS[camera.role]}
+              </span>
+            )}
             {camera.syncOffsetSeconds !== 0 && (
               <span className="ml-1 text-xs opacity-60">
                 {camera.syncOffsetSeconds >= 0 ? '+' : ''}{camera.syncOffsetSeconds.toFixed(1)}s

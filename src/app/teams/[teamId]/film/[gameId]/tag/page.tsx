@@ -438,6 +438,11 @@ function GameFilmPageInner() {
                               `}
                             >
                               {video.camera_label || video.name}
+                              {(video as Record<string, unknown>).camera_role && (video as Record<string, unknown>).camera_role !== 'sideline' && (
+                                <span className="ml-1 text-[10px] opacity-50">
+                                  {{ end_zone: 'EZ', press_box: 'PB', scoreboard: 'SB', other: '' }[(video as Record<string, unknown>).camera_role as string] ?? ''}
+                                </span>
+                              )}
                             </button>
                           ))}
                         </div>

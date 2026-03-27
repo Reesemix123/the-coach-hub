@@ -9,6 +9,7 @@ interface Camera {
   name: string;
   camera_label: string | null;
   camera_order: number;
+  camera_role?: string | null;
   sync_offset_seconds: number;
   thumbnail_url: string | null;
   upload_status: 'pending' | 'processing' | 'ready' | 'failed';
@@ -16,6 +17,14 @@ interface Camera {
   is_primary_camera?: boolean;
   url?: string;
 }
+
+const CAMERA_ROLES: { value: string; label: string }[] = [
+  { value: 'sideline', label: 'Sideline' },
+  { value: 'end_zone', label: 'End Zone' },
+  { value: 'press_box', label: 'Press Box' },
+  { value: 'scoreboard', label: 'Scoreboard' },
+  { value: 'other', label: 'Other' },
+];
 
 interface CameraRowProps {
   cameras: Camera[];
@@ -25,6 +34,7 @@ interface CameraRowProps {
   onSyncCamera: (cameraId: string, offsetSeconds: number) => void;
   onReorderCameras?: (cameraIds: string[]) => void;
   onRenameCamera?: (cameraId: string, newLabel: string) => void;
+  onChangeCameraRole?: (cameraId: string, role: string) => void;
   cameraLimit: number;
   currentCameraCount: number;
   isUploading?: boolean;
@@ -39,6 +49,7 @@ export function CameraRow({
   onSyncCamera,
   onReorderCameras,
   onRenameCamera,
+  onChangeCameraRole,
   cameraLimit,
   currentCameraCount,
   isUploading = false,
@@ -276,6 +287,22 @@ export function CameraRow({
                     </span>
                   )}
                 </div>
+                {/* Camera role selector — instant save on change */}
+                {onChangeCameraRole && (
+                  <select
+                    value={camera.camera_role || 'sideline'}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onChangeCameraRole(camera.id, e.target.value);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 w-full text-[10px] px-1 py-0.5 border border-gray-200 rounded text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  >
+                    {CAMERA_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           );
