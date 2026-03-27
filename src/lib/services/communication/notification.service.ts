@@ -6,7 +6,7 @@
 
 import twilio from 'twilio';
 import { sendEmail } from '@/lib/email';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import type {
   NotificationChannel,
   NotificationType,
@@ -230,6 +230,8 @@ export async function sendNotification(
     if (!input.recipientPhone) {
       results.push({ channel: 'sms', success: false, error: 'No phone number provided' });
     } else {
+      // SMS consent guard is handled inside sendSmsNotification() —
+      // callers do not need to check consent separately.
       const smsResult = await sendSmsNotification(input);
       results.push(smsResult);
     }
@@ -376,12 +378,42 @@ async function sendEmailNotification(
 async function sendSmsNotification(
   input: SendNotificationInput
 ): Promise<NotificationResult> {
-  // TODO: PRE-LAUNCH — Before sending any SMS, verify the recipient's
-  // sms_consent field is true in parent_profiles. Never send SMS to a parent
-  // who has not explicitly opted in. The consent flag is set during the parent
-  // invite acceptance flow (parent-signup page) and stored on parent_profiles.
-  // Callers (sendBulkNotification) should filter out non-consenting parents
-  // before reaching this function, but this is the last line of defense.
+  // SMS consent guard: checks parent_profiles.sms_consent before sending.
+  // Parents who did not opt in during signup are silently skipped.
+  // Consent is recorded via the parent signup flow (src/app/auth/parent-signup/page.tsx).
+  // recipientId maps to parent_profiles.id — confirmed across all callers.
+  if (input.recipientType === 'parent') {
+    try {
+      const db = createServiceClient();
+      const { data: profile } = await db
+        .from('parent_profiles')
+        .select('sms_consent')
+        .eq('id', input.recipientId)
+        .maybeSingle();
+
+      if (!profile || profile.sms_consent !== true) {
+        console.log(
+          `[SMS SUPPRESSED] No consent on record for recipient ${input.recipientId} — message not sent`,
+        );
+        return {
+          channel: 'sms',
+          success: false,
+          error: 'No SMS consent on record',
+        };
+      }
+    } catch (guardErr) {
+      // If the consent check itself fails, err on the side of NOT sending
+      console.error(
+        `[SMS SUPPRESSED] Consent check failed for recipient ${input.recipientId} — message not sent:`,
+        guardErr,
+      );
+      return {
+        channel: 'sms',
+        success: false,
+        error: 'SMS consent check failed',
+      };
+    }
+  }
 
   try {
     const client = getTwilioClient();
