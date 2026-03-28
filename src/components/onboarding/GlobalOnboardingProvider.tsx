@@ -61,7 +61,7 @@ export default function GlobalOnboardingProvider({ children }: GlobalOnboardingP
   const [showChecklist, setShowChecklist] = useState(false);
   const [isDemoTour, setIsDemoTour] = useState(false);
 
-  // Extract teamId from URL path (e.g., /teams/[teamId]/...)
+  // Extract teamId from URL path (e.g., /football/teams/[teamId]/...)
   const teamId = extractTeamId(pathname);
 
   const fetchState = useCallback(async () => {
@@ -211,7 +211,7 @@ export default function GlobalOnboardingProvider({ children }: GlobalOnboardingP
 
 // Helper to extract teamId from URL path
 function extractTeamId(pathname: string): string | null {
-  // Match /teams/[uuid]/... pattern
-  const match = pathname.match(/\/teams\/([a-f0-9-]+)/i);
+  // Match /football/teams/[uuid]/... pattern
+  const match = pathname.match(/\/football\/teams\/([a-f0-9-]+)/i);
   return match ? match[1] : null;
 }

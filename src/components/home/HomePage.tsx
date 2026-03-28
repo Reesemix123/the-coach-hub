@@ -199,7 +199,7 @@ function HomeContent() {
       }
 
       if (allTeams.length === 1) {
-        router.push(`/teams/${allTeams[0].id}`);
+        router.push(`/football/teams/${allTeams[0].id}`);
         return;
       }
 
@@ -246,7 +246,7 @@ function HomeContent() {
             {userTeams.map((team) => (
               <button
                 key={team.id}
-                onClick={() => router.push(`/teams/${team.id}`)}
+                onClick={() => router.push(`/football/teams/${team.id}`)}
                 className="w-full p-5 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-md transition-all text-left group"
               >
                 <div className="flex items-center justify-between">

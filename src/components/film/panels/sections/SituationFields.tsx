@@ -397,7 +397,7 @@ export function SituationFields({
                   <span>No scoreboard camera designated</span>
                   <span className="text-gray-300">·</span>
                   <a
-                    href={`/teams/${teamId}/film`}
+                    href={`/football/teams/${teamId}/film`}
                     className="text-blue-600 hover:text-blue-700 font-medium"
                     title="Go to Film page to set a camera's role to Scoreboard"
                   >

@@ -330,7 +330,7 @@ export function getLimitReachedResponse(
       action: 'purchase_addon',
       message: `${limitLabel.charAt(0).toUpperCase() + limitLabel.slice(1)} limit reached`,
       buttonText: 'Add More',
-      buttonUrl: `/teams/${teamId}/settings/addons`
+      buttonUrl: `/football/teams/${teamId}/settings/addons`
     };
   } else {
     return {

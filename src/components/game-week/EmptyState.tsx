@@ -21,21 +21,21 @@ export default function EmptyState({ type, teamId }: EmptyStateProps) {
       title: 'Off-Season',
       description: 'Schedule your first game to start using Game Week Command Center.',
       actionLabel: 'Add Game',
-      actionHref: `/teams/${teamId}/schedule`
+      actionHref: `/football/teams/${teamId}/schedule`
     },
     bye_week: {
       icon: Calendar,
       title: 'Bye Week',
       description: 'No game this week. Great time to catch up on film and playbook work.',
       actionLabel: 'Review Playbook',
-      actionHref: `/teams/${teamId}/playbook`
+      actionHref: `/football/teams/${teamId}/playbook`
     },
     no_games: {
       icon: AlertCircle,
       title: 'No Games Scheduled',
       description: 'Add games to your schedule to use Game Week features.',
       actionLabel: 'Add Game',
-      actionHref: `/teams/${teamId}/schedule`
+      actionHref: `/football/teams/${teamId}/schedule`
     }
   };
 

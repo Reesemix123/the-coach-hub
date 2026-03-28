@@ -35,6 +35,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Vimeo OAuth initiation error:', error);
-    return NextResponse.redirect(new URL('/teams?error=vimeo_auth_failed', request.url));
+    return NextResponse.redirect(new URL('/football/teams?error=vimeo_auth_failed', request.url));
   }
 }

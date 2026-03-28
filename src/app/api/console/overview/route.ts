@@ -283,7 +283,7 @@ export async function GET() {
           type: 'low_tokens',
           message: `${team?.name || 'A team'} has ${total} film upload${total === 1 ? '' : 's'} remaining`,
           team_id: tb.team_id,
-          action_url: `/teams/${tb.team_id}/settings/addons`
+          action_url: `/football/teams/${tb.team_id}/settings/addons`
         });
       }
     });

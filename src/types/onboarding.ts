@@ -129,24 +129,24 @@ export const CHECKLIST_ITEMS: ChecklistItem[] = [
     id: 'hasPlayers',
     label: 'Add your first player',
     description: 'Build your team roster',
-    href: (teamId) => `/teams/${teamId}/players`,
+    href: (teamId) => `/football/teams/${teamId}/players`,
   },
   {
     id: 'hasGames',
     label: 'Schedule a game',
     description: 'Add your upcoming games',
-    href: (teamId) => `/teams/${teamId}/schedule`,
+    href: (teamId) => `/football/teams/${teamId}/schedule`,
   },
   {
     id: 'hasPlays',
     label: 'Create your first play',
     description: 'Start building your playbook',
-    href: (teamId) => `/teams/${teamId}/playbook`,
+    href: (teamId) => `/football/teams/${teamId}/playbook`,
   },
   {
     id: 'hasVideos',
     label: 'Upload game film',
     description: 'Add video for analysis',
-    href: (teamId) => `/teams/${teamId}/film`,
+    href: (teamId) => `/football/teams/${teamId}/film`,
   },
 ];

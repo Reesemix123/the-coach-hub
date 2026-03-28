@@ -183,7 +183,7 @@ function SetupForm() {
       }
 
       // Redirect to team dashboard
-      router.push(`/teams/${newTeamId}`);
+      router.push(`/football/teams/${newTeamId}`);
       return;
     }
 
@@ -238,7 +238,7 @@ function SetupForm() {
       }
     } else if (selectedTier === 'basic') {
       // Basic tier - redirect to team dashboard
-      router.push(`/teams/${newTeamId}`);
+      router.push(`/football/teams/${newTeamId}`);
     } else {
       // No tier selected - just refresh and show team list
       setMessage('');
@@ -548,7 +548,7 @@ function SetupForm() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Link
-                          href={`/teams/${team.id}`}
+                          href={`/football/teams/${team.id}`}
                           className="px-4 py-2 text-sm bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
                         >
                           View Details

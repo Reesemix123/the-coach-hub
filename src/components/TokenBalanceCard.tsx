@@ -152,7 +152,7 @@ export default function TokenBalanceCard({
               </span>
             )}
             <Link
-              href={`/teams/${teamId}/settings/addons`}
+              href={`/football/teams/${teamId}/settings/addons`}
               className="text-gray-600 hover:text-gray-900 flex items-center gap-1 font-medium"
             >
               Get more
@@ -247,7 +247,7 @@ export default function TokenBalanceCard({
 
       {/* Action button */}
       <Link
-        href={`/teams/${teamId}/settings/addons`}
+        href={`/football/teams/${teamId}/settings/addons`}
         className="block w-full text-center px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
       >
         Purchase additional tokens

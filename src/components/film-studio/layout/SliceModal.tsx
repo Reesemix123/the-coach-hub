@@ -42,7 +42,7 @@ export function SliceModal({
   };
 
   // Build URL for full tag page with timestamps
-  const tagPageUrl = `/teams/${teamId}/film/${gameId}/tag?start=${Math.round(startTimeMs / 1000)}&end=${Math.round(endTimeMs / 1000)}`;
+  const tagPageUrl = `/football/teams/${teamId}/film/${gameId}/tag?start=${Math.round(startTimeMs / 1000)}&end=${Math.round(endTimeMs / 1000)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

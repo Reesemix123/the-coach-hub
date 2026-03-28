@@ -35,7 +35,7 @@ export default function TeamSwitcher() {
 
   // Update current team when pathname changes (no refetch needed)
   useEffect(() => {
-    const match = pathname.match(/\/teams\/([^\/]+)/);
+    const match = pathname.match(/\/football\/teams\/([^\/]+)/);
     if (match) {
       setCurrentTeam(match[1]);
     }
@@ -121,7 +121,7 @@ export default function TeamSwitcher() {
               <button
                 key={team.id}
                 onClick={() => {
-                  router.push(`/teams/${team.id}`);
+                  router.push(`/football/teams/${team.id}`);
                   setIsOpen(false);
                 }}
                 className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
@@ -146,7 +146,7 @@ export default function TeamSwitcher() {
           <div className="border-t border-gray-100 mt-2">
             <button
               onClick={() => {
-                router.push('/teams');
+                router.push('/football/teams');
                 setIsOpen(false);
               }}
               className="w-full px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition-colors"

@@ -89,7 +89,7 @@ export const FEATURE_DEMOS: FeatureDemo[] = [
     cta: {
       label: 'Start tagging film',
       href: '/auth/signup',
-      authHref: '/teams', // Authenticated users go to team selection, then can navigate to film
+      authHref: '/football/teams', // Authenticated users go to team selection, then can navigate to film
     },
     media: {
       video: '/demos/ai-film-tagging.mp4',
@@ -112,7 +112,7 @@ export const FEATURE_DEMOS: FeatureDemo[] = [
     cta: {
       label: 'Build a game plan',
       href: '/auth/signup',
-      authHref: '/teams', // Authenticated users go to team selection
+      authHref: '/football/teams', // Authenticated users go to team selection
     },
     media: {
       video: '/demos/game-day-prep.mp4',

@@ -176,8 +176,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           quantity: quantity.toString(),
           purchase_type: 'token'
         },
-        success_url: `${appUrl}/teams/${teamId}/settings?tab=usage&purchase=success&tokens=${quantity}`,
-        cancel_url: `${appUrl}/teams/${teamId}/settings?tab=usage&purchase=canceled`
+        success_url: `${appUrl}/football/teams/${teamId}/settings?tab=usage&purchase=success&tokens=${quantity}`,
+        cancel_url: `${appUrl}/football/teams/${teamId}/settings?tab=usage&purchase=canceled`
       });
 
       // Log audit event

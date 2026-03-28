@@ -403,11 +403,11 @@ async function getFilmStationData(
     ],
     primaryAction: {
       label: yourTotal === 0 ? 'Upload Your Film' : 'Review Your Film',
-      href: `/teams/${teamId}/film`
+      href: `/football/teams/${teamId}/film`
     },
     secondaryActions: [
-      { label: 'Scout Opponent', href: `/teams/${teamId}/film?filter=opponent` },
-      { label: 'View Analytics', href: `/teams/${teamId}/analytics-reporting` }
+      { label: 'Scout Opponent', href: `/football/teams/${teamId}/film?filter=opponent` },
+      { label: 'View Analytics', href: `/football/teams/${teamId}/analytics-reporting` }
     ]
   };
 }
@@ -450,11 +450,11 @@ async function getGamePlanStationData(
     ],
     primaryAction: {
       label: exists && playsCount > 0 ? 'Edit Game Plan' : 'Build Game Plan',
-      href: `/teams/${teamId}/game-week/game-plan/${gameId}`
+      href: `/football/teams/${teamId}/game-week/game-plan/${gameId}`
     },
     secondaryActions: [
-      { label: 'View Playbook', href: `/teams/${teamId}/playbook` },
-      { label: 'Print Wristband', href: gamePlan ? `/teams/${teamId}/playbook/print-wristband/${gamePlan.id}` : `/teams/${teamId}/playbook` }
+      { label: 'View Playbook', href: `/football/teams/${teamId}/playbook` },
+      { label: 'Print Wristband', href: gamePlan ? `/football/teams/${teamId}/playbook/print-wristband/${gamePlan.id}` : `/football/teams/${teamId}/playbook` }
     ]
   };
 }
@@ -500,11 +500,11 @@ async function getPlaybookStationData(
     ],
     primaryAction: {
       label: 'View Playbook',
-      href: `/teams/${teamId}/playbook`
+      href: `/football/teams/${teamId}/playbook`
     },
     secondaryActions: [
-      { label: 'Add New Play', href: `/teams/${teamId}/playbook?mode=create` },
-      { label: 'View Analytics', href: `/teams/${teamId}/analytics` }
+      { label: 'Add New Play', href: `/football/teams/${teamId}/playbook?mode=create` },
+      { label: 'View Analytics', href: `/football/teams/${teamId}/analytics` }
     ]
   };
 }
@@ -527,7 +527,7 @@ async function getPracticeStationData(
       name: 'Practice',
       status: 'gray',
       metrics: [],
-      primaryAction: { label: 'Plan Practice', href: `/teams/${teamId}/practice` },
+      primaryAction: { label: 'Plan Practice', href: `/football/teams/${teamId}/practice` },
       secondaryActions: []
     };
   }
@@ -579,11 +579,11 @@ async function getPracticeStationData(
     ],
     primaryAction: {
       label: scheduledCount > 0 ? 'Edit Practice Plan' : 'Plan Practice',
-      href: `/teams/${teamId}/practice`
+      href: `/football/teams/${teamId}/practice`
     },
     secondaryActions: [
-      { label: 'View Playbook', href: `/teams/${teamId}/playbook` },
-      { label: 'View Schedule', href: `/teams/${teamId}/schedule` }
+      { label: 'View Playbook', href: `/football/teams/${teamId}/playbook` },
+      { label: 'View Schedule', href: `/football/teams/${teamId}/schedule` }
     ]
   };
 }
@@ -624,11 +624,11 @@ async function getPersonnelStationData(
     ],
     primaryAction: {
       label: 'Manage Roster',
-      href: `/teams/${teamId}/players`
+      href: `/football/teams/${teamId}/players`
     },
     secondaryActions: [
-      { label: 'Update Depth Chart', href: `/teams/${teamId}/players` },
-      { label: 'Update Injuries', href: `/teams/${teamId}/players` }
+      { label: 'Update Depth Chart', href: `/football/teams/${teamId}/players` },
+      { label: 'Update Injuries', href: `/football/teams/${teamId}/players` }
     ]
   };
 }
@@ -724,11 +724,11 @@ async function getGamePrepHubData(
     ],
     primaryAction: {
       label: prepPlan ? 'Review Prep Hub' : 'Start Prep Plan',
-      href: `/teams/${teamId}/game-prep-hub?game=${gameId}`
+      href: `/football/teams/${teamId}/game-prep-hub?game=${gameId}`
     },
     secondaryActions: [
-      { label: 'View Analytics', href: `/teams/${teamId}/analytics-reporting` },
-      { label: 'View Film', href: `/teams/${teamId}/film` }
+      { label: 'View Analytics', href: `/football/teams/${teamId}/analytics-reporting` },
+      { label: 'View Film', href: `/football/teams/${teamId}/film` }
     ],
     badge: criticalInsightsCount > 0 ? criticalInsightsCount : undefined
   };

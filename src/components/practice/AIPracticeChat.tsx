@@ -599,7 +599,7 @@ export function AIPracticeChat({
         if (onPlanCreated) {
           onPlanCreated(data.id);
         } else {
-          router.push(`/teams/${teamId}/practice/${data.id}/edit`);
+          router.push(`/football/teams/${teamId}/practice/${data.id}/edit`);
         }
       }, 500);
     } catch (err) {

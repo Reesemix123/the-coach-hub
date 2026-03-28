@@ -284,7 +284,7 @@ export async function GET(request: Request) {
 
       // If invite was processed, redirect to team page instead of next URL
       if (inviteRedirectTeamId) {
-        return NextResponse.redirect(`${origin}/teams/${inviteRedirectTeamId}?welcome=invited`)
+        return NextResponse.redirect(`${origin}/football/teams/${inviteRedirectTeamId}?welcome=invited`)
       }
 
       return NextResponse.redirect(`${origin}${next}`)
@@ -292,7 +292,7 @@ export async function GET(request: Request) {
 
     // If invite was processed, redirect to team page
     if (inviteRedirectTeamId) {
-      return NextResponse.redirect(`${origin}/teams/${inviteRedirectTeamId}?welcome=invited`)
+      return NextResponse.redirect(`${origin}/football/teams/${inviteRedirectTeamId}?welcome=invited`)
     }
 
     // Check if user is a parent — route to parent dashboard

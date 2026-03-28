@@ -249,7 +249,7 @@ export default function GamePlanBuilder({
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push(`/teams/${teamId}/game-week?game=${gameId}`)}
+            onClick={() => router.push(`/football/teams/${teamId}/game-week?game=${gameId}`)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />

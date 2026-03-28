@@ -129,7 +129,7 @@ function SuccessContent() {
         {/* CTA Button */}
         {teamId ? (
           <Link
-            href={`/teams/${teamId}`}
+            href={`/football/teams/${teamId}`}
             className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
           >
             Go to Team Dashboard

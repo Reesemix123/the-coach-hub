@@ -535,7 +535,7 @@ function FilmStudioContent({ gameName, opponent, gameDate }: FilmStudioContentPr
           )}
         </div>
         <Link
-          href={`/teams/${teamId}/film/${gameId}/tag`}
+          href={`/football/teams/${teamId}/film/${gameId}/tag`}
           className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
         >
           <Tag size={16} />
