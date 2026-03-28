@@ -33,3 +33,17 @@ ALTER TABLE teams
 ADD COLUMN IF NOT EXISTS program_id UUID NULL;
 
 COMMENT ON COLUMN teams.program_id IS 'Future FK to a programs table for athletic director subscriptions. Nullable — programs are optional. No FK constraint until the programs table is created.';
+
+
+
+
+-- Confirm columns exist
+SELECT column_name, data_type, column_default 
+FROM information_schema.columns 
+WHERE table_name = 'teams' 
+AND column_name IN ('sport', 'program_id');
+
+-- Confirm existing teams defaulted to football
+SELECT sport, COUNT(*) 
+FROM teams 
+GROUP BY sport;

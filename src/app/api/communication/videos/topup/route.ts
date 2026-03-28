@@ -140,8 +140,8 @@ export async function POST(request: NextRequest) {
         purchase_type: 'video_topup',
         user_id: user.id,
       },
-      success_url: `${appUrl}/teams/${teamId}/communication/videos?topup=success`,
-      cancel_url: `${appUrl}/teams/${teamId}/communication/videos?topup=canceled`,
+      success_url: `${appUrl}/football/teams/${teamId}/communication/videos?topup=success`,
+      cancel_url: `${appUrl}/football/teams/${teamId}/communication/videos?topup=canceled`,
     });
 
     return NextResponse.json({ url: session.url, session_id: session.id });

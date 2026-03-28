@@ -42,16 +42,16 @@ export default function TeamNavigation({
     : '0';
 
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', path: `/teams/${teamId}` },
-    { id: 'schedule', label: 'Schedule', path: `/teams/${teamId}/schedule` },
-    { id: 'players', label: 'Players', path: `/teams/${teamId}/players` },
-    { id: 'playbook', label: 'Playbook', path: `/teams/${teamId}/playbook` },
-    { id: 'practice', label: 'Practice', path: `/teams/${teamId}/practice` },
-    { id: 'film', label: 'Film', path: `/teams/${teamId}/film` },
-    { id: 'analytics-reporting', label: 'Analytics & Reports', path: `/teams/${teamId}/analytics-reporting` },
-    { id: 'game-week', label: 'Game Week', path: `/teams/${teamId}/game-week` },
-    { id: 'communication', label: 'Communication', path: `/teams/${teamId}/communication/announcements` },
-    { id: 'settings', label: 'Settings', path: `/teams/${teamId}/settings` }
+    { id: 'dashboard', label: 'Dashboard', path: `/football/teams/${teamId}` },
+    { id: 'schedule', label: 'Schedule', path: `/football/teams/${teamId}/schedule` },
+    { id: 'players', label: 'Players', path: `/football/teams/${teamId}/players` },
+    { id: 'playbook', label: 'Playbook', path: `/football/teams/${teamId}/playbook` },
+    { id: 'practice', label: 'Practice', path: `/football/teams/${teamId}/practice` },
+    { id: 'film', label: 'Film', path: `/football/teams/${teamId}/film` },
+    { id: 'analytics-reporting', label: 'Analytics & Reports', path: `/football/teams/${teamId}/analytics-reporting` },
+    { id: 'game-week', label: 'Game Week', path: `/football/teams/${teamId}/game-week` },
+    { id: 'communication', label: 'Communication', path: `/football/teams/${teamId}/communication/announcements` },
+    { id: 'settings', label: 'Settings', path: `/football/teams/${teamId}/settings` }
   ];
 
   return (

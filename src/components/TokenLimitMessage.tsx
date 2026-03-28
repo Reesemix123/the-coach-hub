@@ -62,7 +62,7 @@ export function TokenLimitMessage({
           <div className="space-y-3">
             {/* Purchase option */}
             <Link
-              href={`/teams/${teamId}/settings/addons`}
+              href={`/football/teams/${teamId}/settings/addons`}
               className="flex items-center gap-3 p-3 bg-white rounded-lg border border-amber-200 hover:border-amber-400 transition-colors"
             >
               <ShoppingCart className="w-5 h-5 text-gray-600" />
@@ -152,7 +152,7 @@ export function TokenLimitBanner({
           )}
         </div>
         <Link
-          href={`/teams/${teamId}/settings/addons`}
+          href={`/football/teams/${teamId}/settings/addons`}
           className="text-sm font-medium text-amber-700 hover:text-amber-900 flex items-center gap-1"
         >
           Get more

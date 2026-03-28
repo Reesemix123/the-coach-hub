@@ -722,17 +722,17 @@ export async function refreshPrepPlanTasks(
 function getLinkHref(station: LinkedStation, teamId: string, gameId: string): string {
   switch (station) {
     case 'film_review':
-      return `/teams/${teamId}/film`;
+      return `/football/teams/${teamId}/film`;
     case 'game_plan':
-      return `/teams/${teamId}/game-week/game-plan/${gameId}`;
+      return `/football/teams/${teamId}/game-week/game-plan/${gameId}`;
     case 'practice':
-      return `/teams/${teamId}/practice`;
+      return `/football/teams/${teamId}/practice`;
     case 'personnel':
-      return `/teams/${teamId}/players`;
+      return `/football/teams/${teamId}/players`;
     case 'playbook':
-      return `/teams/${teamId}/playbook`;
+      return `/football/teams/${teamId}/playbook`;
     default:
-      return `/teams/${teamId}`;
+      return `/football/teams/${teamId}`;
   }
 }
 

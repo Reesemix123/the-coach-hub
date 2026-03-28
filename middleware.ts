@@ -105,12 +105,12 @@ export async function middleware(request: NextRequest) {
 
     if (primaryTeamId) {
       const redirectUrl = url.clone()
-      redirectUrl.pathname = `/teams/${primaryTeamId}`
+      redirectUrl.pathname = '/dashboard'
       return NextResponse.redirect(redirectUrl)
     } else {
       // No teams → redirect to team creation
       const redirectUrl = url.clone()
-      redirectUrl.pathname = '/teams/new'
+      redirectUrl.pathname = '/setup'
       return NextResponse.redirect(redirectUrl)
     }
   }
@@ -123,9 +123,9 @@ export async function middleware(request: NextRequest) {
       const redirectUrl = url.clone()
       // Map old routes to new team-scoped routes
       if (url.pathname === '/film') {
-        redirectUrl.pathname = `/teams/${primaryTeamId}/film`
+        redirectUrl.pathname = `/football/teams/${primaryTeamId}/film`
       } else if (url.pathname === '/playbook') {
-        redirectUrl.pathname = `/teams/${primaryTeamId}/playbook`
+        redirectUrl.pathname = `/football/teams/${primaryTeamId}/playbook`
       }
       return NextResponse.redirect(redirectUrl)
     }

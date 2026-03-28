@@ -111,7 +111,7 @@ export function LockedFeatureCard({ feature, requiredTier, teamId }: LockedFeatu
               Requires <span className="font-medium text-gray-700">{tierName}</span> or higher
             </span>
             <button
-              onClick={() => router.push(`/teams/${teamId}/settings`)}
+              onClick={() => router.push(`/football/teams/${teamId}/settings`)}
               className="px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
             >
               Upgrade
@@ -175,7 +175,7 @@ export function UpgradeBanner({ teamId, message }: UpgradeBannerProps) {
         </span>
       </div>
       <button
-        onClick={() => router.push(`/teams/${teamId}/settings`)}
+        onClick={() => router.push(`/football/teams/${teamId}/settings`)}
         className={`px-4 py-2 text-sm rounded-lg transition-colors ${
           showPaymentWarning
             ? 'bg-yellow-600 text-white hover:bg-yellow-700'
@@ -197,7 +197,7 @@ export function useRequireFeature(teamId: string, feature: Feature, redirectOnLo
 
   React.useEffect(() => {
     if (redirectOnLocked && !featureAccess.loading && !featureAccess.hasAccess) {
-      router.push(`/teams/${teamId}/settings`);
+      router.push(`/football/teams/${teamId}/settings`);
     }
   }, [featureAccess.loading, featureAccess.hasAccess, redirectOnLocked, teamId, router]);
 

@@ -171,8 +171,8 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         max_parents: (PLAN_MAX_PARENTS[planTier as PlanTier] ?? 'unlimited').toString(),
       },
-      success_url: `${appUrl}/teams/${teamId}/communication/plan?purchase=success`,
-      cancel_url: `${appUrl}/teams/${teamId}/communication/plan?purchase=canceled`,
+      success_url: `${appUrl}/football/teams/${teamId}/communication/plan?purchase=success`,
+      cancel_url: `${appUrl}/football/teams/${teamId}/communication/plan?purchase=canceled`,
     });
 
     // Log audit event

@@ -670,7 +670,7 @@ export default function PlayBuilder({ teamId, teamName, existingPlay, onSave }: 
         return;
       }
     }
-    router.push(`/teams/${teamId}/playbook`);
+    router.push(`/football/teams/${teamId}/playbook`);
   }, [hasUnsavedChanges, router, teamId]);
 
   // Duplicate play handler - creates a copy of the current play

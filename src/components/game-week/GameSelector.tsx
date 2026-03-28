@@ -45,7 +45,7 @@ export default function GameSelector({
     params.set('game', gameId);
     params.set('time', timeFilter);
     startTransition(() => {
-      router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+      router.push(`/football/teams/${teamId}/game-week?${params.toString()}`);
     });
   };
 
@@ -64,7 +64,7 @@ export default function GameSelector({
     }
 
     startTransition(() => {
-      router.push(`/teams/${teamId}/game-week?${params.toString()}`);
+      router.push(`/football/teams/${teamId}/game-week?${params.toString()}`);
     });
   };
 
