@@ -314,7 +314,32 @@ export async function GET(request: Request) {
       // Paid tier - redirect to checkout
       return NextResponse.redirect(`${origin}/checkout?tier=${selectedTier}`)
     } else {
-      // Free tier (basic) or no tier - go to setup to create team
+      // Free tier (basic) or no tier — check if user already has teams
+      if (user?.id) {
+        const serviceClient = createServiceClient();
+        const { data: existingTeams } = await serviceClient
+          .from('teams')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        const { data: existingMemberships } = await serviceClient
+          .from('team_memberships')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .limit(1);
+
+        const hasTeam =
+          (existingTeams && existingTeams.length > 0) ||
+          (existingMemberships && existingMemberships.length > 0);
+
+        if (hasTeam) {
+          return NextResponse.redirect(`${origin}/dashboard`);
+        }
+      }
+
+      // No teams yet — go to setup to create first team
       return NextResponse.redirect(`${origin}/setup`)
     }
   }
