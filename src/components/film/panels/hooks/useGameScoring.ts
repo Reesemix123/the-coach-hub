@@ -125,6 +125,8 @@ export function useGameScoring({
     setFilmAnalysisStatus(newStatus);
     if (newStatus === 'complete') {
       dataFetchingRef.current?.loadQuarterScoresAndMismatch();
+      // Fire and forget — do not await
+      fetch(`/api/film/${gameId}/auto-clips`, { method: 'POST' }).catch(console.error);
     }
     setShowTaggingCompleteModal(false);
   }

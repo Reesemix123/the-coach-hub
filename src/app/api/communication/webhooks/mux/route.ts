@@ -119,6 +119,16 @@ export async function POST(request: NextRequest) {
             console.error('[Mux Webhook] Failed to link upload→asset on play_instances:', piError);
           }
 
+          // Update player_clips (player profile clips)
+          const { error: pcError } = await supabase
+            .from('player_clips')
+            .update({ mux_asset_id: assetId })
+            .eq('mux_upload_id', uploadId);
+
+          if (pcError) {
+            console.error('[Mux Webhook] Failed to link upload→asset on player_clips:', pcError);
+          }
+
           console.log(`[Mux Webhook] Linked upload ${uploadId} → asset ${assetId}`);
         }
         break;
@@ -217,6 +227,26 @@ export async function POST(request: NextRequest) {
           console.log(`[Mux Webhook] play_instances ${clipPlay.id} clip → ready (fallback path)`);
         }
 
+        // --- Update player_clips (player profile clips) ---
+        const { data: playerClips } = await supabase
+          .from('player_clips')
+          .select('id')
+          .eq('mux_asset_id', assetId)
+          .eq('mux_clip_status', 'pending');
+
+        if (playerClips && playerClips.length > 0) {
+          await supabase
+            .from('player_clips')
+            .update({
+              mux_playback_id: signedPlaybackId || '',
+              mux_clip_status: 'ready',
+              mux_clip_error: null,
+            })
+            .eq('mux_asset_id', assetId);
+
+          console.log(`[Mux Webhook] player_clips → ready for asset ${assetId} (${playerClips.length} rows)`);
+        }
+
         break;
       }
 
@@ -246,6 +276,15 @@ export async function POST(request: NextRequest) {
             mux_clip_error: errorText,
           })
           .eq('mux_clip_asset_id', assetId);
+
+        // Update player_clips status
+        await supabase
+          .from('player_clips')
+          .update({
+            mux_clip_status: 'errored',
+            mux_clip_error: errorText,
+          })
+          .eq('mux_asset_id', assetId);
 
         console.error(`[Mux Webhook] Asset ${assetId} errored: ${errorText}`);
 

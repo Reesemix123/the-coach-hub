@@ -21,7 +21,6 @@
  */
 
 import { spawn } from 'child_process';
-import path from 'path';
 import Mux from '@mux/mux-node';
 import { createServiceClient } from '@/utils/supabase/server';
 
@@ -61,10 +60,152 @@ function getMuxClient(): Mux {
 // Types
 // ---------------------------------------------------------------------------
 
-interface ExtractResult {
+export interface ExtractResult {
   assetId: string;
   clipDurationSeconds: number;
   clipSizeBytes: number;
+}
+
+/**
+ * Internal result type returned by `_extractAndUploadToMux`.
+ * Callers are responsible for persisting these values to the appropriate table.
+ */
+interface _ExtractUploadResult {
+  /** The Mux upload ID (maps to asset later via webhook). */
+  uploadId: string;
+  /** Same as uploadId initially — webhook maps to real asset. */
+  assetId: string;
+  clipDurationSeconds: number;
+  clipSizeBytes: number;
+}
+
+// ---------------------------------------------------------------------------
+// Private core: FFmpeg extraction + Mux upload
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the video record, generates a signed Storage URL, runs FFmpeg to
+ * extract the clip, checks the output buffer size, and uploads the result to
+ * Mux with a signed playback policy.
+ *
+ * This function does NOT read or write any database tables other than the
+ * `videos` table (read-only). All status tracking is the caller's responsibility.
+ *
+ * @param playInstanceId  - Used only for log messages
+ * @param videoId         - The `video_id` from the play/clip record
+ * @param timestampStart  - Clip start position in seconds (relative to video file)
+ * @param timestampEnd    - Clip end position in seconds, or null (defaults to start + 15s)
+ * @returns Upload ID, asset ID, clip duration, and clip size
+ */
+async function _extractAndUploadToMux(
+  playInstanceId: string,
+  videoId: string,
+  timestampStart: number,
+  timestampEnd: number | null,
+): Promise<_ExtractUploadResult> {
+  const supabase = createServiceClient();
+
+  // -------------------------------------------------------------------------
+  // 1. Fetch the camera file (video record)
+  // -------------------------------------------------------------------------
+
+  const { data: video, error: videoError } = await supabase
+    .from('videos')
+    .select('id, file_path, game_id')
+    .eq('id', videoId)
+    .single();
+
+  if (videoError || !video) {
+    throw new Error(`Video record not found for video_id: ${videoId}`);
+  }
+
+  if (!video.file_path) {
+    throw new Error(`Video ${video.id} has no file_path in Supabase Storage`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 2. Generate signed Supabase Storage URL
+  // -------------------------------------------------------------------------
+
+  const { data: signedUrlData, error: urlError } = await supabase
+    .storage
+    .from('game_videos')
+    .createSignedUrl(video.file_path, STORAGE_URL_EXPIRY_SECONDS);
+
+  if (urlError || !signedUrlData?.signedUrl) {
+    throw new Error(
+      `Failed to generate signed URL for ${video.file_path}: ${urlError?.message ?? 'unknown'}`,
+    );
+  }
+
+  const sourceUrl = signedUrlData.signedUrl;
+
+  // -------------------------------------------------------------------------
+  // 3. Compute clip bounds
+  // -------------------------------------------------------------------------
+
+  const startSec = timestampStart;
+  const endSec = timestampEnd ?? startSec + 15;
+  const clipDuration = endSec - startSec;
+
+  // -------------------------------------------------------------------------
+  // 4. Run FFmpeg extraction
+  // -------------------------------------------------------------------------
+
+  const clipBuffer = await runFFmpegExtraction(sourceUrl, startSec, endSec);
+  const clipSizeBytes = clipBuffer.length;
+
+  console.log(
+    `[clip-extraction] Play ${playInstanceId}: duration=${clipDuration}s, size=${(clipSizeBytes / 1024 / 1024).toFixed(1)}MB`,
+  );
+
+  // -------------------------------------------------------------------------
+  // 5. Buffer size safety check
+  // -------------------------------------------------------------------------
+
+  if (clipSizeBytes > MAX_CLIP_BYTES) {
+    const errorMsg = `Clip exceeds safe buffer size: ${(clipSizeBytes / 1024 / 1024).toFixed(1)}MB > ${MAX_CLIP_BYTES / 1024 / 1024}MB limit (duration: ${clipDuration}s)`;
+    console.error(`[clip-extraction] ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
+
+  // -------------------------------------------------------------------------
+  // 6. Upload to Mux
+  // -------------------------------------------------------------------------
+
+  const mux = getMuxClient();
+
+  // Create a Mux upload URL, then PUT the clip buffer to it
+  const upload = await mux.video.uploads.create({
+    cors_origin: process.env.NEXT_PUBLIC_APP_URL || '*',
+    new_asset_settings: {
+      playback_policy: ['signed'],
+      encoding_tier: 'baseline',
+    },
+    timeout: 300,
+  });
+
+  // Upload the clip buffer directly to the Mux upload URL
+  const uploadResponse = await fetch(upload.url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'video/mp4' },
+    body: new Uint8Array(clipBuffer),
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(
+      `Mux upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`,
+    );
+  }
+
+  const uploadId = upload.id; // Upload ID — Mux webhook will map this to the asset
+
+  return {
+    uploadId,
+    assetId: uploadId,
+    clipDurationSeconds: clipDuration,
+    clipSizeBytes,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +248,7 @@ export async function extractAndUploadClip(
     throw new Error(`Play ${playInstanceId} has no timestamp_start`);
   }
 
-  // Default end time: start + 15 seconds if not set
+  // Validate clip bounds before kicking off extraction
   const startSec = play.timestamp_start;
   const endSec = play.timestamp_end ?? startSec + 15;
   const clipDuration = endSec - startSec;
@@ -119,42 +260,7 @@ export async function extractAndUploadClip(
   }
 
   // -------------------------------------------------------------------------
-  // 2. Fetch the camera file (video record)
-  // -------------------------------------------------------------------------
-
-  const { data: video, error: videoError } = await supabase
-    .from('videos')
-    .select('id, file_path, game_id')
-    .eq('id', play.video_id)
-    .single();
-
-  if (videoError || !video) {
-    throw new Error(`Video record not found for video_id: ${play.video_id}`);
-  }
-
-  if (!video.file_path) {
-    throw new Error(`Video ${video.id} has no file_path in Supabase Storage`);
-  }
-
-  // -------------------------------------------------------------------------
-  // 3. Generate signed Supabase Storage URL
-  // -------------------------------------------------------------------------
-
-  const { data: signedUrlData, error: urlError } = await supabase
-    .storage
-    .from('game_videos')
-    .createSignedUrl(video.file_path, STORAGE_URL_EXPIRY_SECONDS);
-
-  if (urlError || !signedUrlData?.signedUrl) {
-    throw new Error(
-      `Failed to generate signed URL for ${video.file_path}: ${urlError?.message ?? 'unknown'}`,
-    );
-  }
-
-  const sourceUrl = signedUrlData.signedUrl;
-
-  // -------------------------------------------------------------------------
-  // 4. Update play status → extracting
+  // 2. Update play status → extracting
   // -------------------------------------------------------------------------
 
   await supabase
@@ -166,53 +272,35 @@ export async function extractAndUploadClip(
     .eq('id', playInstanceId);
 
   // -------------------------------------------------------------------------
-  // 5. Run FFmpeg extraction
+  // 3. Run FFmpeg extraction + Mux upload
   // -------------------------------------------------------------------------
 
-  let clipBuffer: Buffer;
+  let result: _ExtractUploadResult;
 
   try {
-    clipBuffer = await runFFmpegExtraction(sourceUrl, startSec, endSec);
+    result = await _extractAndUploadToMux(
+      playInstanceId,
+      play.video_id,
+      play.timestamp_start,
+      play.timestamp_end,
+    );
   } catch (err) {
-    // Update status to errored
     await supabase
       .from('play_instances')
       .update({
         mux_clip_status: 'errored',
-        mux_clip_error: err instanceof Error ? err.message : 'FFmpeg extraction failed',
+        mux_clip_error: err instanceof Error ? err.message : 'Extraction failed',
       })
       .eq('id', playInstanceId);
 
     throw err;
   }
 
-  const clipSizeBytes = clipBuffer.length;
-
-  console.log(
-    `[clip-extraction] Play ${playInstanceId}: duration=${clipDuration}s, size=${(clipSizeBytes / 1024 / 1024).toFixed(1)}MB`,
-  );
-
   // -------------------------------------------------------------------------
-  // 6. Buffer size safety check
-  // -------------------------------------------------------------------------
-
-  if (clipSizeBytes > MAX_CLIP_BYTES) {
-    const errorMsg = `Clip exceeds safe buffer size: ${(clipSizeBytes / 1024 / 1024).toFixed(1)}MB > ${MAX_CLIP_BYTES / 1024 / 1024}MB limit (duration: ${clipDuration}s)`;
-    console.error(`[clip-extraction] ${errorMsg}`);
-
-    await supabase
-      .from('play_instances')
-      .update({
-        mux_clip_status: 'errored',
-        mux_clip_error: errorMsg,
-      })
-      .eq('id', playInstanceId);
-
-    throw new Error(errorMsg);
-  }
-
-  // -------------------------------------------------------------------------
-  // 7. Upload to Mux
+  // 4. Update play status → uploading (between extraction and Mux confirmation)
+  //    Note: _extractAndUploadToMux completes both steps atomically, so this
+  //    transition is a post-hoc intermediate state written before the final
+  //    pending update — preserved for parity with the original implementation.
   // -------------------------------------------------------------------------
 
   await supabase
@@ -220,62 +308,113 @@ export async function extractAndUploadClip(
     .update({ mux_clip_status: 'uploading' })
     .eq('id', playInstanceId);
 
-  let assetId: string;
-
-  try {
-    const mux = getMuxClient();
-
-    // Create a Mux upload URL, then PUT the clip buffer to it
-    const upload = await mux.video.uploads.create({
-      cors_origin: process.env.NEXT_PUBLIC_APP_URL || '*',
-      new_asset_settings: {
-        playback_policy: ['signed'],
-        encoding_tier: 'baseline',
-      },
-      timeout: 300,
-    });
-
-    // Upload the clip buffer directly to the Mux upload URL
-    const uploadResponse = await fetch(upload.url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'video/mp4' },
-      body: new Uint8Array(clipBuffer),
-    });
-
-    if (!uploadResponse.ok) {
-      throw new Error(
-        `Mux upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`,
-      );
-    }
-
-    assetId = upload.id; // Upload ID — Mux webhook will map this to the asset
-
-  } catch (err) {
-    await supabase
-      .from('play_instances')
-      .update({
-        mux_clip_status: 'errored',
-        mux_clip_error: err instanceof Error ? err.message : 'Mux upload failed',
-      })
-      .eq('id', playInstanceId);
-
-    throw err;
-  }
-
   // -------------------------------------------------------------------------
-  // 8. Update play record → pending (waiting for Mux encoding)
+  // 5. Update play record → pending (waiting for Mux encoding)
   // -------------------------------------------------------------------------
 
   await supabase
     .from('play_instances')
     .update({
-      mux_clip_asset_id: assetId,
+      mux_clip_asset_id: result.assetId,
       mux_clip_status: 'pending',
       mux_clip_error: null,
     })
     .eq('id', playInstanceId);
 
-  return { assetId, clipDurationSeconds: clipDuration, clipSizeBytes };
+  return {
+    assetId: result.assetId,
+    clipDurationSeconds: result.clipDurationSeconds,
+    clipSizeBytes: result.clipSizeBytes,
+  };
+}
+
+/**
+ * Extract a clip for a player profile and upload it to Mux.
+ *
+ * Uses the timestamps from the associated play instance but writes status
+ * and asset IDs to the `player_clips` table rather than `play_instances`.
+ *
+ * @param playerClipId   - The player_clips row to update
+ * @param playInstanceId - The play instance to read timestamps from
+ * @returns The Mux asset ID and clip metadata
+ * @throws If the play instance is not found, timestamps are missing, or extraction fails
+ */
+export async function extractAndUploadPlayerClip(
+  playerClipId: string,
+  playInstanceId: string,
+): Promise<ExtractResult> {
+  const supabase = createServiceClient();
+
+  // -------------------------------------------------------------------------
+  // 1. Fetch play instance for timestamps and video reference
+  // -------------------------------------------------------------------------
+
+  const { data: play, error: playError } = await supabase
+    .from('play_instances')
+    .select('id, video_id, timestamp_start, timestamp_end')
+    .eq('id', playInstanceId)
+    .single();
+
+  if (playError || !play) {
+    throw new Error(`Play instance not found: ${playInstanceId}`);
+  }
+
+  if (play.timestamp_start == null) {
+    throw new Error(`Play ${playInstanceId} has no timestamp_start`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 2. Update player clip status → extracting
+  // -------------------------------------------------------------------------
+
+  await supabase
+    .from('player_clips')
+    .update({ mux_clip_status: 'extracting' })
+    .eq('id', playerClipId);
+
+  // -------------------------------------------------------------------------
+  // 3. Run FFmpeg extraction + Mux upload
+  // -------------------------------------------------------------------------
+
+  let result: _ExtractUploadResult;
+
+  try {
+    result = await _extractAndUploadToMux(
+      playInstanceId,
+      play.video_id,
+      play.timestamp_start,
+      play.timestamp_end,
+    );
+  } catch (err) {
+    await supabase
+      .from('player_clips')
+      .update({
+        mux_clip_status: 'errored',
+        mux_clip_error: err instanceof Error ? err.message : 'Extraction failed',
+      })
+      .eq('id', playerClipId);
+
+    throw err;
+  }
+
+  // -------------------------------------------------------------------------
+  // 4. Update player clip record → pending (waiting for Mux encoding)
+  // -------------------------------------------------------------------------
+
+  await supabase
+    .from('player_clips')
+    .update({
+      mux_upload_id: result.uploadId,
+      mux_asset_id: result.assetId,
+      mux_clip_status: 'pending',
+    })
+    .eq('id', playerClipId);
+
+  return {
+    assetId: result.assetId,
+    clipDurationSeconds: result.clipDurationSeconds,
+    clipSizeBytes: result.clipSizeBytes,
+  };
 }
 
 // ---------------------------------------------------------------------------
