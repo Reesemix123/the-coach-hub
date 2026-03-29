@@ -45,19 +45,12 @@ export default async function ParentLayout({
   // Uses service client because athlete_profiles RLS subquery on parent_profiles
   // can fail due to recursive RLS evaluation. We already verified parentProfile.id above.
   const serviceClient = createServiceClient();
-  const { data: athleteProfile, error: apError } = await serviceClient
+  const { data: athleteProfile } = await serviceClient
     .from('athlete_profiles')
     .select('id, athlete_first_name')
     .eq('created_by_parent_id', parentProfile.id)
     .limit(1)
     .maybeSingle();
-
-  console.log('[parent-layout] athleteProfile lookup:', {
-    parentId: parentProfile.id,
-    found: !!athleteProfile,
-    id: athleteProfile?.id ?? null,
-    error: apError?.message ?? null,
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
