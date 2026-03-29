@@ -41,6 +41,14 @@ export default async function ParentLayout({
   const teamId = teams.length > 0 ? teams[0].id : null;
   const parentName = `${parentProfile.first_name} ${parentProfile.last_name}`;
 
+  // Fetch first athlete profile owned by this parent (for nav link)
+  const { data: athleteProfile } = await supabase
+    .from('athlete_profiles')
+    .select('id, athlete_first_name')
+    .eq('created_by_parent_id', parentProfile.id)
+    .limit(1)
+    .maybeSingle();
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hide the root layout coach navbar and payment banner when parent layout is active */}
@@ -60,7 +68,13 @@ export default async function ParentLayout({
       <main className="pb-24">{children}</main>
 
       {/* iOS-style bottom tab bar */}
-      <BottomTabBar teamId={teamId} teams={teams} parentName={parentName} />
+      <BottomTabBar
+        teamId={teamId}
+        teams={teams}
+        parentName={parentName}
+        athleteProfileId={athleteProfile?.id ?? null}
+        athleteName={athleteProfile?.athlete_first_name ?? null}
+      />
 
       {/* PWA install prompt — parent-only, self-contained client component */}
       <InstallPrompt />

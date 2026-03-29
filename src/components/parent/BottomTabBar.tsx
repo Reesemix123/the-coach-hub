@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   X,
+  UserCircle,
 } from 'lucide-react';
 
 interface TeamInfo {
@@ -26,6 +27,8 @@ interface BottomTabBarProps {
   teamId: string | null;
   teams: TeamInfo[];
   parentName: string;
+  athleteProfileId: string | null;
+  athleteName: string | null;
 }
 
 interface TabItem {
@@ -36,7 +39,7 @@ interface TabItem {
   isActive: (pathname: string) => boolean;
 }
 
-export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: BottomTabBarProps) {
+export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athleteProfileId, athleteName }: BottomTabBarProps) {
   const pathname = usePathname();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
@@ -88,7 +91,8 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
 
   const moreIsActive =
     pathname.includes('/announcements') ||
-    pathname.includes('/settings');
+    pathname.includes('/settings') ||
+    pathname.includes('/athletes');
 
   const moreMenuItems = [
     {
@@ -96,6 +100,16 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName }: Botto
       label: 'Announcements',
       icon: Bell,
       href: teamId ? `/parent/teams/${teamId}/announcements` : null,
+    },
+    {
+      key: 'athlete-profile',
+      label: athleteProfileId
+        ? `${athleteName ?? 'My Athlete'}'s Profile`
+        : 'Set up athlete profile',
+      icon: UserCircle,
+      href: athleteProfileId
+        ? `/parent/athletes/${athleteProfileId}`
+        : '/parent/athletes/new',
     },
     {
       key: 'settings',
