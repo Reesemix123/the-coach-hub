@@ -88,8 +88,8 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       isActive: (p) => p.includes('/directory'),
     },
     {
-      key: 'profile',
-      label: 'Profile',
+      key: 'player',
+      label: 'Player',
       icon: UserCircle,
       href: athleteProfileId
         ? `/parent/athletes/${athleteProfileId}`
