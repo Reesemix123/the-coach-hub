@@ -92,13 +92,8 @@ function LoginForm() {
         return
       }
 
-      // Existing user with team - check for explicit redirect destination
-      const next = searchParams.get('next')
-      if (next) {
-        router.push(next)
-      } else {
-        router.push('/')
-      }
+      // Existing user with team - go to platform dashboard
+      router.push('/dashboard')
       router.refresh()
     }
   }
