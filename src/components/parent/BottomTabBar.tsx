@@ -88,8 +88,8 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       isActive: (p) => p.includes('/directory'),
     },
     {
-      key: 'player',
-      label: 'Player',
+      key: 'player-profile',
+      label: 'Player Profile',
       icon: UserCircle,
       href: athleteProfileId
         ? `/parent/athletes/${athleteProfileId}`
@@ -108,16 +108,6 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       label: 'Announcements',
       icon: Bell,
       href: teamId ? `/parent/teams/${teamId}/announcements` : null,
-    },
-    {
-      key: 'athlete-profile',
-      label: athleteProfileId
-        ? `${athleteName ?? 'My Athlete'}'s Profile`
-        : 'Set up athlete profile',
-      icon: UserCircle,
-      href: athleteProfileId
-        ? `/parent/athletes/${athleteProfileId}`
-        : '/parent/athletes/new',
     },
     {
       key: 'settings',
