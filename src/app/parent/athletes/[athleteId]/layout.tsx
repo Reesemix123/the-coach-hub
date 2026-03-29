@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 
 interface LayoutProps {
@@ -30,8 +30,9 @@ export default async function AthleteProfileLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect('/auth/login');
 
-  // 2. Parent profile check
-  const { data: parentProfile } = await supabase
+  // 2. Verify parent identity — use service client (bypasses recursive RLS)
+  const serviceSupabase = createServiceClient();
+  const { data: parentProfile } = await serviceSupabase
     .from('parent_profiles')
     .select('id')
     .eq('user_id', user.id)
@@ -39,8 +40,8 @@ export default async function AthleteProfileLayout({
 
   if (!parentProfile) redirect('/parent');
 
-  // 3a. Check direct ownership
-  const { data: ownedProfile } = await supabase
+  // 3a. Check direct ownership — use service client
+  const { data: ownedProfile } = await serviceSupabase
     .from('athlete_profiles')
     .select('id')
     .eq('id', athleteId)
@@ -52,7 +53,7 @@ export default async function AthleteProfileLayout({
   }
 
   // 3b. Check linked access: athlete_seasons → players → player_parent_links
-  const { data: linkedSeason } = await supabase
+  const { data: linkedSeason } = await serviceSupabase
     .from('athlete_seasons')
     .select(`
       id,
