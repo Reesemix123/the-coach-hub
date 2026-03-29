@@ -101,6 +101,67 @@ async function handleCheckoutCompleted(
   const isSignupFlow = session.metadata?.signup_flow === 'true';
   const purchaseType = session.metadata?.purchase_type;
 
+  // Handle parent profile subscription checkout
+  if (purchaseType === 'parent_profile') {
+    const parentId = session.metadata?.parent_id;
+    const athleteProfileId = session.metadata?.athlete_profile_id;
+
+    if (!parentId || !athleteProfileId) {
+      console.error('Parent profile checkout missing parent_id or athlete_profile_id in metadata');
+      return;
+    }
+
+    // Retrieve the subscription to get the price ID
+    const stripe = getStripeClient();
+    const stripeSubscriptionId = session.subscription as string;
+
+    let stripePriceId: string | null = null;
+    try {
+      const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+        expand: ['items.data.price'],
+      });
+      stripePriceId = stripeSubscription.items.data[0]?.price.id ?? null;
+    } catch (err) {
+      console.error('Failed to retrieve Stripe subscription for price ID:', err);
+    }
+
+    const now = new Date();
+    const oneYearFromNow = new Date(now);
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+    const { error: insertError } = await supabase
+      .from('parent_profile_subscriptions')
+      .insert({
+        parent_id: parentId,
+        athlete_profile_id: athleteProfileId,
+        stripe_subscription_id: stripeSubscriptionId,
+        stripe_customer_id: session.customer as string,
+        stripe_price_id: stripePriceId,
+        status: 'active',
+        current_period_start: now.toISOString(),
+        current_period_end: oneYearFromNow.toISOString(),
+        is_gifted: false,
+      });
+
+    if (insertError) {
+      console.error('Failed to create parent_profile_subscription:', insertError);
+    }
+
+    await supabase.from('audit_logs').insert({
+      action: 'parent_profile_subscription.created',
+      target_type: 'parent_profile',
+      target_id: parentId,
+      metadata: {
+        athlete_profile_id: athleteProfileId,
+        session_id: session.id,
+        stripe_subscription_id: stripeSubscriptionId,
+      },
+    });
+
+    console.log(`Parent profile subscription created for parent ${parentId}, athlete ${athleteProfileId}`);
+    return;
+  }
+
   // Handle token purchase checkout
   if (purchaseType === 'token' && teamId) {
     const tokenType = session.metadata?.token_type as 'team' | 'opponent';
@@ -296,6 +357,39 @@ async function handleSubscriptionUpdated(
   supabase: ReturnType<typeof createClient>,
   subscription: Stripe.Subscription
 ) {
+  // Handle parent profile subscription updates
+  if (subscription.metadata?.subscription_type === 'parent_profile') {
+    const status = mapStripeStatus(subscription.status);
+    const periodStart = new Date(subscription.current_period_start * 1000).toISOString();
+    const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+
+    const { error } = await supabase
+      .from('parent_profile_subscriptions')
+      .update({
+        status,
+        current_period_start: periodStart,
+        current_period_end: periodEnd,
+      })
+      .eq('stripe_subscription_id', subscription.id);
+
+    if (error) {
+      console.error('Failed to update parent_profile_subscription:', error);
+    }
+
+    await supabase.from('audit_logs').insert({
+      action: 'parent_profile_subscription.updated',
+      target_type: 'stripe_subscription',
+      target_id: subscription.id,
+      metadata: {
+        status,
+        period_end: periodEnd,
+      },
+    });
+
+    console.log(`Parent profile subscription ${subscription.id} updated: status=${status}`);
+    return;
+  }
+
   const teamId = subscription.metadata?.team_id;
   const userId = subscription.metadata?.user_id;
   const isSignupFlow = subscription.metadata?.signup_flow === 'true';
@@ -464,6 +558,39 @@ async function handleSubscriptionDeleted(
   supabase: ReturnType<typeof createClient>,
   subscription: Stripe.Subscription
 ) {
+  // Handle parent profile subscription cancellation
+  if (subscription.metadata?.subscription_type === 'parent_profile') {
+    const now = new Date();
+    const archiveDate = new Date(now);
+    archiveDate.setDate(archiveDate.getDate() + 90);
+
+    const { error } = await supabase
+      .from('parent_profile_subscriptions')
+      .update({
+        status: 'canceled',
+        lapsed_at: now.toISOString(),
+        data_archive_scheduled_at: archiveDate.toISOString(),
+      })
+      .eq('stripe_subscription_id', subscription.id);
+
+    if (error) {
+      console.error('Failed to cancel parent_profile_subscription:', error);
+    }
+
+    await supabase.from('audit_logs').insert({
+      action: 'parent_profile_subscription.canceled',
+      target_type: 'stripe_subscription',
+      target_id: subscription.id,
+      metadata: {
+        lapsed_at: now.toISOString(),
+        data_archive_scheduled_at: archiveDate.toISOString(),
+      },
+    });
+
+    console.log(`Parent profile subscription ${subscription.id} canceled. Data archive scheduled for ${archiveDate.toISOString()}`);
+    return;
+  }
+
   const teamId = subscription.metadata?.team_id;
 
   if (!teamId) {
@@ -519,6 +646,53 @@ async function handleInvoicePaid(
     .single();
 
   if (!org) {
+    // Check if this invoice is for a parent profile subscription
+    if (subscriptionId) {
+      const { data: parentSub } = await supabase
+        .from('parent_profile_subscriptions')
+        .select('id, parent_id')
+        .eq('stripe_subscription_id', subscriptionId)
+        .maybeSingle();
+
+      if (parentSub) {
+        const periodStart = invoice.lines.data[0]?.period?.start
+          ? new Date(invoice.lines.data[0].period.start * 1000).toISOString()
+          : new Date().toISOString();
+        const periodEnd = invoice.lines.data[0]?.period?.end
+          ? new Date(invoice.lines.data[0].period.end * 1000).toISOString()
+          : (() => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); return d.toISOString(); })();
+
+        const { error: updateError } = await supabase
+          .from('parent_profile_subscriptions')
+          .update({
+            status: 'active',
+            lapsed_at: null,
+            current_period_start: periodStart,
+            current_period_end: periodEnd,
+          })
+          .eq('id', parentSub.id);
+
+        if (updateError) {
+          console.error('Failed to renew parent_profile_subscription:', updateError);
+        }
+
+        await supabase.from('audit_logs').insert({
+          action: 'parent_profile_subscription.renewed',
+          target_type: 'parent_profile',
+          target_id: parentSub.parent_id,
+          metadata: {
+            stripe_invoice_id: invoice.id,
+            subscription_id: parentSub.id,
+            period_start: periodStart,
+            period_end: periodEnd,
+          },
+        });
+
+        console.log(`Parent profile subscription ${parentSub.id} renewed via invoice ${invoice.id}`);
+        return;
+      }
+    }
+
     console.log(`No organization found for Stripe customer ${customerId}`);
     return;
   }
@@ -561,6 +735,39 @@ async function handleInvoiceFailed(
     .single();
 
   if (!org) {
+    // Check if this customer belongs to a parent profile subscription instead
+    const { data: parentSub } = await supabase
+      .from('parent_profile_subscriptions')
+      .select('id, parent_id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle();
+
+    if (parentSub) {
+      const { error: updateError } = await supabase
+        .from('parent_profile_subscriptions')
+        .update({ status: 'past_due' })
+        .eq('id', parentSub.id);
+
+      if (updateError) {
+        console.error('Failed to mark parent_profile_subscription past_due:', updateError);
+      }
+
+      await supabase.from('audit_logs').insert({
+        action: 'parent_profile_subscription.payment_failed',
+        target_type: 'parent_profile',
+        target_id: parentSub.parent_id,
+        metadata: {
+          stripe_invoice_id: invoice.id,
+          amount: invoice.amount_due,
+          attempt_count: invoice.attempt_count,
+          subscription_id: parentSub.id,
+        },
+      });
+
+      console.log(`Invoice ${invoice.id} payment failed for parent profile subscription ${parentSub.id}`);
+      return;
+    }
+
     console.log(`No organization found for Stripe customer ${customerId}`);
     return;
   }
