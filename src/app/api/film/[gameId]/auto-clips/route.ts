@@ -357,6 +357,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    // Fire report generation after clips are queued — do not await
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    fetch(`${appUrl}/api/player-profiles/generate-report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: request.headers.get('cookie') ?? '' },
+      body: JSON.stringify({ gameId, teamId }),
+    }).catch((err: unknown) => {
+      console.error('[auto-clips] Failed to trigger report generation:', err);
+    });
+
     return NextResponse.json({ clipsQueued: clipsToExtract.length });
   } catch (error) {
     console.error('[auto-clips] Unexpected error:', error);
