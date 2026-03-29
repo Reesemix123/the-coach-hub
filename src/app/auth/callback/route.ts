@@ -287,7 +287,14 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${origin}/football/teams/${inviteRedirectTeamId}?welcome=invited`)
       }
 
-      return NextResponse.redirect(`${origin}${next}`)
+      // Only honor explicit next URL if it's not a generic team redirect
+      // (generic team URLs come from middleware saving the previous location,
+      // but we want coaches to land on /dashboard after fresh login)
+      const isGenericTeamUrl = next.match(/^\/football\/teams\/[^/]+\/?$/);
+      if (!isGenericTeamUrl) {
+        return NextResponse.redirect(`${origin}${next}`)
+      }
+      // Fall through to normal routing below
     }
 
     // If invite was processed, redirect to team page
