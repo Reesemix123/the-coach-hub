@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import { BottomTabBar } from '@/components/parent/BottomTabBar';
 import { ParentTopBar } from '@/components/parent/ParentTopBar';
@@ -42,7 +42,10 @@ export default async function ParentLayout({
   const parentName = `${parentProfile.first_name} ${parentProfile.last_name}`;
 
   // Fetch first athlete profile owned by this parent (for nav link)
-  const { data: athleteProfile } = await supabase
+  // Uses service client because athlete_profiles RLS subquery on parent_profiles
+  // can fail due to recursive RLS evaluation. We already verified parentProfile.id above.
+  const serviceClient = createServiceClient();
+  const { data: athleteProfile } = await serviceClient
     .from('athlete_profiles')
     .select('id, athlete_first_name')
     .eq('created_by_parent_id', parentProfile.id)

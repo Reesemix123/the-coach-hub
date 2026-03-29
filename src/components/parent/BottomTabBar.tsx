@@ -87,12 +87,20 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       href: teamId ? `/parent/teams/${teamId}/directory` : null,
       isActive: (p) => p.includes('/directory'),
     },
+    {
+      key: 'profile',
+      label: 'Profile',
+      icon: UserCircle,
+      href: athleteProfileId
+        ? `/parent/athletes/${athleteProfileId}`
+        : '/parent/athletes/new',
+      isActive: (p) => p.includes('/athletes'),
+    },
   ];
 
   const moreIsActive =
     pathname.includes('/announcements') ||
-    pathname.includes('/settings') ||
-    pathname.includes('/athletes');
+    pathname.includes('/settings');
 
   const moreMenuItems = [
     {
