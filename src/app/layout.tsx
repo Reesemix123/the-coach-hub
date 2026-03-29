@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { Home } from "lucide-react";
 import ScrollingNavbar from "@/components/ScrollingNavbar";
 import UserMenu from "@/components/UserMenu";
 import TeamSwitcher from "@/components/TeamSwitcher";
@@ -60,7 +61,19 @@ export default function RootLayout({
             <div className="flex justify-between items-center h-20">
               {/* Logo/Brand */}
               <div className="flex items-center gap-8">
-                <Link href="/" className="flex-shrink-0 flex items-center gap-3 hover:opacity-80 transition-opacity">
+                {/* Home link — all sports dashboard */}
+                <Link
+                  href="/dashboard"
+                  className="flex-shrink-0 group"
+                  title="All sports"
+                >
+                  <Home className="w-5 h-5 transition-colors duration-150" style={{ color: 'rgba(107,114,128,0.7)' }} />
+                </Link>
+
+                {/* Divider */}
+                <div className="h-5 mx-[-12px]" style={{ borderLeft: '1px solid rgba(209,213,219,0.4)' }} />
+
+                <Link href="/dashboard" className="flex-shrink-0 flex items-center gap-3 hover:opacity-80 transition-opacity">
                   <Image
                     src="/apple-touch-icon.png"
                     alt="Youth Coach Hub"
