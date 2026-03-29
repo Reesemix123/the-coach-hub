@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -39,9 +39,21 @@ interface TabItem {
   isActive: (pathname: string) => boolean;
 }
 
-export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athleteProfileId, athleteName }: BottomTabBarProps) {
+export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athleteProfileId: initialAthleteId, athleteName }: BottomTabBarProps) {
   const pathname = usePathname();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [athleteProfileId, setAthleteProfileId] = useState(initialAthleteId);
+
+  // Fallback: if server didn't provide athleteProfileId, fetch it client-side
+  useEffect(() => {
+    if (athleteProfileId) return;
+    fetch('/api/parent/athlete-profile-id')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.athleteProfileId) setAthleteProfileId(data.athleteProfileId);
+      })
+      .catch(() => {});
+  }, [athleteProfileId]);
 
   // Derive active teamId from the current URL, or fall back to default
   const urlTeamMatch = pathname.match(/\/parent\/teams\/([^/]+)/);
