@@ -481,6 +481,164 @@ export const APP_FEATURES: FeatureCategory[] = [
       },
     ],
   },
+  {
+    id: 'player-profiles',
+    name: 'Player Profiles',
+    description: 'Persistent athlete profiles owned by parents. Accumulates clips and AI-generated performance reports across seasons and teams. Parent owns the profile — it survives team and coach changes.',
+    guidePath: '/guide/player-profiles',
+    features: [
+      {
+        name: 'Athlete Profile Page',
+        description: 'Profile header with photo, name, graduation year. Season stats strip with unit-appropriate metrics. Game reports section. Highlights clips section. Subscription upsell when needed.',
+        navigationPath: 'Parent app > Player Profile tab > /parent/athletes/[athleteId]',
+      },
+      {
+        name: 'Auto-Generated Clips',
+        description: 'Created automatically when coach completes film analysis. Require coach approval before parent can view. Grouped by game. Filterable by unit (offense, defense, special teams).',
+        navigationPath: 'Parent app > Player Profile > Highlights section',
+      },
+      {
+        name: 'AI Performance Reports',
+        description: 'Generated after each game. Parent view shows warm developmental narrative (no grades or scores). Coach view shows technical grades. Coach must publish before parent can see.',
+        navigationPath: 'Parent app > Player Profile > Game Reports section',
+      },
+      {
+        name: 'Season Stats Strip',
+        description: 'Aggregated metrics appropriate to player unit — offense skill (carries, targets, snaps), O-Line (block grade, pressures allowed), defense (tackles, turnovers, grade), special teams (unit, key stat).',
+      },
+      {
+        name: 'Multi-Season History',
+        description: 'Profile accumulates data across seasons and sports. Each season appears as a selector on the profile page.',
+      },
+    ],
+  },
+  {
+    id: 'parent-profile-subscription',
+    name: 'Player Profile Subscription',
+    description: '$19.99/year annual subscription for parents. Unlocks permanent clip and report history beyond the coaching season. Auto-renews annually.',
+    guidePath: '/guide/player-profiles/subscription',
+    features: [
+      {
+        name: 'Free Access',
+        description: 'Current season clips and reports visible while team Comm Hub plan is active. No subscription required during the active season.',
+      },
+      {
+        name: 'Subscribed Access',
+        description: 'Permanent history across all seasons and sports. Clips and reports never expire.',
+      },
+      {
+        name: 'Stripe Checkout',
+        description: 'Initiated from the upsell card on the athlete profile page.',
+        navigationPath: 'Parent app > Player Profile > Subscribe button',
+      },
+      {
+        name: 'Annual Auto-Renewal',
+        description: 'Parent is charged once per year. 7-day reminder email before renewal.',
+      },
+      {
+        name: '90-Day Grace Period',
+        description: 'After subscription lapses, data is held for 90 days before archiving. Profile page shows countdown.',
+      },
+      {
+        name: 'Billing Portal',
+        description: 'Parent can manage, cancel, or update payment from the subscription upsell card.',
+      },
+    ],
+  },
+  {
+    id: 'athlete-profile-creation',
+    name: 'Create Athlete Profile',
+    description: '3-step flow for parents to create a persistent athlete profile. Located at /parent/athletes/new. Accessible from the Player Profile tab in the parent bottom navigation.',
+    guidePath: '/guide/player-profiles/creating-profile',
+    features: [
+      {
+        name: 'Step 1 — Athlete Basics',
+        description: 'First name, last name, graduation year, optional profile photo upload.',
+        navigationPath: 'Parent app > Player Profile tab > /parent/athletes/new',
+      },
+      {
+        name: 'Step 2 — Sport Selection',
+        description: 'Football (active), baseball and basketball (coming soon, grayed out). Season year dropdown.',
+      },
+      {
+        name: 'Step 3 — Confirmation + Join Code',
+        description: 'Success message with athlete initials. Optional 6-character join code entry to link to a team roster. "Skip for now" option always visible.',
+      },
+      {
+        name: 'Join Code System',
+        description: 'Coaches copy a 6-character code from the Actions column on their Players roster page. Parent enters the code on Step 3. Linking grants immediate Comm Hub access to the team.',
+        navigationPath: 'Coach: Team > Players > Code button | Parent: Create profile > Step 3',
+      },
+    ],
+  },
+  {
+    id: 'coach-parent-dual-role',
+    name: 'Coach + Parent Mode',
+    description: 'A single account can be both a coach and a parent. Switch between coach and parent views without logging out.',
+    guidePath: '/guide/getting-started/dual-role',
+    features: [
+      {
+        name: 'Dashboard Parent Card',
+        description: 'If the coach also has a parent profile, a parent context card appears on /dashboard between the football sport card and the coming soon sports.',
+        navigationPath: 'Dashboard > Parent view card > Switch →',
+      },
+      {
+        name: 'Switch to Parent View',
+        description: 'Available in the avatar dropdown on /dashboard. Navigates to /parent.',
+        navigationPath: 'Dashboard > Avatar > Switch to parent view',
+      },
+      {
+        name: 'Switch to Coach View',
+        description: 'Available in the More menu of the parent bottom tab bar. Navigates to /dashboard.',
+        navigationPath: 'Parent app > More > Switch to coach view',
+      },
+      {
+        name: 'Onboarding Prompt',
+        description: 'When a coach purchases a Comm Hub plan, a dismissible banner asks "Do you have a child on this team?" with a link to create a parent profile.',
+        navigationPath: 'Communication > Plan > After purchase success',
+      },
+    ],
+  },
+  {
+    id: 'clip-review',
+    name: 'Clip Review Queue',
+    description: 'Coach reviews and approves auto-generated player clips before they are visible to parents. Located at /football/teams/[teamId]/players/clips.',
+    guidePath: '/guide/player-profiles/clip-review',
+    features: [
+      {
+        name: 'Clip Review Page',
+        description: 'Access via Players tab → Clip Review sub-tab. Pending count badge on the sub-tab. Bulk approve button for all pending clips.',
+        navigationPath: 'Team > Players > Clip Review',
+        subFeatures: [
+          'Bulk approve: one button approves all pending clips for the team at once',
+          'Per-clip actions: Approve (green checkmark), Suppress (gray X), Add Note (pencil icon)',
+          'Visual states: amber border (pending), green border (approved), gray (suppressed)',
+          'Filter tabs: All, Pending, Approved, Suppressed',
+          'Grouped by player with horizontal scroll of clips',
+        ],
+      },
+    ],
+  },
+  {
+    id: 'report-management',
+    name: 'Player Report Management',
+    description: 'Coach reviews, edits, and publishes AI-generated player performance reports. Located at /football/teams/[teamId]/players/reports.',
+    guidePath: '/guide/player-profiles/report-management',
+    features: [
+      {
+        name: 'Report Management Page',
+        description: 'Access via Players tab → Reports sub-tab. Unpublished count badge. Filter by game and player.',
+        navigationPath: 'Team > Players > Reports',
+        subFeatures: [
+          'Report card: player name, position, jersey, opponent, date, position grade pill, Draft/Published badge',
+          'Inline edit panel: coach analysis (read-only), parent report (editable textarea)',
+          'Save draft: saves edits without publishing',
+          'Publish to parents: saves and publishes, sends parent email notification',
+          'Unpublish: removes from parent view immediately',
+        ],
+      },
+    ],
+  },
 ];
 
 /**
@@ -502,6 +660,19 @@ export const COMMON_TASKS = [
   { task: 'View token balance', path: 'Team Settings > Usage' },
   { task: 'Purchase tokens', path: 'Team Settings > Usage > Purchase' },
   { task: 'Manage billing', path: 'Team Settings > Subscription > Manage Payment Method' },
+  // Coach: player profile management
+  { task: 'Review clips', path: 'Team > Players > Clip Review' },
+  { task: 'Publish player report', path: 'Team > Players > Reports > Edit & Publish' },
+  { task: 'Copy join code', path: 'Team > Players (roster view) > Code button in Actions column' },
+  // Parent tasks
+  { task: 'View athlete profile', path: 'Parent app > Player Profile tab' },
+  { task: 'Create athlete profile', path: 'Parent app > Player Profile tab > /parent/athletes/new' },
+  { task: 'Enter join code', path: 'Parent app > Create profile > Step 3 > Enter 6-character code' },
+  { task: 'View game clips', path: 'Parent app > Player Profile > Highlights section' },
+  { task: 'View game reports', path: 'Parent app > Player Profile > Game Reports section' },
+  { task: 'Subscribe to profile', path: 'Parent app > Player Profile > Subscribe button' },
+  { task: 'Switch to parent view', path: 'Dashboard > Avatar dropdown > Switch to parent view' },
+  { task: 'Switch to coach view', path: 'Parent app > More menu > Switch to coach view' },
 ];
 
 /**

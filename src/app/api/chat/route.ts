@@ -99,6 +99,8 @@ const TIER_RATE_LIMITS: Record<SubscriptionTier, number> = {
 interface ChatRequest {
   messages: Message[];
   teamId?: string; // Optional: for team-specific context in future
+  userRole?: 'coach' | 'parent';
+  pathname?: string; // Current page path, sent by ChatWidget for role resolution
 }
 
 export async function POST(request: NextRequest) {
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = (await request.json()) as ChatRequest;
     const { messages, teamId } = body;
+    const bodyPathname = body.pathname ?? '';
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -127,6 +130,26 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    // Detect user role — parallel queries, no sequential await
+    const [coachProfileResult, parentProfileResult] = await Promise.all([
+      supabase.from('profiles').select('id').eq('id', user.id).maybeSingle(),
+      supabase.from('parent_profiles').select('id').eq('user_id', user.id).maybeSingle(),
+    ]);
+
+    const hasCoachProfile = !!coachProfileResult.data;
+    const hasParentProfile = !!parentProfileResult.data;
+
+    // Resolve dual-role users using route context
+    const referer = request.headers.get('referer') ?? '';
+    const isOnParentRoute =
+      referer.includes('/parent') || bodyPathname.startsWith('/parent');
+
+    const userRole: 'coach' | 'parent' =
+      (!hasCoachProfile && hasParentProfile) ||
+      (hasParentProfile && isOnParentRoute)
+        ? 'parent'
+        : 'coach';
 
     // Get user's subscription tier
     let tier: SubscriptionTier = 'basic';
@@ -228,7 +251,8 @@ export async function POST(request: NextRequest) {
       const { stream, classification } = await generateRoutedResponse(
         messages,
         user.id,
-        supabase
+        supabase,
+        userRole
       );
 
       // Log classification for debugging

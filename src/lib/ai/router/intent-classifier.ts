@@ -12,7 +12,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 
-export type Intent = 'help' | 'coaching' | 'general';
+export type Intent = 'help' | 'coaching' | 'general' | 'parent_help';
 
 export interface ClassificationEntities {
   topic?: string;
@@ -54,6 +54,19 @@ Classify the user's message into exactly one of these intents:
 - "help": Questions about how to use the app, its features, navigation, or technical issues
 - "coaching": Questions about team performance, player stats, play effectiveness, game strategy, or practice recommendations
 - "general": General football knowledge not specific to the user's team data
+- "parent_help": Questions about viewing clips, reading reports, navigating the parent app, athlete profiles, subscriptions, join codes, or any question from a parent perspective about their child's content
+
+PARENT_HELP EXAMPLES:
+- "Where are my son's highlights?" → parent_help
+- "How do I find the game report?" → parent_help
+- "What is a join code?" → parent_help
+- "How do I subscribe to keep my athlete's profile?" → parent_help
+- "I can't see any clips" → parent_help
+- "How do I switch to coach view?" → parent_help
+- "Where do I create my athlete's profile?" → parent_help
+- "My daughter's clips aren't showing up" → parent_help
+- "How long do I have access to last season's reports?" → parent_help
+- "What does publishing a report mean?" → parent_help
 
 IMPORTANT DISTINCTIONS:
 - "How do I upload film?" → help (asking about app feature)
@@ -160,7 +173,7 @@ Examples of practice topics (use topic: "practice", "practice_schedule", "last_p
 
 Respond in valid JSON only (no markdown, no explanation):
 {
-  "intent": "help" | "coaching" | "general",
+  "intent": "help" | "coaching" | "general" | "parent_help",
   "confidence": 0.0-1.0,
   "entities": { ... },
   "reasoning": "brief explanation"
@@ -170,8 +183,19 @@ Respond in valid JSON only (no markdown, no explanation):
  * Classify user intent and extract entities
  */
 export async function classifyIntent(
-  message: string
+  message: string,
+  userRole: 'coach' | 'parent' = 'coach'
 ): Promise<ClassificationResult> {
+  // Parents always get parent_help — skip AI classification entirely
+  if (userRole === 'parent') {
+    return {
+      intent: 'parent_help',
+      confidence: 1.0,
+      entities: {},
+      reasoning: 'User is on parent route — forced to parent_help',
+    };
+  }
+
   try {
     const result = await generateText({
       model: classifierModel,
@@ -193,7 +217,7 @@ export async function classifyIntent(
     const parsed = JSON.parse(jsonText) as ClassificationResult;
 
     // Validate required fields
-    if (!parsed.intent || !['help', 'coaching', 'general'].includes(parsed.intent)) {
+    if (!parsed.intent || !['help', 'coaching', 'general', 'parent_help'].includes(parsed.intent)) {
       console.warn('Invalid intent classification, defaulting to general:', parsed);
       return {
         intent: 'general',

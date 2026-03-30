@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { X, Trash2, Sparkles, ExternalLink } from 'lucide-react';
 import { ChatContainer } from './chat-container';
@@ -30,10 +30,12 @@ const DEFAULT_POSITION = { x: 24, y: 24 }; // right: 24px, bottom: 24px
 
 export function ChatWidget() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'coach' | 'parent'>('coach');
 
   // Draggable state
   const [position, setPosition] = useState<Position>(DEFAULT_POSITION);
@@ -42,13 +44,26 @@ export function ChatWidget() {
   const hasDraggedRef = useRef(false); // Track if user actually moved during drag
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Check authentication status and get userId
+  // Check authentication status, get userId, and detect role
   useEffect(() => {
     const checkAuth = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       setIsAuthenticated(!!user);
       setUserId(user?.id ?? null);
+
+      if (user) {
+        // Check for parent profile to support role detection
+        const { data: parentCheck } = await supabase
+          .from('parent_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (parentCheck) {
+          setUserRole(pathname.startsWith('/parent') ? 'parent' : 'coach');
+        }
+      }
     };
     checkAuth();
 
@@ -59,7 +74,12 @@ export function ChatWidget() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [pathname]);
+
+  // Update role when pathname changes (dual-role users switching contexts)
+  useEffect(() => {
+    setUserRole(pathname.startsWith('/parent') ? 'parent' : 'coach');
+  }, [pathname]);
 
   // Pass userId to useChat for user-scoped conversation history
   const {
@@ -71,7 +91,7 @@ export function ChatWidget() {
     sendMessage,
     clearChat,
     messageCount,
-  } = useChat(undefined, userId);
+  } = useChat(undefined, userId, userRole, pathname);
 
   // Load saved position
   useEffect(() => {
@@ -288,7 +308,9 @@ export function ChatWidget() {
             <Sparkles className="w-2.5 h-2.5 text-white" />
           </div>
         </div>
-        <span className="text-gray-900 font-medium text-sm select-none">AI Assistant</span>
+        <span className="text-gray-900 font-medium text-sm select-none">
+          {userRole === 'parent' ? 'Parent Help' : 'AI Assistant'}
+        </span>
       </button>
 
       {/* Chat Panel */}
@@ -324,10 +346,14 @@ export function ChatWidget() {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-sm flex items-center gap-1.5">
-                  AI Assistant
+                  {userRole === 'parent' ? 'Parent Help' : 'AI Assistant'}
                   <Sparkles className="w-3 h-3 text-yellow-400" />
                 </h3>
-                <p className="text-gray-400 text-xs">Ask me anything about the app</p>
+                <p className="text-gray-400 text-xs">
+                  {userRole === 'parent'
+                    ? 'Ask about clips, reports, your athlete\'s profile...'
+                    : 'Ask me anything about the app'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>

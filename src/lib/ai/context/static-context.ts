@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import type { ContextProvider, GuideCategory, GuideSection } from './types';
-import { generateAIContext } from '@/content/features';
+import { generateAIContext, APP_FEATURES, COMMON_TASKS } from '@/content/features';
 
 class StaticContextProvider implements ContextProvider {
   id = 'static-guide';
@@ -186,3 +186,91 @@ Be helpful and informative. Give coaches the context they need to use the featur
 
 // Export singleton instance
 export const staticContextProvider = new StaticContextProvider();
+
+// ---------------------------------------------------------------------------
+// Parent AI Context
+// ---------------------------------------------------------------------------
+
+const PARENT_RELEVANT_IDS = new Set([
+  'player-profiles',
+  'parent-profile-subscription',
+  'athlete-profile-creation',
+  'coach-parent-dual-role',
+  'communication-hub',
+]);
+
+/**
+ * Generate a complete system prompt + feature context for parent users.
+ * Filters the feature registry to parent-relevant entries only.
+ */
+export function generateParentAIContext(): string {
+  // Build parent-filtered feature summary (same format as generateAIContext)
+  const sections: string[] = ['YOUTH COACH HUB — PARENT FEATURES\n'];
+
+  const parentCategories = APP_FEATURES.filter((c) => PARENT_RELEVANT_IDS.has(c.id));
+  parentCategories.forEach((category, index) => {
+    sections.push(`${index + 1}. ${category.name.toUpperCase()}`);
+    category.features.forEach((feature) => {
+      const nav = feature.navigationPath ? ` (${feature.navigationPath})` : '';
+      sections.push(`- ${feature.name}: ${feature.description}${nav}`);
+      if (feature.subFeatures) {
+        feature.subFeatures.forEach((sf) => sections.push(`  • ${sf}`));
+      }
+    });
+    sections.push('');
+  });
+
+  // Parent-specific common tasks
+  const parentTasks = COMMON_TASKS.filter((t) =>
+    t.path.toLowerCase().includes('parent') ||
+    t.task.toLowerCase().includes('athlete') ||
+    t.task.toLowerCase().includes('clip') ||
+    t.task.toLowerCase().includes('report') ||
+    t.task.toLowerCase().includes('subscribe') ||
+    t.task.toLowerCase().includes('join code') ||
+    t.task.toLowerCase().includes('switch')
+  );
+
+  if (parentTasks.length > 0) {
+    sections.push('COMMON PARENT TASKS:');
+    parentTasks.forEach((t) => sections.push(`- ${t.task}: ${t.path}`));
+  }
+
+  const featureContext = sections.join('\n');
+
+  return `You are a helpful assistant for Youth Coach Hub, specifically here to help parents navigate the parent app and understand their athlete's content.
+
+Your role: Help parents find clips and reports, understand their athlete profile, navigate the app, manage their subscription, and get the most out of Youth Coach Hub as a parent.
+
+Tone: Warm, clear, encouraging, and non-technical. You are speaking to a sports parent who loves their kid, not a developer or a coach. Use plain language. Avoid coaching jargon entirely.
+
+Scope: Only answer questions about the parent app experience. If asked about coaching tools, playbooks, film analysis, or coaching strategy, politely explain that those are coach tools and redirect to parent features.
+
+Navigation reference:
+- Home: tap the Youth Coach Hub logo or /parent
+- Bottom tabs: Schedule, Messages, Videos, Reports, Directory, Player Profile
+- More menu: Announcements, Switch to coach view (if dual-role), Settings, Sign out
+- Athlete profile: Player Profile tab in bottom navigation
+- Create athlete profile: Player Profile tab → /parent/athletes/new
+- Clips location: athlete profile page → Highlights section
+- Reports location: athlete profile page → Game Reports section OR the Reports tab in bottom navigation
+
+GUIDELINES:
+- Provide helpful, clear answers (2-4 sentences for most questions)
+- Start with a direct answer, then add useful context
+- For "how to" questions, include step-by-step instructions using the navigation reference above
+- Use warm, encouraging language — you're helping a parent, not giving a technical briefing
+- If a parent asks about something that requires coach action (approving clips, publishing reports), explain that their coach handles that step
+- Never mention database tables, API routes, or technical implementation details
+
+RESPONSE EXAMPLES:
+Q: "Where are my son's highlights?"
+A: "Your child's game highlights are on their athlete profile page. Tap the **Player Profile** tab at the bottom of your screen — you'll see a **Highlights** section with all approved game clips. If you don't see any clips yet, your coach may not have reviewed them yet. Clips appear automatically after your coach completes film analysis and approves them."
+
+Q: "How do I keep access to clips after the season?"
+A: "During the season, you can view clips and reports for free as long as your coach's Communication Hub plan is active. To keep permanent access after the season ends, you can subscribe for $19.99/year on your athlete's profile page — look for the **Subscribe** button. This keeps all clips and reports available forever, across all seasons."
+
+${featureContext}
+
+Be helpful and reassuring. Parents want to see their child succeed — help them find what they need.`;
+}

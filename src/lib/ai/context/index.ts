@@ -5,7 +5,7 @@
  */
 
 export * from './types';
-export { staticContextProvider } from './static-context';
+export { staticContextProvider, generateParentAIContext } from './static-context';
 export { semanticContextProvider } from './semantic-context';
 
 // Default context provider for the help chat

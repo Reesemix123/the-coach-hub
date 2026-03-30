@@ -4,6 +4,7 @@
  * Routes user messages to the appropriate AI provider and context:
  * - help → Gemini Flash + static context
  * - coaching → Gemini Pro + semantic context
+ * - parent_help → Gemini Flash + parent context (no team data)
  * - general → Gemini Flash + minimal context
  */
 
@@ -11,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Message, AIProvider } from '../types';
 import { classifyIntent, type ClassificationResult } from './intent-classifier';
 import { geminiFlashProvider, geminiProProvider } from '../providers';
-import { staticContextProvider, semanticContextProvider } from '../context';
+import { staticContextProvider, semanticContextProvider, generateParentAIContext } from '../context';
 
 export interface RouterResult {
   provider: AIProvider;
@@ -27,14 +28,15 @@ const GENERAL_CONTEXT = `You are a helpful football coaching assistant. Answer g
 export async function routeMessage(
   messages: Message[],
   userId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  userRole: 'coach' | 'parent' = 'coach'
 ): Promise<RouterResult> {
   // Get the latest user message
   const latestMessage = messages.filter((m) => m.role === 'user').pop();
   const query = latestMessage?.content || '';
 
-  // Classify intent
-  const classification = await classifyIntent(query);
+  // Classify intent (pass userRole so parents always get parent_help)
+  const classification = await classifyIntent(query, userRole);
 
   // Route based on intent
   switch (classification.intent) {
@@ -43,6 +45,9 @@ export async function routeMessage(
 
     case 'coaching':
       return routeToCoaching(userId, query, supabase, classification);
+
+    case 'parent_help':
+      return routeToParentHelp(classification);
 
     case 'general':
     default:
@@ -96,13 +101,27 @@ async function routeToGeneral(
   };
 }
 
+async function routeToParentHelp(
+  classification: ClassificationResult
+): Promise<RouterResult> {
+  // Use Flash for speed with parent-specific context — no team data, no semantic layer
+  const context = generateParentAIContext();
+
+  return {
+    provider: geminiFlashProvider,
+    context,
+    classification,
+  };
+}
+
 /**
  * Generate a response using the routed provider and context
  */
 export async function generateRoutedResponse(
   messages: Message[],
   userId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  userRole: 'coach' | 'parent' = 'coach'
 ): Promise<{
   stream: ReadableStream<string>;
   classification: ClassificationResult;
@@ -110,7 +129,8 @@ export async function generateRoutedResponse(
   const { provider, context, classification } = await routeMessage(
     messages,
     userId,
-    supabase
+    supabase,
+    userRole
   );
 
   const stream = await provider.generateResponse(messages, context);

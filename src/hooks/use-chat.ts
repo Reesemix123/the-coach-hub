@@ -102,7 +102,7 @@ function clearLegacyStorage(): void {
  * - Streaming responses
  * - Rate limit tracking
  */
-export function useChat(teamId?: string, userId?: string | null) {
+export function useChat(teamId?: string, userId?: string | null, userRole?: 'coach' | 'parent', pathname?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +195,8 @@ export function useChat(teamId?: string, userId?: string | null) {
           body: JSON.stringify({
             messages: apiMessages,
             teamId,
+            userRole,
+            pathname,
           }),
         });
 
@@ -271,7 +273,7 @@ export function useChat(teamId?: string, userId?: string | null) {
         setIsLoading(false);
       }
     },
-    [messages, isLoading, teamId, rateLimitInfo]
+    [messages, isLoading, teamId, userRole, pathname, rateLimitInfo]
   );
 
   /**
