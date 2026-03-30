@@ -1,8 +1,9 @@
 'use client';
 
-import { use, useState, useEffect, Suspense } from 'react';
+import { use, useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, CreditCard, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, CreditCard, CheckCircle, X } from 'lucide-react';
 import { PlanTierCard } from '@/components/communication/plan/PlanTierCard';
 import { PlanStatusCard } from '@/components/communication/plan/PlanStatusCard';
 import { PLAN_TIER_PRICES, PLAN_TIER_LIMITS } from '@/types/communication';
@@ -53,6 +54,12 @@ function PlanPageInner({ teamId }: { teamId: string }) {
   const [plan, setPlan] = useState<PlanData | null>(null);
   const [hasPlan, setHasPlan] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showParentPrompt, setShowParentPrompt] = useState(false);
+
+  const dismissParentPrompt = useCallback(() => {
+    setShowParentPrompt(false);
+    try { sessionStorage.setItem('parent_prompt_dismissed', '1'); } catch {}
+  }, []);
 
   useEffect(() => {
     async function fetchPlan() {
@@ -71,7 +78,22 @@ function PlanPageInner({ teamId }: { teamId: string }) {
     }
 
     fetchPlan();
-  }, [teamId]);
+
+    // Check if we should show the parent onboarding prompt
+    if (purchaseStatus === 'success') {
+      const dismissed = sessionStorage.getItem('parent_prompt_dismissed');
+      if (!dismissed) {
+        fetch('/api/parent/athlete-profile-id')
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            // If athleteProfileId is null AND no parent profile exists, show prompt
+            // The endpoint returns null if no parent_profiles row exists
+            if (!data?.athleteProfileId) setShowParentPrompt(true);
+          })
+          .catch(() => {});
+      }
+    }
+  }, [teamId, purchaseStatus]);
 
   if (loading) {
     return (
@@ -91,6 +113,38 @@ function PlanPageInner({ teamId }: { teamId: string }) {
             <p className="text-sm text-green-800 font-medium">
               Communication plan activated. You can now invite parents and start communicating.
             </p>
+          </div>
+        )}
+
+        {purchaseStatus === 'success' && showParentPrompt && (
+          <div className="mb-6 border border-[#e5e7eb] border-l-4 border-l-[#B8CA6E] rounded-xl p-4 relative">
+            <button
+              onClick={dismissParentPrompt}
+              className="absolute top-3 right-3 p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <p className="text-sm font-semibold text-gray-900 pr-8">
+              Do you have a child on this team?
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              Set up a parent profile to see their highlights and reports.
+            </p>
+            <div className="flex items-center gap-3 mt-3">
+              <Link
+                href="/parent/athletes/new"
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-[#B8CA6E] text-[#1a1410] hover:brightness-105 transition-all"
+              >
+                Set up parent profile
+              </Link>
+              <button
+                onClick={dismissParentPrompt}
+                className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                No thanks
+              </button>
+            </div>
           </div>
         )}
 

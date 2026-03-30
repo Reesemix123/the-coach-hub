@@ -16,6 +16,7 @@ import {
   LogOut,
   X,
   UserCircle,
+  LayoutDashboard,
 } from 'lucide-react';
 
 interface TeamInfo {
@@ -29,6 +30,7 @@ interface BottomTabBarProps {
   parentName: string;
   athleteProfileId: string | null;
   athleteName: string | null;
+  hasCoachProfile: boolean;
 }
 
 interface TabItem {
@@ -39,7 +41,7 @@ interface TabItem {
   isActive: (pathname: string) => boolean;
 }
 
-export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athleteProfileId: initialAthleteId, athleteName }: BottomTabBarProps) {
+export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athleteProfileId: initialAthleteId, athleteName, hasCoachProfile }: BottomTabBarProps) {
   const pathname = usePathname();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [athleteProfileId, setAthleteProfileId] = useState(initialAthleteId);
@@ -247,6 +249,20 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
 
             {/* Menu items */}
             <nav className="px-3 py-2">
+              {hasCoachProfile && (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={closeMoreMenu}
+                    className="flex items-center gap-3.5 px-3 py-3.5 rounded-xl transition-colors hover:bg-gray-50"
+                    style={{ color: '#B8CA6E' }}
+                  >
+                    <LayoutDashboard size={20} strokeWidth={1.75} />
+                    <span className="text-[15px] font-medium">Switch to coach view</span>
+                  </Link>
+                  <div className="mx-2 my-1 border-t border-gray-100" />
+                </>
+              )}
               {moreMenuItems.map(({ key, label, icon: Icon, href }) => {
                 if (!href) {
                   return (

@@ -7,9 +7,10 @@ import { createClient } from '@/utils/supabase/client';
 interface DashboardAvatarProps {
   initial: string;
   fullName: string;
+  hasParentProfile?: boolean;
 }
 
-export default function DashboardAvatar({ initial, fullName }: DashboardAvatarProps) {
+export default function DashboardAvatar({ initial, fullName, hasParentProfile }: DashboardAvatarProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -51,6 +52,19 @@ export default function DashboardAvatar({ initial, fullName }: DashboardAvatarPr
               {fullName}
             </p>
           </div>
+          {hasParentProfile && (
+            <>
+              <button
+                onClick={() => { setOpen(false); router.push('/parent'); }}
+                className="w-full text-left px-4 py-3 text-sm transition-colors hover:bg-white/10 flex items-center gap-2"
+                style={{ color: '#B8CA6E' }}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                Switch to parent view
+              </button>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }} />
+            </>
+          )}
           <button
             onClick={handleSignOut}
             className="w-full text-left px-4 py-3 text-sm transition-colors hover:bg-white/10"

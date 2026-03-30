@@ -45,12 +45,19 @@ export default async function ParentLayout({
   // Uses service client because athlete_profiles RLS subquery on parent_profiles
   // can fail due to recursive RLS evaluation. We already verified parentProfile.id above.
   const serviceClient = createServiceClient();
-  const { data: athleteProfile } = await serviceClient
-    .from('athlete_profiles')
-    .select('id, athlete_first_name')
-    .eq('created_by_parent_id', parentProfile.id)
-    .limit(1)
-    .maybeSingle();
+  const [{ data: athleteProfile }, { data: coachProfile }] = await Promise.all([
+    serviceClient
+      .from('athlete_profiles')
+      .select('id, athlete_first_name')
+      .eq('created_by_parent_id', parentProfile.id)
+      .limit(1)
+      .maybeSingle(),
+    serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -77,6 +84,7 @@ export default async function ParentLayout({
         parentName={parentName}
         athleteProfileId={athleteProfile?.id ?? null}
         athleteName={athleteProfile?.athlete_first_name ?? null}
+        hasCoachProfile={!!coachProfile}
       />
 
       {/* PWA install prompt — parent-only, self-contained client component */}

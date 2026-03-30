@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
+import { createClient, createServiceClient } from '@/utils/supabase/server';
 import DashboardAvatar from './DashboardAvatar';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -110,6 +110,30 @@ export default async function DashboardPage() {
     .select('full_name, email')
     .eq('id', user.id)
     .single();
+
+  // Check if coach also has a parent profile (for dual-role card)
+  const serviceClient = createServiceClient();
+  const { data: parentProfile } = await serviceClient
+    .from('parent_profiles')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  let parentAthleteLabel: string | null = null;
+  if (parentProfile) {
+    const { data: athletes } = await serviceClient
+      .from('athlete_profiles')
+      .select('athlete_first_name')
+      .eq('created_by_parent_id', parentProfile.id);
+
+    if (athletes && athletes.length === 1) {
+      parentAthleteLabel = athletes[0].athlete_first_name;
+    } else if (athletes && athletes.length > 1) {
+      parentAthleteLabel = `${athletes.length} athletes`;
+    } else {
+      parentAthleteLabel = 'Set up athlete profile';
+    }
+  }
 
   // Owned teams
   const { data: ownedTeams } = await supabase
@@ -223,7 +247,7 @@ export default async function DashboardPage() {
               youth<span style={{ color: '#B8CA6E' }}>coach</span>hub
             </span>
           </div>
-          <DashboardAvatar initial={initial} fullName={fullName} />
+          <DashboardAvatar initial={initial} fullName={fullName} hasParentProfile={!!parentProfile} />
         </div>
       </nav>
 
@@ -348,6 +372,46 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Parent view card — only shown if coach also has a parent profile */}
+        {parentProfile && (
+          <div
+            className="rounded-xl overflow-hidden mt-4"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          >
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg leading-none">👤</span>
+                    <span
+                      className="text-xs font-black tracking-widest uppercase"
+                      style={{ color: 'rgba(249,250,251,0.50)' }}
+                    >
+                      Parent view
+                    </span>
+                  </div>
+                  <p
+                    className="text-base font-bold leading-snug truncate"
+                    style={{ color: '#F9FAFB' }}
+                  >
+                    {parentAthleteLabel}
+                  </p>
+                </div>
+                <a
+                  href="/parent"
+                  className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  style={{ background: '#B8CA6E', color: '#1a1410' }}
+                >
+                  Switch →
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* MORE SPORTS label */}
         <p
