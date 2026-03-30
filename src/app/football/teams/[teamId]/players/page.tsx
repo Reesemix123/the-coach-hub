@@ -409,6 +409,15 @@ function RosterView({
   onPlayerClick: (id: string) => void;
   onAddPlayer: () => void;
 }) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function handleCopyCode(playerId: string, code: string) {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedId(playerId);
+      setTimeout(() => setCopiedId(null), 1500);
+    });
+  }
+
   return (
     <>
       {/* Filter Tabs */}
@@ -503,6 +512,15 @@ function RosterView({
                     {player.grade_level || '-'}
                   </td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
+                    {player.join_code && (
+                      <button
+                        onClick={() => handleCopyCode(player.id, player.join_code!)}
+                        className="text-gray-400 hover:text-gray-700 font-medium"
+                        title="Copy join code"
+                      >
+                        {copiedId === player.id ? '✓ Copied' : 'Code'}
+                      </button>
+                    )}
                     <button
                       onClick={() => onEdit(player)}
                       className="text-gray-700 hover:text-black font-medium"

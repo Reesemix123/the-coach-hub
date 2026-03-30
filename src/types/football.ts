@@ -338,6 +338,7 @@ export interface PlayerRecord {
   weight?: number;
   height?: number;
   notes?: string;
+  join_code?: string;
   created_at: string;
   updated_at: string;
 }
