@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   X,
   ChevronRight,
@@ -20,7 +21,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useGuide } from '@/contexts/GuideContext';
-import { docsNavigation, findSectionByPath } from '@/config/docs-navigation';
+import { docsNavigation, parentDocsNavigation, findSectionByPath, findParentSectionByPath } from '@/config/docs-navigation';
+import type { DocSection } from '@/config/docs-navigation';
 import { DocRenderer } from '@/components/docs';
 
 // Map icon names to components
@@ -40,6 +42,14 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function GuideSlideOver() {
   const { isOpen, currentPath, content, title, description, isLoading, closeGuide, openGuide } = useGuide();
+  const pathname = usePathname();
+
+  // Determine which navigation set to use based on current route
+  const isOnParentRoute = pathname.startsWith('/parent');
+  const activeNav: DocSection[] = isOnParentRoute ? parentDocsNavigation : docsNavigation;
+  const activeFindSection = isOnParentRoute ? findParentSectionByPath : findSectionByPath;
+  const guideTitle = isOnParentRoute ? 'Parent Help Guide' : 'User Guide';
+  const guideBasePath = isOnParentRoute ? '/parent/guide' : '/guide';
 
   // Lock body scroll when open
   useEffect(() => {
@@ -67,7 +77,7 @@ export function GuideSlideOver() {
 
   // Get section info for breadcrumb and navigation
   const currentSection = currentPath && currentPath.length > 0
-    ? docsNavigation.find(s => s.slug === currentPath[0])
+    ? activeNav.find(s => s.slug === currentPath[0])
     : null;
 
   const currentChild = currentSection && currentPath && currentPath.length > 1
@@ -105,7 +115,7 @@ export function GuideSlideOver() {
                 onClick={() => openGuide([])}
                 className={isViewingRoot ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-700'}
               >
-                User Guide
+                {guideTitle}
               </button>
               {currentSection && (
                 <>
@@ -130,7 +140,7 @@ export function GuideSlideOver() {
             <div className="flex items-center gap-2">
               {currentPath && (
                 <Link
-                  href={`/guide/${currentPath.join('/')}`}
+                  href={`${guideBasePath}/${currentPath.join('/')}`}
                   onClick={closeGuide}
                   className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
                   title="Open in full page"
@@ -160,8 +170,10 @@ export function GuideSlideOver() {
               // Root view - show all main sections (matching dropdown style)
               <div>
                 <div className="space-y-0.5">
-                  {docsNavigation.map((section) => {
-                    const Icon = section.icon ? iconMap[section.icon] : BookOpen;
+                  {activeNav.map((section) => {
+                    // Parent nav uses emoji icons, coach nav uses Lucide icon names
+                    const isEmoji = section.icon && !iconMap[section.icon];
+                    const Icon = !isEmoji && section.icon ? iconMap[section.icon] : BookOpen;
                     return (
                       <button
                         key={section.slug}
@@ -169,7 +181,11 @@ export function GuideSlideOver() {
                         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 rounded-lg transition-colors group"
                       >
                         <span className="flex items-center gap-3">
-                          <Icon className="h-5 w-5 text-gray-400" />
+                          {isEmoji ? (
+                            <span className="text-lg w-5 text-center">{section.icon}</span>
+                          ) : (
+                            <Icon className="h-5 w-5 text-gray-400" />
+                          )}
                           <span className="text-gray-700 group-hover:text-gray-900">
                             {section.title}
                           </span>
@@ -185,12 +201,12 @@ export function GuideSlideOver() {
 
                 {/* View Full User Guide Link */}
                 <Link
-                  href="/guide"
+                  href={guideBasePath}
                   onClick={closeGuide}
                   className="flex items-center gap-3 px-4 py-3 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 >
                   <ExternalLink className="h-5 w-5" />
-                  <span>View Full User Guide</span>
+                  <span>View Full {guideTitle}</span>
                 </Link>
               </div>
             ) : isViewingSection && currentSection?.children ? (

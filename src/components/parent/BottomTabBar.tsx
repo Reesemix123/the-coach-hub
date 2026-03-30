@@ -17,6 +17,7 @@ import {
   X,
   UserCircle,
   LayoutDashboard,
+  HelpCircle,
 } from 'lucide-react';
 
 interface TeamInfo {
@@ -114,7 +115,8 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
 
   const moreIsActive =
     pathname.includes('/announcements') ||
-    pathname.includes('/settings');
+    pathname.includes('/settings') ||
+    pathname.startsWith('/parent/guide');
 
   const moreMenuItems = [
     {
@@ -122,6 +124,12 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       label: 'Announcements',
       icon: Bell,
       href: teamId ? `/parent/teams/${teamId}/announcements` : null,
+    },
+    {
+      key: 'guide',
+      label: 'Help Guide',
+      icon: HelpCircle,
+      href: '/parent/guide',
     },
     {
       key: 'settings',

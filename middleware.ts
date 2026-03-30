@@ -131,6 +131,31 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Redirect pure parents from /guide to /parent/guide
+  // Dual-role users (coach + parent) can still access /guide for coach docs
+  if (user && url.pathname.startsWith('/guide')) {
+    const { data: coachProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (!coachProfile) {
+      // Pure parent — no coach profile — redirect to parent guide
+      const { data: parentProfile } = await supabase
+        .from('parent_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (parentProfile) {
+        const redirectUrl = url.clone()
+        redirectUrl.pathname = url.pathname.replace(/^\/guide/, '/parent/guide')
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
+  }
+
   return supabaseResponse
 }
 

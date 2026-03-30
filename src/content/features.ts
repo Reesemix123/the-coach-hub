@@ -485,7 +485,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'player-profiles',
     name: 'Player Profiles',
     description: 'Persistent athlete profiles owned by parents. Accumulates clips and AI-generated performance reports across seasons and teams. Parent owns the profile — it survives team and coach changes.',
-    guidePath: '/guide/player-profiles',
+    guidePath: '/parent/guide/parent-profile/overview',
     features: [
       {
         name: 'Athlete Profile Page',
@@ -516,7 +516,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'parent-profile-subscription',
     name: 'Player Profile Subscription',
     description: '$19.99/year annual subscription for parents. Unlocks permanent clip and report history beyond the coaching season. Auto-renews annually.',
-    guidePath: '/guide/player-profiles/subscription',
+    guidePath: '/parent/guide/parent-subscription/free-vs-paid',
     features: [
       {
         name: 'Free Access',
@@ -549,7 +549,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'athlete-profile-creation',
     name: 'Create Athlete Profile',
     description: '3-step flow for parents to create a persistent athlete profile. Located at /parent/athletes/new. Accessible from the Player Profile tab in the parent bottom navigation.',
-    guidePath: '/guide/player-profiles/creating-profile',
+    guidePath: '/parent/guide/parent-getting-started/athlete-profile',
     features: [
       {
         name: 'Step 1 — Athlete Basics',
@@ -575,7 +575,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'coach-parent-dual-role',
     name: 'Coach + Parent Mode',
     description: 'A single account can be both a coach and a parent. Switch between coach and parent views without logging out.',
-    guidePath: '/guide/getting-started/dual-role',
+    guidePath: '/parent/guide/parent-account/dual-role',
     features: [
       {
         name: 'Dashboard Parent Card',
@@ -603,7 +603,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'clip-review',
     name: 'Clip Review Queue',
     description: 'Coach reviews and approves auto-generated player clips before they are visible to parents. Located at /football/teams/[teamId]/players/clips.',
-    guidePath: '/guide/player-profiles/clip-review',
+    guidePath: '/parent/guide/parent-clips/finding-clips',
     features: [
       {
         name: 'Clip Review Page',
@@ -623,7 +623,7 @@ export const APP_FEATURES: FeatureCategory[] = [
     id: 'report-management',
     name: 'Player Report Management',
     description: 'Coach reviews, edits, and publishes AI-generated player performance reports. Located at /football/teams/[teamId]/players/reports.',
-    guidePath: '/guide/player-profiles/report-management',
+    guidePath: '/parent/guide/parent-reports/reading-reports',
     features: [
       {
         name: 'Report Management Page',
