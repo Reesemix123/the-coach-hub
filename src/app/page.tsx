@@ -218,7 +218,753 @@ export default async function Page() {
         </div>
       </section>
 
-      {/* Sections 2–8 will be added after approval */}
+      {/* ================================================================= */}
+      {/* SECTION 2 — CREDIBILITY STRIP                                    */}
+      {/* ================================================================= */}
+      <section
+        className="relative py-12 px-4 sm:px-8"
+        style={{
+          background: '#1a1410',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="max-w-5xl mx-auto flex flex-wrap justify-center gap-10 md:gap-16">
+          {[
+            { stat: 'AI-Assisted', sub: 'Film analysis + insights' },
+            { stat: 'Multi-Sport', sub: 'Football · More coming soon' },
+            { stat: 'Built for 2026', sub: 'Fall season ready' },
+            { stat: 'Volunteer Budget', sub: 'Not just for big programs' },
+          ].map((item) => (
+            <div key={item.stat} className="text-center">
+              <p className="text-xs font-black tracking-widest uppercase" style={{ color: '#F9FAFB' }}>
+                {item.stat}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(249,250,251,0.40)' }}>
+                {item.sub}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 3 — COACHING INTELLIGENCE TOOLS                          */}
+      {/* ================================================================= */}
+      <section
+        id="coaching-tools"
+        className="relative py-24 px-4 sm:px-8"
+        style={{
+          backgroundImage: 'url(/marketing/friday-night-soccer.png)',
+          backgroundPosition: 'center 40%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/35 via-[#1a1410]/55 to-[#1a1410]/92" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
+          <AnimateOnScroll>
+            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
+              Coaching Intelligence
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
+              Your AI Coaching Assistant
+            </h2>
+            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
+              AI accelerates your work — you stay in control. Tag film faster,
+              get deeper insights, and spend more time coaching than preparing.
+            </p>
+          </AnimateOnScroll>
+
+          {/* Feature cards grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { icon: Clapperboard, title: 'AI-Assisted Film', desc: 'AI suggests tags as you review film. You confirm, edit, or override. Tag games in a fraction of the time.', footer: 'Coach stays in control →' },
+              { icon: LayoutGrid, title: 'AI Playbook', desc: 'Design plays visually. AI suggests formations from your tendencies. Share with the team instantly.', footer: 'Opponent scouting built in →' },
+              { icon: TrendingUp, title: 'Game Analytics', desc: '150+ stats tracked from your film tags. AI-generated game summaries. Know your tendencies before opponents do.', footer: 'Know your patterns →' },
+              { icon: CalendarDays, title: 'Practice Planning', desc: 'AI builds practice plans from your film data. Focus reps where your team actually needs them most.', footer: null },
+              { icon: Lightbulb, title: 'Coaching Insights', desc: 'AI surfaces patterns in your data. Run tendency breakdowns, formation analysis, and opponent prep automatically.', footer: null },
+              { icon: Layers, title: 'Game Week Planning', desc: 'Build your weekly game plan with AI assistance. Opponent tendencies, personnel packages, and situational prep in one place.', footer: null },
+            ].map((card, i) => (
+              <AnimateOnScroll key={card.title} delay={(i % 3) as 0 | 1 | 2}>
+                <div
+                  className="rounded-2xl p-6 hover:-translate-y-1 transition-all duration-200 h-full"
+                  style={{
+                    background: 'rgba(32,26,22,0.78)',
+                    border: '1px solid rgba(148,163,184,0.16)',
+                  }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                    style={{
+                      background: 'rgba(184,202,110,0.08)',
+                      border: '1px solid rgba(184,202,110,0.20)',
+                    }}
+                  >
+                    <card.icon size={20} stroke="#B8CA6E" strokeWidth={1.5} fill="none" />
+                  </div>
+                  <h3 className="text-base font-black" style={{ color: '#F9FAFB' }}>{card.title}</h3>
+                  <p className="text-sm mt-2" style={{ color: 'rgba(249,250,251,0.60)' }}>{card.desc}</p>
+                  {card.footer && (
+                    <p className="text-sm font-bold mt-4" style={{ color: '#B8CA6E' }}>{card.footer}</p>
+                  )}
+                </div>
+              </AnimateOnScroll>
+            ))}
+          </div>
+
+          {/* O-Line differentiator */}
+          <AnimateOnScroll className="mt-8">
+            <div
+              className="rounded-2xl p-8 flex flex-col md:flex-row items-start md:items-center gap-8"
+              style={{
+                background: 'rgba(32,26,22,0.78)',
+                border: '1px solid rgba(148,163,184,0.16)',
+              }}
+            >
+              <div className="flex-1">
+                <span
+                  className="inline-block text-xs font-black rounded-full px-3 py-1 mb-4"
+                  style={{ background: '#B8CA6E', color: '#1a1410' }}
+                >
+                  EXCLUSIVE
+                </span>
+                <h3 className="text-2xl font-black" style={{ color: '#F9FAFB' }}>
+                  O-Line Block Grade Reports
+                </h3>
+                <p className="mt-3" style={{ color: 'rgba(249,250,251,0.65)' }}>
+                  The only youth sports platform that grades every offensive lineman
+                  on every play. Your O-Line finally gets the recognition they deserve —
+                  every snap, every assignment.
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-4xl font-black" style={{ color: '#B8CA6E' }}>5</p>
+                <p className="text-sm" style={{ color: 'rgba(249,250,251,0.50)' }}>positions graded per play</p>
+                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.35)' }}>Every snap. Every block.</p>
+              </div>
+            </div>
+          </AnimateOnScroll>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 4 — COMMUNICATION HUB                                    */}
+      {/* ================================================================= */}
+      <section
+        id="communication-hub"
+        className="relative py-24 px-4 sm:px-8"
+        style={{
+          backgroundImage: 'url(/marketing/friday-night-basketball.png)',
+          backgroundPosition: 'center 40%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/45 via-[#1a1410]/65 to-[#1a1410]/95" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
+          <AnimateOnScroll>
+            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
+              Communication Hub
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
+              Replace the Group Text.<br />
+              <span style={{ color: '#B8CA6E' }}>Finally.</span>
+            </h2>
+            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
+              Push game film, player clips, and AI game summaries directly to
+              parents — alongside schedules, RSVP, and team messaging. One app
+              for everything your team community needs.
+            </p>
+          </AnimateOnScroll>
+
+          {/* Two columns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-12">
+            <AnimateOnScroll delay={1}>
+              <div
+                className="rounded-2xl p-6"
+                style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+              >
+                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
+                  What Coaches Get
+                </h3>
+                <ul className="space-y-3">
+                  {[
+                    'Push video clips to individual parents with coach notes',
+                    'AI game summaries sent automatically after each game',
+                    'Team announcements via SMS and email',
+                    'Schedule with RSVP tracking and attendance reports',
+                    'Parent roster, directory, and contact management',
+                    'Direct messaging with full team or individual parents',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(249,250,251,0.70)' }}>
+                      <span style={{ color: '#B8CA6E' }}>✓</span> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={2}>
+              <div
+                className="rounded-2xl p-6"
+                style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+              >
+                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
+                  What Parents Get
+                </h3>
+                <ul className="space-y-3">
+                  {[
+                    "Their athlete's auto-clipped highlights and performance reports",
+                    'Team schedule with personal calendar sync',
+                    'Direct message to coaching staff',
+                    'Game day notifications and score alerts',
+                    'Persistent athlete profile that survives team changes',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(249,250,251,0.70)' }}>
+                      <span style={{ color: '#B8CA6E' }}>✓</span> {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AnimateOnScroll>
+          </div>
+
+          {/* Season plan pricing */}
+          <AnimateOnScroll>
+            <p className="text-sm mb-6" style={{ color: 'rgba(249,250,251,0.55)' }}>
+              Season Plans — one-time purchase, 6-month access
+            </p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { name: 'Rookie', price: '$149', detail: 'Up to 20 parents · 10 team videos', featured: false, note: null },
+              { name: 'Varsity', price: '$249', detail: 'Up to 40 parents · 10 team videos', featured: false, note: null },
+              { name: 'All-Conference', price: '$349', detail: 'Up to 60 parents · 10 team videos', featured: true, note: null },
+              { name: 'All-State', price: '$449', detail: 'Unlimited parents · 10 team videos', featured: false, note: 'Includes 5 gifted player profiles' },
+            ].map((plan, i) => (
+              <AnimateOnScroll key={plan.name} delay={(i % 4) as 0 | 1 | 2 | 3}>
+                <div
+                  className="rounded-2xl p-5"
+                  style={{
+                    background: 'rgba(32,26,22,0.78)',
+                    border: plan.featured
+                      ? '1px solid rgba(184,202,110,0.35)'
+                      : '1px solid rgba(148,163,184,0.16)',
+                  }}
+                >
+                  <p className="text-sm font-black" style={{ color: '#F9FAFB' }}>{plan.name}</p>
+                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>{plan.price}<span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>/season</span></p>
+                  <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.45)' }}>{plan.detail}</p>
+                  {plan.note && (
+                    <p className="text-xs mt-1" style={{ color: 'rgba(249,250,251,0.35)' }}>{plan.note}</p>
+                  )}
+                </div>
+              </AnimateOnScroll>
+            ))}
+          </div>
+
+          <p className="text-xs mt-4" style={{ color: 'rgba(249,250,251,0.40)' }}>
+            All plans: SMS + email alerts · RSVP · AI game summaries · Unlimited individual player clips · 30-day parent grace period
+          </p>
+          <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.30)' }}>
+            Video top-up pack: $39 for 5 additional team video shares
+          </p>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 5 — PARENT / FAMILY ANGLE                                */}
+      {/* ================================================================= */}
+      <section
+        className="relative py-24 px-4 sm:px-8"
+        style={{
+          backgroundImage: 'url(/marketing/friday-night-field.png)',
+          backgroundPosition: 'center 30%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/94" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
+          <AnimateOnScroll>
+            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
+              For Families
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
+              Your Athlete&apos;s Story.<br />
+              <span style={{ color: '#B8CA6E' }}>Preserved Forever.</span>
+            </h2>
+            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
+              Parents get a persistent athlete profile — clips, performance
+              reports, and season history that belongs to your family, not the
+              team. No matter what coach or team comes next.
+            </p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <AnimateOnScroll delay={1}>
+              <div
+                className="rounded-2xl p-6"
+                style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+              >
+                <span className="inline-block text-xs font-bold rounded-full px-3 py-1 mb-4" style={{ background: 'rgba(184,202,110,0.12)', color: '#B8CA6E' }}>
+                  PARENT VIEW
+                </span>
+                <ul className="space-y-3">
+                  {[
+                    'Game highlights, automatically clipped and approved by coach',
+                    'Performance reports written in plain language',
+                    'Season history that never disappears',
+                    'Shareable recruiting profile link',
+                    'Works across every sport and every team',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(249,250,251,0.70)' }}>
+                      <span style={{ color: '#B8CA6E' }}>✓</span> {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 pl-4" style={{ borderLeft: '2px solid #B8CA6E' }}>
+                  <p className="text-sm italic" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    &ldquo;Your child&apos;s highlights belong to you — not the coach.&rdquo;
+                  </p>
+                </div>
+              </div>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={2}>
+              <div
+                className="rounded-2xl p-6"
+                style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+              >
+                <span className="inline-block text-xs font-bold rounded-full px-3 py-1 mb-4" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(249,250,251,0.55)' }}>
+                  COACH VIEW
+                </span>
+                <ul className="space-y-3">
+                  {[
+                    'Technical grades per play — position-specific metrics',
+                    'O-Line block grades per assignment',
+                    'Full AI coaching breakdown',
+                    'Clip review queue before parents can view',
+                    'Publish reports when ready — coach controls the timing',
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(249,250,251,0.70)' }}>
+                      <span style={{ color: 'rgba(249,250,251,0.40)' }}>✓</span> {item}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 pl-4" style={{ borderLeft: '2px solid rgba(148,163,184,0.25)' }}>
+                  <p className="text-sm italic" style={{ color: 'rgba(249,250,251,0.45)' }}>
+                    &ldquo;Coaches see the data. Parents see the story. Same game, two perspectives.&rdquo;
+                  </p>
+                </div>
+              </div>
+            </AnimateOnScroll>
+          </div>
+
+          {/* Subscription callout */}
+          <AnimateOnScroll className="mt-12">
+            <div
+              className="max-w-2xl mx-auto rounded-2xl p-8 text-center"
+              style={{
+                background: 'rgba(184,202,110,0.06)',
+                border: '1px solid rgba(184,202,110,0.14)',
+              }}
+            >
+              <p className="text-xs uppercase tracking-widest mb-3" style={{ color: '#B8CA6E' }}>
+                Player Profile Subscription
+              </p>
+              <p className="text-4xl font-black" style={{ color: '#F9FAFB' }}>
+                $19.99 / year
+              </p>
+              <p className="text-sm mt-3" style={{ color: 'rgba(249,250,251,0.55)' }}>
+                Permanent clip + report history · Multi-sport · Survives team changes
+              </p>
+              <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.35)' }}>
+                Auto-renews annually · Cancel anytime · 90-day grace period after lapse
+              </p>
+            </div>
+          </AnimateOnScroll>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 6 — MULTI-SPORT VISION                                   */}
+      {/* ================================================================= */}
+      <section
+        className="relative py-24 px-4 sm:px-8"
+        style={{
+          background: '#1a1410',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="max-w-5xl mx-auto">
+          <AnimateOnScroll>
+            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
+              Multi-Sport Platform
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
+              One Platform.<br />
+              <span style={{ color: '#B8CA6E' }}>Every Sport.</span>
+            </h2>
+            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
+              One coach account. One parent profile. Every season building
+              on the last — across every sport your athlete plays.
+            </p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <AnimateOnScroll>
+              <Link
+                href="/football"
+                className="block rounded-2xl p-5 hover:-translate-y-1 transition-all duration-200"
+                style={{
+                  background: 'rgba(32,26,22,0.78)',
+                  border: '1px solid rgba(148,163,184,0.20)',
+                }}
+              >
+                <p className="font-black text-base" style={{ color: '#F9FAFB' }}>Football</p>
+                <span className="inline-block text-xs font-black rounded-full px-2 py-0.5 mt-2" style={{ background: '#B8CA6E', color: '#1a1410' }}>
+                  Available Now
+                </span>
+                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.45)' }}>
+                  Film · Playbooks · Analytics · Communication
+                </p>
+              </Link>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={1}>
+              <Link
+                href="/baseball"
+                className="block rounded-2xl p-5 opacity-70"
+                style={{
+                  background: 'rgba(32,26,22,0.78)',
+                  border: '1px solid rgba(148,163,184,0.20)',
+                }}
+              >
+                <p className="font-black text-base" style={{ color: 'rgba(249,250,251,0.55)' }}>Baseball</p>
+                <span className="inline-block text-xs font-bold rounded-full px-2 py-0.5 mt-2" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(249,250,251,0.45)' }}>
+                  Coming Soon
+                </span>
+                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.30)' }}>
+                  Pitching charts · Batting analytics
+                </p>
+              </Link>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={2}>
+              <Link
+                href="/basketball"
+                className="block rounded-2xl p-5 opacity-70"
+                style={{
+                  background: 'rgba(32,26,22,0.78)',
+                  border: '1px solid rgba(148,163,184,0.20)',
+                }}
+              >
+                <p className="font-black text-base" style={{ color: 'rgba(249,250,251,0.55)' }}>Basketball</p>
+                <span className="inline-block text-xs font-bold rounded-full px-2 py-0.5 mt-2" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(249,250,251,0.45)' }}>
+                  Coming Soon
+                </span>
+                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.30)' }}>
+                  Shot charts · Play design
+                </p>
+              </Link>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={3}>
+              <Link
+                href="/soccer"
+                className="block rounded-2xl p-5 opacity-50"
+                style={{
+                  background: 'rgba(32,26,22,0.78)',
+                  border: '1px solid rgba(148,163,184,0.20)',
+                }}
+              >
+                <p className="font-black text-base" style={{ color: 'rgba(249,250,251,0.45)' }}>Soccer · Lacrosse · More</p>
+                <span className="inline-block text-xs font-bold rounded-full px-2 py-0.5 mt-2" style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(249,250,251,0.35)' }}>
+                  On the Roadmap
+                </span>
+                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.25)' }}>
+                  Growing with your community
+                </p>
+              </Link>
+            </AnimateOnScroll>
+          </div>
+
+          {/* Platform promise */}
+          <AnimateOnScroll className="mt-12">
+            <div
+              className="max-w-2xl mx-auto rounded-2xl p-8 text-center"
+              style={{
+                background: 'rgba(32,26,22,0.78)',
+                border: '1px solid rgba(148,163,184,0.16)',
+              }}
+            >
+              <p className="text-lg" style={{ color: '#F9FAFB' }}>
+                When your athlete switches from football to baseball season,
+                their profile — and their entire history — comes with them.
+              </p>
+              <p className="font-black mt-3" style={{ color: '#B8CA6E' }}>
+                That&apos;s the Youth Coach Hub difference.
+              </p>
+            </div>
+          </AnimateOnScroll>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 7 — PRICING SUMMARY                                      */}
+      {/* ================================================================= */}
+      <section
+        id="pricing"
+        className="relative py-24 px-4 sm:px-8"
+        style={{
+          backgroundImage: 'url(/marketing/friday-night-baseball.png)',
+          backgroundPosition: 'center 35%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/94" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
+          <AnimateOnScroll>
+            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
+              Simple Pricing
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
+              Built for Coaches<br />
+              <span style={{ color: '#B8CA6E' }}>at Every Level.</span>
+            </h2>
+            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
+              No enterprise contracts. No per-user fees. Straightforward plans
+              for teams that run on passion.
+            </p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Left — Coaching Platform */}
+            <AnimateOnScroll delay={1}>
+              <div className="space-y-3">
+                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
+                  Coaching Platform
+                </h3>
+
+                {/* Basic */}
+                <div
+                  className="rounded-2xl p-5"
+                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+                >
+                  <p className="font-black" style={{ color: '#F9FAFB' }}>Basic — Free</p>
+                  <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    2 games/month · 1 camera · 30-day retention
+                  </p>
+                </div>
+
+                {/* Plus (featured) */}
+                <div className="relative">
+                  <span
+                    className="absolute -top-3 left-4 text-xs font-black rounded-full px-3 py-0.5"
+                    style={{ background: '#B8CA6E', color: '#1a1410' }}
+                  >
+                    Most Popular
+                  </span>
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: 'rgba(32,26,22,0.78)', border: '2px solid #B8CA6E' }}
+                  >
+                    <p className="font-black" style={{ color: '#F9FAFB' }}>Plus</p>
+                    <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>
+                      $29.99/mo <span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>or $299.90/yr</span>
+                    </p>
+                    <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                      4 games/month · 3 cameras · 180-day retention
+                    </p>
+                  </div>
+                </div>
+
+                {/* Premium */}
+                <div
+                  className="rounded-2xl p-5"
+                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+                >
+                  <p className="font-black" style={{ color: '#F9FAFB' }}>Premium</p>
+                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>
+                    $79.99/mo <span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>or $799.90/yr</span>
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    8 games/month · 5 cameras · 365-day retention
+                  </p>
+                </div>
+
+                <p className="text-xs mt-3" style={{ color: 'rgba(249,250,251,0.35)' }}>
+                  Annual billing saves ~17%
+                </p>
+              </div>
+            </AnimateOnScroll>
+
+            {/* Right — Add-ons */}
+            <AnimateOnScroll delay={2}>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
+                  Add-ons
+                </h3>
+
+                {/* Communication Hub */}
+                <div
+                  className="rounded-2xl p-5 mb-4"
+                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+                >
+                  <p className="font-black" style={{ color: '#F9FAFB' }}>Communication Hub</p>
+                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>$149 – $449 / season</p>
+                  <p className="text-sm mt-2" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    Parent messaging, video sharing, AI game summaries
+                  </p>
+                  <a href="#communication-hub" className="inline-block text-xs font-bold mt-3" style={{ color: '#B8CA6E' }}>
+                    See full details ↑
+                  </a>
+                </div>
+
+                {/* Player Profile */}
+                <div
+                  className="rounded-2xl p-5 mb-4"
+                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
+                >
+                  <p className="font-black" style={{ color: '#F9FAFB' }}>Player Profile</p>
+                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>$19.99 / year</p>
+                  <p className="text-sm mt-2" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    Permanent athlete history for families
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(249,250,251,0.35)' }}>
+                    Per athlete · Auto-renews
+                  </p>
+                </div>
+
+                <p className="text-sm mt-4" style={{ color: 'rgba(249,250,251,0.45)' }}>
+                  Need more games? Upload tokens at $12 each — never expire.
+                </p>
+              </div>
+            </AnimateOnScroll>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* SECTION 8 — FINAL CTA                                            */}
+      {/* ================================================================= */}
+      <section
+        className="relative py-32 px-4 sm:px-8 text-center"
+        style={{ background: '#1a1410' }}
+      >
+        <AnimateOnScroll>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: '#F9FAFB' }}>
+            Ready for the 2026 Season?
+          </h2>
+          <p className="text-xl mt-4 mb-10" style={{ color: 'rgba(249,250,251,0.72)' }}>
+            Join coaches who are serious about developing their athletes.
+          </p>
+
+          <div className="flex gap-4 justify-center flex-wrap">
+            <Link
+              href="/auth/signup"
+              className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors hover:bg-[#c9d88a] w-full sm:w-auto"
+              style={{
+                background: '#B8CA6E',
+                color: '#1a1410',
+                boxShadow: '0 14px 28px rgba(184,202,110,0.25)',
+              }}
+            >
+              Get Started →
+            </Link>
+            <Link
+              href="/auth/login"
+              className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors w-full sm:w-auto"
+              style={{
+                background: 'rgba(15,23,42,0.28)',
+                color: '#fff',
+                border: '1px solid rgba(148,163,184,0.25)',
+              }}
+            >
+              Sign In
+            </Link>
+          </div>
+
+          <div className="flex gap-4 justify-center flex-wrap mt-6">
+            <a
+              href="#pricing"
+              className="font-black rounded-2xl px-6 py-3 inline-flex items-center justify-center transition-colors text-sm"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(184,202,110,0.35)',
+                color: '#B8CA6E',
+              }}
+            >
+              View Pricing →
+            </a>
+            <Link
+              href="/guide"
+              className="font-black rounded-2xl px-6 py-3 inline-flex items-center justify-center transition-colors text-sm"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(184,202,110,0.35)',
+                color: '#B8CA6E',
+              }}
+            >
+              See the Guide →
+            </Link>
+          </div>
+
+          <p className="text-sm mt-8" style={{ color: 'rgba(249,250,251,0.30)' }}>
+            Free tier available · No credit card required to start
+          </p>
+        </AnimateOnScroll>
+      </section>
+
+      {/* ================================================================= */}
+      {/* FOOTER                                                           */}
+      {/* ================================================================= */}
+      <footer
+        className="py-8 px-4 sm:px-8"
+        style={{
+          background: '#120e0b',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src="/logo-darkmode.png" alt="Youth Coach Hub" className="h-7 w-auto" />
+            <span className="text-xs" style={{ color: 'rgba(249,250,251,0.40)' }}>
+              © 2026 Youth Coach Hub LLC
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            {[
+              { label: 'Pricing', href: '#pricing' },
+              { label: 'Guide', href: '/guide' },
+              { label: 'Support', href: '/guide/support/providing-feedback' },
+              { label: 'Privacy', href: '/privacy' },
+              { label: 'Terms', href: '/terms' },
+            ].map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="text-xs transition-colors hover:text-[#F9FAFB]"
+                style={{ color: 'rgba(249,250,251,0.40)' }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
