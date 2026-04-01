@@ -92,10 +92,13 @@ export default async function Page() {
       {/* SECTION 1 — HERO                                                  */}
       {/* ================================================================= */}
       <section
-        className="relative min-h-screen parallax-section"
+        className="relative min-h-screen"
         style={{
           backgroundImage: 'url(/marketing/friday-night-lacrosse.png)',
           backgroundPosition: 'center 35%',
+          backgroundSize: 'cover',
+          backgroundRepeat: 'no-repeat',
+          backgroundAttachment: 'fixed',
         }}
       >
         {/* Overlay */}
