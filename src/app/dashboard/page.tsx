@@ -221,8 +221,8 @@ export default async function DashboardPage() {
         <div
           className="absolute inset-0 bg-cover bg-no-repeat"
           style={{
-            backgroundImage: 'url(/marketing/friday-night-field.png)',
-            backgroundPosition: 'center 30%',
+            backgroundImage: 'url(/marketing/friday-night-lacrosse.png)',
+            backgroundPosition: 'center 40%',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/95" />

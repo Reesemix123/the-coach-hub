@@ -1,4 +1,4 @@
-export default function BaseballPage() {
+export default function SoccerPage() {
   return (
     <div
       className="min-h-screen bg-[#1a1410] flex flex-col"
@@ -9,9 +9,9 @@ export default function BaseballPage() {
       </nav>
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center px-4">
-          <p className="text-5xl">⚾</p>
+          <p className="text-5xl">⚽</p>
           <h1 className="text-3xl font-black mt-4" style={{ color: '#F9FAFB' }}>
-            Baseball
+            Soccer
           </h1>
           <p className="text-base mt-2" style={{ color: 'rgba(249,250,251,0.60)' }}>
             Coming soon to Youth Coach Hub

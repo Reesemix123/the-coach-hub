@@ -77,6 +77,20 @@
   box-shadow: 0 0 40px rgba(163, 230, 53, 0.5);
 }
 
+/* Parallax scroll sections */
+.parallax-section {
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+@media (max-width: 768px) {
+  .parallax-section {
+    background-attachment: scroll;
+    background-position: center center !important;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
