@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
+import { sendNotification, formatSmsBody, getCommHubEmailTemplate } from '@/lib/services/communication/notification.service';
 
 interface RouteContext {
   params: Promise<{ athleteId: string }>;
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Get team info
     const { data: team } = await serviceClient
       .from('teams')
-      .select('id, name, sport')
+      .select('id, name, sport, user_id')
       .eq('id', player.team_id)
       .single();
 
@@ -145,10 +146,58 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    // Fire-and-forget notifications — do not block the response
+    const athleteName = `${player.first_name} ${player.last_name}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://youthcoachhub.com';
+
+    const [{ data: parentContact }, { data: coachProfile }] = await Promise.all([
+      serviceClient.from('parent_profiles').select('email, phone, notification_preference').eq('id', parent.id).single(),
+      serviceClient.from('profiles').select('email').eq('id', team.user_id).single(),
+    ]);
+
+    // Parent confirmation
+    sendNotification({
+      teamId: team.id,
+      recipientId: parent.id,
+      recipientType: 'parent',
+      channel: (parentContact?.notification_preference as 'sms' | 'email' | 'both') ?? 'email',
+      notificationType: 'announcement',
+      subject: `You're now linked to ${team.name}`,
+      body: getCommHubEmailTemplate({
+        title: `Welcome to ${team.name}`,
+        body: `<p>You've been linked to <strong>${athleteName}</strong> on ${team.name}. Your coach can now share clips, reports, and updates with you through Youth Coach Hub.</p>`,
+        teamName: team.name,
+        ctaText: 'View Your Athlete',
+        ctaUrl: `${appUrl}/parent/athletes`,
+      }),
+      smsBody: formatSmsBody(team.name, `You've been linked to ${athleteName} on ${team.name}. Your coach can now share clips and reports with you.`),
+      recipientEmail: parentContact?.email ?? undefined,
+      recipientPhone: parentContact?.phone ?? undefined,
+    }).catch(err => console.error('[link-roster] Parent notification failed:', err));
+
+    // Coach notification — email only
+    sendNotification({
+      teamId: team.id,
+      recipientId: team.user_id,
+      recipientType: 'coach',
+      channel: 'email',
+      notificationType: 'announcement',
+      subject: `A parent linked to ${athleteName}`,
+      body: getCommHubEmailTemplate({
+        title: 'Parent Linked via Join Code',
+        body: `<p>A parent has self-linked to <strong>${athleteName}</strong> on your roster using a join code. Review your parent roster to confirm access is correct.</p>`,
+        teamName: team.name,
+        ctaText: 'View Parent Roster',
+        ctaUrl: `${appUrl}/${team.sport ?? 'football'}/teams/${team.id}/communication/parents`,
+      }),
+      smsBody: '',
+      recipientEmail: coachProfile?.email ?? undefined,
+    }).catch(err => console.error('[link-roster] Coach notification failed:', err));
+
     return NextResponse.json({
       athleteSeasonId: season.id,
       teamName: team.name,
-      playerName: `${player.first_name} ${player.last_name}`,
+      playerName: athleteName,
     });
   } catch (error) {
     console.error('[link-roster] Error:', error);
