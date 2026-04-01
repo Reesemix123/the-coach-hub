@@ -14,6 +14,7 @@ import {
   UserCircle,
 } from 'lucide-react';
 import { AnimateOnScroll } from '@/components/marketing/AnimateOnScroll';
+import { SportSelectorDropdown } from '@/components/marketing/SportSelectorDropdown';
 
 // =============================================================================
 // Auth redirect — authenticated coaches go to /dashboard
@@ -60,8 +61,8 @@ export default async function Page() {
             <a href="#coaching-tools" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
               Features
             </a>
-            <a href="#pricing" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
-              Pricing
+            <a href="#communication-hub" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
+              Communication
             </a>
             <Link href="/guide" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
               Guide
@@ -133,17 +134,7 @@ export default async function Page() {
 
           {/* CTA Row */}
           <div className="flex gap-4 flex-wrap mt-10">
-            <Link
-              href="/auth/signup"
-              className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors hover:bg-[#c9d88a] w-full sm:w-auto"
-              style={{
-                background: '#B8CA6E',
-                color: '#1a1410',
-                boxShadow: '0 14px 28px rgba(184,202,110,0.25)',
-              }}
-            >
-              Get Started →
-            </Link>
+            <SportSelectorDropdown />
             <Link
               href="/auth/login"
               className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors w-full sm:w-auto"
@@ -166,55 +157,6 @@ export default async function Page() {
             See how it works ↓
           </a>
 
-          {/* Disclaimer */}
-          <p className="text-xs mt-3" style={{ color: 'rgba(249,250,251,0.35)' }}>
-            Plans from $29.99/mo · Free tier available
-          </p>
-
-          {/* Sport Navigation Strip */}
-          <div className="mt-16">
-            <p
-              className="text-xs tracking-wider uppercase mb-3"
-              style={{ color: 'rgba(249,250,251,0.35)' }}
-            >
-              Choose your sport
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/football"
-                className="rounded-full px-4 py-2 text-sm font-bold transition-colors hover:bg-[rgba(184,202,110,0.20)]"
-                style={{
-                  background: 'rgba(184,202,110,0.12)',
-                  border: '1px solid rgba(184,202,110,0.35)',
-                  color: '#B8CA6E',
-                }}
-              >
-                🏈 Football
-              </Link>
-              {[
-                { href: '/baseball', label: '⚾ Baseball · Coming Soon' },
-                { href: '/basketball', label: '🏀 Basketball · Coming Soon' },
-                { href: '/soccer', label: '⚽ Soccer · Coming Soon' },
-                { href: '/lacrosse', label: '🥍 Lacrosse · Coming Soon' },
-              ].map((sport) => (
-                <Link
-                  key={sport.href}
-                  href={sport.href}
-                  className="rounded-full px-4 py-2 text-sm transition-colors"
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    color: 'rgba(249,250,251,0.50)',
-                  }}
-                >
-                  {sport.label}
-                </Link>
-              ))}
-            </div>
-            <p className="text-xs mt-3" style={{ color: 'rgba(249,250,251,0.30)' }}>
-              Football available now · More sports launching soon
-            </p>
-          </div>
         </div>
       </section>
 
@@ -273,20 +215,20 @@ export default async function Page() {
               Your AI Coaching Assistant
             </h2>
             <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
-              AI accelerates your work — you stay in control. Tag film faster,
-              get deeper insights, and spend more time coaching than preparing.
+              AI accelerates your work — you stay in control. Tag key moments faster,
+              surface player performance patterns, and spend more time coaching than preparing.
             </p>
           </AnimateOnScroll>
 
           {/* Feature cards grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { icon: Clapperboard, title: 'AI-Assisted Film', desc: 'AI suggests tags as you review film. You confirm, edit, or override. Tag games in a fraction of the time.', footer: 'Coach stays in control →' },
-              { icon: LayoutGrid, title: 'AI Playbook', desc: 'Design plays visually. AI suggests formations from your tendencies. Share with the team instantly.', footer: 'Opponent scouting built in →' },
+              { icon: Clapperboard, title: 'AI-Assisted Film', desc: 'AI suggests tags as you review film. You confirm, edit, or override. Tag key moments in a fraction of the time.', footer: 'Coach stays in control →' },
+              { icon: LayoutGrid, title: 'AI Playbook', desc: 'Design plays visually. AI suggests setups from your tendencies. Share with the team instantly.', footer: 'Opponent scouting built in →' },
               { icon: TrendingUp, title: 'Game Analytics', desc: '150+ stats tracked from your film tags. AI-generated game summaries. Know your tendencies before opponents do.', footer: 'Know your patterns →' },
               { icon: CalendarDays, title: 'Practice Planning', desc: 'AI builds practice plans from your film data. Focus reps where your team actually needs them most.', footer: null },
-              { icon: Lightbulb, title: 'Coaching Insights', desc: 'AI surfaces patterns in your data. Run tendency breakdowns, formation analysis, and opponent prep automatically.', footer: null },
-              { icon: Layers, title: 'Game Week Planning', desc: 'Build your weekly game plan with AI assistance. Opponent tendencies, personnel packages, and situational prep in one place.', footer: null },
+              { icon: Lightbulb, title: 'Coaching Insights', desc: 'AI surfaces patterns in your data. Run tendency breakdowns, pattern analysis, and opponent prep automatically.', footer: null },
+              { icon: Layers, title: 'Game Week Planning', desc: 'Build your weekly game plan with AI assistance. Opponent tendencies, player matchups, and situational prep in one place.', footer: null },
             ].map((card, i) => (
               <AnimateOnScroll key={card.title} delay={(i % 3) as 0 | 1 | 2}>
                 <div
@@ -315,38 +257,6 @@ export default async function Page() {
             ))}
           </div>
 
-          {/* O-Line differentiator */}
-          <AnimateOnScroll className="mt-8">
-            <div
-              className="rounded-2xl p-8 flex flex-col md:flex-row items-start md:items-center gap-8"
-              style={{
-                background: 'rgba(32,26,22,0.78)',
-                border: '1px solid rgba(148,163,184,0.16)',
-              }}
-            >
-              <div className="flex-1">
-                <span
-                  className="inline-block text-xs font-black rounded-full px-3 py-1 mb-4"
-                  style={{ background: '#B8CA6E', color: '#1a1410' }}
-                >
-                  EXCLUSIVE
-                </span>
-                <h3 className="text-2xl font-black" style={{ color: '#F9FAFB' }}>
-                  O-Line Block Grade Reports
-                </h3>
-                <p className="mt-3" style={{ color: 'rgba(249,250,251,0.65)' }}>
-                  The only youth sports platform that grades every offensive lineman
-                  on every play. Your O-Line finally gets the recognition they deserve —
-                  every snap, every assignment.
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-4xl font-black" style={{ color: '#B8CA6E' }}>5</p>
-                <p className="text-sm" style={{ color: 'rgba(249,250,251,0.50)' }}>positions graded per play</p>
-                <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.35)' }}>Every snap. Every block.</p>
-              </div>
-            </div>
-          </AnimateOnScroll>
         </div>
       </section>
 
@@ -550,7 +460,7 @@ export default async function Page() {
                 <ul className="space-y-3">
                   {[
                     'Technical grades per play — position-specific metrics',
-                    'O-Line block grades per assignment',
+                    'Position-level performance grades per assignment',
                     'Full AI coaching breakdown',
                     'Clip review queue before parents can view',
                     'Publish reports when ready — coach controls the timing',
@@ -720,145 +630,7 @@ export default async function Page() {
       </section>
 
       {/* ================================================================= */}
-      {/* SECTION 7 — PRICING SUMMARY                                      */}
-      {/* ================================================================= */}
-      <section
-        id="pricing"
-        className="relative py-24 px-4 sm:px-8"
-        style={{
-          backgroundImage: 'url(/marketing/friday-night-baseball.png)',
-          backgroundPosition: 'center 35%',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/94" />
-
-        <div className="relative z-10 max-w-5xl mx-auto">
-          <AnimateOnScroll>
-            <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
-              Simple Pricing
-            </p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight mt-3" style={{ color: '#F9FAFB' }}>
-              Built for Coaches<br />
-              <span style={{ color: '#B8CA6E' }}>at Every Level.</span>
-            </h2>
-            <p className="max-w-2xl mt-4 mb-16" style={{ color: 'rgba(249,250,251,0.72)' }}>
-              No enterprise contracts. No per-user fees. Straightforward plans
-              for teams that run on passion.
-            </p>
-          </AnimateOnScroll>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-            {/* Left — Coaching Platform */}
-            <AnimateOnScroll delay={1}>
-              <div className="space-y-3">
-                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
-                  Coaching Platform
-                </h3>
-
-                {/* Basic */}
-                <div
-                  className="rounded-2xl p-5"
-                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
-                >
-                  <p className="font-black" style={{ color: '#F9FAFB' }}>Basic — Free</p>
-                  <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
-                    2 games/month · 1 camera · 30-day retention
-                  </p>
-                </div>
-
-                {/* Plus (featured) */}
-                <div className="relative">
-                  <span
-                    className="absolute -top-3 left-4 text-xs font-black rounded-full px-3 py-0.5"
-                    style={{ background: '#B8CA6E', color: '#1a1410' }}
-                  >
-                    Most Popular
-                  </span>
-                  <div
-                    className="rounded-2xl p-5"
-                    style={{ background: 'rgba(32,26,22,0.78)', border: '2px solid #B8CA6E' }}
-                  >
-                    <p className="font-black" style={{ color: '#F9FAFB' }}>Plus</p>
-                    <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>
-                      $29.99/mo <span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>or $299.90/yr</span>
-                    </p>
-                    <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
-                      4 games/month · 3 cameras · 180-day retention
-                    </p>
-                  </div>
-                </div>
-
-                {/* Premium */}
-                <div
-                  className="rounded-2xl p-5"
-                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
-                >
-                  <p className="font-black" style={{ color: '#F9FAFB' }}>Premium</p>
-                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>
-                    $79.99/mo <span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>or $799.90/yr</span>
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: 'rgba(249,250,251,0.50)' }}>
-                    8 games/month · 5 cameras · 365-day retention
-                  </p>
-                </div>
-
-                <p className="text-xs mt-3" style={{ color: 'rgba(249,250,251,0.35)' }}>
-                  Annual billing saves ~17%
-                </p>
-              </div>
-            </AnimateOnScroll>
-
-            {/* Right — Add-ons */}
-            <AnimateOnScroll delay={2}>
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-wider mb-4" style={{ color: '#F9FAFB' }}>
-                  Add-ons
-                </h3>
-
-                {/* Communication Hub */}
-                <div
-                  className="rounded-2xl p-5 mb-4"
-                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
-                >
-                  <p className="font-black" style={{ color: '#F9FAFB' }}>Communication Hub</p>
-                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>$149 – $449 / season</p>
-                  <p className="text-sm mt-2" style={{ color: 'rgba(249,250,251,0.50)' }}>
-                    Parent messaging, video sharing, AI game summaries
-                  </p>
-                  <a href="#communication-hub" className="inline-block text-xs font-bold mt-3" style={{ color: '#B8CA6E' }}>
-                    See full details ↑
-                  </a>
-                </div>
-
-                {/* Player Profile */}
-                <div
-                  className="rounded-2xl p-5 mb-4"
-                  style={{ background: 'rgba(32,26,22,0.78)', border: '1px solid rgba(148,163,184,0.16)' }}
-                >
-                  <p className="font-black" style={{ color: '#F9FAFB' }}>Player Profile</p>
-                  <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>$19.99 / year</p>
-                  <p className="text-sm mt-2" style={{ color: 'rgba(249,250,251,0.50)' }}>
-                    Permanent athlete history for families
-                  </p>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(249,250,251,0.35)' }}>
-                    Per athlete · Auto-renews
-                  </p>
-                </div>
-
-                <p className="text-sm mt-4" style={{ color: 'rgba(249,250,251,0.45)' }}>
-                  Need more games? Upload tokens at $12 each — never expire.
-                </p>
-              </div>
-            </AnimateOnScroll>
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* SECTION 8 — FINAL CTA                                            */}
+      {/* FINAL CTA                                                        */}
       {/* ================================================================= */}
       <section
         className="relative py-32 px-4 sm:px-8 text-center"
@@ -873,17 +645,7 @@ export default async function Page() {
           </p>
 
           <div className="flex gap-4 justify-center flex-wrap">
-            <Link
-              href="/auth/signup"
-              className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors hover:bg-[#c9d88a] w-full sm:w-auto"
-              style={{
-                background: '#B8CA6E',
-                color: '#1a1410',
-                boxShadow: '0 14px 28px rgba(184,202,110,0.25)',
-              }}
-            >
-              Get Started →
-            </Link>
+            <SportSelectorDropdown />
             <Link
               href="/auth/login"
               className="font-black rounded-2xl h-14 px-8 inline-flex items-center justify-center transition-colors w-full sm:w-auto"
@@ -898,17 +660,6 @@ export default async function Page() {
           </div>
 
           <div className="flex gap-4 justify-center flex-wrap mt-6">
-            <a
-              href="#pricing"
-              className="font-black rounded-2xl px-6 py-3 inline-flex items-center justify-center transition-colors text-sm"
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(184,202,110,0.35)',
-                color: '#B8CA6E',
-              }}
-            >
-              View Pricing →
-            </a>
             <Link
               href="/guide"
               className="font-black rounded-2xl px-6 py-3 inline-flex items-center justify-center transition-colors text-sm"
@@ -947,7 +698,7 @@ export default async function Page() {
           </div>
           <div className="flex items-center gap-4">
             {[
-              { label: 'Pricing', href: '#pricing' },
+              { label: 'Football', href: '/football' },
               { label: 'Guide', href: '/guide' },
               { label: 'Support', href: '/guide/support/providing-feedback' },
               { label: 'Privacy', href: '/privacy' },
