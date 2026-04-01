@@ -128,7 +128,7 @@ export default async function Page() {
             style={{ color: 'rgba(249,250,251,0.72)' }}
           >
             AI-assisted film analysis, smart playbooks, practice planning,
-            and parent communication — everything a serious coach needs,
+            and parent communication — everything a dedicated coach needs,
             built for volunteer budgets.
           </p>
 
@@ -175,7 +175,7 @@ export default async function Page() {
           {[
             { stat: 'AI-Assisted', sub: 'Film analysis + insights' },
             { stat: 'Multi-Sport', sub: 'Football · More coming soon' },
-            { stat: 'Built for 2026', sub: 'Fall season ready' },
+            { stat: 'Built for 2026', sub: 'Youth through high school' },
             { stat: 'Volunteer Budget', sub: 'Not just for big programs' },
           ].map((item) => (
             <div key={item.stat} className="text-center">
@@ -433,7 +433,7 @@ export default async function Page() {
                     'Game highlights, automatically clipped and approved by coach',
                     'Performance reports written in plain language',
                     'Season history that never disappears',
-                    'Shareable recruiting profile link',
+                    'Shareable athlete profile link',
                     'Works across every sport and every team',
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2 text-sm" style={{ color: 'rgba(249,250,251,0.70)' }}>
@@ -641,7 +641,7 @@ export default async function Page() {
             Ready for the 2026 Season?
           </h2>
           <p className="text-xl mt-4 mb-10" style={{ color: 'rgba(249,250,251,0.72)' }}>
-            Join coaches who are serious about developing their athletes.
+            Join coaches at every level who are serious about their athletes.
           </p>
 
           <div className="flex gap-4 justify-center flex-wrap">
