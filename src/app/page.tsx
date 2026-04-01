@@ -30,7 +30,7 @@ export default async function Page() {
 
   return (
     <div
-      className="bg-[#1a1410]"
+      className="bg-[#1a1410] -mt-24"
       style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif" }}
     >
       {/* ================================================================= */}
@@ -93,7 +93,7 @@ export default async function Page() {
       {/* SECTION 1 — HERO                                                  */}
       {/* ================================================================= */}
       <section
-        className="relative min-h-screen"
+        className="relative min-h-[80vh]"
         style={{
           backgroundImage: 'url(/marketing/friday-night-lacrosse.png)',
           backgroundPosition: 'center 35%',
