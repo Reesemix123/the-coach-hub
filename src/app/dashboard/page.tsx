@@ -221,7 +221,7 @@ export default async function DashboardPage() {
         <div
           className="absolute inset-0 bg-cover bg-no-repeat"
           style={{
-            backgroundImage: 'url(/marketing/friday-night-lacrosse.png)',
+            backgroundImage: 'url(/marketing/friday-night-lacrosse-v2.png)',
             backgroundPosition: 'center 40%',
           }}
         />

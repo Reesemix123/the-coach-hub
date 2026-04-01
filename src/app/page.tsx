@@ -95,7 +95,7 @@ export default async function Page() {
       <section
         className="relative min-h-[80vh]"
         style={{
-          backgroundImage: 'url(/marketing/friday-night-lacrosse.png)',
+          backgroundImage: 'url(/marketing/friday-night-lacrosse-v2.png)',
           backgroundPosition: 'center 35%',
           backgroundSize: 'cover',
           backgroundRepeat: 'no-repeat',
