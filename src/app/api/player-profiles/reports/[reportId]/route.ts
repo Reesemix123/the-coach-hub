@@ -18,8 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
-import { sendEmail } from '@/lib/email';
-import { getCommHubEmailTemplate } from '@/lib/services/communication/notification.service';
+import { sendNotification, getCommHubEmailTemplate, formatSmsBody } from '@/lib/services/communication/notification.service';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -198,6 +197,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         serviceClient,
         athleteProfileId: existing.athlete_profile_id,
         gameId: existing.game_id,
+        teamId,
       }).catch((err: unknown) => {
         console.error('[report-mgmt] Parent notification failed:', err);
       });
@@ -219,10 +219,12 @@ async function sendParentNotification({
   serviceClient,
   athleteProfileId,
   gameId,
+  teamId,
 }: {
   serviceClient: ReturnType<typeof createServiceClient>;
   athleteProfileId: string;
   gameId: string;
+  teamId: string;
 }): Promise<void> {
   // Look up athlete
   const { data: athlete, error: athleteError } = await serviceClient
@@ -244,11 +246,11 @@ async function sendParentNotification({
   // Look up parent
   const { data: parent, error: parentError } = await serviceClient
     .from('parent_profiles')
-    .select('email, first_name')
+    .select('id, email, phone, first_name, notification_preference')
     .eq('id', athlete.created_by_parent_id)
     .single();
 
-  if (parentError || !parent?.email) {
+  if (parentError || !parent) {
     console.error('[report-mgmt] Could not find parent for notification:', parentError);
     return;
   }
@@ -292,17 +294,23 @@ async function sendParentNotification({
   });
 
   try {
-    await sendEmail({
-      to: parent.email,
+    const teamData = await serviceClient.from('teams').select('name').eq('id', teamId).single();
+    const teamName = teamData.data?.name ?? 'Your team';
+
+    await sendNotification({
+      teamId,
+      recipientId: parent.id,
+      recipientType: 'parent',
+      channel: (parent.notification_preference as 'sms' | 'email' | 'both') ?? 'email',
+      notificationType: 'report_shared',
       subject: `New game report available for ${athleteName}`,
-      html,
-      tags: [
-        { name: 'notification_type', value: 'report_published' },
-        { name: 'athlete_profile_id', value: athleteProfileId },
-      ],
+      body: html,
+      smsBody: formatSmsBody(teamName, `New game report for ${athleteName} vs ${opponent}. View in your Youth Coach Hub app.`),
+      recipientEmail: parent.email,
+      recipientPhone: parent.phone ?? undefined,
     });
-  } catch (emailErr) {
-    // Log and swallow — callers must not fail due to email issues
-    console.error('[report-mgmt] sendEmail threw unexpectedly:', emailErr);
+  } catch (notifyErr) {
+    // Log and swallow — callers must not fail due to notification issues
+    console.error('[report-mgmt] Notification failed:', notifyErr);
   }
 }
