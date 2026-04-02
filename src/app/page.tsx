@@ -93,13 +93,10 @@ export default async function Page() {
       {/* SECTION 1 — HERO                                                  */}
       {/* ================================================================= */}
       <section
-        className="relative min-h-[80vh]"
+        className="relative min-h-[80vh] parallax-section"
         style={{
           backgroundImage: 'url(/marketing/friday-night-lacrosse-v2.png)',
           backgroundPosition: 'center 35%',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
         }}
       >
         {/* Overlay */}
@@ -195,13 +192,10 @@ export default async function Page() {
       {/* ================================================================= */}
       <section
         id="coaching-tools"
-        className="relative py-24 px-4 sm:px-8"
+        className="relative py-24 px-4 sm:px-8 parallax-section"
         style={{
           backgroundImage: 'url(/marketing/friday-night-soccer.png)',
           backgroundPosition: 'center 40%',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/35 via-[#1a1410]/55 to-[#1a1410]/92" />
@@ -265,13 +259,10 @@ export default async function Page() {
       {/* ================================================================= */}
       <section
         id="communication-hub"
-        className="relative py-24 px-4 sm:px-8"
+        className="relative py-24 px-4 sm:px-8 parallax-section"
         style={{
           backgroundImage: 'url(/marketing/friday-night-basketball.png)',
           backgroundPosition: 'center 40%',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/45 via-[#1a1410]/65 to-[#1a1410]/95" />
@@ -392,13 +383,10 @@ export default async function Page() {
       {/* SECTION 5 — PARENT / FAMILY ANGLE                                */}
       {/* ================================================================= */}
       <section
-        className="relative py-24 px-4 sm:px-8"
+        className="relative py-24 px-4 sm:px-8 parallax-section"
         style={{
           backgroundImage: 'url(/marketing/friday-night-field.png)',
           backgroundPosition: 'center 30%',
-          backgroundSize: 'cover',
-          backgroundRepeat: 'no-repeat',
-          backgroundAttachment: 'fixed',
         }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/94" />
