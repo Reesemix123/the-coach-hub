@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
+import { sendNotification, getCommHubEmailTemplate, formatSmsBody } from '@/lib/services/communication/notification.service';
 
 async function verifyAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -92,7 +93,7 @@ export async function PATCH(request: NextRequest) {
     // Verify request exists and is pending
     const { data: req } = await serviceClient
       .from('deletion_requests')
-      .select('id, status')
+      .select('id, status, parent_id, athlete_profile_id')
       .eq('id', body.requestId)
       .single();
 
@@ -116,6 +117,39 @@ export async function PATCH(request: NextRequest) {
     if (updateError) {
       console.error('[admin-deletion] Update failed:', updateError);
       return NextResponse.json({ error: 'Failed to update request' }, { status: 500 });
+    }
+
+    // Notify parent on rejection
+    if (newStatus === 'rejected') {
+      try {
+        const [{ data: parent }, { data: athlete }] = await Promise.all([
+          serviceClient.from('parent_profiles').select('id, email, phone, first_name, notification_preference').eq('id', req.parent_id).single(),
+          serviceClient.from('athlete_profiles').select('athlete_first_name, athlete_last_name').eq('id', req.athlete_profile_id).maybeSingle(),
+        ]);
+
+        if (parent) {
+          const athleteName = athlete ? `${athlete.athlete_first_name} ${athlete.athlete_last_name}` : 'your athlete';
+          const notesText = body.reviewNotes ? `<p><strong>Notes from the team:</strong> ${body.reviewNotes}</p>` : '';
+
+          sendNotification({
+            teamId: '',
+            recipientId: parent.id,
+            recipientType: 'parent',
+            channel: (parent.notification_preference as 'sms' | 'email' | 'both') ?? 'email',
+            notificationType: 'announcement',
+            subject: `Deletion request update for ${athleteName}`,
+            body: getCommHubEmailTemplate({
+              title: 'Deletion Request Not Approved',
+              body: `<p>Hi ${parent.first_name ?? 'there'},</p><p>Your request to delete ${athleteName}'s profile has been reviewed and was not approved at this time.</p>${notesText}<p>If you have questions, please contact support.</p>`,
+            }),
+            smsBody: formatSmsBody('Youth Coach Hub', `Your deletion request for ${athleteName}'s profile was not approved. Contact support if you have questions.`),
+            recipientEmail: parent.email,
+            recipientPhone: parent.phone ?? undefined,
+          }).catch(err => console.error('[admin-deletion] Parent rejection notification failed:', err));
+        }
+      } catch (notifyErr) {
+        console.error('[admin-deletion] Parent notification error:', notifyErr);
+      }
     }
 
     return NextResponse.json({ status: newStatus });

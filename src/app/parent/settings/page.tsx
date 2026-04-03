@@ -248,9 +248,10 @@ export default function ParentSettingsPage() {
 
           <div className="space-y-3">
             {athletes.map((athlete) => {
-              const pendingRequest = deletionRequests.find(
-                (r) => r.athlete_profile_id === athlete.id && (r.status === 'pending' || r.status === 'approved')
+              const latestRequest = deletionRequests.find(
+                (r) => r.athlete_profile_id === athlete.id
               );
+              const isActive = latestRequest && (latestRequest.status === 'pending' || latestRequest.status === 'approved');
 
               return (
                 <div
@@ -263,10 +264,29 @@ export default function ParentSettingsPage() {
                       <p className="text-xs text-gray-500">Profile, clips, reports, and subscription</p>
                     </div>
 
-                    {pendingRequest ? (
+                    {latestRequest?.status === 'pending' ? (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
                         <Loader2 className="w-3 h-3" />
-                        Deletion {pendingRequest.status}
+                        Pending review
+                      </span>
+                    ) : latestRequest?.status === 'approved' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-800">
+                        <Loader2 className="w-3 h-3" />
+                        Approved — awaiting deletion
+                      </span>
+                    ) : latestRequest?.status === 'completed' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-800">
+                        <Check className="w-3 h-3" />
+                        Deleted
+                      </span>
+                    ) : latestRequest?.status === 'rejected' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                        Request not approved
+                      </span>
+                    ) : latestRequest?.status === 'failed' ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-800">
+                        <AlertTriangle className="w-3 h-3" />
+                        Deletion failed — contact support
                       </span>
                     ) : deleteConfirmId === athlete.id ? null : (
                       <button
@@ -279,7 +299,7 @@ export default function ParentSettingsPage() {
                   </div>
 
                   {/* Confirmation panel */}
-                  {deleteConfirmId === athlete.id && !pendingRequest && (
+                  {deleteConfirmId === athlete.id && !isActive && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <div className="flex items-start gap-2 mb-3">
                         <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />

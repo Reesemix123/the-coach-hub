@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
 import { getStripeClient } from '@/lib/stripe/client';
 import { deleteMuxAsset } from '@/lib/services/communication/video.service';
+import { sendNotification, getCommHubEmailTemplate, formatSmsBody } from '@/lib/services/communication/notification.service';
 
 interface RouteContext {
   params: Promise<{ requestId: string }>;
@@ -79,6 +80,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }).eq('id', requestId);
       return NextResponse.json({ status: 'completed', note: 'Already deleted' });
     }
+
+    // Capture parent contact details BEFORE cascade delete
+    const { data: parentContact } = await serviceClient
+      .from('parent_profiles')
+      .select('id, email, phone, first_name, notification_preference')
+      .eq('id', req.parent_id)
+      .maybeSingle();
 
     const { data: clips } = await serviceClient
       .from('player_clips')
@@ -219,6 +227,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }).eq('id', requestId);
 
     console.log(`[deletion] Completed for ${summary.athleteName}:`, summary);
+
+    // Notify parent that deletion is complete
+    if (parentContact) {
+      sendNotification({
+        teamId: '',
+        recipientId: parentContact.id,
+        recipientType: 'parent',
+        channel: (parentContact.notification_preference as 'sms' | 'email' | 'both') ?? 'email',
+        notificationType: 'announcement',
+        subject: `${summary.athleteName}'s profile has been deleted`,
+        body: getCommHubEmailTemplate({
+          title: 'Profile Deletion Complete',
+          body: `<p>Hi ${parentContact.first_name ?? 'there'},</p><p>Your request to delete <strong>${summary.athleteName}</strong>'s athlete profile has been completed. All profile data, clips, reports, and season history have been permanently removed.</p><p>If you have any questions, please contact support.</p>`,
+        }),
+        smsBody: formatSmsBody('Youth Coach Hub', `${summary.athleteName}'s profile has been permanently deleted as requested. All clips, reports, and history have been removed.`),
+        recipientEmail: parentContact.email,
+        recipientPhone: parentContact.phone ?? undefined,
+      }).catch(err => console.error('[deletion] Parent completion notification failed:', err));
+    }
 
     return NextResponse.json({ status: 'completed', summary });
   } catch (error) {
