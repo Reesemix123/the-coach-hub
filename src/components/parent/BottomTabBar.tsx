@@ -44,6 +44,7 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
   const pathname = usePathname();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [athleteProfileId, setAthleteProfileId] = useState(initialAthleteId);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Fallback: if server didn't provide athleteProfileId, fetch it client-side
   useEffect(() => {
@@ -61,6 +62,25 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
   const activeTeamId = urlTeamMatch ? urlTeamMatch[1] : defaultTeamId;
   const teamId = activeTeamId;
 
+  // Poll unread count every 30 seconds for Messages badge
+  useEffect(() => {
+    if (!teamId) return;
+
+    async function fetchUnread() {
+      try {
+        const res = await fetch(`/api/parent/unread-count?teamId=${teamId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setUnreadCount(data.total ?? 0);
+        }
+      } catch {}
+    }
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [teamId]);
+
   const openMoreMenu = useCallback(() => setMoreMenuOpen(true), []);
   const closeMoreMenu = useCallback(() => setMoreMenuOpen(false), []);
 
@@ -73,9 +93,6 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       isActive: (p) => p.includes('/calendar'),
     },
     {
-      // TODO: PRE-LAUNCH — add unread badge count here combining
-      // unread message conversations + unread announcements.
-      // Fetch counts via a lightweight API endpoint or pass from layout.
       key: 'messages',
       label: 'Messages',
       icon: MessageCircle,
@@ -139,6 +156,12 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
           {tabs.map(({ key, label, icon: Icon, href, isActive }) => {
             const active = isActive(pathname);
 
+            const badge = key === 'messages' && unreadCount > 0 ? (
+              <span className="absolute -top-1.5 -right-2.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold leading-none">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            ) : null;
+
             if (!href) {
               return (
                 <button
@@ -147,7 +170,10 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
                   aria-label={`${label} — no team selected`}
                   className="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-300 cursor-not-allowed"
                 >
-                  <Icon size={24} strokeWidth={active ? 2.5 : 1.75} />
+                  <div className="relative">
+                    <Icon size={24} strokeWidth={active ? 2.5 : 1.75} />
+                    {badge}
+                  </div>
                   <span className="text-[10px] font-medium">{label}</span>
                 </button>
               );
@@ -163,10 +189,13 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
                 ].join(' ')}
                 aria-current={active ? 'page' : undefined}
               >
-                <Icon
-                  size={24}
-                  strokeWidth={active ? 2.5 : 1.75}
-                />
+                <div className="relative">
+                  <Icon
+                    size={24}
+                    strokeWidth={active ? 2.5 : 1.75}
+                  />
+                  {badge}
+                </div>
                 <span className={['text-[10px] font-medium', active ? 'text-black' : 'text-gray-400'].join(' ')}>
                   {label}
                 </span>
