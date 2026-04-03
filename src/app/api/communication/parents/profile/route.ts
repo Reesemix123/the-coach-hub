@@ -27,7 +27,7 @@ export async function GET() {
     const serviceClient = createServiceClient();
     const { data: profile, error } = await serviceClient
       .from('parent_profiles')
-      .select('id, first_name, last_name, email, phone, notification_preference, is_champion')
+      .select('id, first_name, last_name, email, phone, notification_preference, is_champion, sms_consent, sms_consent_at')
       .eq('user_id', user.id)
       .single();
 

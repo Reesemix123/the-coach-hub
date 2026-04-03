@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, Loader2, Mail, MessageSquare, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Loader2, Mail, MessageSquare, Check, Trash2, AlertTriangle, ShieldCheck, ShieldX } from 'lucide-react';
 import Link from 'next/link';
 
 type NotificationPreference = 'sms' | 'email' | 'both';
@@ -14,7 +14,14 @@ interface ParentProfile {
   phone: string | null;
   notification_preference: NotificationPreference;
   is_champion: boolean;
+  sms_consent: boolean;
+  sms_consent_at: string | null;
 }
+
+// IMPORTANT: This text must match src/app/auth/parent-signup/page.tsx
+// SMS_CONSENT_TEXT exactly. Update both locations if this text changes.
+const SMS_CONSENT_TEXT =
+  'I agree to receive text messages from Youth Coach Hub, including game alerts, coaching updates, and team notifications. Message & data rates may apply. Reply STOP at any time to opt out.';
 
 export default function ParentSettingsPage() {
   const [preference, setPreference] = useState<NotificationPreference>('email');
@@ -23,6 +30,15 @@ export default function ParentSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
+
+  // SMS consent state
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [smsConsentAt, setSmsConsentAt] = useState<string | null>(null);
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+  const [showReconsentForm, setShowReconsentForm] = useState(false);
+  const [reconsentChecked, setReconsentChecked] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentMessage, setConsentMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Privacy & Data state
   const [athletes, setAthletes] = useState<Array<{ id: string; name: string }>>([]);
@@ -65,6 +81,8 @@ export default function ParentSettingsPage() {
           const data: ParentProfile = await profileRes.json();
           setPreference(data.notification_preference ?? 'email');
           setPhone(data.phone ?? null);
+          setSmsConsent(data.sms_consent ?? false);
+          setSmsConsentAt(data.sms_consent_at ?? null);
         }
       } catch {
         // silent — user stays on default preference
@@ -169,8 +187,10 @@ export default function ParentSettingsPage() {
           {options.map((option) => {
             const Icon = option.icon;
             const isSelected = preference === option.value;
-            const isDisabled =
-              (option.value === 'sms' || option.value === 'both') && !phone;
+            const needsSms = option.value === 'sms' || option.value === 'both';
+            const noPhone = needsSms && !phone;
+            const noConsent = needsSms && !smsConsent;
+            const isDisabled = noPhone || noConsent;
 
             return (
               <button
@@ -203,9 +223,14 @@ export default function ParentSettingsPage() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500 mt-0.5">{option.description}</p>
-                    {isDisabled && (
+                    {noPhone && (
                       <p className="text-xs text-amber-600 mt-1">
                         Requires a phone number on file
+                      </p>
+                    )}
+                    {!noPhone && noConsent && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        SMS consent required — see SMS Consent section below
                       </p>
                     )}
                   </div>
@@ -226,6 +251,182 @@ export default function ParentSettingsPage() {
           </p>
         )}
         {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
+      </div>
+
+      {/* SMS Consent */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <h2 className="font-semibold text-gray-900 mb-1">SMS Consent</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Manage your consent for receiving SMS text message notifications.
+        </p>
+
+        {smsConsent ? (
+          /* Consented state */
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <ShieldCheck className="w-5 h-5 text-green-600" />
+              <p className="text-sm font-medium text-green-800">
+                You have consented to receive SMS notifications
+              </p>
+            </div>
+            {smsConsentAt && (
+              <p className="text-xs text-gray-500 mb-4 ml-7">
+                Since {new Date(smsConsentAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </p>
+            )}
+
+            {!showWithdrawConfirm ? (
+              <button
+                onClick={() => { setShowWithdrawConfirm(true); setConsentMessage(null); }}
+                className="text-sm font-medium text-red-600 hover:text-red-800 transition-colors"
+              >
+                Withdraw SMS Consent
+              </button>
+            ) : (
+              <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-2 mb-3">
+                  <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-700">
+                    This will immediately stop all SMS notifications. Your notification
+                    preference will be switched to Email Only. To receive SMS again,
+                    you will need to re-consent.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setConsentSaving(true);
+                      setConsentMessage(null);
+                      try {
+                        const res = await fetch('/api/parent/sms-consent', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'withdraw' }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setSmsConsent(false);
+                          setSmsConsentAt(null);
+                          setPreference(data.notification_preference ?? 'email');
+                          setShowWithdrawConfirm(false);
+                          setConsentMessage({ type: 'success', text: 'SMS consent withdrawn. Notifications switched to Email Only.' });
+                        } else {
+                          const data = await res.json();
+                          setConsentMessage({ type: 'error', text: data.error ?? 'Failed to withdraw consent' });
+                        }
+                      } catch {
+                        setConsentMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+                      } finally {
+                        setConsentSaving(false);
+                      }
+                    }}
+                    disabled={consentSaving}
+                    className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {consentSaving ? (
+                      <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Withdrawing...</span>
+                    ) : 'Withdraw Consent'}
+                  </button>
+                  <button
+                    onClick={() => setShowWithdrawConfirm(false)}
+                    className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* No consent / withdrawn state */
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <ShieldX className="w-5 h-5 text-gray-400" />
+              <p className="text-sm font-medium text-gray-600">
+                You have not consented to SMS notifications
+              </p>
+            </div>
+
+            {!phone ? (
+              <p className="text-xs text-amber-600">
+                A phone number is required before you can consent to SMS. Contact your coach to add one.
+              </p>
+            ) : !showReconsentForm ? (
+              <button
+                onClick={() => { setShowReconsentForm(true); setReconsentChecked(false); setConsentMessage(null); }}
+                className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Enable SMS Notifications
+              </button>
+            ) : (
+              <div className="mt-2">
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-gray-700 leading-relaxed">{SMS_CONSENT_TEXT}</p>
+                </div>
+                <label className="flex items-start gap-3 mb-4 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reconsentChecked}
+                    onChange={(e) => setReconsentChecked(e.target.checked)}
+                    className="mt-0.5 w-5 h-5 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  />
+                  <span className="text-sm text-gray-900 font-medium">
+                    I consent to receive SMS notifications
+                  </span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setConsentSaving(true);
+                      setConsentMessage(null);
+                      try {
+                        const res = await fetch('/api/parent/sms-consent', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'consent' }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setSmsConsent(true);
+                          setSmsConsentAt(new Date().toISOString());
+                          setPreference(data.notification_preference ?? 'both');
+                          setShowReconsentForm(false);
+                          setConsentMessage({ type: 'success', text: 'SMS consent granted. Notifications switched to Email & SMS.' });
+                        } else {
+                          const errData = await res.json();
+                          setConsentMessage({ type: 'error', text: errData.error ?? 'Failed to grant consent' });
+                        }
+                      } catch {
+                        setConsentMessage({ type: 'error', text: 'Something went wrong. Please try again.' });
+                      } finally {
+                        setConsentSaving(false);
+                      }
+                    }}
+                    disabled={!reconsentChecked || consentSaving}
+                    className="px-4 py-2 text-sm font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {consentSaving ? (
+                      <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Enabling...</span>
+                    ) : 'Enable SMS'}
+                  </button>
+                  <button
+                    onClick={() => setShowReconsentForm(false)}
+                    className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {consentMessage && (
+          <p className={`text-sm mt-4 flex items-center gap-2 ${consentMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            {consentMessage.type === 'success' && <Check className="w-4 h-4" />}
+            {consentMessage.text}
+          </p>
+        )}
       </div>
 
       {/* Phone number info */}
