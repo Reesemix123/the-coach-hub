@@ -647,20 +647,6 @@ export default async function Page() {
             </Link>
           </div>
 
-          <div className="flex gap-4 justify-center flex-wrap mt-6">
-            <Link
-              href="/guide"
-              className="font-black rounded-2xl px-6 py-3 inline-flex items-center justify-center transition-colors text-sm"
-              style={{
-                background: 'transparent',
-                border: '1px solid rgba(184,202,110,0.35)',
-                color: '#B8CA6E',
-              }}
-            >
-              See the Guide →
-            </Link>
-          </div>
-
           <p className="text-sm mt-8" style={{ color: 'rgba(249,250,251,0.30)' }}>
             Free tier available · No credit card required to start
           </p>
@@ -687,8 +673,6 @@ export default async function Page() {
           <div className="flex items-center gap-4">
             {[
               { label: 'Football', href: '/football' },
-              { label: 'Guide', href: '/guide' },
-              { label: 'Support', href: '/guide/support/providing-feedback' },
               { label: 'Privacy', href: '/privacy' },
               { label: 'Terms', href: '/terms' },
             ].map((link) => (
