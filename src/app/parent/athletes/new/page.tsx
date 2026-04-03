@@ -10,7 +10,7 @@ import { ChevronLeft, Camera, Check, Loader2 } from 'lucide-react';
 // Types
 // =============================================================================
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 interface FormData {
   firstName: string;
@@ -29,6 +29,11 @@ const INPUT_CLASS =
   'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B8CA6E] text-gray-900';
 
 const currentYear = new Date().getFullYear();
+
+const COPPA_GRADUATION_THRESHOLD = currentYear + 5;
+
+const COPPA_CONSENT_TEXT =
+  "I, as the parent or legal guardian, consent to my child's personal information (name, graduation year, profile photo, and performance data) being collected and stored on Youth Coach Hub. This information will be used to create an athlete profile that tracks clips, reports, and season history. I understand I can request deletion of this data at any time by contacting support.";
 
 // =============================================================================
 // Component
@@ -52,7 +57,14 @@ export default function NewAthletePage() {
   const [creating, setCreating] = useState(false);
   const [athleteProfileId, setAthleteProfileId] = useState<string | null>(null);
 
-  // Join code state (step 3)
+  const [coppaConsent, setCoppaConsent] = useState(false);
+
+  // Derived: does the athlete need COPPA consent?
+  const needsCoppa = form.graduationYear
+    ? parseInt(form.graduationYear, 10) <= COPPA_GRADUATION_THRESHOLD
+    : false;
+
+  // Join code state (step 4)
   const [joinCode, setJoinCode] = useState('');
   const [linking, setLinking] = useState(false);
   const [linkResult, setLinkResult] = useState<{ teamName: string; playerName: string } | null>(null);
@@ -130,6 +142,7 @@ export default function NewAthletePage() {
           lastName: form.lastName.trim(),
           graduationYear: parseInt(form.graduationYear, 10),
           photoPath: form.photoUrl,
+          ...(needsCoppa ? { coppaConsent, coppaConsentText: COPPA_CONSENT_TEXT } : {}),
         }),
       });
 
@@ -141,7 +154,7 @@ export default function NewAthletePage() {
 
       const data = await res.json();
       setAthleteProfileId(data.athleteProfileId);
-      setStep(3);
+      setStep(4);
     } catch {
       setErrors({ create: 'Something went wrong. Try again.' });
     } finally {
@@ -206,13 +219,21 @@ export default function NewAthletePage() {
               <ChevronLeft className="w-4 h-4" />
               Back
             </button>
+          ) : step === 3 ? (
+            <button
+              onClick={() => setStep(2)}
+              className="inline-flex items-center gap-1 text-sm text-[#6b7280] hover:text-[#1a1a1a] transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
           ) : (
             <div />
           )}
 
           {/* Step indicator */}
           <div className="flex items-center gap-2">
-            {[1, 2, 3].map((s) => (
+            {Array.from({ length: needsCoppa ? 4 : 3 }, (_, i) => i + 1).map((s) => (
               <div
                 key={s}
                 className={`w-2.5 h-2.5 rounded-full ${
@@ -394,7 +415,13 @@ export default function NewAthletePage() {
             )}
 
             <button
-              onClick={handleCreate}
+              onClick={() => {
+                if (needsCoppa) {
+                  setStep(3);
+                } else {
+                  handleCreate();
+                }
+              }}
               disabled={creating}
               className="w-full px-4 py-3 rounded-lg text-sm font-semibold bg-[#B8CA6E] text-[#1a1410] hover:brightness-105 transition-all disabled:opacity-50"
             >
@@ -411,9 +438,65 @@ export default function NewAthletePage() {
         )}
 
         {/* ================================================================= */}
-        {/* STEP 3 — Success + optional roster link                          */}
+        {/* STEP 3 — COPPA Consent (only shown when needsCoppa)              */}
         {/* ================================================================= */}
         {step === 3 && (
+          <div>
+            <h1 className="text-2xl font-bold text-[#1a1a1a] mb-1">
+              Parental Consent Required
+            </h1>
+            <p className="text-sm text-[#6b7280] mb-6">
+              Since {form.firstName} is under 13, federal law (COPPA) requires
+              your consent before we can create their profile.
+            </p>
+
+            {/* Consent text */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 mb-6">
+              <p className="text-sm text-[#1a1a1a] leading-relaxed">
+                {COPPA_CONSENT_TEXT}
+              </p>
+            </div>
+
+            {/* Consent checkbox */}
+            <label className="flex items-start gap-3 mb-6 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={coppaConsent}
+                onChange={(e) => setCoppaConsent(e.target.checked)}
+                className="mt-0.5 w-5 h-5 rounded border-gray-300 text-[#B8CA6E] focus:ring-[#B8CA6E]"
+              />
+              <span className="text-sm text-[#1a1a1a] font-medium">
+                I consent as the parent or legal guardian
+              </span>
+            </label>
+
+            {errors.create && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-700">{errors.create}</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleCreate}
+              disabled={!coppaConsent || creating}
+              className="w-full px-4 py-3 rounded-lg text-sm font-semibold bg-[#B8CA6E] text-[#1a1410] hover:brightness-105 transition-all disabled:opacity-50"
+            >
+              {creating ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating profile...
+                </span>
+              ) : (
+                'Continue'
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* STEP 4 — Success + optional roster link                          */}
+        {/* ================================================================= */}
+        {step === 4 && (
           <div className="text-center">
             {/* Success icon */}
             <div className="w-20 h-20 rounded-full bg-[#B8CA6E] flex items-center justify-center mx-auto mb-4">

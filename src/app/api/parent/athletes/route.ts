@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
       lastName?: string;
       graduationYear?: number;
       photoPath?: string;
+      coppaConsent?: boolean;
+      coppaConsentText?: string;
     };
 
     if (!body.firstName?.trim() || !body.lastName?.trim()) {
@@ -54,6 +56,25 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('[create-athlete] Insert failed:', insertError);
       return NextResponse.json({ error: 'Failed to create athlete profile' }, { status: 500 });
+    }
+
+    // Log COPPA consent if provided (for athletes under 13)
+    if (body.coppaConsent != null) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? request.headers.get('x-real-ip')
+        ?? null;
+
+      await serviceClient.from('parent_consent_log').insert({
+        parent_id: parent.id,
+        team_id: null,
+        consent_type: 'athlete_profile_creation',
+        consented: body.coppaConsent,
+        consent_text: body.coppaConsentText ?? '',
+        ip_address: ip,
+        user_agent: request.headers.get('user-agent') ?? null,
+      }).then(({ error: consentError }) => {
+        if (consentError) console.error('[create-athlete] Consent log failed:', consentError);
+      });
     }
 
     return NextResponse.json({ athleteProfileId: athlete.id });
