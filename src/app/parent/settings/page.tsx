@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Loader2, Mail, MessageSquare, Check } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, Loader2, Mail, MessageSquare, Check, Trash2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
 type NotificationPreference = 'sms' | 'email' | 'both';
@@ -24,6 +24,39 @@ export default function ParentSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
 
+  // Privacy & Data state
+  const [athletes, setAthletes] = useState<Array<{ id: string; name: string }>>([]);
+  const [deletionRequests, setDeletionRequests] = useState<Array<{ athlete_profile_id: string; status: string }>>([]);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const fetchDeletionData = useCallback(async () => {
+    try {
+      const [athleteRes, requestRes] = await Promise.all([
+        fetch('/api/parent/athlete-profile-id'),
+        fetch('/api/parent/deletion-request'),
+      ]);
+      if (athleteRes.ok) {
+        const data = await athleteRes.json();
+        if (data.athleteProfileId) {
+          const name = data.athleteFirstName && data.athleteLastName
+            ? `${data.athleteFirstName} ${data.athleteLastName}`
+            : data.athleteFirstName ?? 'Your athlete';
+          setAthletes([{ id: data.athleteProfileId, name }]);
+        }
+      }
+      if (requestRes.ok) {
+        const data = await requestRes.json();
+        setDeletionRequests(data.requests ?? []);
+      }
+    } catch {
+      // silent
+    }
+  }, []);
+
   useEffect(() => {
     async function fetchProfile() {
       try {
@@ -40,7 +73,8 @@ export default function ParentSettingsPage() {
       }
     }
     fetchProfile();
-  }, []);
+    fetchDeletionData();
+  }, [fetchDeletionData]);
 
   async function handleSave(newPref: NotificationPreference) {
     // SMS requires a phone number on file
@@ -196,11 +230,139 @@ export default function ParentSettingsPage() {
 
       {/* Phone number info */}
       {!phone && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
           <p className="text-sm text-amber-800">
             No phone number on file. Contact your coach to add your phone number for SMS
             notifications.
           </p>
+        </div>
+      )}
+
+      {/* Privacy & Data */}
+      {athletes.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <h2 className="font-semibold text-gray-900 mb-1">Privacy & Data</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            Request deletion of an athlete profile and all associated data.
+          </p>
+
+          <div className="space-y-3">
+            {athletes.map((athlete) => {
+              const pendingRequest = deletionRequests.find(
+                (r) => r.athlete_profile_id === athlete.id && (r.status === 'pending' || r.status === 'approved')
+              );
+
+              return (
+                <div
+                  key={athlete.id}
+                  className="p-4 rounded-lg border border-gray-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">{athlete.name}</p>
+                      <p className="text-xs text-gray-500">Profile, clips, reports, and subscription</p>
+                    </div>
+
+                    {pendingRequest ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                        <Loader2 className="w-3 h-3" />
+                        Deletion {pendingRequest.status}
+                      </span>
+                    ) : deleteConfirmId === athlete.id ? null : (
+                      <button
+                        onClick={() => { setDeleteConfirmId(athlete.id); setDeleteReason(''); setDeleteError(null); setDeleteSuccess(null); }}
+                        className="text-sm font-medium text-red-600 hover:text-red-800 transition-colors"
+                      >
+                        Request Deletion
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Confirmation panel */}
+                  {deleteConfirmId === athlete.id && !pendingRequest && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-start gap-2 mb-3">
+                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-700">
+                          This will request permanent deletion of this athlete&apos;s profile,
+                          all clips, reports, season history, and any active subscription.
+                          This cannot be undone. A platform administrator will review your request.
+                        </p>
+                      </div>
+
+                      <textarea
+                        value={deleteReason}
+                        onChange={(e) => setDeleteReason(e.target.value)}
+                        placeholder="Reason for deletion (optional)"
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 mb-3 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                      />
+
+                      {deleteError && <p className="text-sm text-red-600 mb-3">{deleteError}</p>}
+                      {deleteSuccess && (
+                        <p className="text-sm text-green-600 mb-3 flex items-center gap-1">
+                          <Check className="w-4 h-4" /> {deleteSuccess}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            setDeletingId(athlete.id);
+                            setDeleteError(null);
+                            try {
+                              const res = await fetch('/api/parent/deletion-request', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  athleteProfileId: athlete.id,
+                                  reason: deleteReason.trim() || undefined,
+                                }),
+                              });
+                              if (res.ok) {
+                                setDeleteSuccess('Deletion request submitted. You will be notified when it is reviewed.');
+                                setDeleteConfirmId(null);
+                                await fetchDeletionData();
+                              } else {
+                                const data = await res.json();
+                                setDeleteError(data.error ?? 'Failed to submit request');
+                              }
+                            } catch {
+                              setDeleteError('Something went wrong. Please try again.');
+                            } finally {
+                              setDeletingId(null);
+                            }
+                          }}
+                          disabled={deletingId === athlete.id}
+                          className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {deletingId === athlete.id ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
+                            </span>
+                          ) : (
+                            'Submit Deletion Request'
+                          )}
+                        </button>
+                        <button
+                          onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }}
+                          className="px-4 py-2 text-sm font-medium border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {deleteSuccess && !deleteConfirmId && (
+            <p className="text-sm text-green-600 mt-4 flex items-center gap-2">
+              <Check className="w-4 h-4" /> {deleteSuccess}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -17,10 +17,14 @@ export async function GET() {
   const serviceClient = createServiceClient();
   const { data: athlete } = await serviceClient
     .from('athlete_profiles')
-    .select('id')
+    .select('id, athlete_first_name, athlete_last_name')
     .eq('created_by_parent_id', parent.id)
     .limit(1)
     .maybeSingle();
 
-  return NextResponse.json({ athleteProfileId: athlete?.id ?? null });
+  return NextResponse.json({
+    athleteProfileId: athlete?.id ?? null,
+    athleteFirstName: athlete?.athlete_first_name ?? null,
+    athleteLastName: athlete?.athlete_last_name ?? null,
+  });
 }
