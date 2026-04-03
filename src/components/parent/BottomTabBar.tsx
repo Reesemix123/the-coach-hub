@@ -7,10 +7,8 @@ import { usePathname } from 'next/navigation';
 import {
   Calendar,
   MessageCircle,
-  Video,
+  PlayCircle,
   MoreHorizontal,
-  Bell,
-  FileText,
   Users,
   Settings,
   LogOut,
@@ -75,32 +73,21 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       isActive: (p) => p.includes('/calendar'),
     },
     {
+      // TODO: PRE-LAUNCH — add unread badge count here combining
+      // unread message conversations + unread announcements.
+      // Fetch counts via a lightweight API endpoint or pass from layout.
       key: 'messages',
       label: 'Messages',
       icon: MessageCircle,
       href: teamId ? `/parent/teams/${teamId}/messages` : null,
-      isActive: (p) => p.includes('/messages'),
+      isActive: (p) => p.includes('/messages') || p.includes('/announcements'),
     },
     {
-      key: 'videos',
-      label: 'Videos',
-      icon: Video,
-      href: teamId ? `/parent/teams/${teamId}/videos` : null,
-      isActive: (p) => p.includes('/videos'),
-    },
-    {
-      key: 'reports',
-      label: 'Reports',
-      icon: FileText,
-      href: teamId ? `/parent/teams/${teamId}/reports` : null,
-      isActive: (p) => p.includes('/reports'),
-    },
-    {
-      key: 'directory',
-      label: 'Directory',
-      icon: Users,
-      href: teamId ? `/parent/teams/${teamId}/directory` : null,
-      isActive: (p) => p.includes('/directory'),
+      key: 'media',
+      label: 'Media',
+      icon: PlayCircle,
+      href: teamId ? `/parent/teams/${teamId}/media` : null,
+      isActive: (p) => p.includes('/media') || p.includes('/videos') || p.includes('/reports'),
     },
     {
       key: 'player-profile',
@@ -114,16 +101,16 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
   ];
 
   const moreIsActive =
-    pathname.includes('/announcements') ||
+    pathname.includes('/directory') ||
     pathname.includes('/settings') ||
     pathname.startsWith('/parent/guide');
 
   const moreMenuItems = [
     {
-      key: 'announcements',
-      label: 'Announcements',
-      icon: Bell,
-      href: teamId ? `/parent/teams/${teamId}/announcements` : null,
+      key: 'directory',
+      label: 'Directory',
+      icon: Users,
+      href: teamId ? `/parent/teams/${teamId}/directory` : null,
     },
     {
       key: 'guide',

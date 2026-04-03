@@ -13,9 +13,11 @@ import {
   Loader2,
   MessageSquarePlus,
   MessagesSquare,
+  Bell,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { MessageThread } from '@/components/communication/messaging/MessageThread';
 import type { DirectMessage } from '@/types/communication';
 
@@ -33,6 +35,18 @@ interface ConversationSummary {
 // ============================================================================
 // Local types
 // ============================================================================
+
+interface AnnouncementItem {
+  id: string;
+  title: string | null;
+  body: string;
+  created_at: string;
+  is_read: boolean;
+}
+
+type FeedItem =
+  | { type: 'conversation'; data: ConversationSummary }
+  | { type: 'announcement'; data: AnnouncementItem };
 
 interface SelectedConversation {
   participantId: string;
@@ -399,7 +413,9 @@ function InboxView({
   myParentProfileId,
   onSelectConversation,
 }: InboxViewProps) {
+  const router = useRouter();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPicker, setShowPicker] = useState(false);
@@ -409,17 +425,28 @@ function InboxView({
       setLoading(true);
       setError(null);
 
-      const res = await fetch(
-        `/api/communication/messages?teamId=${teamId}&view=inbox`
-      );
+      const [msgRes, annRes] = await Promise.all([
+        fetch(`/api/communication/messages?teamId=${teamId}&view=inbox`),
+        fetch(`/api/communication/announcements?teamId=${teamId}`),
+      ]);
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to load inbox');
+      if (msgRes.ok) {
+        const data = await msgRes.json();
+        setConversations(data.conversations ?? []);
       }
 
-      const data = await res.json();
-      setConversations(data.conversations ?? []);
+      if (annRes.ok) {
+        const data = await annRes.json();
+        setAnnouncements(
+          (data.announcements ?? []).map((a: Record<string, unknown>) => ({
+            id: a.id as string,
+            title: (a.title as string) ?? null,
+            body: (a.body as string) ?? (a.message_text as string) ?? '',
+            created_at: (a.created_at as string) ?? '',
+            is_read: !!(a.is_read ?? a.read_at),
+          }))
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load inbox');
     } finally {
@@ -438,6 +465,22 @@ function InboxView({
     }, 15000);
     return () => clearInterval(interval);
   }, [fetchInbox]);
+
+  // Build merged feed sorted by timestamp (newest first)
+  const feed: FeedItem[] = [
+    ...conversations.map((c): FeedItem => ({
+      type: 'conversation',
+      data: c,
+    })),
+    ...announcements.map((a): FeedItem => ({
+      type: 'announcement',
+      data: a,
+    })),
+  ].sort((a, b) => {
+    const timeA = a.type === 'conversation' ? a.data.lastMessageAt : a.data.created_at;
+    const timeB = b.type === 'conversation' ? b.data.lastMessageAt : b.data.created_at;
+    return new Date(timeB).getTime() - new Date(timeA).getTime();
+  });
 
   function handlePickerSelect(conv: SelectedConversation) {
     setShowPicker(false);
@@ -501,7 +544,7 @@ function InboxView({
       )}
 
       {/* Empty state */}
-      {!error && conversations.length === 0 && (
+      {!error && feed.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <MessagesSquare className="w-16 h-16 mx-auto mb-4 text-gray-300" />
           <h2 className="text-lg font-medium text-gray-900 mb-2">No Messages Yet</h2>
@@ -529,22 +572,59 @@ function InboxView({
         </div>
       )}
 
-      {/* Conversation list */}
-      {conversations.length > 0 && (
+      {/* Merged feed: conversations + announcements */}
+      {feed.length > 0 && (
         <div className="space-y-2">
-          {conversations.map((conv) => (
-            <ConversationCard
-              key={conv.participantId}
-              conversation={conv}
-              onClick={() =>
-                onSelectConversation({
-                  participantId: conv.participantId,
-                  participantName: conv.participantName,
-                  participantType: conv.participantType,
-                })
-              }
-            />
-          ))}
+          {feed.map((item) =>
+            item.type === 'conversation' ? (
+              <ConversationCard
+                key={`conv-${item.data.participantId}`}
+                conversation={item.data}
+                onClick={() =>
+                  onSelectConversation({
+                    participantId: item.data.participantId,
+                    participantName: item.data.participantName,
+                    participantType: item.data.participantType,
+                  })
+                }
+              />
+            ) : (
+              <button
+                key={`ann-${item.data.id}`}
+                onClick={() => router.push(`/parent/teams/${teamId}/announcements`)}
+                className={`w-full text-left bg-white rounded-xl border p-4 transition-colors hover:bg-gray-50 ${
+                  item.data.is_read ? 'border-gray-200' : 'border-amber-300 bg-amber-50/30'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <Bell className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                        Announcement
+                      </span>
+                      <span className="text-xs text-gray-400 ml-auto flex-shrink-0">
+                        {new Date(item.data.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    </div>
+                    {item.data.title && (
+                      <p className={`text-sm font-semibold truncate ${item.data.is_read ? 'text-gray-700' : 'text-gray-900'}`}>
+                        {item.data.title}
+                      </p>
+                    )}
+                    <p className={`text-sm truncate ${item.data.is_read ? 'text-gray-500' : 'text-gray-700'}`}>
+                      {item.data.body.replace(/<[^>]*>/g, '').substring(0, 100)}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            )
+          )}
         </div>
       )}
     </div>
