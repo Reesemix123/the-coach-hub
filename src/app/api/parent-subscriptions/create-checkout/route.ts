@@ -125,6 +125,8 @@ async function buildCheckoutSession(
   // Create Stripe Checkout session (recurring subscription)
   const session = await stripe.checkout.sessions.create({
     customer: stripeCustomerId,
+    automatic_tax: { enabled: true },
+    customer_update: { address: 'auto' },
     mode: 'subscription',
     payment_method_types: ['card'],
     line_items: [

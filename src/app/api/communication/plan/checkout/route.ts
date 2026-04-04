@@ -156,6 +156,8 @@ export async function POST(request: NextRequest) {
     // Create Stripe checkout session (one-time payment)
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
+      automatic_tax: { enabled: true },
+      customer_update: { address: 'auto' },
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [
