@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Check, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle, Lock } from 'lucide-react';
 
 interface VimeoAccountInfo {
   connected: boolean;
@@ -12,14 +12,20 @@ interface VimeoAccountInfo {
   tokenExpiresAt: string | null;
 }
 
-export function ExternalAccountsCard() {
+interface ExternalAccountsCardProps {
+  teamId: string;
+  isPaidTier: boolean;
+}
+
+export function ExternalAccountsCard({ teamId, isPaidTier }: ExternalAccountsCardProps) {
   const [vimeo, setVimeo] = useState<VimeoAccountInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
-    fetchAccounts();
-  }, []);
+    if (isPaidTier) fetchAccounts();
+    else setLoading(false);
+  }, [isPaidTier]);
 
   async function fetchAccounts() {
     try {
@@ -49,13 +55,13 @@ export function ExternalAccountsCard() {
   }
 
   function handleConnect() {
-    window.location.href = '/api/auth/vimeo';
+    window.location.href = `/api/auth/vimeo?teamId=${teamId}`;
   }
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#1ab7ea] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">V</span>
           </div>
@@ -68,13 +74,39 @@ export function ExternalAccountsCard() {
     );
   }
 
+  // Locked state for free tier coaches
+  if (!isPaidTier) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+              <span className="text-gray-500 font-bold text-sm">V</span>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">Vimeo</h3>
+              <p className="text-sm text-gray-500">Share game film externally</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg">
+            <Lock className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-xs font-medium text-gray-600">Paid Plan</span>
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-gray-500">
+          Upgrade to a paid plan to connect your Vimeo account and share game film and highlights externally.
+        </p>
+      </div>
+    );
+  }
+
   const isConnected = vimeo?.connected;
   const isExpiringSoon =
     vimeo?.tokenExpiresAt &&
     new Date(vimeo.tokenExpiresAt).getTime() - Date.now() < 7 * 86400000;
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
@@ -82,11 +114,7 @@ export function ExternalAccountsCard() {
               isConnected ? 'bg-[#1ab7ea]' : 'bg-gray-200'
             }`}
           >
-            <span
-              className={`font-bold text-sm ${
-                isConnected ? 'text-white' : 'text-gray-500'
-              }`}
-            >
+            <span className={`font-bold text-sm ${isConnected ? 'text-white' : 'text-gray-500'}`}>
               V
             </span>
           </div>
@@ -95,9 +123,7 @@ export function ExternalAccountsCard() {
             {isConnected ? (
               <div className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-green-500" />
-                <span className="text-sm text-green-600">
-                  Connected as {vimeo?.accountName}
-                </span>
+                <span className="text-sm text-green-600">Connected as {vimeo?.accountName}</span>
               </div>
             ) : (
               <p className="text-sm text-gray-500">Not connected</p>
@@ -130,18 +156,14 @@ export function ExternalAccountsCard() {
               Connected{' '}
               {vimeo?.connectedAt
                 ? new Date(vimeo.connectedAt).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
+                    month: 'short', day: 'numeric', year: 'numeric',
                   })
                 : ''}
             </span>
             {isExpiringSoon && (
               <div className="flex items-center gap-1 text-amber-600">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span className="text-xs font-medium">
-                  Token expiring soon — reconnect recommended
-                </span>
+                <span className="text-xs font-medium">Token expiring soon — reconnect recommended</span>
               </div>
             )}
           </div>

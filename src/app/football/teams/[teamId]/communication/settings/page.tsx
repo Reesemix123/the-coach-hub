@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { Settings, Cookie, MessageSquare, Loader2, Check } from 'lucide-react';
+import { useState, useEffect, use, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Settings, Cookie, MessageSquare, Loader2, Check, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ExternalAccountsCard } from '@/components/communication/external/ExternalAccountsCard';
+import { createClient } from '@/utils/supabase/client';
 
 interface CommSettings {
   treats_enabled: boolean;
@@ -14,7 +17,25 @@ export default function CommunicationSettingsPage({
 }: {
   params: Promise<{ teamId: string }>;
 }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50"><div className="max-w-3xl mx-auto px-4 py-8"><Loader2 className="w-8 h-8 animate-spin text-gray-400 mx-auto" /></div></div>
+    }>
+      <SettingsInner params={params} />
+    </Suspense>
+  );
+}
+
+function SettingsInner({
+  params,
+}: {
+  params: Promise<{ teamId: string }>;
+}) {
   const { teamId } = use(params);
+  const searchParams = useSearchParams();
+  const vimeoStatus = searchParams.get('vimeo');
+  const vimeoError = searchParams.get('error');
+
   const [settings, setSettings] = useState<CommSettings>({
     treats_enabled: false,
     max_treat_slots_per_event: 2,
@@ -24,18 +45,37 @@ export default function CommunicationSettingsPage({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPaidTier, setIsPaidTier] = useState(false);
 
   useEffect(() => {
     async function fetchSettings() {
       try {
-        const response = await fetch(`/api/communication/settings?teamId=${teamId}`);
-        if (!response.ok) throw new Error('Failed to fetch settings');
-        const data = await response.json();
-        setSettings({
-          treats_enabled: data.settings.treats_enabled ?? false,
-          max_treat_slots_per_event: data.settings.max_treat_slots_per_event ?? 2,
-          allow_parent_to_parent_messaging: data.settings.allow_parent_to_parent_messaging ?? true,
-        });
+        const [settingsRes] = await Promise.all([
+          fetch(`/api/communication/settings?teamId=${teamId}`),
+        ]);
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          setSettings({
+            treats_enabled: data.settings.treats_enabled ?? false,
+            max_treat_slots_per_event: data.settings.max_treat_slots_per_event ?? 2,
+            allow_parent_to_parent_messaging: data.settings.allow_parent_to_parent_messaging ?? true,
+          });
+        }
+
+        // Check subscription tier for Vimeo gate
+        const supabase = createClient();
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('tier, status, billing_waived')
+          .eq('team_id', teamId)
+          .maybeSingle();
+
+        if (subscription) {
+          const isActive = subscription.status === 'active' ||
+            subscription.status === 'trialing' ||
+            subscription.billing_waived;
+          setIsPaidTier(isActive && subscription.tier !== 'basic');
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load settings');
       } finally {
@@ -95,6 +135,26 @@ export default function CommunicationSettingsPage({
             <p className="text-gray-600 mt-1">Configure parent communication features</p>
           </div>
         </div>
+
+        {/* Vimeo OAuth feedback banners */}
+        {vimeoStatus === 'connected' && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            <p className="text-sm text-green-800 font-medium">
+              Vimeo account connected successfully.
+            </p>
+          </div>
+        )}
+        {vimeoError?.startsWith('vimeo_') && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <p className="text-sm text-amber-800">
+              {vimeoError === 'vimeo_denied'
+                ? 'Vimeo connection was denied. You can try again below.'
+                : 'Failed to connect Vimeo. Please try again.'}
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -195,6 +255,8 @@ export default function CommunicationSettingsPage({
               </div>
             </div>
           </div>
+          {/* Vimeo External Sharing */}
+          <ExternalAccountsCard teamId={teamId} isPaidTier={isPaidTier} />
         </div>
 
         {/* Save Button */}

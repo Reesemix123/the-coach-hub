@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth/login', request.url));
     }
 
+    // Store teamId from query params so we can redirect back after OAuth
+    const teamId = request.nextUrl.searchParams.get('teamId');
+
     // Generate a random state token to prevent CSRF attacks
     const state = crypto.randomBytes(32).toString('hex');
     const authUrl = getVimeoAuthUrl(state);
@@ -28,13 +31,28 @@ export async function GET(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 600, // 10 minutes — enough time to complete the Vimeo authorization page
+      maxAge: 600,
       path: '/',
     });
+
+    // Store teamId in a separate cookie for callback redirect
+    if (teamId) {
+      response.cookies.set('vimeo_team_id', teamId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+        path: '/',
+      });
+    }
 
     return response;
   } catch (error) {
     console.error('Vimeo OAuth initiation error:', error);
-    return NextResponse.redirect(new URL('/football/teams?error=vimeo_auth_failed', request.url));
+    const teamId = request.nextUrl.searchParams.get('teamId');
+    const fallback = teamId
+      ? `/football/teams/${teamId}/communication/settings?error=vimeo_auth_failed`
+      : '/dashboard?error=vimeo_auth_failed';
+    return NextResponse.redirect(new URL(fallback, request.url));
   }
 }

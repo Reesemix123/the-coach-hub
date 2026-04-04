@@ -18,7 +18,17 @@ import {
   saveVimeoConnection,
 } from '@/lib/services/communication/vimeo.service';
 
+function getRedirectUrl(request: NextRequest, teamId: string | null, params: string): string {
+  if (teamId) {
+    return `/football/teams/${teamId}/communication/settings?${params}`;
+  }
+  return `/dashboard?${params}`;
+}
+
 export async function GET(request: NextRequest) {
+  // Read teamId from cookie (set during OAuth initiation)
+  const teamId = request.cookies.get('vimeo_team_id')?.value ?? null;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -35,18 +45,33 @@ export async function GET(request: NextRequest) {
     // User clicked "Deny" on the Vimeo permissions page
     if (oauthError) {
       console.warn('Vimeo OAuth denied:', oauthError);
-      return NextResponse.redirect(new URL('/football/teams?error=vimeo_denied', request.url));
+      const response = NextResponse.redirect(
+        new URL(getRedirectUrl(request, teamId, 'error=vimeo_denied'), request.url)
+      );
+      response.cookies.delete('vimeo_oauth_state');
+      response.cookies.delete('vimeo_team_id');
+      return response;
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(new URL('/football/teams?error=vimeo_invalid_callback', request.url));
+      const response = NextResponse.redirect(
+        new URL(getRedirectUrl(request, teamId, 'error=vimeo_invalid_callback'), request.url)
+      );
+      response.cookies.delete('vimeo_oauth_state');
+      response.cookies.delete('vimeo_team_id');
+      return response;
     }
 
     // Verify state token matches what we stored in the cookie
     const storedState = request.cookies.get('vimeo_oauth_state')?.value;
     if (!storedState || storedState !== state) {
       console.error('Vimeo OAuth state mismatch — possible CSRF attempt');
-      return NextResponse.redirect(new URL('/football/teams?error=vimeo_state_mismatch', request.url));
+      const response = NextResponse.redirect(
+        new URL(getRedirectUrl(request, teamId, 'error=vimeo_state_mismatch'), request.url)
+      );
+      response.cookies.delete('vimeo_oauth_state');
+      response.cookies.delete('vimeo_team_id');
+      return response;
     }
 
     // Exchange the authorization code for an access token
@@ -57,13 +82,21 @@ export async function GET(request: NextRequest) {
 
     await saveVimeoConnection(user.id, accessToken, accountId, vimeoUser.name);
 
-    // Clear the state cookie and send the coach to their settings page
-    const response = NextResponse.redirect(new URL('/football/teams?vimeo=connected', request.url));
+    // Clear cookies and redirect to settings with success indicator
+    const response = NextResponse.redirect(
+      new URL(getRedirectUrl(request, teamId, 'vimeo=connected'), request.url)
+    );
     response.cookies.delete('vimeo_oauth_state');
+    response.cookies.delete('vimeo_team_id');
 
     return response;
   } catch (error) {
     console.error('Vimeo OAuth callback error:', error);
-    return NextResponse.redirect(new URL('/football/teams?error=vimeo_callback_failed', request.url));
+    const response = NextResponse.redirect(
+      new URL(getRedirectUrl(request, teamId, 'error=vimeo_callback_failed'), request.url)
+    );
+    response.cookies.delete('vimeo_oauth_state');
+    response.cookies.delete('vimeo_team_id');
+    return response;
   }
 }

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { VideoCard } from '@/components/communication/videos/VideoCard';
 import { VideoUploadForm } from '@/components/communication/videos/VideoUploadForm';
 import { PublishVideoModal } from '@/components/communication/videos/PublishVideoModal';
+import { ShareToVimeoModal } from '@/components/communication/external/ShareToVimeoModal';
 
 interface SharedVideoWithThumb {
   id: string;
@@ -80,6 +81,8 @@ export default function CoachVideosPage({
   const [error, setError] = useState<string | null>(null);
   const [showUploadForm, setShowUploadForm] = useState(false);
   const [publishVideoId, setPublishVideoId] = useState<string | null>(null);
+  const [shareVideoId, setShareVideoId] = useState<string | null>(null);
+  const [vimeoConnected, setVimeoConnected] = useState(false);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
 
   const fetchVideos = useCallback(async () => {
@@ -121,6 +124,13 @@ export default function CoachVideosPage({
   useEffect(() => {
     fetchVideos();
     fetchPlayers();
+    // Check if coach has active Vimeo connection
+    fetch('/api/communication/external-accounts')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.accounts?.vimeo?.connected) setVimeoConnected(true);
+      })
+      .catch(() => {});
   }, [fetchVideos, fetchPlayers]);
 
   async function handlePublish(data: PublishPayload) {
@@ -178,6 +188,10 @@ export default function CoachVideosPage({
 
   const publishVideo = publishVideoId
     ? videos.find((v) => v.id === publishVideoId) ?? null
+    : null;
+
+  const shareVideo = shareVideoId
+    ? videos.find((v) => v.id === shareVideoId) ?? null
     : null;
 
   if (loading) {
@@ -314,6 +328,7 @@ export default function CoachVideosPage({
                   )
                 }
                 onDelete={handleDelete}
+                onShareExternal={vimeoConnected ? (id) => setShareVideoId(id) : undefined}
               />
             ))}
           </div>
@@ -329,6 +344,20 @@ export default function CoachVideosPage({
           video={publishVideo}
           credits={credits}
           players={players}
+        />
+      )}
+
+      {/* Vimeo Share Modal */}
+      {shareVideo && (
+        <ShareToVimeoModal
+          isOpen={!!shareVideoId}
+          onClose={() => setShareVideoId(null)}
+          video={{
+            id: shareVideo.id,
+            title: shareVideo.title,
+            description: shareVideo.description,
+          }}
+          teamId={teamId}
         />
       )}
     </div>

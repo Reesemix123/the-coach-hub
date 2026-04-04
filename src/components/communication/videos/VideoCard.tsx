@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
-import { Video, Clock, Users, User, Check, AlertCircle, Loader2, Eye } from 'lucide-react';
+import { Video, Clock, Users, User, Check, AlertCircle, Loader2, Eye, ExternalLink } from 'lucide-react';
 
 interface VideoCardProps {
   video: {
@@ -22,6 +22,7 @@ interface VideoCardProps {
   onPublish?: (videoId: string) => void;
   onWatch?: (videoId: string) => void;
   onDelete?: (videoId: string) => void;
+  onShareExternal?: (videoId: string) => void;
 }
 
 type StatusKey = 'preparing' | 'ready' | 'errored';
@@ -72,6 +73,7 @@ export const VideoCard = memo(function VideoCard({
   onPublish,
   onWatch,
   onDelete,
+  onShareExternal,
 }: VideoCardProps) {
   const statusConfig =
     STATUS_CONFIG[video.mux_asset_status as StatusKey] ?? FALLBACK_STATUS;
@@ -189,6 +191,15 @@ export const VideoCard = memo(function VideoCard({
                 className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Preview
+              </button>
+            )}
+            {onShareExternal && video.publish_confirmed && (
+              <button
+                onClick={() => onShareExternal(video.id)}
+                className="px-3 py-2 border border-[#1ab7ea]/30 text-[#1ab7ea] text-sm font-medium rounded-lg hover:bg-[#1ab7ea]/5 transition-colors flex items-center gap-1"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Share
               </button>
             )}
             {onDelete && (
