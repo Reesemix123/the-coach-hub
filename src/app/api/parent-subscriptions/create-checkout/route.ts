@@ -127,6 +127,8 @@ async function buildCheckoutSession(
     customer: stripeCustomerId,
     automatic_tax: { enabled: true },
     customer_update: { address: 'auto' },
+    consent_collection: { terms_of_service: 'required' },
+    custom_text: { terms_of_service_acceptance: { message: 'I agree to the [Terms of Service](https://youthcoachhub.com/terms)' } },
     mode: 'subscription',
     payment_method_types: ['card'],
     line_items: [

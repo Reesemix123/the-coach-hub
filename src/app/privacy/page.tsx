@@ -397,6 +397,29 @@ export default function PrivacyPage() {
             <p className="text-gray-300 leading-relaxed">
               We may retain certain data longer if required by law or to protect our legal interests.
             </p>
+
+            <h3 className="text-lg font-medium text-white mt-6 mb-3">
+              5.7 Athlete Profile Deletion
+            </h3>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Parents may request deletion of their child&apos;s athlete profile and all
+              associated personal data through the parent app Settings page. Upon request:
+            </p>
+            <ul className="list-disc pl-6 text-gray-300 space-y-2 mb-4">
+              <li>A platform administrator reviews the request</li>
+              <li>Upon approval, the following data is permanently deleted: athlete profile, game clips, performance reports, season history, profile photos, and streaming video assets</li>
+              <li>Active subscriptions associated with the profile are canceled</li>
+              <li>A confirmation notification is sent to the parent via their preferred notification channel</li>
+            </ul>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Data enters a 90-day archive period when a Player Profile subscription lapses.
+              During this time, data is retained but inaccessible. Resubscribing restores
+              access. After 90 days without resubscription, data may be permanently deleted.
+            </p>
+            <p className="text-gray-300 leading-relaxed">
+              COPPA consent records and notification delivery logs are retained for legal
+              compliance and audit purposes, even after profile deletion.
+            </p>
           </section>
 
           {/* Section 6 */}

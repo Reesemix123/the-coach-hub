@@ -282,6 +282,35 @@ export default function TermsPage() {
               expiration, a 30-day grace period allows parents continued read-only
               access to existing content before video assets are removed.
             </p>
+
+            <h3 className="text-lg font-medium text-white mt-8 mb-3">
+              4.3 Player Profile Subscription
+            </h3>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              The Player Profile subscription ($19.99/year) is an optional annual subscription
+              available to parents and guardians. It provides:
+            </p>
+            <ul className="list-disc pl-6 text-gray-300 space-y-2 mb-4">
+              <li>A persistent, parent-owned athlete profile that accumulates clips, performance reports, and season history across teams and coaches</li>
+              <li>Permanent access to historical clips and reports from past seasons</li>
+              <li>A shareable athlete profile link</li>
+            </ul>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              The subscription auto-renews annually. You will receive a reminder email 7 days
+              before each renewal. You may cancel at any time through the Billing Portal
+              accessible from your athlete&apos;s profile page. Cancellation takes effect at the
+              end of the current billing period.
+            </p>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Upon cancellation or lapse, your athlete&apos;s profile data enters a 90-day archive
+              period. During this time, past-season clips and reports are not accessible but
+              are not deleted. If you resubscribe within 90 days, full access is restored
+              immediately. After 90 days, archived data may be permanently deleted.
+            </p>
+            <p className="text-gray-300 leading-relaxed">
+              Current-season clips and reports remain accessible at no charge while your
+              coach&apos;s Communication Hub plan is active, regardless of subscription status.
+            </p>
           </section>
 
           {/* Section 5 */}
@@ -426,6 +455,37 @@ export default function TermsPage() {
               serious violations of these Terms, including uploading prohibited content, fraudulent activity, or
               abuse of the Service. In such cases, your subscription will be canceled immediately and you will
               not have access to your data. You may contact us through our contact form if you believe this was done in error.
+            </p>
+
+            <h3 className="text-lg font-medium text-white mt-6 mb-3">
+              7.4 Athlete Profile Deletion
+            </h3>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Parents may request deletion of an athlete profile through the Settings page
+              in the parent app. Deletion requests are reviewed by our team before processing.
+            </p>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Upon approval and execution of a deletion request:
+            </p>
+            <ul className="list-disc pl-6 text-gray-300 space-y-2 mb-4">
+              <li>The athlete profile, all associated clips, performance reports, and season history are permanently removed</li>
+              <li>Any active Player Profile subscription is canceled</li>
+              <li>Associated video assets are deleted from our streaming provider</li>
+              <li>Profile photos are deleted from storage</li>
+            </ul>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              A 90-day archive period applies after a Player Profile subscription lapses
+              (but before a deletion request is made). During this period, data is retained
+              but not accessible. Resubscribing within 90 days restores full access.
+            </p>
+            <p className="text-gray-300 leading-relaxed mb-4">
+              Deletion requests initiated through the Settings page bypass the 90-day archive
+              period — upon approval, data is permanently deleted immediately. This action is
+              irreversible.
+            </p>
+            <p className="text-gray-300 leading-relaxed">
+              Consent records, notification logs, and anonymized analytics data are retained
+              for legal compliance purposes and are not deleted.
             </p>
           </section>
 
