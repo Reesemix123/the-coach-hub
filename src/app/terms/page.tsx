@@ -188,7 +188,7 @@ export default function TermsPage() {
                 </ul>
               </div>
               <div>
-                <h4 className="text-white font-semibold">Plus ($29.99/month or $299.90/year)</h4>
+                <h4 className="text-white font-semibold">Plus ($29.99/month or $299.99/year)</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>4 games/month (2 team games + 2 opponent scouting games)</li>
                   <li>3 camera angles per game</li>
@@ -197,7 +197,7 @@ export default function TermsPage() {
                 </ul>
               </div>
               <div>
-                <h4 className="text-white font-semibold">Premium ($79.99/month or $799.90/year)</h4>
+                <h4 className="text-white font-semibold">Premium ($79.99/month or $799.99/year)</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>8 games/month (4 team games + 4 opponent scouting games)</li>
                   <li>5 camera angles per game</li>
