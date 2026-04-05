@@ -345,34 +345,8 @@ function SetupForm() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Create New Team</h2>
 
             <form onSubmit={createTeam} className="space-y-4">
-              {/* Sport Selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sport
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTeamSport('football')}
-                    disabled={creating}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                      teamSport === 'football'
-                        ? 'border-black bg-gray-900 text-white'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    🏈 Football
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-gray-100 text-sm font-medium text-gray-400 cursor-not-allowed"
-                  >
-                    🏀 Basketball
-                    <span className="text-[10px] text-gray-400 font-normal">Coming Soon</span>
-                  </button>
-                </div>
-              </div>
+              {/* Sport — football only for now */}
+              <input type="hidden" value="football" />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
