@@ -86,8 +86,8 @@ export default function GlobalOnboardingProvider({ children }: GlobalOnboardingP
         setShowTour(true);
       }
 
-      // Auto-expand checklist if not all items completed and not dismissed
-      if (!data.checklistDismissed && data.completionCount < data.totalItems) {
+      // Auto-expand checklist if not all items completed and not dismissed (but not on setup-complete)
+      if (!data.checklistDismissed && data.completionCount < data.totalItems && !pathname.includes('/setup-complete')) {
         setShowChecklist(true);
       }
     } catch (error) {
