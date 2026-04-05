@@ -194,8 +194,8 @@ function SetupForm() {
         console.log(`Linked subscription ${pendingSubscription.id} to team ${newTeamId}`);
       }
 
-      // Redirect to team dashboard
-      router.push(`/football/teams/${newTeamId}`);
+      // Redirect to setup-complete interstitial
+      router.push(`/football/teams/${newTeamId}/setup-complete`);
       return;
     }
 
@@ -249,17 +249,11 @@ function SetupForm() {
         setTeamLevel('');
       }
     } else if (selectedTier === 'basic') {
-      // Basic tier - redirect to team dashboard
-      router.push(`/football/teams/${newTeamId}`);
+      // Basic tier - redirect to setup-complete interstitial
+      router.push(`/football/teams/${newTeamId}/setup-complete`);
     } else {
-      // No tier selected - just refresh and show team list
-      setMessage('');
-      setTeamName('');
-      setTeamLevel('');
-      setShowForm(false);
-      setCreating(false);
-      const { data: updatedTeams } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
-      setTeams(updatedTeams || []);
+      // No tier selected - redirect to setup-complete interstitial
+      router.push(`/football/teams/${newTeamId}/setup-complete`);
     }
   }
 
@@ -504,6 +498,10 @@ function SetupForm() {
                     </ul>
                   </div>
                 )}
+
+                <p className="text-xs text-gray-500 mt-3">
+                  After creating your team, you&apos;ll also be able to set up parent communication.
+                </p>
               </div>
 
               <div className="flex space-x-3 pt-4">
