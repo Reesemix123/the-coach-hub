@@ -81,8 +81,8 @@ export default function GlobalOnboardingProvider({ children }: GlobalOnboardingP
         loading: false,
       });
 
-      // Auto-show tour for first-time users
-      if (!data.tourCompleted && !data.tourSkipped) {
+      // Auto-show tour for first-time users (but not on setup-complete interstitial)
+      if (!data.tourCompleted && !data.tourSkipped && !pathname.includes('/setup-complete')) {
         setShowTour(true);
       }
 
