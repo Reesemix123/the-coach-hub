@@ -335,7 +335,7 @@ export default async function Page() {
           {/* Season plan pricing */}
           <AnimateOnScroll>
             <p className="text-sm mb-6" style={{ color: 'rgba(249,250,251,0.55)' }}>
-              Season Plans — one-time purchase, 6-month access
+              Season Plans — purchased by the coach, 6-month access
             </p>
           </AnimateOnScroll>
 
