@@ -80,7 +80,7 @@ export function ReportCard({
           <div className="bg-[rgba(0,0,0,0.04)] rounded-lg p-3 flex items-center gap-2">
             <Lock className="w-4 h-4 text-[#6b7280]" />
             <p className="text-xs text-[#6b7280]">
-              Subscribe to view this report
+              Your coach hasn&apos;t shared this report yet
             </p>
           </div>
         </div>

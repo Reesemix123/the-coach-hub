@@ -43,7 +43,7 @@ export function ClipCard({
           <div className="absolute inset-0 bg-[rgba(0,0,0,0.04)] flex flex-col items-center justify-center gap-2">
             <Lock className="w-8 h-8 text-[#6b7280]" />
             <p className="text-xs text-[#6b7280]">
-              {locked ? 'Subscribe to watch' : 'Processing…'}
+              {locked ? "Your coach hasn't shared this clip yet" : 'Processing…'}
             </p>
           </div>
         ) : (

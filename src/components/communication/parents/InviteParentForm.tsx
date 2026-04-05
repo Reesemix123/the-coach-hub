@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Send } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { UpgradeBanner } from '@/components/communication/plan/UpgradeBanner';
 
 interface Player {
   id: string;
@@ -31,6 +32,12 @@ export function InviteParentForm({ teamId, onSuccess, onCancel }: InviteParentFo
   const [loadingPlayers, setLoadingPlayers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeBannerData, setUpgradeBannerData] = useState<{
+    currentTier: string;
+    maxParents: number;
+    currentCount: number;
+    nextTier: string | null;
+  } | null>(null);
 
   const [playerId, setPlayerId] = useState('');
   const [parentEmail, setParentEmail] = useState('');
@@ -84,9 +91,21 @@ export function InviteParentForm({ teamId, onSuccess, onCancel }: InviteParentFo
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        // Check for parent limit reached
+        if (data.code === 'PARENT_LIMIT_REACHED') {
+          setUpgradeBannerData({
+            currentTier: data.current_tier,
+            maxParents: data.max_parents,
+            currentCount: data.current_count,
+            nextTier: data.next_tier,
+          });
+          setError(null); // Don't show the generic error — banner handles it
+          return;
+        }
         throw new Error(data.error || `Failed (${res.status})`);
       }
 
+      setUpgradeBannerData(null);
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send invitation');
@@ -97,6 +116,17 @@ export function InviteParentForm({ teamId, onSuccess, onCancel }: InviteParentFo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {upgradeBannerData && (
+        <UpgradeBanner
+          currentTier={upgradeBannerData.currentTier}
+          maxParents={upgradeBannerData.maxParents}
+          currentCount={upgradeBannerData.currentCount}
+          nextTier={upgradeBannerData.nextTier}
+          teamId={teamId}
+          onDismiss={() => setUpgradeBannerData(null)}
+        />
+      )}
+
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           {error}

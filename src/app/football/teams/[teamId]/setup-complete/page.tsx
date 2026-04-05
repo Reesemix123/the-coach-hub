@@ -32,11 +32,10 @@ const UPGRADE_TIERS: CommHubTierConfig[] = [
     price: PLAN_TIER_PRICES.varsity,
     maxParents: PLAN_TIER_LIMITS.varsity,
     features: [
-      '10 shared videos / season',
-      'AI game reports',
-      'SMS + email notifications',
-      'Family RSVP tracking',
-      'All Rookie features',
+      'Everything in Rookie, plus:',
+      'Player clips shared to parents',
+      'AI-generated performance reports',
+      'Parent portal (PWA)',
     ],
   },
   {
@@ -45,11 +44,10 @@ const UPGRADE_TIERS: CommHubTierConfig[] = [
     price: PLAN_TIER_PRICES.all_conference,
     maxParents: PLAN_TIER_LIMITS.all_conference,
     features: [
-      '10 shared videos / season',
-      'AI game reports',
-      'SMS + email notifications',
-      'Family RSVP tracking',
-      'All Rookie features',
+      'Everything in Rookie, plus:',
+      'Player clips shared to parents',
+      'AI-generated performance reports',
+      'Parent portal (PWA)',
     ],
     badge: 'Most Popular',
   },
@@ -59,11 +57,10 @@ const UPGRADE_TIERS: CommHubTierConfig[] = [
     price: PLAN_TIER_PRICES.all_state,
     maxParents: PLAN_TIER_LIMITS.all_state,
     features: [
-      '10 shared videos / season',
-      'AI game reports',
-      'SMS + email notifications',
-      'Family RSVP tracking',
-      'All Rookie features',
+      'Everything in Rookie, plus:',
+      'Player clips shared to parents',
+      'AI-generated performance reports',
+      'Parent portal (PWA)',
     ],
   },
 ];
@@ -248,18 +245,43 @@ function SetupCompleteInner({ teamId }: { teamId: string }) {
           </p>
         </div>
 
-        {/* Upgrade tier cards */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {/* Tier cards — Rookie (current) + 3 paid upgrade tiers */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Rookie — current plan card */}
+          <div className="relative flex flex-col rounded-xl border border-[#B8CA6E]/60 bg-[#201a16]/80 ring-1 ring-[#B8CA6E]/30 p-6">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <span className="inline-flex items-center rounded-full bg-[#B8CA6E] px-3 py-0.5 text-xs font-semibold text-[#1a1410]">
+                Current Plan
+              </span>
+            </div>
+
+            <h3 className="text-lg font-bold text-white">Rookie</h3>
+            <p className="mt-1 text-sm text-gray-400">
+              Up to {PLAN_TIER_LIMITS.rookie} parents
+            </p>
+
+            <div className="mt-4 mb-5">
+              <span className="text-3xl font-bold text-white">Free</span>
+            </div>
+
+            <ul className="mb-6 flex-1 space-y-2">
+              {['Team messaging', 'SMS + email notifications', 'Scheduling + RSVP', 'Roster management'].map((feature) => (
+                <li key={feature} className="flex items-start gap-2 text-sm text-gray-300">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#B8CA6E]" />
+                  {feature}
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#B8CA6E]/40 px-4 py-3 text-sm font-semibold text-[#B8CA6E]">
+              Current Plan
+            </div>
+          </div>
+
           {UPGRADE_TIERS.map((config) => (
             <TierCard key={config.key} config={config} teamId={teamId} />
           ))}
         </div>
-
-        {/* Rookie note */}
-        <p className="mt-6 text-center text-xs text-gray-500">
-          Your team already has the free Rookie plan (20 parents, messaging, schedule). Upgrade for
-          video sharing, AI reports, and more parents.
-        </p>
         <p className="mt-1.5 text-center text-xs text-gray-600">
           All plans are a one-time payment for a 6-month season. No recurring charges.
         </p>

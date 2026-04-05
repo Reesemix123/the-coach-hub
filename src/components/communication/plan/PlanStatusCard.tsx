@@ -1,6 +1,8 @@
 'use client';
 
 import { CreditCard, Users, Film, Clock } from 'lucide-react';
+import { isFreeCommHubPlan } from '@/lib/services/communication/plan-helpers';
+import type { PlanTier } from '@/types/communication';
 
 interface PlanStatusData {
   plan_tier: string;
@@ -33,6 +35,10 @@ const TIER_LABELS: Record<string, string> = {
  */
 export function PlanStatusCard({ plan }: PlanStatusCardProps) {
   const tierLabel = TIER_LABELS[plan.plan_tier] ?? plan.plan_tier;
+  const isFreeTier = isFreeCommHubPlan(plan.plan_tier as PlanTier);
+
+  // Sentinel: free plans use 2099-12-31 as a "no expiration" marker
+  const isSentinelExpiry = plan.days_remaining > 26000;
 
   const parentPercent = plan.max_parents
     ? Math.round((plan.parent_count / plan.max_parents) * 100)
@@ -67,12 +73,19 @@ export function PlanStatusCard({ plan }: PlanStatusCardProps) {
           </div>
 
           <div className="text-right">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${daysColor}`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              {plan.days_remaining} days left
-            </span>
+            {isSentinelExpiry ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700">
+                <Clock className="w-3.5 h-3.5" />
+                No expiration
+              </span>
+            ) : (
+              <span
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${daysColor}`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                {plan.days_remaining} days left
+              </span>
+            )}
           </div>
         </div>
 
@@ -86,7 +99,7 @@ export function PlanStatusCard({ plan }: PlanStatusCardProps) {
       </div>
 
       {/* Usage Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+      <div className={`grid grid-cols-1 divide-y divide-gray-100 ${isFreeTier ? 'sm:grid-cols-2 sm:divide-y-0 sm:divide-x' : 'sm:grid-cols-3 sm:divide-y-0 sm:divide-x'}`}>
         {/* Parents */}
         <div className="p-6">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
@@ -109,26 +122,28 @@ export function PlanStatusCard({ plan }: PlanStatusCardProps) {
           )}
         </div>
 
-        {/* Team Videos */}
-        <div className="p-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Film className="w-4 h-4" />
-            Team Videos
+        {/* Team Videos — hidden for free tiers */}
+        {!isFreeTier && (
+          <div className="p-6">
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+              <Film className="w-4 h-4" />
+              Team Videos
+            </div>
+            <p className="text-2xl font-bold text-gray-900">
+              {plan.team_videos_used}
+              <span className="text-sm font-normal text-gray-400">/{plan.max_team_videos}</span>
+            </p>
+            <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${videoPercent > 90 ? 'bg-red-500' : 'bg-gray-900'}`}
+                style={{ width: `${Math.min(videoPercent, 100)}%` }}
+              />
+            </div>
+            {topupRemaining > 0 && (
+              <p className="text-xs text-gray-400 mt-1">+{topupRemaining} from top-ups</p>
+            )}
           </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {plan.team_videos_used}
-            <span className="text-sm font-normal text-gray-400">/{plan.max_team_videos}</span>
-          </p>
-          <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${videoPercent > 90 ? 'bg-red-500' : 'bg-gray-900'}`}
-              style={{ width: `${Math.min(videoPercent, 100)}%` }}
-            />
-          </div>
-          {topupRemaining > 0 && (
-            <p className="text-xs text-gray-400 mt-1">+{topupRemaining} from top-ups</p>
-          )}
-        </div>
+        )}
 
         {/* Season Expiration */}
         <div className="p-6">
@@ -136,13 +151,19 @@ export function PlanStatusCard({ plan }: PlanStatusCardProps) {
             <Clock className="w-4 h-4" />
             Season Ends
           </div>
-          <p className="text-2xl font-bold text-gray-900">
-            {new Date(plan.expires_at).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">{new Date(plan.expires_at).getFullYear()}</p>
+          {isSentinelExpiry ? (
+            <p className="text-2xl font-bold text-gray-900">No expiration</p>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-gray-900">
+                {new Date(plan.expires_at).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{new Date(plan.expires_at).getFullYear()}</p>
+            </>
+          )}
         </div>
       </div>
     </div>
