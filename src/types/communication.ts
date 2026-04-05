@@ -28,7 +28,7 @@ export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
 
 export type ConsentType = 'account_creation' | 'video_sharing' | 'data_usage';
 
-export type PlanTier = 'rookie' | 'varsity' | 'all_conference' | 'all_state';
+export type PlanTier = 'sideline' | 'rookie' | 'varsity' | 'all_conference' | 'all_state';
 
 export type PlanStatus = 'active' | 'expired' | 'cancelled';
 
@@ -496,6 +496,7 @@ export interface EventWithRSVP extends TeamEventExtended {
 
 // Plan tier limits
 export const PLAN_TIER_LIMITS: Record<PlanTier, number | null> = {
+  sideline: 20,
   rookie: 20,
   varsity: 40,
   all_conference: 60,
@@ -503,10 +504,11 @@ export const PLAN_TIER_LIMITS: Record<PlanTier, number | null> = {
 };
 
 export const PLAN_TIER_PRICES: Record<PlanTier, number> = {
-  rookie: 149,
-  varsity: 249,
-  all_conference: 349,
-  all_state: 449,
+  sideline: 0,
+  rookie: 0,
+  varsity: 79,
+  all_conference: 149,
+  all_state: 249,
 };
 
 export const VIDEO_TOPUP_PACK = {

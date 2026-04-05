@@ -17,6 +17,7 @@ const COMM_PLAN_PRICES: Record<PlanTier, string | undefined> = {
 };
 
 const PLAN_MAX_PARENTS: Record<PlanTier, number | null> = {
+  sideline: 20,
   rookie: 20,
   varsity: 40,
   all_conference: 60,
