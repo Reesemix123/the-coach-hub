@@ -351,12 +351,33 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         {settingsTab === 'billing' && (
-          <SubscriptionTab
-            teamId={teamId}
-            isOwner={userRole === 'owner'}
-            initialData={teamDetailData}
-            showChangePlanOnMount={showChangePlanModal}
-          />
+          <div>
+            <SubscriptionTab
+              teamId={teamId}
+              isOwner={userRole === 'owner'}
+              initialData={teamDetailData}
+              showChangePlanOnMount={showChangePlanModal}
+            />
+
+            {/* Add Another Team */}
+            <div className="border border-gray-200 rounded-lg p-6 mt-8">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Add Another Team</h3>
+                  <p className="text-sm text-gray-600">
+                    Create a new team with its own subscription and communication plan.
+                  </p>
+                </div>
+                <Link
+                  href="/setup"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Create Team
+                </Link>
+              </div>
+            </div>
+          </div>
         )}
 
         {settingsTab === 'team' && (
