@@ -8,7 +8,8 @@ import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamMembership, TeamAnalyticsConfig } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
-import { Play, RefreshCw } from 'lucide-react';
+import { Play, RefreshCw, PlusCircle } from 'lucide-react';
+import Link from 'next/link';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
 import SubscriptionBanner from '@/components/settings/SubscriptionBanner';
 import SubscriptionTab from '@/components/settings/SubscriptionTab';
@@ -492,6 +493,25 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               >
                 {savingColors ? 'Saving...' : 'Save Colors'}
               </button>
+            </div>
+
+            {/* Add Another Team */}
+            <div className="border border-gray-200 rounded-lg p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Add Another Team</h3>
+                  <p className="text-sm text-gray-600">
+                    Create a new team with its own subscription and communication plan.
+                  </p>
+                </div>
+                <Link
+                  href="/setup"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium text-sm"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Create Team
+                </Link>
+              </div>
             </div>
           </div>
         )}
