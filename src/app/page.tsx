@@ -64,9 +64,6 @@ export default async function Page() {
             <a href="#communication-hub" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
               Communication
             </a>
-            <Link href="/guide" className="text-sm font-bold" style={{ color: 'rgba(249,250,251,0.70)' }}>
-              Guide
-            </Link>
           </div>
 
           {/* Right: Auth buttons */}
