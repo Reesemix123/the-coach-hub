@@ -7,10 +7,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getStripeClient, getAppUrl } from '@/lib/stripe/client';
 import type { PlanTier } from '@/types/communication';
+import { isFreeCommHubPlan } from '@/lib/services/communication/plan-helpers';
 
 // Communication plan price IDs from environment
+// sideline and rookie are free tiers — they are blocked before reaching this map
 const COMM_PLAN_PRICES: Record<PlanTier, string | undefined> = {
-  rookie: process.env.STRIPE_PRICE_COMM_ROOKIE,
+  sideline: undefined,
+  rookie: undefined,
   varsity: process.env.STRIPE_PRICE_COMM_VARSITY,
   all_conference: process.env.STRIPE_PRICE_COMM_ALL_CONFERENCE,
   all_state: process.env.STRIPE_PRICE_COMM_ALL_STATE,
@@ -44,9 +47,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate plan tier
-    if (!['rookie', 'varsity', 'all_conference', 'all_state'].includes(planTier)) {
+    if (!['sideline', 'rookie', 'varsity', 'all_conference', 'all_state'].includes(planTier)) {
       return NextResponse.json(
         { error: 'Invalid plan tier' },
+        { status: 400 }
+      );
+    }
+
+    // Block free tiers from checkout — they're activated automatically
+    if (isFreeCommHubPlan(planTier as PlanTier)) {
+      return NextResponse.json(
+        { error: 'Free plans do not require checkout. Use the activate-rookie API instead.' },
         { status: 400 }
       );
     }
@@ -175,6 +186,7 @@ export async function POST(request: NextRequest) {
         purchase_type: 'communication_plan',
         user_id: user.id,
         max_parents: (PLAN_MAX_PARENTS[planTier as PlanTier] ?? 'unlimited').toString(),
+        purchaser_role: canPurchase && isOwner ? 'owner' : (membership?.role || 'coach'),
       },
       success_url: `${appUrl}/football/teams/${teamId}/communication/plan?purchase=success`,
       cancel_url: `${appUrl}/football/teams/${teamId}/communication/plan?purchase=canceled`,

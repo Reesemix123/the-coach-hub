@@ -127,6 +127,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // -------------------------------------------------------------------------
+    // 3b. Gate — auto-clips require a paid communication plan
+    // -------------------------------------------------------------------------
+
+    const { data: commPlan } = await supabase
+      .from('team_communication_plans')
+      .select('plan_tier')
+      .eq('team_id', teamId)
+      .eq('status', 'active')
+      .single();
+
+    const freeTiers = ['sideline', 'rookie'];
+    if (!commPlan || freeTiers.includes(commPlan.plan_tier)) {
+      return NextResponse.json(
+        {
+          error: 'Auto-clip generation requires a paid Communication Hub plan',
+          code: 'PAID_PLAN_REQUIRED',
+          current_tier: commPlan?.plan_tier || null,
+          upgrade_tier: 'varsity',
+        },
+        { status: 403 }
+      );
+    }
+
     // All further DB work uses the service client to bypass RLS for inserts.
     const serviceClient = createServiceClient();
 

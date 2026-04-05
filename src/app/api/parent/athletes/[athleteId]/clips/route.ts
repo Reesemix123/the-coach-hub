@@ -74,6 +74,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
       { p_athlete_profile_id: athleteId, p_parent_id: parentProfile.id }
     );
 
+    // 4b. Check comm plan tier — free tiers cannot access clips
+    // Find the team via athlete_season
+    const { data: athleteSeasons } = await serviceClient
+      .from('athlete_seasons')
+      .select('team_id')
+      .eq('athlete_profile_id', athleteId)
+      .limit(1);
+
+    if (athleteSeasons && athleteSeasons.length > 0) {
+      const { data: commPlan } = await serviceClient
+        .from('team_communication_plans')
+        .select('plan_tier')
+        .eq('team_id', athleteSeasons[0].team_id)
+        .eq('status', 'active')
+        .single();
+
+      const freeTiers = ['sideline', 'rookie'];
+      if (!commPlan || freeTiers.includes(commPlan.plan_tier)) {
+        // Return empty clips with an upgrade hint instead of an error
+        return NextResponse.json({
+          clips: [],
+          locked: true,
+          upgrade_required: true,
+          message: 'Video clips require the team to have a paid Communication Hub plan',
+        });
+      }
+    }
+
     // 5. Fetch approved, non-suppressed clips
     let query = serviceClient
       .from('player_clips')

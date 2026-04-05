@@ -159,6 +159,18 @@ function SetupForm() {
     // Team created successfully
     const newTeamId = data.id;
 
+    // Auto-activate free Rookie communication plan for the new team
+    try {
+      await fetch('/api/communication/plan/activate-rookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: newTeamId }),
+      });
+    } catch (err) {
+      console.error('Failed to auto-activate rookie plan:', err);
+      // Non-blocking — team creation still succeeds
+    }
+
     // Check if user has a pending subscription (from signup flow - paid before team creation)
     const { data: pendingSubscription } = await supabase
       .from('subscriptions')

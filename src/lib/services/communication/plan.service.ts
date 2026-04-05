@@ -13,6 +13,7 @@ import type {
   PLAN_TIER_LIMITS,
   PLAN_TIER_PRICES,
 } from '@/types/communication';
+import { getVideoLimitForTier, getIncludesReportsForTier } from './plan-helpers';
 
 // ======================
 // PLAN RETRIEVAL
@@ -176,6 +177,7 @@ export async function createPlan(input: CreatePlanInput): Promise<TeamCommunicat
 
   // Get tier limits
   const tierLimits: Record<PlanTier, number | null> = {
+    sideline: 20,
     rookie: 20,
     varsity: 40,
     all_conference: 60,
@@ -192,7 +194,8 @@ export async function createPlan(input: CreatePlanInput): Promise<TeamCommunicat
       stripe_product_id: input.stripeProductId,
       plan_tier: input.planTier,
       max_parents: tierLimits[input.planTier],
-      max_team_videos: 10,
+      max_team_videos: getVideoLimitForTier(input.planTier),
+      includes_reports: getIncludesReportsForTier(input.planTier),
       status: 'active',
     })
     .select()
@@ -218,6 +221,7 @@ export async function upgradePlan(
 
   // Get tier limits
   const tierLimits: Record<PlanTier, number | null> = {
+    sideline: 20,
     rookie: 20,
     varsity: 40,
     all_conference: 60,
@@ -230,6 +234,8 @@ export async function upgradePlan(
     .update({
       plan_tier: newTier,
       max_parents: tierLimits[newTier],
+      max_team_videos: getVideoLimitForTier(newTier),
+      includes_reports: getIncludesReportsForTier(newTier),
       stripe_payment_id: stripePaymentId, // New prorated payment
     })
     .eq('id', currentPlanId)

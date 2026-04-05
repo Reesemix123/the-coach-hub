@@ -63,6 +63,30 @@ export async function POST(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------------
+    // 3b. Gate — report generation requires a paid communication plan
+    // -------------------------------------------------------------------------
+
+    const { data: commPlan } = await supabase
+      .from('team_communication_plans')
+      .select('plan_tier')
+      .eq('team_id', teamId as string)
+      .eq('status', 'active')
+      .single();
+
+    const freeTiers = ['sideline', 'rookie'];
+    if (!commPlan || freeTiers.includes(commPlan.plan_tier)) {
+      return NextResponse.json(
+        {
+          error: 'Report generation requires a paid Communication Hub plan',
+          code: 'PAID_PLAN_REQUIRED',
+          current_tier: commPlan?.plan_tier || null,
+          upgrade_tier: 'varsity',
+        },
+        { status: 403 }
+      );
+    }
+
+    // -------------------------------------------------------------------------
     // 4. Fetch all athlete_seasons for this team
     // -------------------------------------------------------------------------
 

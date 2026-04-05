@@ -72,6 +72,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Player not found on this team' }, { status: 404 });
     }
 
+    // Enforce parent count limit from communication plan
+    const { data: activePlan } = await supabase
+      .from('team_communication_plans')
+      .select('id, plan_tier, max_parents')
+      .eq('team_id', teamId)
+      .eq('status', 'active')
+      .single();
+
+    if (activePlan && activePlan.max_parents !== null) {
+      const { count: currentParentCount } = await supabase
+        .from('team_parent_access')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('status', 'active');
+
+      const { count: pendingInviteCount } = await supabase
+        .from('parent_invitations')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('status', 'pending');
+
+      const totalParents = (currentParentCount || 0) + (pendingInviteCount || 0);
+
+      if (totalParents >= activePlan.max_parents) {
+        const tierOrder: string[] = ['sideline', 'rookie', 'varsity', 'all_conference', 'all_state'];
+        const currentIdx = tierOrder.indexOf(activePlan.plan_tier);
+        const nextTier = currentIdx >= 0 && currentIdx < tierOrder.length - 1
+          ? tierOrder[currentIdx + 1]
+          : null;
+
+        return NextResponse.json(
+          {
+            error: 'Parent limit reached for your current plan',
+            code: 'PARENT_LIMIT_REACHED',
+            current_tier: activePlan.plan_tier,
+            max_parents: activePlan.max_parents,
+            current_count: totalParents,
+            next_tier: nextTier,
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Insert invitation directly using the server client (service uses browser client which won't work here)
     const { data: invitation, error: insertError } = await supabase
       .from('parent_invitations')

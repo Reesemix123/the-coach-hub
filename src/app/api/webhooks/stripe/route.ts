@@ -7,6 +7,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import { getStripeClient, mapStripeStatus, getTierFromPriceId } from '@/lib/stripe/client';
 import { getTierConfig } from '@/lib/admin/config';
+import { getVideoLimitForTier, getIncludesReportsForTier } from '@/lib/services/communication/plan-helpers';
+import type { PlanTier } from '@/types/communication';
 
 // Use service role for webhook operations (no auth context)
 function getServiceClient() {
@@ -298,13 +300,14 @@ async function handleCheckoutCompleted(
       .insert({
         team_id: teamId,
         purchased_by: userId,
-        purchaser_role: 'coach',
+        purchaser_role: (session.metadata?.purchaser_role as 'owner' | 'coach' | 'team_admin') || 'coach',
         stripe_payment_id: session.payment_intent as string,
         stripe_product_id: session.metadata?.stripe_product_id || null,
         plan_tier: planTier,
         max_parents: maxParents,
-        max_team_videos: 10,
+        max_team_videos: getVideoLimitForTier(planTier as PlanTier),
         team_videos_used: 0,
+        includes_reports: getIncludesReportsForTier(planTier as PlanTier),
         activated_at: activatedAt.toISOString(),
         expires_at: expiresAt.toISOString(),
         content_accessible_until: contentAccessibleUntil.toISOString(),
