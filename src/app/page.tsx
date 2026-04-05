@@ -494,13 +494,15 @@ export default async function Page() {
       {/* SECTION 6 — MULTI-SPORT VISION                                   */}
       {/* ================================================================= */}
       <section
-        className="relative py-24 px-4 sm:px-8"
+        className="relative py-24 px-4 sm:px-8 parallax-section"
         style={{
-          background: '#1a1410',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
+          backgroundImage: 'url(/marketing/friday-night-baseball.png)',
+          backgroundPosition: 'center 40%',
         }}
       >
-        <div className="max-w-5xl mx-auto">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/40 via-[#1a1410]/60 to-[#1a1410]/92" />
+
+        <div className="relative z-10 max-w-5xl mx-auto">
           <AnimateOnScroll>
             <p className="text-xs font-black tracking-[0.2em] uppercase" style={{ color: '#B8CA6E' }}>
               Multi-Sport Platform
