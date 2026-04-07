@@ -23,6 +23,7 @@ interface PlanStatusCardProps {
 }
 
 const TIER_LABELS: Record<string, string> = {
+  sideline: 'Sideline',
   rookie: 'Rookie',
   varsity: 'Varsity',
   all_conference: 'All-Conference',

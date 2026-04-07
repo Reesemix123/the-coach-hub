@@ -54,6 +54,7 @@ interface PlanTierCardProps {
  */
 export function PlanTierCard({ tier, teamId, currentTier }: PlanTierCardProps) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const price = PLAN_TIER_PRICES[tier];
   const maxParents = PLAN_TIER_LIMITS[tier];
@@ -73,6 +74,7 @@ export function PlanTierCard({ tier, teamId, currentTier }: PlanTierCardProps) {
 
   async function handlePurchase() {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/communication/plan/checkout', {
         method: 'POST',
@@ -83,7 +85,7 @@ export function PlanTierCard({ tier, teamId, currentTier }: PlanTierCardProps) {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert((data as { error?: string }).error ?? 'Failed to start checkout');
+        setError('Something went wrong. Please refresh and try again, or contact support.');
         return;
       }
 
@@ -92,7 +94,7 @@ export function PlanTierCard({ tier, teamId, currentTier }: PlanTierCardProps) {
         window.location.href = url;
       }
     } catch {
-      alert('Failed to start checkout');
+      setError('Something went wrong. Please refresh and try again, or contact support.');
     } finally {
       setLoading(false);
     }
@@ -194,6 +196,10 @@ export function PlanTierCard({ tier, teamId, currentTier }: PlanTierCardProps) {
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}
           {price === 0 ? 'Get Started Free' : `Upgrade to ${name}`}
         </button>
+      )}
+
+      {error && (
+        <p className="text-sm text-red-600 mt-2 text-center">{error}</p>
       )}
     </div>
   );
