@@ -136,28 +136,46 @@ function SetupForm() {
     setCreating(true);
     setMessage('');
 
-    const { data, error } = await supabase
-      .from('teams')
-      .insert([{
-        name: teamName.trim(),
-        sport: teamSport,
-        level: teamLevel.trim() || 'High School',
-        colors: { primary: 'Blue', secondary: 'White' },
-        user_id: user?.id,
-        default_tier: selectedTier || 'basic'
-      }])
-      .select()
-      .single();
+    // Create team via server-side API route (enforces per-user team limit)
+    let data: { team: { id: string } };
+    try {
+      const res = await fetch('/api/teams/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: teamName.trim(),
+          sport: teamSport,
+          level: teamLevel.trim() || 'High School',
+          colors: { primary: 'Blue', secondary: 'White' },
+          default_tier: selectedTier || 'basic',
+        }),
+      });
 
-    if (error) {
-      setMessage('Error: ' + error.message);
+      const result = await res.json();
+
+      if (!res.ok) {
+        if (result.code === 'TEAM_LIMIT_REACHED') {
+          setMessage(
+            `Your ${result.tier_display_name} plan supports up to ${result.max_teams} team${result.max_teams === 1 ? '' : 's'}. Upgrade to add more teams.`
+          );
+        } else {
+          setMessage('Error: ' + (result.error || 'Failed to create team'));
+        }
+        setMessageType('error');
+        setCreating(false);
+        return;
+      }
+
+      data = result;
+    } catch {
+      setMessage('Error: Failed to create team. Please try again.');
       setMessageType('error');
       setCreating(false);
       return;
     }
 
     // Team created successfully
-    const newTeamId = data.id;
+    const newTeamId = data.team.id;
 
     // Auto-activate free Rookie communication plan for the new team
     try {
