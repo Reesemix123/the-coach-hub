@@ -156,6 +156,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Gate /test-hub routes — require is_tester or is_platform_admin
+  if (user && url.pathname.startsWith('/test-hub')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_tester, is_platform_admin')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile?.is_tester && !profile?.is_platform_admin) {
+      const redirectUrl = url.clone()
+      redirectUrl.pathname = '/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
   return supabaseResponse
 }
 
