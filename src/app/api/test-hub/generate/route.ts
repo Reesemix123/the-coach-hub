@@ -102,10 +102,32 @@ interface ResolvedFeature {
 /**
  * Resolves a feature key string to a feature definition from APP_FEATURES.
  *
- * Key format: "{categoryId}/{featureIndex}"
- * Example: "film/2" → third feature in the 'film' category
+ * Handles two key formats:
+ *   - "categoryId:featureName" (e.g. "film:Video Upload") — sent by the generate page
+ *   - "categoryId/featureIndex" (e.g. "film/0") — original documented format
  */
 function resolveFeatureKey(key: string): ResolvedFeature | null {
+  // Try colon format first (categoryId:featureName) — this is what the page sends
+  if (key.includes(':')) {
+    const colonIdx = key.indexOf(':');
+    const categoryId = key.slice(0, colonIdx);
+    const featureName = key.slice(colonIdx + 1);
+
+    const category = APP_FEATURES.find((c) => c.id === categoryId);
+    if (!category) return null;
+
+    const feature = category.features.find((f) => f.name === featureName);
+    if (!feature) return null;
+
+    return {
+      name: feature.name,
+      description: feature.description,
+      guidePath: feature.guidePath,
+      categoryId: category.id,
+    };
+  }
+
+  // Fall back to slash format (categoryId/featureIndex)
   const [categoryId, indexStr] = key.split('/');
   if (!categoryId) return null;
 
