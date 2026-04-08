@@ -65,6 +65,7 @@ export default function TestSessionPage({
     new Map()
   );
   const [completing, setCompleting] = useState(false);
+  const [sessionNotes, setSessionNotes] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -188,7 +189,7 @@ export default function TestSessionPage({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ notes: sessionNotes.trim() || undefined }),
         }
       );
       if (res.ok) {
@@ -255,10 +256,24 @@ export default function TestSessionPage({
             onUpdate={handleStepUpdate}
           />
 
+          {/* Session notes */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Session Notes <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={sessionNotes}
+              onChange={(e) => setSessionNotes(e.target.value)}
+              placeholder="Summarize what you found, any issues, or general feedback..."
+              rows={3}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+          </div>
+
           <button
             onClick={handleComplete}
             disabled={!allTestStepsCompleted || completing}
-            className={`w-full py-3 rounded-lg font-medium transition-colors mt-6 flex items-center justify-center gap-2 ${
+            className={`w-full py-3 rounded-lg font-medium transition-colors mt-4 flex items-center justify-center gap-2 ${
               allTestStepsCompleted && !completing
                 ? 'bg-black text-white hover:bg-gray-800'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
