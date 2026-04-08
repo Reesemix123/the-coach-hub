@@ -657,6 +657,44 @@ export const APP_FEATURES: FeatureCategory[] = [
       },
     ],
   },
+  {
+    id: 'test-hub',
+    name: 'Test Hub',
+    description: 'Platform QA testing system for coordinating distributed testing with AI-generated and reviewed test cases',
+    guidePath: '/test-hub',
+    features: [
+      {
+        name: 'Test Case Dashboard',
+        description: 'Browse active test cases grouped by category, check out tests for execution',
+        navigationPath: '/test-hub',
+      },
+      {
+        name: 'Test Session Execution',
+        description: 'Step-by-step checklist with pass/fail/skip toggles, notes, issue flagging, and time tracking',
+        navigationPath: '/test-hub/tests/[testCaseId]',
+      },
+      {
+        name: 'AI Test Assistant',
+        description: 'Context-aware Gemini Flash chat that knows the active test case steps and full app documentation',
+        navigationPath: '/test-hub/tests/[testCaseId] (right panel)',
+      },
+      {
+        name: 'AI Test Generation',
+        description: 'Generate test cases from APP_FEATURES entries using Gemini Pro with guide markdown context',
+        navigationPath: '/test-hub/admin/generate',
+      },
+      {
+        name: 'Test Review Queue',
+        description: 'Approve, reject, or edit AI-generated test cases before making them available to testers',
+        navigationPath: '/test-hub/admin/review',
+      },
+      {
+        name: 'Suite Management',
+        description: 'Create and manage test suites, reorder cases, move between suites',
+        navigationPath: '/test-hub/admin/suites/[suiteId]',
+      },
+    ],
+  },
 ];
 
 /**
