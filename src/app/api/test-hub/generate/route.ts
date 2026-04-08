@@ -172,7 +172,6 @@ async function generateForFeature(
   featureKey: string,
   suiteId: string,
   serviceClient: SupabaseClient,
-  createdBy: string
 ): Promise<void> {
   const feature = resolveFeatureKey(featureKey);
   if (!feature) {
@@ -232,7 +231,6 @@ Rules:
       status: 'pending_review',
       auto_generated: true,
       source_feature_key: featureKey,
-      created_by: createdBy,
     })
     .select('id')
     .single();
@@ -323,7 +321,7 @@ export async function POST(request: NextRequest) {
       const chunk = featureKeys.slice(i, i + CONCURRENCY);
 
       const chunkResults = await Promise.allSettled(
-        chunk.map((key) => generateForFeature(key, suiteId, serviceClient, user.id))
+        chunk.map((key) => generateForFeature(key, suiteId, serviceClient))
       );
 
       chunkResults.forEach((result, index) => {
