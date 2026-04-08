@@ -146,16 +146,19 @@ export default function TestHubAdminPage() {
     if (!newSuiteName.trim()) return;
     setCreating(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('test_suites')
-        .insert({
+      const res = await fetch('/api/test-hub/suites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: newSuiteName.trim(),
           description: newSuiteDesc.trim() || null,
-          status: 'draft',
-        });
+        }),
+      });
 
-      if (error) throw new Error(`Failed to create suite: ${error.message}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to create suite');
+      }
 
       setNewSuiteName('');
       setNewSuiteDesc('');
