@@ -709,7 +709,7 @@ export default function AdminTestingPage() {
               {/* Category table */}
               {coverageByCategory.length > 0 && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-[2fr_auto_auto_auto_auto_auto] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <div className="grid grid-cols-[2fr_4rem_4rem_4rem_5rem_5rem] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                     <span>Category</span>
                     <span className="text-right">Total</span>
                     <span className="text-right">Covered</span>
@@ -722,7 +722,7 @@ export default function AdminTestingPage() {
                     return (
                       <div
                         key={cat.category_id}
-                        className="grid grid-cols-[2fr_auto_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 last:border-0 items-center"
+                        className="grid grid-cols-[2fr_4rem_4rem_4rem_5rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 last:border-0 items-center"
                       >
                         <span className="text-sm text-gray-900">{cat.category_name}</span>
                         <span className="text-sm text-gray-500 text-right">{cat.total}</span>
