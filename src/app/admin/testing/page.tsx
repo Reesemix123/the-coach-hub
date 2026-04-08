@@ -546,18 +546,27 @@ export default function AdminTestingPage() {
               Manage beta testers, review activity, and track flagged issues.
             </p>
           </div>
-          <Link
-            href="/admin/testing/issues"
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
-          >
-            <AlertTriangle className="w-4 h-4" />
-            View Issues
+          <div className="flex items-center gap-3">
+            <Link
+              href="/test-hub/admin"
+              className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 text-sm font-medium transition-colors"
+            >
+              <FlaskConical className="w-4 h-4" />
+              Go to Test Hub
+            </Link>
+            <Link
+              href="/admin/testing/issues"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              View Issues
             {stats.open_issues > 0 && (
               <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">
                 {stats.open_issues}
               </span>
             )}
           </Link>
+          </div>
         </div>
 
         {/* Invite Card */}
