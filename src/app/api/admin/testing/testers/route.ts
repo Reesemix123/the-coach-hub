@@ -24,6 +24,21 @@ interface StepCompletion {
   flagged_issue: boolean;
 }
 
+interface ActiveSession {
+  tester_id: string;
+  test_case_id: string;
+}
+
+interface TestCase {
+  id: string;
+  title: string;
+}
+
+interface StepCompletionResult {
+  session_id: string;
+  status: string;
+}
+
 interface SessionIdRecord {
   id: string;
   tester_id: string;
@@ -40,6 +55,8 @@ interface TimeLogRecord {
  * - tests_completed: number of sessions with status = 'completed'
  * - issues_flagged: number of step completions with flagged_issue = true
  * - last_active_at: most recent time log entry for the tester
+ * - current_checkout: title of the test case currently checked out (active session), or null
+ * - pass_rate: percentage of non-pending step completions with status = 'pass', or null if none
  */
 export async function GET() {
   const auth = await requirePlatformAdmin();
@@ -88,15 +105,46 @@ export async function GET() {
     const sessionList = (sessions ?? []) as SessionIdRecord[];
     const sessionIds = sessionList.map((s) => s.id);
 
-    // Fetch flagged step completions for those sessions
+    // Fetch flagged step completions, active sessions, and pass-rate completions in parallel
     let flaggedCompletions: StepCompletion[] = [];
+    let activeSessionRows: ActiveSession[] = [];
+    let stepCompletionResults: StepCompletionResult[] = [];
+
     if (sessionIds.length > 0) {
-      const { data: flaggedCounts } = await serviceClient
-        .from('test_step_completions')
-        .select('session_id, flagged_issue')
-        .eq('flagged_issue', true)
-        .in('session_id', sessionIds);
-      flaggedCompletions = (flaggedCounts ?? []) as StepCompletion[];
+      const [flaggedResult, activeResult, stepResult] = await Promise.all([
+        serviceClient
+          .from('test_step_completions')
+          .select('session_id, flagged_issue')
+          .eq('flagged_issue', true)
+          .in('session_id', sessionIds),
+        serviceClient
+          .from('test_sessions')
+          .select('tester_id, test_case_id')
+          .eq('status', 'active')
+          .in('tester_id', testerIds),
+        serviceClient
+          .from('test_step_completions')
+          .select('session_id, status')
+          .neq('status', 'pending')
+          .in('session_id', sessionIds),
+      ]);
+
+      flaggedCompletions = (flaggedResult.data ?? []) as StepCompletion[];
+      activeSessionRows = (activeResult.data ?? []) as ActiveSession[];
+      stepCompletionResults = (stepResult.data ?? []) as StepCompletionResult[];
+    }
+
+    // Resolve test_case titles for active checkouts
+    const activeCaseIds = [...new Set(activeSessionRows.map((s) => s.test_case_id))];
+    let testCaseMap = new Map<string, string>();
+    if (activeCaseIds.length > 0) {
+      const { data: testCases } = await serviceClient
+        .from('test_cases')
+        .select('id, title')
+        .in('id', activeCaseIds);
+      for (const tc of (testCases ?? []) as TestCase[]) {
+        testCaseMap.set(tc.id, tc.title);
+      }
     }
 
     // Fetch latest time log entry per tester for "last active" override
@@ -112,6 +160,30 @@ export async function GET() {
     const sessionToTester = new Map<string, string>();
     for (const s of sessionList) {
       sessionToTester.set(s.id, s.tester_id);
+    }
+
+    // Build a map: tester_id → current checkout title (first active session wins)
+    const currentCheckoutMap = new Map<string, string>();
+    for (const active of activeSessionRows) {
+      if (!currentCheckoutMap.has(active.tester_id)) {
+        const title = testCaseMap.get(active.test_case_id) ?? null;
+        if (title) {
+          currentCheckoutMap.set(active.tester_id, title);
+        }
+      }
+    }
+
+    // Build pass-rate maps: tester_id → { total, passCount }
+    const passRateTotals = new Map<string, { total: number; passCount: number }>();
+    for (const completion of stepCompletionResults) {
+      const testerId = sessionToTester.get(completion.session_id);
+      if (!testerId) continue;
+      const current = passRateTotals.get(testerId) ?? { total: 0, passCount: 0 };
+      current.total += 1;
+      if (completion.status === 'pass') {
+        current.passCount += 1;
+      }
+      passRateTotals.set(testerId, current);
     }
 
     // Build stats maps keyed by tester_id
@@ -143,15 +215,25 @@ export async function GET() {
       }
     }
 
-    const enrichedTesters = testerList.map((tester) => ({
-      id: tester.id,
-      email: tester.email,
-      full_name: tester.full_name,
-      created_at: tester.created_at,
-      last_active_at: lastActiveMap.get(tester.id) ?? tester.last_active_at ?? null,
-      tests_completed: completedCount.get(tester.id) ?? 0,
-      issues_flagged: issuesCount.get(tester.id) ?? 0,
-    }));
+    const enrichedTesters = testerList.map((tester) => {
+      const passRateData = passRateTotals.get(tester.id);
+      const pass_rate =
+        passRateData && passRateData.total > 0
+          ? Math.round((passRateData.passCount / passRateData.total) * 100)
+          : null;
+
+      return {
+        id: tester.id,
+        email: tester.email,
+        full_name: tester.full_name,
+        created_at: tester.created_at,
+        last_active_at: lastActiveMap.get(tester.id) ?? tester.last_active_at ?? null,
+        tests_completed: completedCount.get(tester.id) ?? 0,
+        issues_flagged: issuesCount.get(tester.id) ?? 0,
+        current_checkout: currentCheckoutMap.get(tester.id) ?? null,
+        pass_rate,
+      };
+    });
 
     return NextResponse.json({ testers: enrichedTesters });
   } catch (error) {
