@@ -36,8 +36,8 @@ export default async function TestHubLayout({ children }: { children: React.Reac
             )}
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">{profile.full_name || 'Tester'}</span>
-            <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            <span className="text-sm text-gray-500">{profile.full_name || user.email || 'Tester'}</span>
+            <Link href={isAdmin ? '/admin/testing' : '/dashboard'} className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
               Back to App
             </Link>
           </div>
