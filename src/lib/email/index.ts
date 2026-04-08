@@ -592,6 +592,11 @@ export function getTesterInviteEmail(options: {
           <a href="${inviteUrl}" style="display: inline-block; background: #000; color: #fff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Get Started</a>
         </div>
 
+        <div style="margin: 24px 0; padding: 16px; background: #f0f0f0; border-radius: 6px;">
+          <p style="font-size: 14px; color: #666; margin: 0 0 8px 0;"><strong style="color: #333;">Testing with two tabs</strong></p>
+          <p style="font-size: 14px; color: #666; margin: 0;">Keep the Test Hub open in one browser tab and the Youth Coach Hub app open in another — you're logged in once and both work simultaneously. If any test cases ask you to verify the parent experience, use a second email address (like yourname+parent@gmail.com) in an incognito window to see what parents see.</p>
+        </div>
+
         <p style="font-size: 14px; color: #666;">This invitation link expires in 24 hours. If it expires, ask to be re-invited.</p>
 
         <p style="font-size: 14px; color: #666;">If the button doesn't work, copy and paste this URL: <br><a href="${inviteUrl}" style="color: #333; word-break: break-all;">${inviteUrl}</a></p>
@@ -611,6 +616,8 @@ You've been invited as a beta tester for Youth Coach Hub — a coaching platform
 As a tester, you'll have access to the Test Hub where you can check out test cases, flag issues, and get AI-assisted help.
 
 Tip: You can have the Test Hub open in one tab and the Youth Coach Hub app open in another — you're logged in once and both work simultaneously.
+
+Testing with two tabs: Keep the Test Hub open in one browser tab and the Youth Coach Hub app open in another — you're logged in once and both work simultaneously. If any test cases ask you to verify the parent experience, use a second email address (like yourname+parent@gmail.com) in an incognito window to see what parents see.
 
 Get started: ${inviteUrl}
 
