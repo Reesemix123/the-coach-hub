@@ -469,6 +469,7 @@ export interface UserDetail {
   role: UserRole;
   derived_status: UserDerivedStatus;
   is_platform_admin: boolean;
+  is_tester: boolean;
   is_deactivated: boolean;
   deactivated_at: string | null;
   deactivated_by: string | null;

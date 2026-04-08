@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   Trash2,
+  FlaskConical,
 } from 'lucide-react';
 
 interface NavItem {
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
   { href: '/admin/logs', label: 'Logs', icon: FileText },
   { href: '/admin/deletion-requests', label: 'Deletion Requests', icon: Trash2 },
   { href: '/admin/moderation', label: 'Moderation', icon: Shield },
+  { href: '/admin/testing', label: 'Testing', icon: FlaskConical },
   { href: '/admin/system', label: 'System', icon: Settings },
 ];
 

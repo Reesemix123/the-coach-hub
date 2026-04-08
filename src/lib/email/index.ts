@@ -550,3 +550,71 @@ This email was sent by Youth Coach Hub.
 
   return { subject, html, text };
 }
+
+export function getTesterInviteEmail(options: {
+  testerEmail: string;
+  inviteUrl: string;
+}): { subject: string; html: string; text: string } {
+  const { inviteUrl } = options;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://youthcoachhub.com';
+
+  const subject = "You've been invited to test Youth Coach Hub";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Tester Invitation</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #000; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="color: #fff; margin: 0; font-size: 24px;">Youth Coach Hub</h1>
+      </div>
+
+      <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e5e5; border-top: none;">
+        <h2 style="margin-top: 0; color: #111;">You're Invited to Test!</h2>
+
+        <p>You've been invited as a beta tester for Youth Coach Hub — a coaching platform for youth and high school football.</p>
+
+        <p>As a tester, you'll have access to the <strong>Test Hub</strong> where you can:</p>
+        <ul style="padding-left: 20px;">
+          <li>Check out test cases and work through them step by step</li>
+          <li>Flag any issues or bugs you find</li>
+          <li>Get help from an AI assistant that knows every feature</li>
+          <li>Track your testing time automatically</li>
+        </ul>
+
+        <p><strong>Tip:</strong> You can have the Test Hub open in one tab and the Youth Coach Hub app open in another — you're logged in once and both work simultaneously. This makes it easy to follow test steps while interacting with the actual app.</p>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${inviteUrl}" style="display: inline-block; background: #000; color: #fff; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Get Started</a>
+        </div>
+
+        <p style="font-size: 14px; color: #666;">This invitation link expires in 24 hours. If it expires, ask to be re-invited.</p>
+
+        <p style="font-size: 14px; color: #666;">If the button doesn't work, copy and paste this URL: <br><a href="${inviteUrl}" style="color: #333; word-break: break-all;">${inviteUrl}</a></p>
+      </div>
+
+      <div style="text-align: center; padding: 20px; color: #999; font-size: 12px;">
+        <p>Youth Coach Hub &middot; <a href="${appUrl}" style="color: #666;">youthcoachhub.com</a></p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `You've been invited to test Youth Coach Hub!
+
+You've been invited as a beta tester for Youth Coach Hub — a coaching platform for youth and high school football.
+
+As a tester, you'll have access to the Test Hub where you can check out test cases, flag issues, and get AI-assisted help.
+
+Tip: You can have the Test Hub open in one tab and the Youth Coach Hub app open in another — you're logged in once and both work simultaneously.
+
+Get started: ${inviteUrl}
+
+This invitation link expires in 24 hours.`;
+
+  return { subject, html, text };
+}

@@ -18,7 +18,8 @@ import {
   UserX,
   UserCheck,
   ExternalLink,
-  Activity
+  Activity,
+  FlaskConical,
 } from 'lucide-react';
 import {
   UserDetail,
@@ -186,6 +187,38 @@ export default function UserDetailPage() {
     }
   };
 
+  // Toggle tester access
+  const handleToggleTester = async () => {
+    setActionLoading('tester');
+    setActionResult(null);
+
+    try {
+      const response = await fetch(`/api/admin/testing/testers/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_tester: !user?.is_tester })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update tester access');
+      }
+
+      setActionResult({
+        type: 'success',
+        message: user?.is_tester ? 'Tester access revoked' : 'Tester access granted'
+      });
+      fetchUser();
+    } catch (err) {
+      setActionResult({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to update tester access'
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Reactivate user
   const handleReactivate = async () => {
     setActionLoading('reactivate');
@@ -264,6 +297,12 @@ export default function UserDetailPage() {
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
                 <Shield className="w-4 h-4" />
                 Platform Admin
+              </span>
+            )}
+            {user.is_tester && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
+                <FlaskConical className="w-4 h-4" />
+                Tester
               </span>
             )}
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[user.derived_status]}`}>
@@ -501,6 +540,28 @@ export default function UserDetailPage() {
                   Platform admins cannot be deactivated
                 </p>
               )}
+
+              {/* Tester Access */}
+              <div className="border-t border-gray-100 pt-3 mt-3">
+                <button
+                  onClick={handleToggleTester}
+                  disabled={actionLoading !== null}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                    user.is_tester
+                      ? 'border border-amber-200 text-amber-600 hover:bg-amber-50'
+                      : 'border border-green-200 text-green-600 hover:bg-green-50'
+                  }`}
+                >
+                  {actionLoading === 'tester' ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : user.is_tester ? (
+                    <UserX className="w-4 h-4" />
+                  ) : (
+                    <UserCheck className="w-4 h-4" />
+                  )}
+                  {user.is_tester ? 'Revoke Tester Access' : 'Grant Tester Access'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
