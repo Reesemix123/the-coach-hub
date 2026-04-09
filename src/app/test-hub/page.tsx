@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { TestCaseCard } from '@/components/test-hub/TestCaseCard';
 
@@ -229,8 +229,10 @@ export default function TestHubPage() {
 
       {/* Empty state */}
       {testCases.length === 0 && (
-        <div className="flex items-center justify-center py-24">
-          <p className="text-gray-500 text-sm">No active test cases available.</p>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <CheckCircle size={48} className="text-green-500 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-1">You're all caught up</h3>
+          <p className="text-sm text-gray-500">Check back soon for new test cases.</p>
         </div>
       )}
 

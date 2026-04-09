@@ -107,6 +107,7 @@ export default function SuiteDetailPage({
   const [allSuites, setAllSuites] = useState<Suite[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [moving, setMoving] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
   const [archivingSuite, setArchivingSuite] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -244,6 +245,22 @@ export default function SuiteDetailPage({
     }
   }
 
+  async function handleApproveCase(caseId: string) {
+    setApprovingId(caseId);
+    try {
+      const res = await fetch(`/api/test-hub/cases/${caseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (res.ok) {
+        setCases(prev => prev.map(c => c.id === caseId ? { ...c, status: 'active' } : c));
+      }
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
   async function handleArchiveSuite() {
     if (!suite) return;
     setArchivingSuite(true);
@@ -333,6 +350,13 @@ export default function SuiteDetailPage({
               <ArrowLeft size={20} />
             </Link>
             <div>
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                <Link href="/test-hub/admin" className="hover:text-gray-700 transition-colors">
+                  Admin
+                </Link>
+                <span>/</span>
+                <span className="text-gray-900 font-medium">{suite?.name || 'Suite'}</span>
+              </div>
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -440,11 +464,12 @@ export default function SuiteDetailPage({
           ) : (
             <div>
               {/* Table header */}
-              <div className="grid grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className="grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span>#</span>
                 <span>Title</span>
                 <span className="text-center">Category</span>
                 <span className="text-center">Status</span>
+                <span className="text-center">Approve</span>
                 <span className="text-center">Move To</span>
                 <span className="text-right">Reorder</span>
               </div>
@@ -454,7 +479,7 @@ export default function SuiteDetailPage({
                 return (
                   <div
                     key={tc.id}
-                    className="grid grid-cols-[2rem_1fr_auto_auto_auto_auto] gap-4 px-6 py-4 border-b border-gray-100 last:border-0 items-center"
+                    className="grid grid-cols-[2rem_1fr_auto_auto_auto_auto_auto] gap-4 px-6 py-4 border-b border-gray-100 last:border-0 items-center"
                   >
                     {/* Display order */}
                     <span className="text-xs text-gray-400 font-mono">
@@ -480,6 +505,21 @@ export default function SuiteDetailPage({
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getCaseBadgeClass(tc.status)}`}>
                       {getCaseBadgeLabel(tc.status)}
                     </span>
+
+                    {/* Approve button */}
+                    <div className="flex justify-center">
+                      {tc.status === 'pending_review' ? (
+                        <button
+                          onClick={() => handleApproveCase(tc.id)}
+                          disabled={approvingId === tc.id}
+                          className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          {approvingId === tc.id ? <Loader2 size={12} className="animate-spin" /> : 'Approve'}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </div>
 
                     {/* Move to suite dropdown */}
                     <div className="flex justify-center">

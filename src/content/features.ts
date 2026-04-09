@@ -681,12 +681,12 @@ export const APP_FEATURES: FeatureCategory[] = [
       {
         name: 'AI Test Generation',
         description: 'Generate test cases from APP_FEATURES entries using Gemini Pro with guide markdown context',
-        navigationPath: '/test-hub/admin/generate',
+        navigationPath: '/test-hub/admin?tab=generate',
       },
       {
         name: 'Test Review Queue',
         description: 'Approve, reject, or edit AI-generated test cases before making them available to testers',
-        navigationPath: '/test-hub/admin/review',
+        navigationPath: '/test-hub/admin?tab=review',
       },
       {
         name: 'Suite Management',
