@@ -28,6 +28,7 @@ interface StepInput {
 
 interface SaveScenarioBody {
   suiteName?: unknown;
+  suiteId?: unknown; // If provided, use existing suite instead of creating a new one
   precondition?: unknown;
   category?: unknown;
   setupSteps?: unknown;
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
 
     // Validate body
     const body = await request.json() as SaveScenarioBody;
-    const { suiteName, precondition, category, setupSteps, testSteps } = body;
+    const { suiteName, suiteId, precondition, category, setupSteps, testSteps } = body;
 
-    if (!suiteName || typeof suiteName !== 'string' || !suiteName.trim()) {
-      return NextResponse.json({ error: 'suiteName is required' }, { status: 400 });
+    if (!suiteId && (!suiteName || typeof suiteName !== 'string' || !suiteName.trim())) {
+      return NextResponse.json({ error: 'suiteName or suiteId is required' }, { status: 400 });
     }
 
     if (!precondition || typeof precondition !== 'string' || !precondition.trim()) {
@@ -85,28 +86,46 @@ export async function POST(request: NextRequest) {
     // Use service client for all inserts — admin is verified above
     const serviceClient = createServiceClient();
 
-    // 1. Create test_suite
-    const { data: suite, error: suiteError } = await serviceClient
-      .from('test_suites')
-      .insert({
-        name: suiteName.trim(),
-        status: 'draft',
-        created_by: user.id,
-      })
-      .select('id')
-      .single();
+    // 1. Use existing suite or create a new one
+    let resolvedSuiteId: string;
 
-    if (suiteError || !suite) {
-      console.error('[scenario/save] Failed to create suite:', suiteError);
-      return NextResponse.json({ error: 'Failed to create test suite' }, { status: 500 });
+    if (suiteId && typeof suiteId === 'string') {
+      // Verify the suite exists
+      const { data: existingSuite } = await serviceClient
+        .from('test_suites')
+        .select('id')
+        .eq('id', suiteId)
+        .single();
+
+      if (!existingSuite) {
+        return NextResponse.json({ error: 'Suite not found' }, { status: 404 });
+      }
+      resolvedSuiteId = existingSuite.id;
+    } else {
+      const { data: suite, error: suiteError } = await serviceClient
+        .from('test_suites')
+        .insert({
+          name: (suiteName as string).trim(),
+          status: 'draft',
+          created_by: user.id,
+        })
+        .select('id')
+        .single();
+
+      if (suiteError || !suite) {
+        console.error('[scenario/save] Failed to create suite:', suiteError);
+        return NextResponse.json({ error: 'Failed to create test suite' }, { status: 500 });
+      }
+      resolvedSuiteId = suite.id;
     }
 
     // 2. Create test_case
+    const caseName = (suiteName && typeof suiteName === 'string') ? suiteName.trim() : (precondition as string).trim();
     const { data: testCase, error: caseError } = await serviceClient
       .from('test_cases')
       .insert({
-        suite_id: suite.id,
-        title: suiteName.trim(),
+        suite_id: resolvedSuiteId,
+        title: caseName,
         description: precondition.trim(),
         category: category.trim(),
         precondition: precondition.trim(),
@@ -154,7 +173,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, suiteId: suite.id, caseId: testCase.id },
+      { success: true, suiteId: resolvedSuiteId, caseId: testCase.id },
       { status: 201 }
     );
   } catch (error) {

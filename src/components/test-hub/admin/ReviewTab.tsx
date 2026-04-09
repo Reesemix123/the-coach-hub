@@ -47,7 +47,9 @@ interface VariantStep {
 interface VariantState {
   phase: 'form' | 'generating' | 'preview' | 'saving' | 'success';
   description: string;
-  suiteName: string;
+  suiteChoice: 'existing' | 'new';
+  selectedSuiteId: string;
+  newSuiteName: string;
   preview: {
     suiteName: string;
     precondition: string;
@@ -528,7 +530,9 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
       next.set(tc.id, {
         phase: 'form',
         description: '',
-        suiteName: `${tc.title} — Variant`,
+        suiteChoice: 'existing',
+        selectedSuiteId: tc.suite_id,
+        newSuiteName: `${tc.title} — Variant`,
         preview: null,
         savedSuiteName: null,
         error: null,
@@ -545,7 +549,7 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
     });
   }
 
-  function updateVariantField(caseId: string, field: 'description' | 'suiteName', value: string) {
+  function updateVariantField(caseId: string, field: 'description', value: string) {
     setVariantState(prev => {
       const next = new Map(prev);
       const current = next.get(caseId);
@@ -556,7 +560,9 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
 
   async function handleVariantGenerate(tc: TestCase) {
     const vs = variantState.get(tc.id);
-    if (!vs || !vs.description.trim() || !vs.suiteName.trim()) return;
+    if (!vs || !vs.description.trim()) return;
+    const effectiveSuiteName = vs.suiteChoice === 'new' ? vs.newSuiteName.trim() : (suites.find(s => s.id === vs.selectedSuiteId)?.name || 'Variant');
+    if (vs.suiteChoice === 'new' && !vs.newSuiteName.trim()) return;
 
     setVariantState(prev => {
       const next = new Map(prev);
@@ -571,7 +577,7 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
         body: JSON.stringify({
           description: vs.description.trim(),
           featureCategoryId: tc.category,
-          suiteName: vs.suiteName.trim(),
+          suiteName: effectiveSuiteName,
           sourceTestCaseId: tc.id,
         }),
       });
@@ -613,16 +619,22 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
     });
 
     try {
+      const saveBody: Record<string, unknown> = {
+        suiteName: vs.preview.suiteName,
+        precondition: vs.preview.precondition,
+        category: tc?.category || 'general',
+        setupSteps: vs.preview.setupSteps,
+        testSteps: vs.preview.testSteps,
+      };
+      // If using an existing suite, pass suiteId so the save route doesn't create a new one
+      if (vs.suiteChoice === 'existing' && vs.selectedSuiteId) {
+        saveBody.suiteId = vs.selectedSuiteId;
+      }
+
       const res = await fetch('/api/test-hub/generate/scenario/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          suiteName: vs.preview.suiteName,
-          precondition: vs.preview.precondition,
-          category: tc?.category || 'general',
-          setupSteps: vs.preview.setupSteps,
-          testSteps: vs.preview.testSteps,
-        }),
+        body: JSON.stringify(saveBody),
       });
 
       if (!res.ok) throw new Error('Save failed');
@@ -632,7 +644,7 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
         next.set(caseId, {
           ...vs,
           phase: 'success',
-          savedSuiteName: vs.preview?.suiteName || vs.suiteName,
+          savedSuiteName: vs.preview?.suiteName || vs.newSuiteName || (suites.find(s => s.id === vs.selectedSuiteId)?.name) || 'Suite',
           error: null,
         });
         return next;
@@ -809,13 +821,43 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
                               <p className="text-sm text-gray-600">{formatCategoryLabel(tc.category)}</p>
                             </div>
                             <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Suite name</label>
-                              <input
-                                type="text"
-                                value={vs.suiteName}
-                                onChange={e => updateVariantField(tc.id, 'suiteName', e.target.value)}
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Add to suite</label>
+                              <select
+                                value={vs.suiteChoice === 'new' ? '__new__' : vs.selectedSuiteId}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setVariantState(prev => {
+                                    const next = new Map(prev);
+                                    if (val === '__new__') {
+                                      next.set(tc.id, { ...vs, suiteChoice: 'new' });
+                                    } else {
+                                      next.set(tc.id, { ...vs, suiteChoice: 'existing', selectedSuiteId: val });
+                                    }
+                                    return next;
+                                  });
+                                }}
                                 className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
-                              />
+                              >
+                                {suites.map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                                <option value="__new__">+ New Suite</option>
+                              </select>
+                              {vs.suiteChoice === 'new' && (
+                                <input
+                                  type="text"
+                                  value={vs.newSuiteName}
+                                  onChange={e => {
+                                    setVariantState(prev => {
+                                      const next = new Map(prev);
+                                      next.set(tc.id, { ...vs, newSuiteName: e.target.value });
+                                      return next;
+                                    });
+                                  }}
+                                  placeholder="New suite name"
+                                  className="w-full mt-1.5 text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                                />
+                              )}
                             </div>
                             {vs.error && (
                               <p className="text-sm text-red-600">{vs.error}</p>
@@ -823,7 +865,7 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleVariantGenerate(tc)}
-                                disabled={!vs.description.trim() || !vs.suiteName.trim()}
+                                disabled={!vs.description.trim() || (vs.suiteChoice === 'new' && !vs.newSuiteName.trim())}
                                 className="px-4 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
                               >
                                 Generate Preview
