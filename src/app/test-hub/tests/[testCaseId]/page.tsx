@@ -20,6 +20,7 @@ interface TestCase {
   title: string;
   description: string | null;
   category: string;
+  precondition: string | null;
 }
 
 interface TestStep {
@@ -83,7 +84,7 @@ export default function TestSessionPage({
       // Fetch test case
       const { data: tc, error: tcError } = await supabase
         .from('test_cases')
-        .select('id, title, description, category')
+        .select('id, title, description, category, precondition')
         .eq('id', testCaseId)
         .single();
 
@@ -249,6 +250,12 @@ export default function TestSessionPage({
       <div className="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: checklist + complete button */}
         <div className="lg:col-span-3">
+          {testCase.precondition && (
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">Before you begin</p>
+              <p className="text-sm text-amber-700">{testCase.precondition}</p>
+            </div>
+          )}
           <TestChecklist
             steps={steps}
             sessionId={session.id}

@@ -29,7 +29,7 @@ interface TestCase {
   auto_generated: boolean;
 }
 
-type StatusFilter = 'all' | 'active' | 'draft' | 'archived';
+type StatusFilter = 'all' | 'active' | 'pending_review' | 'draft' | 'archived';
 
 // ============================================
 // HELPERS
@@ -288,9 +288,18 @@ export default function SuiteDetailPage({
       ? cases
       : cases.filter(c => c.status === statusFilter);
 
+  const statusCounts: Record<StatusFilter, number> = {
+    all: cases.length,
+    active: cases.filter(c => c.status === 'active').length,
+    pending_review: cases.filter(c => c.status === 'pending_review').length,
+    draft: cases.filter(c => c.status === 'draft').length,
+    archived: cases.filter(c => c.status === 'archived').length,
+  };
+
   const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'active', label: 'Active' },
+    { value: 'pending_review', label: 'Pending Review' },
     { value: 'draft', label: 'Draft' },
     { value: 'archived', label: 'Archived' },
   ];
@@ -398,13 +407,22 @@ export default function SuiteDetailPage({
             <button
               key={opt.value}
               onClick={() => setStatusFilter(opt.value)}
-              className={`px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors ${
                 statusFilter === opt.value
                   ? 'bg-gray-900 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               {opt.label}
+              <span
+                className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                  statusFilter === opt.value
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {statusCounts[opt.value]}
+              </span>
             </button>
           ))}
         </div>

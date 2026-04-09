@@ -361,7 +361,9 @@ export default function TestHubAdminPage() {
                 >
                   {/* Name + description */}
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{suite.name}</p>
+                    <Link href={`/test-hub/admin/suites/${suite.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                      {suite.name}
+                    </Link>
                     {suite.description && (
                       <p className="text-xs text-gray-500 mt-0.5 truncate max-w-sm">
                         {suite.description}
