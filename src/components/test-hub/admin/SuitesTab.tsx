@@ -1022,18 +1022,19 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             </div>
           ) : (
             <div>
-              <div className="grid grid-cols-[1fr_4rem_4rem_4rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className="grid grid-cols-[1fr_5rem_5rem_5rem_5rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span>Suite</span>
                 <span className="text-center">Sport</span>
                 <span className="text-center">Status</span>
                 <span className="text-center">Cases</span>
+                <span className="text-center">Actions</span>
                 <span className="text-right">Detail</span>
               </div>
 
               {filteredSuites.map(suite => (
                 <div key={suite.id}>
                   {/* Suite row */}
-                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-4 border-b border-gray-100 items-center">
+                  <div className="grid grid-cols-[1fr_5rem_5rem_5rem_5rem_5rem] gap-4 px-6 py-4 border-b border-gray-100 items-center">
                     <div>
                       <button
                         onClick={() => handleExpandSuite(suite.id)}
@@ -1059,20 +1060,49 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
                     </div>
 
                     <div className="flex justify-center">
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSuiteBadgeClass(suite.status)}`}
+                      <select
+                        value={suite.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          const res = await fetch(`/api/test-hub/suites/${suite.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: newStatus }),
+                          });
+                          if (res.ok) {
+                            setSuites(prev => prev.map(s => s.id === suite.id ? { ...s, status: newStatus as SuiteStatus } : s));
+                          }
+                        }}
+                        className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
                       >
-                        {getSuiteStatusLabel(suite.status)}
-                      </span>
+                        <option value="draft">Draft</option>
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                      </select>
                     </div>
 
                     <div className="text-center">
                       <span className="text-sm text-gray-900 font-medium">{suite.case_count}</span>
-                      {suite.pending_count > 0 && (
-                        <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs font-medium px-1.5 py-0.5 rounded-full">
-                          {suite.pending_count} pending
-                        </span>
-                      )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Delete "${suite.name}" and all its test cases? This cannot be undone.`)) return;
+                          const res = await fetch(`/api/test-hub/suites/${suite.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: 'archived' }),
+                          });
+                          if (res.ok) {
+                            setSuites(prev => prev.map(s => s.id === suite.id ? { ...s, status: 'archived' as SuiteStatus } : s));
+                          }
+                        }}
+                        className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                        title="Archive suite"
+                      >
+                        Archive
+                      </button>
                     </div>
 
                     <div className="flex justify-end">
