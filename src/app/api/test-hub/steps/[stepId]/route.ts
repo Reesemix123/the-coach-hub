@@ -34,9 +34,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const body = await request.json();
-    const { instruction, expected_outcome } = body as {
+    const { instruction, expected_outcome, display_order } = body as {
       instruction?: string;
       expected_outcome?: string;
+      display_order?: number;
     };
 
     // Build update object from only the provided fields
@@ -53,9 +54,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.expected_outcome = expected_outcome;
     }
 
+    if (display_order !== undefined) {
+      if (typeof display_order !== 'number' || display_order < 0) {
+        return NextResponse.json({ error: 'display_order must be a non-negative number' }, { status: 400 });
+      }
+      updates.display_order = display_order;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(
-        { error: 'At least one of instruction or expected_outcome must be provided' },
+        { error: 'At least one field must be provided' },
         { status: 400 }
       );
     }

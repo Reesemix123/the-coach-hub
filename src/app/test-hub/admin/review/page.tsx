@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 // ============================================
@@ -303,7 +303,6 @@ export default function ReviewQueuePage() {
     try {
       const res = await fetch(`/api/test-hub/steps/${stepId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete step');
-      // Remove from local state immediately
       setCases(prev => prev.map(tc => ({
         ...tc,
         steps: tc.steps.filter(s => s.id !== stepId),
@@ -311,6 +310,55 @@ export default function ReviewQueuePage() {
     } catch (err) {
       console.error('Error deleting step:', err);
     }
+  }
+
+  async function handleMoveStep(caseId: string, stepId: string, direction: 'up' | 'down') {
+    const tc = cases.find(c => c.id === caseId);
+    if (!tc) return;
+
+    const step = tc.steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Get steps of the same type, sorted by display_order
+    const sameTypeSteps = tc.steps
+      .filter(s => s.step_type === step.step_type)
+      .sort((a, b) => a.display_order - b.display_order);
+
+    const idx = sameTypeSteps.findIndex(s => s.id === stepId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === sameTypeSteps.length - 1) return;
+
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const current = sameTypeSteps[idx];
+    const neighbor = sameTypeSteps[swapIdx];
+
+    // Swap display_order values locally first (optimistic)
+    setCases(prev => prev.map(c => {
+      if (c.id !== caseId) return c;
+      return {
+        ...c,
+        steps: c.steps.map(s => {
+          if (s.id === current.id) return { ...s, display_order: neighbor.display_order };
+          if (s.id === neighbor.id) return { ...s, display_order: current.display_order };
+          return s;
+        }),
+      };
+    }));
+
+    // Persist swapped display_order values
+    await Promise.all([
+      fetch(`/api/test-hub/steps/${current.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: neighbor.display_order }),
+      }),
+      fetch(`/api/test-hub/steps/${neighbor.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: current.display_order }),
+      }),
+    ]);
   }
 
   // ---- Render ----
@@ -371,8 +419,8 @@ export default function ReviewQueuePage() {
             const isExpanded = expandedCase === tc.id;
             const isEditing = editingCase === tc.id;
             const edited = editedFields.get(tc.id);
-            const setupSteps = tc.steps.filter(s => s.step_type === 'setup');
-            const testSteps = tc.steps.filter(s => s.step_type === 'test');
+            const setupSteps = tc.steps.filter(s => s.step_type === 'setup').sort((a, b) => a.display_order - b.display_order);
+            const testSteps = tc.steps.filter(s => s.step_type === 'test').sort((a, b) => a.display_order - b.display_order);
 
             return (
               <div key={tc.id} className="bg-white rounded-xl border border-gray-200">
@@ -443,7 +491,7 @@ export default function ReviewQueuePage() {
                         Setup Steps {setupSteps.length === 0 && !isEditing && <span className="font-normal normal-case">(none)</span>}
                       </h4>
                       <div className="space-y-2">
-                        {setupSteps.map(step => (
+                        {setupSteps.map((step, idx) => (
                           <StepRow
                             key={step.id}
                             step={step}
@@ -453,6 +501,10 @@ export default function ReviewQueuePage() {
                               updateEditedStep(tc.id, tc, step.id, field, value)
                             }
                             onDelete={isEditing ? () => handleDeleteStep(step.id) : undefined}
+                            onMoveUp={isEditing ? () => handleMoveStep(tc.id, step.id, 'up') : undefined}
+                            onMoveDown={isEditing ? () => handleMoveStep(tc.id, step.id, 'down') : undefined}
+                            isFirst={idx === 0}
+                            isLast={idx === setupSteps.length - 1}
                           />
                         ))}
                       </div>
@@ -507,7 +559,7 @@ export default function ReviewQueuePage() {
                         Test Steps {testSteps.length === 0 && !isEditing && <span className="font-normal normal-case">(none)</span>}
                       </h4>
                       <div className="space-y-2">
-                        {testSteps.map(step => (
+                        {testSteps.map((step, idx) => (
                           <StepRow
                             key={step.id}
                             step={step}
@@ -517,6 +569,10 @@ export default function ReviewQueuePage() {
                               updateEditedStep(tc.id, tc, step.id, field, value)
                             }
                             onDelete={isEditing ? () => handleDeleteStep(step.id) : undefined}
+                            onMoveUp={isEditing ? () => handleMoveStep(tc.id, step.id, 'up') : undefined}
+                            onMoveDown={isEditing ? () => handleMoveStep(tc.id, step.id, 'down') : undefined}
+                            isFirst={idx === 0}
+                            isLast={idx === testSteps.length - 1}
                           />
                         ))}
                       </div>
@@ -651,9 +707,13 @@ interface StepRowProps {
   editedStep?: { instruction?: string; expected_outcome?: string };
   onUpdate: (field: 'instruction' | 'expected_outcome', value: string) => void;
   onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
 }
 
-function StepRow({ step, isEditing, editedStep, onUpdate, onDelete }: StepRowProps) {
+function StepRow({ step, isEditing, editedStep, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast }: StepRowProps) {
   const instruction = editedStep?.instruction ?? step.instruction;
   const expected = editedStep?.expected_outcome ?? (step.expected_outcome ?? '');
 
@@ -661,6 +721,25 @@ function StepRow({ step, isEditing, editedStep, onUpdate, onDelete }: StepRowPro
     <div className="bg-gray-50 rounded-lg p-3 space-y-2 group">
       {isEditing ? (
         <div className="flex gap-2">
+          {/* Move arrows */}
+          <div className="flex flex-col gap-0.5 self-center">
+            <button
+              onClick={onMoveUp}
+              disabled={isFirst}
+              className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+              title="Move up"
+            >
+              <ArrowUp size={12} />
+            </button>
+            <button
+              onClick={onMoveDown}
+              disabled={isLast}
+              className="p-0.5 text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+              title="Move down"
+            >
+              <ArrowDown size={12} />
+            </button>
+          </div>
           <div className="flex-1 space-y-2">
             <input
               type="text"
