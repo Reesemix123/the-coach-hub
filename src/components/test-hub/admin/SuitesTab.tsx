@@ -813,7 +813,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
 
             {/* Per-category table */}
             <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className="grid grid-cols-[1fr_4rem_4rem_4rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span>Category</span>
                 <span className="text-center">Total</span>
                 <span className="text-center">Covered</span>
@@ -825,7 +825,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
                 return (
                   <div
                     key={cat.category_id}
-                    className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 last:border-0 items-center"
+                    className="grid grid-cols-[1fr_4rem_4rem_4rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 last:border-0 items-center"
                   >
                     <div>
                       <span className="text-sm text-gray-900 font-medium">{cat.category_name}</span>
@@ -1022,7 +1022,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             </div>
           ) : (
             <div>
-              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className="grid grid-cols-[1fr_4rem_4rem_4rem_5rem] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span>Suite</span>
                 <span className="text-center">Sport</span>
                 <span className="text-center">Status</span>
