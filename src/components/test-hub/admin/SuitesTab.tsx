@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Loader2, Plus, X, Mail, RefreshCw, ChevronRight, ChevronUp, ChevronDown, Bot } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { APP_FEATURES } from '@/content/features';
 
 // ============================================
 // TYPES
@@ -87,6 +88,7 @@ interface SuiteTestCase {
   status: string;
   display_order: number;
   auto_generated: boolean;
+  source_feature_key: string | null;
   steps: SuiteTestStep[];
 }
 
@@ -457,6 +459,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
         status: c.status,
         display_order: c.display_order,
         auto_generated: c.auto_generated ?? false,
+        source_feature_key: c.source_feature_key ?? null,
         steps: stepsByCase.get(c.id) ?? [],
       }));
 
@@ -542,6 +545,17 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
       else next.add(caseId);
       return next;
     });
+  }
+
+  async function handleSetSourceFeature(caseId: string, featureKey: string | null) {
+    const res = await fetch(`/api/test-hub/cases/${caseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_feature_key: featureKey }),
+    });
+    if (res.ok) {
+      setSuiteCases(prev => prev.map(c => c.id === caseId ? { ...c, source_feature_key: featureKey } : c));
+    }
   }
 
   // ============================================
@@ -1247,6 +1261,23 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
                                             .map(s => (
                                               <option key={s.id} value={s.id}>{s.name}</option>
                                             ))}
+                                        </select>
+
+                                        {/* Source feature dropdown */}
+                                        <select
+                                          value={tc.source_feature_key || ''}
+                                          onChange={e => handleSetSourceFeature(tc.id, e.target.value || null)}
+                                          className="text-xs border border-gray-300 rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900 flex-shrink-0 max-w-[10rem]"
+                                          title="Link to feature for coverage tracking"
+                                        >
+                                          <option value="">Feature...</option>
+                                          {APP_FEATURES.flatMap(cat =>
+                                            cat.features.map((f, i) => (
+                                              <option key={`${cat.id}:${f.name}`} value={`${cat.id}:${f.name}`}>
+                                                {f.name}
+                                              </option>
+                                            ))
+                                          )}
                                         </select>
 
                                         {/* Reorder arrows */}

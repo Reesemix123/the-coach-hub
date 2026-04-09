@@ -89,6 +89,7 @@ interface UpdateCaseBody {
   category?: string;
   status?: CaseStatus;
   suite_id?: string;
+  source_feature_key?: string | null;
 }
 
 const VALID_STATUSES: CaseStatus[] = ['draft', 'pending_review', 'active', 'archived'];
@@ -133,6 +134,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (body.suite_id !== undefined) {
       updates.suite_id = body.suite_id;
+    }
+
+    if (body.source_feature_key !== undefined) {
+      updates.source_feature_key = body.source_feature_key;
     }
 
     const { data: testCase, error: updateError } = await supabase
