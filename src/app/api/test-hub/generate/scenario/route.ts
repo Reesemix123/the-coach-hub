@@ -108,9 +108,10 @@ export async function POST(request: NextRequest) {
       description?: unknown;
       featureCategoryId?: unknown;
       suiteName?: unknown;
+      sourceTestCaseId?: unknown;
     };
 
-    const { description, featureCategoryId, suiteName } = body;
+    const { description, featureCategoryId, suiteName, sourceTestCaseId } = body;
 
     if (!description || typeof description !== 'string' || !description.trim()) {
       return NextResponse.json({ error: 'description is required' }, { status: 400 });
@@ -141,6 +142,44 @@ export async function POST(request: NextRequest) {
       .in('status', ['active', 'pending_review']);
 
     const existingCases = existingCasesData ?? [];
+
+    // Optional: fetch source test case for variant generation context
+    let sourceContext = '';
+    if (sourceTestCaseId && typeof sourceTestCaseId === 'string') {
+      const { data: sourceCaseData } = await supabase
+        .from('test_cases')
+        .select('title, description, category')
+        .eq('id', sourceTestCaseId)
+        .single();
+
+      const { data: sourceStepsData } = await supabase
+        .from('test_steps')
+        .select('step_type, instruction, expected_outcome')
+        .eq('test_case_id', sourceTestCaseId)
+        .order('step_type')
+        .order('display_order');
+
+      if (sourceCaseData && sourceStepsData) {
+        const srcSetup = sourceStepsData.filter(s => s.step_type === 'setup');
+        const srcTest = sourceStepsData.filter(s => s.step_type === 'test');
+
+        const formatSteps = (steps: typeof sourceStepsData) =>
+          steps.map((s, i) => `${i + 1}. ${s.instruction}${s.expected_outcome ? ` → Expected: ${s.expected_outcome}` : ''}`).join('\n');
+
+        sourceContext = `
+
+This variant is based on the following existing test case — your generated steps should differ meaningfully from these while testing the same feature area under the new precondition:
+
+Original test case: ${sourceCaseData.title}
+Original description: ${sourceCaseData.description || 'None'}
+
+Original setup steps:
+${formatSteps(srcSetup) || 'None'}
+
+Original test steps:
+${formatSteps(srcTest) || 'None'}`;
+      }
+    }
 
     const prompt = `You are creating a QA test case for a youth football coaching application called Youth Coach Hub.
 The tester will be testing a specific scenario defined by a precondition. Write setup steps that actively establish that precondition — not just navigate to a page. The precondition must be achievable by a non-technical tester using only the app UI.
@@ -176,7 +215,7 @@ Rules:
 - Test steps verify the scenario behavior after the precondition is met
 - Expected outcomes must be specific and observable
 - 3-6 setup steps, 4-8 test steps
-- Write for a volunteer football coach who is not technical but knows the sport`;
+- Write for a volunteer football coach who is not technical but knows the sport${sourceContext}`;
 
     const result = await generateText({ model, prompt });
     const jsonText = result.text.trim();

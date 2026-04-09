@@ -27,10 +27,35 @@ interface TestCase {
   title: string;
   description: string | null;
   category: string;
+  suite_id: string;
   source_feature_key: string | null;
   auto_generated: boolean;
   status: string;
   steps: TestStep[];
+}
+
+interface SuiteOption {
+  id: string;
+  name: string;
+}
+
+interface VariantStep {
+  instruction: string;
+  expected_outcome: string | null;
+}
+
+interface VariantState {
+  phase: 'form' | 'generating' | 'preview' | 'saving' | 'success';
+  description: string;
+  suiteName: string;
+  preview: {
+    suiteName: string;
+    precondition: string;
+    setupSteps: VariantStep[];
+    testSteps: VariantStep[];
+  } | null;
+  savedSuiteName: string | null;
+  error: string | null;
 }
 
 interface EditedFields {
@@ -184,6 +209,8 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
   const [addingStepTo, setAddingStepTo] = useState<{ caseId: string; type: 'setup' | 'test' } | null>(null);
   const [newStepInstruction, setNewStepInstruction] = useState('');
   const [newStepExpected, setNewStepExpected] = useState('');
+  const [suites, setSuites] = useState<SuiteOption[]>([]);
+  const [variantState, setVariantState] = useState<Map<string, VariantState>>(new Map());
 
   const fetchData = useCallback(async () => {
     try {
@@ -226,6 +253,7 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
         title: c.title,
         description: c.description ?? null,
         category: c.category,
+        suite_id: c.suite_id,
         source_feature_key: c.source_feature_key ?? null,
         auto_generated: c.auto_generated ?? false,
         status: c.status,
@@ -234,6 +262,13 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
 
       setCases(enriched);
       onCountChange?.(enriched.length);
+
+      // Fetch suites for dropdown
+      const { data: suitesData } = await supabase
+        .from('test_suites')
+        .select('id, name')
+        .order('created_at', { ascending: false });
+      setSuites((suitesData ?? []) as SuiteOption[]);
     } finally {
       setLoading(false);
     }
@@ -470,6 +505,154 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
     ]);
   }
 
+  // ------------------------------------------------------------------
+  // Suite reassignment
+  // ------------------------------------------------------------------
+  async function handleSuiteChange(caseId: string, newSuiteId: string) {
+    const res = await fetch(`/api/test-hub/cases/${caseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suite_id: newSuiteId }),
+    });
+    if (res.ok) {
+      setCases(prev => prev.map(c => c.id === caseId ? { ...c, suite_id: newSuiteId } : c));
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Variant generation
+  // ------------------------------------------------------------------
+  function openVariantForm(tc: TestCase) {
+    setVariantState(prev => {
+      const next = new Map(prev);
+      next.set(tc.id, {
+        phase: 'form',
+        description: '',
+        suiteName: `${tc.title} — Variant`,
+        preview: null,
+        savedSuiteName: null,
+        error: null,
+      });
+      return next;
+    });
+  }
+
+  function closeVariant(caseId: string) {
+    setVariantState(prev => {
+      const next = new Map(prev);
+      next.delete(caseId);
+      return next;
+    });
+  }
+
+  function updateVariantField(caseId: string, field: 'description' | 'suiteName', value: string) {
+    setVariantState(prev => {
+      const next = new Map(prev);
+      const current = next.get(caseId);
+      if (current) next.set(caseId, { ...current, [field]: value });
+      return next;
+    });
+  }
+
+  async function handleVariantGenerate(tc: TestCase) {
+    const vs = variantState.get(tc.id);
+    if (!vs || !vs.description.trim() || !vs.suiteName.trim()) return;
+
+    setVariantState(prev => {
+      const next = new Map(prev);
+      next.set(tc.id, { ...vs, phase: 'generating', error: null });
+      return next;
+    });
+
+    try {
+      const res = await fetch('/api/test-hub/generate/scenario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: vs.description.trim(),
+          featureCategoryId: tc.category,
+          suiteName: vs.suiteName.trim(),
+          sourceTestCaseId: tc.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || 'Generation failed');
+      }
+
+      const preview = await res.json();
+      setVariantState(prev => {
+        const next = new Map(prev);
+        next.set(tc.id, { ...vs, phase: 'preview', preview, error: null });
+        return next;
+      });
+    } catch (err) {
+      setVariantState(prev => {
+        const next = new Map(prev);
+        next.set(tc.id, {
+          ...vs,
+          phase: 'form',
+          error: err instanceof Error ? err.message : 'Generation failed',
+        });
+        return next;
+      });
+    }
+  }
+
+  async function handleVariantSave(caseId: string) {
+    const vs = variantState.get(caseId);
+    if (!vs?.preview) return;
+
+    const tc = cases.find(c => c.id === caseId);
+
+    setVariantState(prev => {
+      const next = new Map(prev);
+      next.set(caseId, { ...vs, phase: 'saving', error: null });
+      return next;
+    });
+
+    try {
+      const res = await fetch('/api/test-hub/generate/scenario/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          suiteName: vs.preview.suiteName,
+          precondition: vs.preview.precondition,
+          category: tc?.category || 'general',
+          setupSteps: vs.preview.setupSteps,
+          testSteps: vs.preview.testSteps,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Save failed');
+
+      setVariantState(prev => {
+        const next = new Map(prev);
+        next.set(caseId, {
+          ...vs,
+          phase: 'success',
+          savedSuiteName: vs.preview?.suiteName || vs.suiteName,
+          error: null,
+        });
+        return next;
+      });
+
+      // Refresh to pick up new counts
+      await fetchData();
+    } catch (err) {
+      setVariantState(prev => {
+        const next = new Map(prev);
+        next.set(caseId, {
+          ...vs,
+          phase: 'preview',
+          error: err instanceof Error ? err.message : 'Save failed',
+        });
+        return next;
+      });
+    }
+  }
+
   // ---- Render ----
 
   if (loading) {
@@ -578,6 +761,147 @@ export function ReviewTab({ onAllApproved, onCountChange }: ReviewTabProps) {
                   {tc.source_feature_key && (
                     <p className="text-xs text-gray-400 mt-2 font-mono">{tc.source_feature_key}</p>
                   )}
+
+                  {/* Suite dropdown + Variant button */}
+                  {(() => {
+                    const vs = variantState.get(tc.id);
+                    const isSuccess = vs?.phase === 'success';
+                    return (
+                      <>
+                        {!isSuccess && (
+                          <div className="flex items-center gap-2 mt-3">
+                            <label className="text-xs text-gray-500">Suite:</label>
+                            <select
+                              value={tc.suite_id}
+                              onChange={e => handleSuiteChange(tc.id, e.target.value)}
+                              className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                            >
+                              {suites.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                            {!vs && (
+                              <button
+                                onClick={() => openVariantForm(tc)}
+                                className="px-2.5 py-1 border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 transition-colors"
+                              >
+                                + Variant
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Variant form */}
+                        {vs?.phase === 'form' && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">What&apos;s different about this scenario?</label>
+                              <textarea
+                                value={vs.description}
+                                onChange={e => updateVariantField(tc.id, 'description', e.target.value)}
+                                placeholder="e.g. Coach already has an existing team"
+                                rows={2}
+                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Feature area</label>
+                              <p className="text-sm text-gray-600">{formatCategoryLabel(tc.category)}</p>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Suite name</label>
+                              <input
+                                type="text"
+                                value={vs.suiteName}
+                                onChange={e => updateVariantField(tc.id, 'suiteName', e.target.value)}
+                                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              />
+                            </div>
+                            {vs.error && (
+                              <p className="text-sm text-red-600">{vs.error}</p>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleVariantGenerate(tc)}
+                                disabled={!vs.description.trim() || !vs.suiteName.trim()}
+                                className="px-4 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                              >
+                                Generate Preview
+                              </button>
+                              <button
+                                onClick={() => closeVariant(tc.id)}
+                                className="px-4 py-2 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Generating state */}
+                        {vs?.phase === 'generating' && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-3">
+                            <Loader2 size={16} className="animate-spin text-gray-400" />
+                            <span className="text-sm text-gray-600">Generating variant...</span>
+                          </div>
+                        )}
+
+                        {/* Preview */}
+                        {vs?.phase === 'preview' && vs.preview && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-900">{vs.preview.suiteName}</h4>
+                            <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                              <span className="font-semibold">Precondition:</span> {vs.preview.precondition}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {vs.preview.setupSteps.length} setup steps, {vs.preview.testSteps.length} test steps
+                            </p>
+                            {vs.error && <p className="text-sm text-red-600">{vs.error}</p>}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleVariantSave(tc.id)}
+                                className="px-4 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition-colors"
+                              >
+                                Save to Review Queue
+                              </button>
+                              <button
+                                onClick={() => closeVariant(tc.id)}
+                                className="px-4 py-2 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+                              >
+                                Discard
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Saving state */}
+                        {vs?.phase === 'saving' && (
+                          <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center gap-3">
+                            <Loader2 size={16} className="animate-spin text-gray-400" />
+                            <span className="text-sm text-gray-600">Saving variant suite...</span>
+                          </div>
+                        )}
+
+                        {/* Success */}
+                        {vs?.phase === 'success' && (
+                          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle size={14} className="text-green-600" />
+                              <span className="text-sm text-green-800">
+                                Variant suite created: &ldquo;{vs.savedSuiteName}&rdquo;
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => closeVariant(tc.id)}
+                              className="text-xs text-green-600 hover:text-green-800 transition-colors"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* Expand toggle */}
                   <button
