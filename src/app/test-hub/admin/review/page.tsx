@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 // ============================================
@@ -85,6 +85,9 @@ export default function ReviewQueuePage() {
   const [editedFields, setEditedFields] = useState<Map<string, EditedFields>>(new Map());
   const [approving, setApproving] = useState<string | null>(null);
   const [bulkApproving, setBulkApproving] = useState(false);
+  const [addingStepTo, setAddingStepTo] = useState<{ caseId: string; type: 'setup' | 'test' } | null>(null);
+  const [newStepInstruction, setNewStepInstruction] = useState('');
+  const [newStepExpected, setNewStepExpected] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -273,6 +276,43 @@ export default function ReviewQueuePage() {
     }
   }
 
+  async function handleAddStep(caseId: string, stepType: 'setup' | 'test') {
+    if (!newStepInstruction.trim()) return;
+    try {
+      const res = await fetch('/api/test-hub/steps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_case_id: caseId,
+          step_type: stepType,
+          instruction: newStepInstruction.trim(),
+          expected_outcome: newStepExpected.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to add step');
+      setAddingStepTo(null);
+      setNewStepInstruction('');
+      setNewStepExpected('');
+      await fetchData();
+    } catch (err) {
+      console.error('Error adding step:', err);
+    }
+  }
+
+  async function handleDeleteStep(stepId: string) {
+    try {
+      const res = await fetch(`/api/test-hub/steps/${stepId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete step');
+      // Remove from local state immediately
+      setCases(prev => prev.map(tc => ({
+        ...tc,
+        steps: tc.steps.filter(s => s.id !== stepId),
+      })));
+    } catch (err) {
+      console.error('Error deleting step:', err);
+    }
+  }
+
   // ---- Render ----
 
   if (loading) {
@@ -397,49 +437,133 @@ export default function ReviewQueuePage() {
                 {/* Expanded steps */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-6 py-4 space-y-4">
-                    {setupSteps.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                          Setup Steps
-                        </h4>
-                        <div className="space-y-2">
-                          {setupSteps.map(step => (
-                            <StepRow
-                              key={step.id}
-                              step={step}
-                              isEditing={isEditing}
-                              editedStep={edited?.steps[step.id]}
-                              onUpdate={(field, value) =>
-                                updateEditedStep(tc.id, tc, step.id, field, value)
-                              }
-                            />
-                          ))}
-                        </div>
+                    {/* Setup Steps */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        Setup Steps {setupSteps.length === 0 && !isEditing && <span className="font-normal normal-case">(none)</span>}
+                      </h4>
+                      <div className="space-y-2">
+                        {setupSteps.map(step => (
+                          <StepRow
+                            key={step.id}
+                            step={step}
+                            isEditing={isEditing}
+                            editedStep={edited?.steps[step.id]}
+                            onUpdate={(field, value) =>
+                              updateEditedStep(tc.id, tc, step.id, field, value)
+                            }
+                            onDelete={isEditing ? () => handleDeleteStep(step.id) : undefined}
+                          />
+                        ))}
                       </div>
-                    )}
-                    {testSteps.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                          Test Steps
-                        </h4>
-                        <div className="space-y-2">
-                          {testSteps.map(step => (
-                            <StepRow
-                              key={step.id}
-                              step={step}
-                              isEditing={isEditing}
-                              editedStep={edited?.steps[step.id]}
-                              onUpdate={(field, value) =>
-                                updateEditedStep(tc.id, tc, step.id, field, value)
-                              }
+                      {isEditing && (
+                        addingStepTo?.caseId === tc.id && addingStepTo.type === 'setup' ? (
+                          <div className="mt-2 bg-gray-50 rounded-lg p-3 space-y-2">
+                            <input
+                              type="text"
+                              value={newStepInstruction}
+                              onChange={e => setNewStepInstruction(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              placeholder="Step instruction"
+                              autoFocus
                             />
-                          ))}
-                        </div>
+                            <input
+                              type="text"
+                              value={newStepExpected}
+                              onChange={e => setNewStepExpected(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              placeholder="Expected outcome (optional)"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAddStep(tc.id, 'setup')}
+                                disabled={!newStepInstruction.trim()}
+                                className="px-3 py-1 bg-black text-white rounded text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setAddingStepTo(null); setNewStepInstruction(''); setNewStepExpected(''); }}
+                                className="px-3 py-1 border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setAddingStepTo({ caseId: tc.id, type: 'setup' }); setNewStepInstruction(''); setNewStepExpected(''); }}
+                            className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            <Plus size={12} /> Add setup step
+                          </button>
+                        )
+                      )}
+                    </div>
+
+                    {/* Test Steps */}
+                    <div>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                        Test Steps {testSteps.length === 0 && !isEditing && <span className="font-normal normal-case">(none)</span>}
+                      </h4>
+                      <div className="space-y-2">
+                        {testSteps.map(step => (
+                          <StepRow
+                            key={step.id}
+                            step={step}
+                            isEditing={isEditing}
+                            editedStep={edited?.steps[step.id]}
+                            onUpdate={(field, value) =>
+                              updateEditedStep(tc.id, tc, step.id, field, value)
+                            }
+                            onDelete={isEditing ? () => handleDeleteStep(step.id) : undefined}
+                          />
+                        ))}
                       </div>
-                    )}
-                    {tc.steps.length === 0 && (
-                      <p className="text-sm text-gray-500">No steps defined.</p>
-                    )}
+                      {isEditing && (
+                        addingStepTo?.caseId === tc.id && addingStepTo.type === 'test' ? (
+                          <div className="mt-2 bg-gray-50 rounded-lg p-3 space-y-2">
+                            <input
+                              type="text"
+                              value={newStepInstruction}
+                              onChange={e => setNewStepInstruction(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              placeholder="Step instruction"
+                              autoFocus
+                            />
+                            <input
+                              type="text"
+                              value={newStepExpected}
+                              onChange={e => setNewStepExpected(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                              placeholder="Expected outcome (optional)"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAddStep(tc.id, 'test')}
+                                disabled={!newStepInstruction.trim()}
+                                className="px-3 py-1 bg-black text-white rounded text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
+                              >
+                                Add
+                              </button>
+                              <button
+                                onClick={() => { setAddingStepTo(null); setNewStepInstruction(''); setNewStepExpected(''); }}
+                                className="px-3 py-1 border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setAddingStepTo({ caseId: tc.id, type: 'test' }); setNewStepInstruction(''); setNewStepExpected(''); }}
+                            className="flex items-center gap-1 mt-2 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            <Plus size={12} /> Add test step
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -526,31 +650,43 @@ interface StepRowProps {
   isEditing: boolean;
   editedStep?: { instruction?: string; expected_outcome?: string };
   onUpdate: (field: 'instruction' | 'expected_outcome', value: string) => void;
+  onDelete?: () => void;
 }
 
-function StepRow({ step, isEditing, editedStep, onUpdate }: StepRowProps) {
+function StepRow({ step, isEditing, editedStep, onUpdate, onDelete }: StepRowProps) {
   const instruction = editedStep?.instruction ?? step.instruction;
   const expected = editedStep?.expected_outcome ?? (step.expected_outcome ?? '');
 
   return (
-    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+    <div className="bg-gray-50 rounded-lg p-3 space-y-2 group">
       {isEditing ? (
-        <>
-          <input
-            type="text"
-            value={instruction}
-            onChange={e => onUpdate('instruction', e.target.value)}
-            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
-            placeholder="Instruction"
-          />
-          <input
-            type="text"
-            value={expected}
-            onChange={e => onUpdate('expected_outcome', e.target.value)}
-            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900"
-            placeholder="Expected outcome (optional)"
-          />
-        </>
+        <div className="flex gap-2">
+          <div className="flex-1 space-y-2">
+            <input
+              type="text"
+              value={instruction}
+              onChange={e => onUpdate('instruction', e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+              placeholder="Instruction"
+            />
+            <input
+              type="text"
+              value={expected}
+              onChange={e => onUpdate('expected_outcome', e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-900"
+              placeholder="Expected outcome (optional)"
+            />
+          </div>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="self-start p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+              title="Delete step"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <p className="text-sm text-gray-900">{step.instruction}</p>

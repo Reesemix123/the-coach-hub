@@ -1,9 +1,7 @@
 /**
- * API: PATCH /api/test-hub/steps/[stepId]
- * Updates a test step's instruction and/or expected_outcome.
+ * API: PATCH /api/test-hub/steps/[stepId] — update step fields
+ *       DELETE /api/test-hub/steps/[stepId] — delete a step
  * Admin only.
- *
- * Body: { instruction?: string, expected_outcome?: string }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -81,6 +79,44 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json(step);
   } catch (error) {
     console.error('PATCH /api/test-hub/steps/[stepId] error:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  try {
+    const { stepId } = await context.params;
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_platform_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.is_platform_admin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { error: deleteError } = await supabase
+      .from('test_steps')
+      .delete()
+      .eq('id', stepId);
+
+    if (deleteError) {
+      console.error('Failed to delete test step:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete step' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /api/test-hub/steps/[stepId] error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
