@@ -1,12 +1,12 @@
 'use client';
 
 // src/components/test-hub/admin/SuitesTab.tsx
-// Admin Suites Tab — invite card, metrics, coverage, active checkouts,
-// suites table, testers table, and recent activity feed.
+// Admin Suites Tab — collapsible sections for invite, metrics, coverage, active checkouts,
+// suites (with inline expansion), testers, and recent activity feed.
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2, Plus, X, Mail, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, X, Mail, RefreshCw, ChevronRight, ChevronUp, ChevronDown, Bot } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 // ============================================
@@ -79,6 +79,25 @@ interface ActivityItem {
   admin_email: string;
 }
 
+interface SuiteTestCase {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  status: string;
+  display_order: number;
+  auto_generated: boolean;
+  steps: SuiteTestStep[];
+}
+
+interface SuiteTestStep {
+  id: string;
+  step_type: 'setup' | 'test';
+  display_order: number;
+  instruction: string;
+  expected_outcome: string | null;
+}
+
 // ============================================
 // PROPS
 // ============================================
@@ -148,11 +167,49 @@ function formatActionLabel(action: string): string {
   return map[action] ?? action;
 }
 
+function getCategoryBadgeClass(cat: string): string {
+  const map: Record<string, string> = {
+    teams: 'bg-blue-100 text-blue-700',
+    film: 'bg-purple-100 text-purple-700',
+    playbook: 'bg-green-100 text-green-700',
+    analytics: 'bg-orange-100 text-orange-700',
+    general: 'bg-gray-100 text-gray-600',
+  };
+  return map[cat] ?? 'bg-gray-100 text-gray-600';
+}
+
+function formatCategoryLabel(cat: string): string {
+  const map: Record<string, string> = {
+    teams: 'Teams',
+    film: 'Film',
+    playbook: 'Playbook',
+    analytics: 'Analytics',
+    'communication-hub': 'Communication',
+    subscriptions: 'Subscriptions',
+    roles: 'Roles',
+    practice: 'Practice',
+    'game-week': 'Game Planning',
+    'player-profiles': 'Players',
+    general: 'General',
+  };
+  return map[cat] ?? cat;
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  active: 'bg-green-100 text-green-700',
+  pending_review: 'bg-yellow-100 text-yellow-700',
+  draft: 'bg-gray-100 text-gray-600',
+  archived: 'bg-red-100 text-red-600',
+};
+
 // ============================================
 // COMPONENT
 // ============================================
 
 export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
+  // --- Collapsible sections state ---
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+
   // --- Suites state ---
   const [loading, setLoading] = useState(true);
   const [suites, setSuites] = useState<TestSuite[]>([]);
@@ -163,6 +220,14 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
   const [creating, setCreating] = useState(false);
   const [activeSessions, setActiveSessions] = useState(0);
   const [pendingTotal, setPendingTotal] = useState(0);
+
+  // --- Inline suite expansion state ---
+  const [expandedSuiteId, setExpandedSuiteId] = useState<string | null>(null);
+  const [suiteCases, setSuiteCases] = useState<SuiteTestCase[]>([]);
+  const [suiteCasesLoading, setSuiteCasesLoading] = useState(false);
+  const [suiteStatusFilter, setSuiteStatusFilter] = useState<'all' | string>('all');
+  const [approvingCaseId, setApprovingCaseId] = useState<string | null>(null);
+  const [expandedCaseSteps, setExpandedCaseSteps] = useState<Set<string>>(new Set());
 
   // --- Coverage state ---
   const [coverageLoading, setCoverageLoading] = useState(true);
@@ -185,6 +250,55 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
   // --- Recent activity state ---
   const [activityLoading, setActivityLoading] = useState(true);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
+
+  // ============================================
+  // COLLAPSIBLE SECTION HELPERS
+  // ============================================
+
+  function toggleSection(id: string) {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function CollapsibleSection({
+    id,
+    title,
+    badge,
+    children,
+  }: {
+    id: string;
+    title: string;
+    badge?: number;
+    children: React.ReactNode;
+  }) {
+    const isOpen = openSections.has(id);
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 mb-4">
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between px-6 py-4 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+            {badge !== undefined && badge > 0 && (
+              <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                {badge}
+              </span>
+            )}
+          </div>
+          <ChevronRight
+            size={20}
+            className={`text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+          />
+        </button>
+        {isOpen && <div className="px-6 pb-6">{children}</div>}
+      </div>
+    );
+  }
 
   // ============================================
   // DATA FETCHING
@@ -273,7 +387,6 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
 
   const fetchActivity = useCallback(async () => {
     try {
-      // Query audit_logs for testing-related actions
       const supabase = createClient();
       const { data } = await supabase
         .from('audit_logs')
@@ -295,6 +408,141 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
     fetchTesters();
     fetchActivity();
   }, [fetchSuites, fetchCoverage, fetchCheckouts, fetchTesters, fetchActivity]);
+
+  // ============================================
+  // INLINE SUITE EXPANSION HANDLERS
+  // ============================================
+
+  async function handleExpandSuite(suiteId: string) {
+    if (expandedSuiteId === suiteId) {
+      setExpandedSuiteId(null);
+      return;
+    }
+    setExpandedSuiteId(suiteId);
+    setSuiteStatusFilter('all');
+    setSuiteCasesLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: casesData } = await supabase
+        .from('test_cases')
+        .select('*')
+        .eq('suite_id', suiteId)
+        .order('display_order');
+
+      const caseIds = (casesData ?? []).map(c => c.id);
+      let stepsData: Record<string, unknown>[] = [];
+      if (caseIds.length > 0) {
+        const { data } = await supabase
+          .from('test_steps')
+          .select('*')
+          .in('test_case_id', caseIds)
+          .order('step_type')
+          .order('display_order');
+        stepsData = data ?? [];
+      }
+
+      const stepsByCase = new Map<string, SuiteTestStep[]>();
+      for (const step of stepsData) {
+        const caseId = step.test_case_id as string;
+        const existing = stepsByCase.get(caseId) ?? [];
+        existing.push(step as unknown as SuiteTestStep);
+        stepsByCase.set(caseId, existing);
+      }
+
+      const cases: SuiteTestCase[] = (casesData ?? []).map(c => ({
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        category: c.category,
+        status: c.status,
+        display_order: c.display_order,
+        auto_generated: c.auto_generated ?? false,
+        steps: stepsByCase.get(c.id) ?? [],
+      }));
+
+      setSuiteCases(cases);
+      // Default all case step sections to open
+      setExpandedCaseSteps(new Set(cases.map(c => c.id)));
+    } finally {
+      setSuiteCasesLoading(false);
+    }
+  }
+
+  async function handleApproveSuiteCase(caseId: string) {
+    setApprovingCaseId(caseId);
+    try {
+      const res = await fetch(`/api/test-hub/cases/${caseId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (res.ok) {
+        setSuiteCases(prev =>
+          prev.map(c => (c.id === caseId ? { ...c, status: 'active' } : c))
+        );
+      }
+    } finally {
+      setApprovingCaseId(null);
+    }
+  }
+
+  async function handleMoveSuiteCase(caseId: string, newSuiteId: string) {
+    const res = await fetch(`/api/test-hub/cases/${caseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suite_id: newSuiteId }),
+    });
+    if (res.ok) {
+      setSuiteCases(prev => prev.filter(c => c.id !== caseId));
+      fetchSuites();
+    }
+  }
+
+  async function handleReorderSuiteCase(caseId: string, direction: 'up' | 'down') {
+    const filtered =
+      suiteStatusFilter === 'all'
+        ? suiteCases
+        : suiteCases.filter(c => c.status === suiteStatusFilter);
+    const idx = filtered.findIndex(c => c.id === caseId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === filtered.length - 1) return;
+
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const current = filtered[idx];
+    const neighbor = filtered[swapIdx];
+
+    // Optimistic swap
+    setSuiteCases(prev =>
+      prev.map(c => {
+        if (c.id === current.id) return { ...c, display_order: neighbor.display_order };
+        if (c.id === neighbor.id) return { ...c, display_order: current.display_order };
+        return c;
+      })
+    );
+
+    await Promise.all([
+      fetch(`/api/test-hub/cases/${current.id}/order`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: neighbor.display_order }),
+      }),
+      fetch(`/api/test-hub/cases/${neighbor.id}/order`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ display_order: current.display_order }),
+      }),
+    ]);
+  }
+
+  function toggleCaseSteps(caseId: string) {
+    setExpandedCaseSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(caseId)) next.delete(caseId);
+      else next.add(caseId);
+      return next;
+    });
+  }
 
   // ============================================
   // HANDLERS
@@ -324,10 +572,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
       setNewSuiteDesc('');
       setShowNewSuiteForm(false);
 
-      // Refresh suites list
       await fetchSuites();
-
-      // Notify parent to switch to Generate tab with this suite pre-selected
       onSuiteCreated(newSuite.id, newSuite.name);
     } finally {
       setCreating(false);
@@ -364,7 +609,6 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
       if (res.ok) {
         setInviteResult({ message: data.message ?? 'Invite sent.', isError: false });
         setInviteEmail('');
-        // Refresh testers list in case the user already exists
         fetchTesters();
       } else {
         setInviteResult({ message: data.error ?? 'Invite failed.', isError: true });
@@ -385,7 +629,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
         setTesters(prev => prev.filter(t => t.id !== userId));
       }
     } catch {
-      // Non-critical — show no UI error, tester list will reflect actual state on next refresh
+      // Non-critical — tester list will reflect actual state on next refresh
     }
   }
 
@@ -407,6 +651,19 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
     { value: 'archived', label: 'Archived' },
   ];
 
+  const SUITE_CASE_STATUS_OPTIONS = [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'pending_review', label: 'Pending Review' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'archived', label: 'Archived' },
+  ];
+
+  const filteredSuiteCases =
+    suiteStatusFilter === 'all'
+      ? suiteCases
+      : suiteCases.filter(c => c.status === suiteStatusFilter);
+
   // ============================================
   // RENDER
   // ============================================
@@ -420,10 +677,10 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
   }
 
   return (
-    <div className="space-y-10">
+    <div>
 
-      {/* ---- Invite Card ---- */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      {/* ---- 1. Invite Tester ---- */}
+      <CollapsibleSection id="invite" title="Invite Tester">
         <div className="flex items-start gap-4">
           <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
             <Mail size={20} className="text-gray-600" />
@@ -462,73 +719,84 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             )}
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* ---- 4 Operational Metric Cards ---- */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-700 mb-4 uppercase tracking-wide text-xs">
-          Overview
-        </h2>
-        <div className="grid grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-sm font-medium text-gray-600 mb-2">Total Suites</p>
-            <p className="text-3xl font-semibold text-gray-900">{suites.length}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-sm font-medium text-gray-600 mb-2">Active Cases</p>
-            <p className="text-3xl font-semibold text-gray-900">{totalCases}</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-sm font-medium text-gray-600 mb-2">Pending Review</p>
-            <p className="text-3xl font-semibold text-gray-900">{pendingTotal}</p>
-            {pendingTotal > 0 && (
-              <Link
-                href="/test-hub/admin/review"
-                className="mt-1 text-xs text-yellow-700 hover:underline"
-              >
-                Review queue
-              </Link>
-            )}
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <p className="text-sm font-medium text-gray-600 mb-2">Active Sessions</p>
-            <p className="text-3xl font-semibold text-gray-900">{activeSessions}</p>
+      {/* ---- 2. Metrics ---- */}
+      <CollapsibleSection id="metrics" title="Metrics">
+        {/* 4 operational metric cards */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Overview</p>
+          <div className="grid grid-cols-4 gap-6">
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <p className="text-sm font-medium text-gray-600 mb-2">Total Suites</p>
+              <p className="text-3xl font-semibold text-gray-900">{suites.length}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <p className="text-sm font-medium text-gray-600 mb-2">Active Cases</p>
+              <p className="text-3xl font-semibold text-gray-900">{totalCases}</p>
+            </div>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <p className="text-sm font-medium text-gray-600 mb-2">Pending Review</p>
+              <p className="text-3xl font-semibold text-gray-900">{pendingTotal}</p>
+              {pendingTotal > 0 && (
+                <Link
+                  href="/test-hub/admin/review"
+                  className="mt-1 text-xs text-yellow-700 hover:underline"
+                >
+                  Review queue
+                </Link>
+              )}
+            </div>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+              <p className="text-sm font-medium text-gray-600 mb-2">Active Sessions</p>
+              <p className="text-3xl font-semibold text-gray-900">{activeSessions}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ---- 3 Coverage Metric Cards + Progress Bar ---- */}
-      <div>
-        <h2 className="text-xs font-semibold text-gray-700 mb-4 uppercase tracking-wide">
-          Feature Coverage
-        </h2>
+        {/* 3 coverage metric cards */}
+        {coverageLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Loader2 size={16} className="animate-spin" /> Loading coverage...
+          </div>
+        ) : coverage ? (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Feature Coverage
+            </p>
+            <div className="grid grid-cols-3 gap-6">
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                <p className="text-sm font-medium text-gray-600 mb-2">Covered</p>
+                <p className="text-3xl font-semibold text-green-700">{coverage.totals.covered}</p>
+                <p className="text-xs text-gray-400 mt-1">of {coverage.totals.total_features} features</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                <p className="text-sm font-medium text-gray-600 mb-2">Pending Review</p>
+                <p className="text-3xl font-semibold text-yellow-600">{coverage.totals.pending_review}</p>
+                <p className="text-xs text-gray-400 mt-1">awaiting approval</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                <p className="text-sm font-medium text-gray-600 mb-2">Not Covered</p>
+                <p className="text-3xl font-semibold text-gray-900">{coverage.totals.not_covered}</p>
+                <p className="text-xs text-gray-400 mt-1">features without tests</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">Coverage data unavailable.</p>
+        )}
+      </CollapsibleSection>
+
+      {/* ---- 3. Coverage Breakdown ---- */}
+      <CollapsibleSection id="coverage" title="Coverage Breakdown">
         {coverageLoading ? (
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Loader2 size={16} className="animate-spin" /> Loading coverage...
           </div>
         ) : coverage ? (
           <>
-            {/* 3 coverage cards */}
-            <div className="grid grid-cols-3 gap-6 mb-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <p className="text-sm font-medium text-gray-600 mb-2">Covered</p>
-                <p className="text-3xl font-semibold text-green-700">{coverage.totals.covered}</p>
-                <p className="text-xs text-gray-400 mt-1">of {coverage.totals.total_features} features</p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <p className="text-sm font-medium text-gray-600 mb-2">Pending Review</p>
-                <p className="text-3xl font-semibold text-yellow-600">{coverage.totals.pending_review}</p>
-                <p className="text-xs text-gray-400 mt-1">awaiting approval</p>
-              </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <p className="text-sm font-medium text-gray-600 mb-2">Not Covered</p>
-                <p className="text-3xl font-semibold text-gray-900">{coverage.totals.not_covered}</p>
-                <p className="text-xs text-gray-400 mt-1">features without tests</p>
-              </div>
-            </div>
-
             {/* Overall progress bar */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-medium text-gray-700">Overall coverage</p>
                 <p className="text-sm font-semibold text-gray-900">
@@ -544,7 +812,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             </div>
 
             {/* Per-category table */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
                 <span>Category</span>
                 <span className="text-center">Total</span>
@@ -580,14 +848,11 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
         ) : (
           <p className="text-sm text-gray-500">Coverage data unavailable.</p>
         )}
-      </div>
+      </CollapsibleSection>
 
-      {/* ---- Active Checkouts Table ---- */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-            Active Checkouts
-          </h2>
+      {/* ---- 4. Active Checkouts ---- */}
+      <CollapsibleSection id="checkouts" title="Active Checkouts" badge={checkouts.length}>
+        <div className="flex justify-end mb-4">
           <button
             onClick={() => { setCheckoutsLoading(true); fetchCheckouts(); }}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -601,11 +866,11 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             <Loader2 size={16} className="animate-spin" /> Loading checkouts...
           </div>
         ) : checkouts.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 py-10 text-center">
             <p className="text-sm text-gray-500">No active checkouts right now.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
             <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
               <span>Tester</span>
               <span>Test Case</span>
@@ -654,10 +919,10 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             ))}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      {/* ---- Suites Table ---- */}
-      <div>
+      {/* ---- 5. Test Suites ---- */}
+      <CollapsibleSection id="suites" title="Test Suites" badge={suites.length}>
         {/* Filter tabs + New Suite button */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-1">
@@ -686,7 +951,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
 
         {/* Inline new suite form */}
         {showNewSuiteForm && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-gray-900">Create Test Suite</h3>
               <button
@@ -745,8 +1010,8 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
           </div>
         )}
 
-        {/* Suites list */}
-        <div className="bg-white rounded-xl border border-gray-200">
+        {/* Suites list with inline expansion */}
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {filteredSuites.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-gray-500 text-sm">
@@ -762,87 +1027,315 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
                 <span className="text-center">Sport</span>
                 <span className="text-center">Status</span>
                 <span className="text-center">Cases</span>
-                <span className="text-right">Action</span>
+                <span className="text-right">Detail</span>
               </div>
 
               {filteredSuites.map(suite => (
-                <div
-                  key={suite.id}
-                  className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-4 border-b border-gray-100 last:border-0 items-center"
-                >
-                  <div>
-                    <Link
-                      href={`/test-hub/admin/suites/${suite.id}`}
-                      className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {suite.name}
-                    </Link>
-                    {suite.description && (
-                      <p className="text-xs text-gray-500 mt-0.5 truncate max-w-sm">
-                        {suite.description}
-                      </p>
-                    )}
-                  </div>
+                <div key={suite.id}>
+                  {/* Suite row */}
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 px-6 py-4 border-b border-gray-100 items-center">
+                    <div>
+                      <button
+                        onClick={() => handleExpandSuite(suite.id)}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                      >
+                        {suite.name}
+                      </button>
+                      {suite.description && (
+                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-sm">
+                          {suite.description}
+                        </p>
+                      )}
+                    </div>
 
-                  <div className="flex justify-center">
-                    {suite.sport ? (
-                      <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full capitalize">
-                        {suite.sport}
+                    <div className="flex justify-center">
+                      {suite.sport ? (
+                        <span className="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full capitalize">
+                          {suite.sport}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-center">
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSuiteBadgeClass(suite.status)}`}
+                      >
+                        {getSuiteStatusLabel(suite.status)}
                       </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">—</span>
-                    )}
+                    </div>
+
+                    <div className="text-center">
+                      <span className="text-sm text-gray-900 font-medium">{suite.case_count}</span>
+                      {suite.pending_count > 0 && (
+                        <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs font-medium px-1.5 py-0.5 rounded-full">
+                          {suite.pending_count} pending
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => handleExpandSuite(suite.id)}
+                        className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                      >
+                        {expandedSuiteId === suite.id ? 'Collapse' : 'Expand'}
+                        <ChevronRight
+                          size={14}
+                          className={`transition-transform ${expandedSuiteId === suite.id ? 'rotate-90' : ''}`}
+                        />
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex justify-center">
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${getSuiteBadgeClass(suite.status)}`}
-                    >
-                      {getSuiteStatusLabel(suite.status)}
-                    </span>
-                  </div>
+                  {/* Inline expanded suite detail */}
+                  {expandedSuiteId === suite.id && (
+                    <div className="border-b border-gray-100 bg-white">
+                      {suiteCasesLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-400 px-8 py-6">
+                          <Loader2 size={16} className="animate-spin" /> Loading cases...
+                        </div>
+                      ) : (
+                        <div className="px-8 py-4">
+                          {/* Case status filter tabs */}
+                          <div className="flex items-center gap-1 mb-4 flex-wrap">
+                            {SUITE_CASE_STATUS_OPTIONS.map(opt => {
+                              const count =
+                                opt.value === 'all'
+                                  ? suiteCases.length
+                                  : suiteCases.filter(c => c.status === opt.value).length;
+                              if (opt.value !== 'all' && count === 0) return null;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => setSuiteStatusFilter(opt.value)}
+                                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-colors ${
+                                    suiteStatusFilter === opt.value
+                                      ? 'bg-gray-900 text-white'
+                                      : 'text-gray-600 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  {opt.label}
+                                  {count > 0 && (
+                                    <span className="ml-1.5 opacity-70">{count}</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
 
-                  <div className="text-center">
-                    <span className="text-sm text-gray-900 font-medium">{suite.case_count}</span>
-                    {suite.pending_count > 0 && (
-                      <span className="ml-1.5 bg-yellow-100 text-yellow-700 text-xs font-medium px-1.5 py-0.5 rounded-full">
-                        {suite.pending_count} pending
-                      </span>
-                    )}
-                  </div>
+                          {/* Cases list */}
+                          {filteredSuiteCases.length === 0 ? (
+                            <p className="text-sm text-gray-500 py-4">
+                              {suiteStatusFilter === 'all'
+                                ? 'No test cases in this suite.'
+                                : `No ${suiteStatusFilter.replace('_', ' ')} cases.`}
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {filteredSuiteCases
+                                .slice()
+                                .sort((a, b) => a.display_order - b.display_order)
+                                .map((tc, idx) => {
+                                  const stepsOpen = expandedCaseSteps.has(tc.id);
+                                  const isFirst = idx === 0;
+                                  const isLast = idx === filteredSuiteCases.length - 1;
+                                  return (
+                                    <div
+                                      key={tc.id}
+                                      className="border border-gray-200 rounded-lg overflow-hidden"
+                                    >
+                                      {/* Case header row */}
+                                      <div className="flex items-center gap-2 px-4 py-3 bg-gray-50">
+                                        {/* Chevron to toggle steps */}
+                                        <button
+                                          onClick={() => toggleCaseSteps(tc.id)}
+                                          className="text-gray-400 hover:text-gray-600 flex-shrink-0"
+                                        >
+                                          <ChevronRight
+                                            size={14}
+                                            className={`transition-transform ${stepsOpen ? 'rotate-90' : ''}`}
+                                          />
+                                        </button>
 
-                  <div className="flex justify-end">
-                    <Link
-                      href={`/test-hub/admin/suites/${suite.id}`}
-                      className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
-                    >
-                      View
-                    </Link>
-                  </div>
+                                        {/* Title */}
+                                        <span className="text-sm font-medium text-gray-900 flex-1 min-w-0 truncate">
+                                          {tc.title}
+                                        </span>
+
+                                        {/* AI badge */}
+                                        {tc.auto_generated && (
+                                          <span className="flex items-center gap-1 bg-purple-100 text-purple-700 text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0">
+                                            <Bot size={10} />
+                                            AI
+                                          </span>
+                                        )}
+
+                                        {/* Category badge */}
+                                        <span
+                                          className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${getCategoryBadgeClass(tc.category)}`}
+                                        >
+                                          {formatCategoryLabel(tc.category)}
+                                        </span>
+
+                                        {/* Status badge */}
+                                        <span
+                                          className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_BADGE[tc.status] ?? 'bg-gray-100 text-gray-600'}`}
+                                        >
+                                          {getSuiteStatusLabel(tc.status)}
+                                        </span>
+
+                                        {/* Approve button */}
+                                        {tc.status === 'pending_review' && (
+                                          <button
+                                            onClick={() => handleApproveSuiteCase(tc.id)}
+                                            disabled={approvingCaseId === tc.id}
+                                            className="flex items-center gap-1 px-2.5 py-1 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                                          >
+                                            {approvingCaseId === tc.id && (
+                                              <Loader2 size={10} className="animate-spin" />
+                                            )}
+                                            Approve
+                                          </button>
+                                        )}
+
+                                        {/* Move To dropdown */}
+                                        <select
+                                          defaultValue=""
+                                          onChange={e => {
+                                            if (e.target.value) {
+                                              handleMoveSuiteCase(tc.id, e.target.value);
+                                              e.target.value = '';
+                                            }
+                                          }}
+                                          className="text-xs border border-gray-300 rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900 flex-shrink-0"
+                                        >
+                                          <option value="" disabled>Move to...</option>
+                                          {suites
+                                            .filter(s => s.id !== expandedSuiteId)
+                                            .map(s => (
+                                              <option key={s.id} value={s.id}>{s.name}</option>
+                                            ))}
+                                        </select>
+
+                                        {/* Reorder arrows */}
+                                        <div className="flex flex-col flex-shrink-0">
+                                          <button
+                                            onClick={() => handleReorderSuiteCase(tc.id, 'up')}
+                                            disabled={isFirst}
+                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                          >
+                                            <ChevronUp size={12} />
+                                          </button>
+                                          <button
+                                            onClick={() => handleReorderSuiteCase(tc.id, 'down')}
+                                            disabled={isLast}
+                                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                                          >
+                                            <ChevronDown size={12} />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Steps */}
+                                      {stepsOpen && tc.steps.length > 0 && (
+                                        <div className="px-4 pb-3 pt-2 space-y-2">
+                                          {/* Setup steps */}
+                                          {tc.steps.filter(s => s.step_type === 'setup').length > 0 && (
+                                            <div>
+                                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                                                Setup
+                                              </p>
+                                              <div className="space-y-1.5">
+                                                {tc.steps
+                                                  .filter(s => s.step_type === 'setup')
+                                                  .sort((a, b) => a.display_order - b.display_order)
+                                                  .map(step => (
+                                                    <div key={step.id} className="flex gap-3 text-sm">
+                                                      <span className="text-gray-400 flex-shrink-0 w-4 text-right">
+                                                        {step.display_order}.
+                                                      </span>
+                                                      <div className="flex-1 min-w-0">
+                                                        <p className="text-gray-700">{step.instruction}</p>
+                                                        {step.expected_outcome && (
+                                                          <p className="text-xs text-gray-400 mt-0.5">
+                                                            Expected: {step.expected_outcome}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Test steps */}
+                                          {tc.steps.filter(s => s.step_type === 'test').length > 0 && (
+                                            <div>
+                                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                                                Test Steps
+                                              </p>
+                                              <div className="space-y-1.5">
+                                                {tc.steps
+                                                  .filter(s => s.step_type === 'test')
+                                                  .sort((a, b) => a.display_order - b.display_order)
+                                                  .map(step => (
+                                                    <div key={step.id} className="flex gap-3 text-sm">
+                                                      <span className="text-gray-400 flex-shrink-0 w-4 text-right">
+                                                        {step.display_order}.
+                                                      </span>
+                                                      <div className="flex-1 min-w-0">
+                                                        <p className="text-gray-700">{step.instruction}</p>
+                                                        {step.expected_outcome && (
+                                                          <p className="text-xs text-gray-400 mt-0.5">
+                                                            Expected: {step.expected_outcome}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {stepsOpen && tc.steps.length === 0 && (
+                                        <p className="px-4 pb-3 pt-2 text-xs text-gray-400">
+                                          No steps defined for this case.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* ---- Testers Table ---- */}
-      <div>
-        <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-4">
-          Testers
-        </h2>
+      {/* ---- 6. Active Testers ---- */}
+      <CollapsibleSection id="testers" title="Active Testers" badge={testers.length}>
         {testersLoading ? (
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Loader2 size={16} className="animate-spin" /> Loading testers...
           </div>
         ) : testers.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 py-10 text-center">
             <p className="text-sm text-gray-500">
-              No testers yet. Use the invite card above to add the first tester.
+              No testers yet. Use the Invite Tester section above to add the first tester.
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-4 px-6 py-3 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
               <span>Tester</span>
               <span className="text-center">Completed</span>
@@ -901,23 +1394,20 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             ))}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
-      {/* ---- Recent Activity Feed ---- */}
-      <div>
-        <h2 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-4">
-          Recent Activity
-        </h2>
+      {/* ---- 7. Recent Activity ---- */}
+      <CollapsibleSection id="activity" title="Recent Activity">
         {activityLoading ? (
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Loader2 size={16} className="animate-spin" /> Loading activity...
           </div>
         ) : activity.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 py-10 text-center">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 py-10 text-center">
             <p className="text-sm text-gray-500">No testing activity recorded yet.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
             {activity.map(item => (
               <div
                 key={item.id}
@@ -942,7 +1432,7 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
             ))}
           </div>
         )}
-      </div>
+      </CollapsibleSection>
 
     </div>
   );

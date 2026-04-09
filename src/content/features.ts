@@ -691,7 +691,7 @@ export const APP_FEATURES: FeatureCategory[] = [
       {
         name: 'Suite Management',
         description: 'Create and manage test suites, reorder cases, move between suites',
-        navigationPath: '/test-hub/admin/suites/[suiteId]',
+        navigationPath: '/test-hub/admin (Suites tab → expand suite)',
       },
     ],
   },
