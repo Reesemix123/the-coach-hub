@@ -236,8 +236,8 @@ export class AnalyticsService {
       this.isPlaySuccessful(p.down, p.distance, p.yards_gained, p.resulted_in_first_down)
     );
 
-    // Red zone (inside 20 yard line)
-    const redZonePlays = plays.filter(p => p.yard_line != null && p.yard_line <= 20);
+    // Red zone (yard_line >= 80 means inside opponent's 20; convention: 0=own goal, 100=opp goal)
+    const redZonePlays = plays.filter(p => p.yard_line != null && p.yard_line >= 80);
     // Use scoring_type for touchdowns (new field), fall back to is_touchdown or result
     const redZoneTouchdowns = redZonePlays.filter(p =>
       p.scoring_type === 'touchdown' || p.is_touchdown || p.result === 'touchdown' || p.result?.includes('touchdown')

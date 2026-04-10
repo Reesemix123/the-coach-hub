@@ -356,7 +356,8 @@ export async function generateInsightsFromFilm(
       }
 
       // Analyze red zone tendencies
-      const redZonePlays = opponentPlays.filter((p: any) => (p.yard_line || 0) <= 20 && (p.yard_line || 0) > 0);
+      // Red zone: yard_line >= 80 (convention: 0=own goal, 100=opp goal)
+      const redZonePlays = opponentPlays.filter((p: any) => (p.yard_line || 0) >= 80);
       const redZoneRunPlays = redZonePlays.filter((p: any) => p.play_type === 'run');
 
       if (redZonePlays.length >= 3) {

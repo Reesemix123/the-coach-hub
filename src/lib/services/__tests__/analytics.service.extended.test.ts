@@ -117,32 +117,42 @@ describe('isPlaySuccessful — down thresholds', () => {
 // ---------------------------------------------------------------------------
 // Red zone classification
 //
-// Convention: yard_line represents distance from the OPPONENT'S goal line.
-// Red zone = yard_line <= 20.
+// Convention: yard_line uses a 0–100 scale where 0 = own goal line,
+// 50 = midfield, 100 = opponent's goal line. Red zone means inside the
+// opponent's 20-yard line, which is yard_line >= 80. This is documented
+// in the tagging UI (SituationFields.tsx), all DB migration zone
+// classifiers (migration 012), and advanced-analytics.service.ts.
 //
-// The service guard is: p.yard_line != null && p.yard_line <= 20
+// The service guard is: p.yard_line != null && p.yard_line >= 80
 // ---------------------------------------------------------------------------
 
 function isRedZone(yardLine: number | null): boolean {
-  return yardLine != null && yardLine <= 20;
+  return yardLine != null && yardLine >= 80;
 }
 
 describe('Red zone classification', () => {
-  it('yard_line = 20 is in the red zone', () => {
-    expect(isRedZone(20)).toBe(true);
+  it('yard_line = 80 (opponent 20) is in the red zone', () => {
+    expect(isRedZone(80)).toBe(true);
   });
 
-  it('yard_line = 21 is NOT in the red zone', () => {
-    expect(isRedZone(21)).toBe(false);
+  it('yard_line = 100 (opponent goal line) is in the red zone', () => {
+    expect(isRedZone(100)).toBe(true);
   });
 
-  it('yard_line = 0 (at the goal line) IS in the red zone', () => {
-    // Fixed: null check uses != null instead of truthy, so 0 is correctly included.
-    expect(isRedZone(0)).toBe(true);
+  it('yard_line = 90 is in the red zone', () => {
+    expect(isRedZone(90)).toBe(true);
   });
 
-  it('yard_line = 1 is in the red zone', () => {
-    expect(isRedZone(1)).toBe(true);
+  it('yard_line = 79 is NOT in the red zone', () => {
+    expect(isRedZone(79)).toBe(false);
+  });
+
+  it('yard_line = 20 (own territory) is NOT in the red zone', () => {
+    expect(isRedZone(20)).toBe(false);
+  });
+
+  it('yard_line = 0 (own goal line) is NOT in the red zone', () => {
+    expect(isRedZone(0)).toBe(false);
   });
 
   it('yard_line = null is NOT in the red zone', () => {

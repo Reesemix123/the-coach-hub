@@ -155,14 +155,18 @@ describe.skipIf(!hasServiceKey)('Film Analytics Integration Tests', () => {
       expect(count).toBe(0);
     });
 
-    it('red zone plays = 2 (yard_line ≤ 20: plays 9 & 10)', async () => {
+    // yard_line convention: 0 = own goal line, 50 = midfield, 100 = opponent's
+    // goal line. Red zone = yard_line >= 80 (inside opponent's 20). This matches
+    // the UI label in SituationFields.tsx, all DB migration zone classifiers
+    // (migration 012), drive.service.ts, and advanced-analytics.service.ts.
+    it('red zone plays = 2 (yard_line >= 80: plays 9 yl=82 & 10 yl=85)', async () => {
       const { data: plays } = await getClient()
         .from('play_instances')
         .select('yard_line')
         .eq('team_id', seed.teamId)
         .eq('is_opponent_play', false);
 
-      const redZone = plays!.filter(p => p.yard_line != null && p.yard_line <= 20);
+      const redZone = plays!.filter(p => p.yard_line != null && p.yard_line >= 80);
       expect(redZone.length).toBe(2);
     });
 
@@ -176,7 +180,7 @@ describe.skipIf(!hasServiceKey)('Film Analytics Integration Tests', () => {
       const redZoneTDs = plays!.filter(
         p =>
           p.yard_line != null &&
-          p.yard_line <= 20 &&
+          p.yard_line >= 80 &&
           (p.scoring_type === 'touchdown' ||
             p.is_touchdown ||
             p.result === 'touchdown' ||

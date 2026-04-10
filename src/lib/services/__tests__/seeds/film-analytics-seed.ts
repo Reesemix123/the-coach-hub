@@ -36,8 +36,8 @@
  * Play  6: 2nd &  8, pass_incomplete,         yl=73, + 0 yd              → FAILURE ( 0 < 4.8)
  * Play  7: 3rd &  8, pass_incomplete,         yl=73, + 0 yd              → FAILURE ( 0 < 8.0)
  * Play  8: 1st & 10, rush,                    yl=45, +20 yd, first_down   → SUCCESS (20 ≥ 4.0)
- * Play  9: 1st & 10, pass_complete,           yl=18, +12 yd, first_down   → SUCCESS (12 ≥ 4.0) RED ZONE
- * Play 10: 2nd &  3, rush,                    yl=15, + 3 yd              → SUCCESS ( 3 ≥ 1.8) RED ZONE
+ * Play  9: 1st & 10, pass_complete,           yl=82, +12 yd, first_down   → SUCCESS (12 ≥ 4.0) RED ZONE
+ * Play 10: 2nd &  3, rush,                    yl=85, + 3 yd              → SUCCESS ( 3 ≥ 1.8) RED ZONE
  *
  * EXPECTED OFFENSIVE METRICS
  * ---------------------------
@@ -48,7 +48,7 @@
  * Success rate   : 70%
  * First downs    : 5   (plays 1,3,4,8,9 have resulted_in_first_down=true)
  * Turnovers      : 0
- * Red zone plays : 2   (plays 9,10 where yard_line ≤ 20)
+ * Red zone plays : 2   (plays 9,10 where yard_line >= 80; convention: 0=own goal, 100=opp goal)
  * Red zone TDs   : 0   (the TD was at yl=25, outside red zone)
  * Touchdowns     : 1   (play 3)
  *
@@ -542,7 +542,7 @@ export async function seedFilmAnalyticsData(): Promise<SeedResult> {
       is_opponent_play: false,
       resulted_in_first_down: true,
     },
-    // Play 9 – 1st & 10, pass complete 12 yd, first down, RED ZONE (yl=18)
+    // Play 9 – 1st & 10, pass complete 12 yd, first down, RED ZONE (yl=82)
     {
       id: offensivePlayIds[8],
       video_id: videoId,
@@ -552,7 +552,7 @@ export async function seedFilmAnalyticsData(): Promise<SeedResult> {
       quarter: 3,
       down: 1,
       distance: 10,
-      yard_line: 18,
+      yard_line: 82,  // Red zone: >= 80 (convention: 0=own goal, 100=opp goal)
       yards_gained: 12,
       result: 'pass_complete',
       play_type: 'pass',
@@ -561,7 +561,7 @@ export async function seedFilmAnalyticsData(): Promise<SeedResult> {
       resulted_in_first_down: true,
       is_complete: true,
     },
-    // Play 10 – 2nd & 3, rush 3 yd, RED ZONE (yl=15), scoring_type=field_goal set on drive
+    // Play 10 – 2nd & 3, rush 3 yd, RED ZONE (yl=85), scoring_type=field_goal set on drive
     {
       id: offensivePlayIds[9],
       video_id: videoId,
@@ -571,7 +571,7 @@ export async function seedFilmAnalyticsData(): Promise<SeedResult> {
       quarter: 3,
       down: 2,
       distance: 3,
-      yard_line: 15,
+      yard_line: 85,  // Red zone: >= 80 (convention: 0=own goal, 100=opp goal)
       yards_gained: 3,
       result: 'rush',
       play_type: 'run',
