@@ -69,9 +69,11 @@ export default function FilmCapturePage() {
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
-    // Grab file from state or directly from the DOM input (Safari may not trigger onChange on restore)
+    // Grab values from state, falling back to DOM inputs (Safari may not trigger onChange on restore)
     const uploadFile = file ?? (document.getElementById('film-file-input') as HTMLInputElement)?.files?.[0] ?? null;
-    if (!uploadFile || !sportId || !gameDate) {
+    const effectiveGameDate = gameDate || (document.getElementById('film-game-date') as HTMLInputElement)?.value || '';
+    const effectiveSportId = sportId || (document.getElementById('film-sport-select') as HTMLSelectElement)?.value || '';
+    if (!uploadFile || !effectiveSportId || !effectiveGameDate) {
       setError('Please fill in all required fields and select a video file.');
       return;
     }
@@ -84,8 +86,8 @@ export default function FilmCapturePage() {
     try {
       const formData = new FormData();
       formData.append('file', uploadFile);
-      formData.append('sport_id', sportId);
-      formData.append('game_date', gameDate);
+      formData.append('sport_id', effectiveSportId);
+      formData.append('game_date', effectiveGameDate);
       if (opponent.trim()) formData.append('opponent', opponent.trim());
       if (ageGroup) formData.append('age_group', ageGroup);
 
@@ -174,6 +176,7 @@ export default function FilmCapturePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
                 <select
+                  id="film-sport-select"
                   value={sportId}
                   onChange={e => setSportId(e.target.value)}
                   required
@@ -189,6 +192,7 @@ export default function FilmCapturePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Game Date *</label>
                 <input
+                  id="film-game-date"
                   type="date"
                   value={gameDate}
                   onChange={e => setGameDate(e.target.value)}
@@ -242,7 +246,7 @@ export default function FilmCapturePage() {
 
             <button
               type="submit"
-              disabled={uploading || !sportId || !gameDate}
+              disabled={uploading}
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
