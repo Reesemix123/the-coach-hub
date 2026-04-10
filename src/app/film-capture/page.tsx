@@ -223,8 +223,12 @@ export default function FilmCapturePage() {
               <input
                 id="film-file-input"
                 type="file"
-                accept="video/*"
-                onChange={e => setFile(e.target.files?.[0] || null)}
+                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-m4v,video/mpeg,.mp4,.mov,.webm,.avi,.m4v,.mpeg,.mpg"
+                onChange={e => {
+                  const selected = e.target.files?.[0] ?? null;
+                  setFile(selected);
+                  if (selected) setError(null);
+                }}
                 required
                 className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
               />
