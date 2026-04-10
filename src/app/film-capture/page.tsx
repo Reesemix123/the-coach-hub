@@ -69,7 +69,12 @@ export default function FilmCapturePage() {
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
-    if (!file || !sportId || !gameDate) return;
+    // Grab file from state or directly from the DOM input (Safari may not trigger onChange on restore)
+    const uploadFile = file ?? (document.getElementById('film-file-input') as HTMLInputElement)?.files?.[0] ?? null;
+    if (!uploadFile || !sportId || !gameDate) {
+      setError('Please fill in all required fields and select a video file.');
+      return;
+    }
 
     setUploading(true);
     setError(null);
@@ -78,7 +83,7 @@ export default function FilmCapturePage() {
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', uploadFile);
       formData.append('sport_id', sportId);
       formData.append('game_date', gameDate);
       if (opponent.trim()) formData.append('opponent', opponent.trim());
@@ -237,7 +242,7 @@ export default function FilmCapturePage() {
 
             <button
               type="submit"
-              disabled={uploading || !file || !sportId || !gameDate}
+              disabled={uploading || !sportId || !gameDate}
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
