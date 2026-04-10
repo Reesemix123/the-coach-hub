@@ -60,3 +60,49 @@ export function makeTimeline(
     ...overrides,
   };
 }
+
+/**
+ * Mock Gemini play analysis response — realistic JSON string matching PlayPrediction shape.
+ * All 21+ fields populated with realistic football values and varied confidence scores.
+ */
+export const mockGeminiPlayResponse = JSON.stringify({
+  play_type: { value: 'pass', confidence: 92, notes: 'Clear dropback' },
+  direction: { value: 'right', confidence: 78 },
+  result: { value: 'pass_complete', confidence: 88 },
+  yards_gained: { value: 12, confidence: 85 },
+  formation: { value: 'shotgun_spread', confidence: 72 },
+  personnel: { value: '11', confidence: 65 },
+  hash: { value: 'middle', confidence: 55 },
+  down: { value: 2, confidence: 95 },
+  distance: { value: 8, confidence: 90 },
+  field_zone: { value: 'midfield', confidence: 60 },
+  quarter: { value: 3, confidence: 98 },
+  motion: { value: false, confidence: 45 },  // Below 50 — should be uncertain
+  play_action: { value: false, confidence: 82 },
+  run_concept: { value: null, confidence: 0 },
+  pass_concept: { value: 'slant', confidence: 68 },
+  is_screen: { value: false, confidence: 75 },
+  is_rpo: { value: false, confidence: 70 },
+  special_teams_type: { value: null, confidence: 0 },
+  kick_result: { value: null, confidence: 0 },
+  return_yards: { value: null, confidence: 0 },
+  penalty: { value: false, confidence: 40 },  // Below 50 — should be uncertain
+  audio_used: true,
+  fields_uncertain: ['motion', 'penalty'],
+  reasoning: 'QB in shotgun, clear pass action, ball caught on the right side for 12 yards',
+});
+
+/**
+ * Mock Gemini response with code fences (common Gemini output format)
+ */
+export const mockGeminiPlayResponseWithFences = '```json\n' + mockGeminiPlayResponse + '\n```';
+
+/**
+ * Minimal mock response with only quick-tier fields
+ */
+export const mockGeminiQuickResponse = JSON.stringify({
+  play_type: { value: 'run', confidence: 88 },
+  direction: { value: 'left', confidence: 70 },
+  result: { value: 'rush', confidence: 82 },
+  yards_gained: { value: 5, confidence: 76 },
+});
