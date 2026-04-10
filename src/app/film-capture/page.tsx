@@ -19,7 +19,7 @@ export default function FilmCapturePage() {
 
   // Form state
   const [sportId, setSportId] = useState('');
-  const [gameDate, setGameDate] = useState('');
+  const [gameDate, setGameDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [ageGroup, setAgeGroup] = useState('');
   const [file, setFile] = useState<File | null>(null);
