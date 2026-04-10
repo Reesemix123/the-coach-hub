@@ -74,3 +74,18 @@ export interface TimeLog {
   ended_at: string | null;
   is_active: boolean;
 }
+
+export type TestAccountType = 'coach' | 'parent';
+
+export interface TestAccount {
+  id: string;
+  suite_id: string;
+  auth_user_id: string;
+  account_type: TestAccountType;
+  label: string;
+  email: string;
+  password: string;
+  team_id: string | null;
+  team_name: string | null;
+  created_at: string;
+}

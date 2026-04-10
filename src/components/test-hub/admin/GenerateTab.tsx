@@ -5,7 +5,7 @@
 // Auth is handled by the parent page. This component fetches only the data it needs.
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, ChevronRight, X } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { APP_FEATURES } from '@/content/features';
@@ -112,6 +112,14 @@ export function GenerateTab({
   const [scenarioPreview, setScenarioPreview] = useState<ScenarioPreview | null>(null);
   const [scenarioSaving, setScenarioSaving] = useState(false);
   const [scenarioError, setScenarioError] = useState<string | null>(null);
+
+  // Account suggestion state
+  const [accountSuggestions, setAccountSuggestions] = useState<Array<{ type: 'coach' | 'parent'; label: string; reason: string }>>([]);
+  const [suggestingAccounts, setSuggestingAccounts] = useState(false);
+  const [showAccountSetup, setShowAccountSetup] = useState<'feature' | 'scenario' | null>(null);
+  const [creatingAccounts, setCreatingAccounts] = useState(false);
+  const [accountsCreated, setAccountsCreated] = useState<Array<{ email: string; password: string; label: string; type: string }>>([]);
+  const [lastCreatedSuiteId, setLastCreatedSuiteId] = useState<string | null>(null);
 
   // ============================================
   // DATA FETCHING
@@ -331,6 +339,14 @@ export function GenerateTab({
   async function handleScenarioSave() {
     if (!scenarioPreview) return;
     setScenarioSaving(true);
+
+    // Capture before state is cleared
+    const previewSteps = {
+      setup: scenarioPreview.setupSteps.map(s => s.instruction),
+      test: scenarioPreview.testSteps.map(s => s.instruction),
+    };
+    const capturedCategory = scenarioCategory;
+
     try {
       const res = await fetch('/api/test-hub/generate/scenario/save', {
         method: 'POST',
@@ -345,6 +361,8 @@ export function GenerateTab({
       });
       if (!res.ok) throw new Error('Save failed');
 
+      const data = await res.json() as { suiteId?: string };
+
       setScenarioPreview(null);
       setScenarioDesc('');
       setScenarioSuiteName('');
@@ -352,11 +370,212 @@ export function GenerateTab({
       setResults({ created: 1, failed: [] });
 
       onGenerationComplete(1);
+
+      // Trigger account suggestion after successful save
+      if (data.suiteId) {
+        handleSuggestAccounts(previewSteps, capturedCategory, 'scenario', data.suiteId);
+      }
     } catch (err) {
       setScenarioError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setScenarioSaving(false);
     }
+  }
+
+  // ============================================
+  // ACCOUNT SUGGESTION
+  // ============================================
+
+  async function handleSuggestAccounts(
+    steps: { setup: string[]; test: string[] },
+    category: string,
+    flow: 'feature' | 'scenario',
+    suiteId: string,
+  ) {
+    setSuggestingAccounts(true);
+    setShowAccountSetup(flow);
+    setLastCreatedSuiteId(suiteId);
+    setAccountsCreated([]);
+    try {
+      const res = await fetch('/api/test-hub/accounts/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          setupSteps: steps.setup,
+          testSteps: steps.test,
+          category,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { suggestions?: Array<{ type: 'coach' | 'parent'; label: string; reason: string }> };
+        setAccountSuggestions(data.suggestions ?? []);
+      } else {
+        setAccountSuggestions([{ type: 'coach', label: 'Coach', reason: 'Default suggestion' }]);
+      }
+    } catch {
+      setAccountSuggestions([{ type: 'coach', label: 'Coach', reason: 'Default suggestion' }]);
+    } finally {
+      setSuggestingAccounts(false);
+    }
+  }
+
+  function addAccountSuggestion() {
+    setAccountSuggestions(prev => [...prev, { type: 'coach', label: '', reason: '' }]);
+  }
+
+  function removeAccountSuggestion(idx: number) {
+    setAccountSuggestions(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateAccountSuggestion(idx: number, field: 'type' | 'label', value: string) {
+    setAccountSuggestions(prev =>
+      prev.map((s, i) => {
+        if (i !== idx) return s;
+        if (field === 'type') {
+          return { ...s, type: value as 'coach' | 'parent' };
+        }
+        return { ...s, label: value };
+      })
+    );
+  }
+
+  async function handleCreateAccounts() {
+    if (!lastCreatedSuiteId || accountSuggestions.length === 0) return;
+    setCreatingAccounts(true);
+    try {
+      const res = await fetch('/api/test-hub/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          suiteId: lastCreatedSuiteId,
+          accounts: accountSuggestions.map(s => ({ type: s.type, label: s.label })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { accounts?: Array<{ email: string; password: string; label: string; account_type: string }> };
+        setAccountsCreated(
+          (data.accounts ?? []).map(a => ({
+            email: a.email,
+            password: a.password,
+            label: a.label,
+            type: a.account_type,
+          }))
+        );
+      }
+    } finally {
+      setCreatingAccounts(false);
+    }
+  }
+
+  function skipAccountSetup() {
+    setShowAccountSetup(null);
+    setAccountSuggestions([]);
+    setAccountsCreated([]);
+  }
+
+  // ============================================
+  // ACCOUNT SETUP PANEL (shared by both flows)
+  // ============================================
+
+  function renderAccountSetupPanel() {
+    if (suggestingAccounts) {
+      return (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+          <Loader2 size={16} className="animate-spin text-blue-500" />
+          <span className="text-sm text-blue-700">Analyzing test steps for account needs...</span>
+        </div>
+      );
+    }
+
+    if (accountsCreated.length > 0) {
+      return (
+        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm font-medium text-green-800 mb-3">Test accounts created</p>
+          <div className="space-y-2">
+            {accountsCreated.map((acc, i) => (
+              <div key={i} className="flex items-center gap-3 bg-white rounded p-2 border border-green-100">
+                <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  {acc.type}
+                </span>
+                <span className="text-sm text-gray-900">{acc.label}</span>
+                <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.email}</code>
+                <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.password}</code>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (accountSuggestions.length === 0 && !suggestingAccounts) {
+      return null;
+    }
+
+    return (
+      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm font-medium text-blue-900 mb-1">Set up test accounts</p>
+        <p className="text-xs text-blue-700 mb-3">
+          These accounts will be created in Supabase for testers to use.
+        </p>
+
+        <div className="space-y-2">
+          {accountSuggestions.map((s, i) => (
+            <div key={i} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-blue-100">
+              <select
+                value={s.type}
+                onChange={e => updateAccountSuggestion(i, 'type', e.target.value)}
+                className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-700"
+              >
+                <option value="coach">Coach</option>
+                <option value="parent">Parent</option>
+              </select>
+              <input
+                type="text"
+                value={s.label}
+                onChange={e => updateAccountSuggestion(i, 'label', e.target.value)}
+                placeholder="Account label"
+                className="flex-1 text-sm border border-gray-200 rounded px-2 py-1 text-gray-900"
+              />
+              <span className="text-xs text-gray-400 flex-shrink-0 max-w-[12rem] truncate">
+                {s.reason}
+              </span>
+              <button
+                onClick={() => removeAccountSuggestion(i)}
+                className="text-gray-400 hover:text-red-500 flex-shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={addAccountSuggestion}
+            className="text-xs text-blue-600 hover:text-blue-800"
+          >
+            + Add account
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 mt-4">
+          <button
+            onClick={handleCreateAccounts}
+            disabled={creatingAccounts || accountSuggestions.some(s => !s.label.trim())}
+            className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+          >
+            {creatingAccounts && <Loader2 size={14} className="animate-spin" />}
+            Create Accounts
+          </button>
+          <button
+            onClick={skipAccountSetup}
+            className="px-4 py-2 text-gray-500 hover:text-gray-700 text-xs transition-colors"
+          >
+            Skip — no accounts needed
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // ============================================
@@ -586,6 +805,31 @@ export function GenerateTab({
                       <span className="text-red-600 ml-1">{results.failed.length} failed.</span>
                     )}
                   </p>
+
+                  {/* Account setup — feature flow */}
+                  {showAccountSetup === 'feature' || showAccountSetup === 'scenario' ? (
+                    renderAccountSetupPanel()
+                  ) : !showAccountSetup && results.created > 0 && (
+                    <button
+                      onClick={() => {
+                        handleSuggestAccounts(
+                          {
+                            setup: ['Log in to the application', 'Navigate to the feature'],
+                            test: ['Test the generated feature'],
+                          },
+                          selectedKeys.size > 0
+                            ? Array.from(selectedKeys)[0].split(':')[0]
+                            : 'general',
+                          'feature',
+                          selectedSuiteId,
+                        );
+                      }}
+                      className="mt-3 px-4 py-2 border border-blue-200 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-50 transition-colors"
+                    >
+                      Set up test accounts
+                    </button>
+                  )}
+
                   <Link
                     href="/test-hub/admin/review"
                     className="mt-3 flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"

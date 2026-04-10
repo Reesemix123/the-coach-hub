@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2, Plus, X, Mail, RefreshCw, ChevronRight, ChevronUp, ChevronDown, Bot } from 'lucide-react';
+import { Loader2, Plus, X, Mail, RefreshCw, ChevronRight, ChevronUp, ChevronDown, Bot, Copy } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { APP_FEATURES } from '@/content/features';
 
@@ -230,6 +230,17 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
   const [suiteStatusFilter, setSuiteStatusFilter] = useState<'all' | string>('all');
   const [approvingCaseId, setApprovingCaseId] = useState<string | null>(null);
   const [expandedCaseSteps, setExpandedCaseSteps] = useState<Set<string>>(new Set());
+  const [suiteAccounts, setSuiteAccounts] = useState<Array<{
+    id: string;
+    account_type: string;
+    label: string;
+    email: string;
+    password: string;
+    team_name: string | null;
+  }>>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [resettingAccountId, setResettingAccountId] = useState<string | null>(null);
+  const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
 
   // --- Coverage state ---
   const [coverageLoading, setCoverageLoading] = useState(true);
@@ -466,6 +477,14 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
       setSuiteCases(cases);
       // Default all case step sections to open
       setExpandedCaseSteps(new Set(cases.map(c => c.id)));
+
+      // Fetch accounts for this suite
+      const { data: accountsData } = await supabase
+        .from('test_accounts')
+        .select('id, account_type, label, email, password, team_name')
+        .eq('suite_id', suiteId)
+        .order('created_at');
+      setSuiteAccounts((accountsData ?? []) as typeof suiteAccounts);
     } finally {
       setSuiteCasesLoading(false);
     }
@@ -555,6 +574,29 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
     });
     if (res.ok) {
       setSuiteCases(prev => prev.map(c => c.id === caseId ? { ...c, source_feature_key: featureKey } : c));
+    }
+  }
+
+  async function handleResetAccount(accountId: string) {
+    if (!confirm('Reset this account to a clean state? All team data and profiles will be wiped.')) return;
+    setResettingAccountId(accountId);
+    try {
+      await fetch(`/api/test-hub/accounts/${accountId}/reset`, { method: 'POST' });
+    } finally {
+      setResettingAccountId(null);
+    }
+  }
+
+  async function handleDeleteAccount(accountId: string) {
+    if (!confirm('Delete this test account permanently? The auth user will be removed from Supabase.')) return;
+    setDeletingAccountId(accountId);
+    try {
+      const res = await fetch(`/api/test-hub/accounts/${accountId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSuiteAccounts(prev => prev.filter(a => a.id !== accountId));
+      }
+    } finally {
+      setDeletingAccountId(null);
     }
   }
 
@@ -1168,6 +1210,60 @@ export function SuitesTab({ onSuiteCreated }: SuitesTabProps) {
                               );
                             })}
                           </div>
+
+                          {/* Test Accounts */}
+                          {suiteAccounts.length > 0 && (
+                            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-3">Test Accounts</p>
+                              <div className="space-y-2">
+                                {suiteAccounts.map(acc => (
+                                  <div key={acc.id} className="flex items-center gap-3 bg-white rounded-lg p-2.5 border border-blue-100">
+                                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{acc.account_type}</span>
+                                    <span className="text-sm text-gray-900 font-medium">{acc.label}</span>
+                                    <div className="flex items-center gap-1">
+                                      <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.email}</code>
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(acc.email)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Copy email"
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.password}</code>
+                                      <button
+                                        onClick={() => navigator.clipboard.writeText(acc.password)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                        title="Copy password"
+                                      >
+                                        <Copy size={12} />
+                                      </button>
+                                    </div>
+                                    {acc.team_name && (
+                                      <span className="text-xs text-gray-500">Team: {acc.team_name}</span>
+                                    )}
+                                    <div className="ml-auto flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleResetAccount(acc.id)}
+                                        disabled={resettingAccountId === acc.id}
+                                        className="text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                      >
+                                        {resettingAccountId === acc.id ? <Loader2 size={10} className="animate-spin" /> : 'Reset'}
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteAccount(acc.id)}
+                                        disabled={deletingAccountId === acc.id}
+                                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                                      >
+                                        {deletingAccountId === acc.id ? <Loader2 size={10} className="animate-spin" /> : 'Delete'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Cases list */}
                           {filteredSuiteCases.length === 0 ? (

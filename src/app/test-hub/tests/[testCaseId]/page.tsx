@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, Copy } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { TestChecklist } from '@/components/test-hub/TestChecklist';
 import { TimeTracker } from '@/components/test-hub/TimeTracker';
@@ -21,6 +21,7 @@ interface TestCase {
   description: string | null;
   category: string;
   precondition: string | null;
+  suite_id: string;
 }
 
 interface TestStep {
@@ -67,6 +68,12 @@ export default function TestSessionPage({
   );
   const [completing, setCompleting] = useState(false);
   const [sessionNotes, setSessionNotes] = useState('');
+  const [accounts, setAccounts] = useState<Array<{
+    label: string;
+    email: string;
+    password: string;
+    account_type: string;
+  }>>([]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -84,7 +91,7 @@ export default function TestSessionPage({
       // Fetch test case
       const { data: tc, error: tcError } = await supabase
         .from('test_cases')
-        .select('id, title, description, category, precondition')
+        .select('id, title, description, category, precondition, suite_id')
         .eq('id', testCaseId)
         .single();
 
@@ -94,6 +101,16 @@ export default function TestSessionPage({
       }
 
       setTestCase(tc);
+
+      // Fetch test accounts for this suite
+      if (tc.suite_id) {
+        const { data: accountsData } = await supabase
+          .from('test_accounts')
+          .select('label, email, password, account_type')
+          .eq('suite_id', tc.suite_id)
+          .order('created_at');
+        setAccounts((accountsData ?? []) as typeof accounts);
+      }
 
       // Fetch steps ordered by type then display_order
       const { data: stepsData, error: stepsError } = await supabase
@@ -250,6 +267,39 @@ export default function TestSessionPage({
       <div className="max-w-7xl mx-auto px-6 py-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: checklist + complete button */}
         <div className="lg:col-span-3">
+          {accounts.length > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">Test Credentials</p>
+              <div className="space-y-2">
+                {accounts.map((acc, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-white rounded p-2 border border-blue-100">
+                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{acc.account_type}</span>
+                    <span className="text-sm text-gray-700">{acc.label}</span>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.email}</code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(acc.email)}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Copy email"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded">{acc.password}</code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(acc.password)}
+                        className="text-gray-400 hover:text-gray-600"
+                        title="Copy password"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {testCase.precondition && (
             <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">Before you begin</p>
