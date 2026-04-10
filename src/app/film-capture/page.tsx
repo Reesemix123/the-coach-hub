@@ -81,25 +81,53 @@ export default function FilmCapturePage() {
     setUploading(true);
     setError(null);
     setSuccess(null);
-    setUploadProgress('Uploading...');
+    setUploadProgress('Uploading to storage...');
 
     try {
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('sport_id', effectiveSportId);
-      formData.append('game_date', effectiveGameDate);
-      if (opponent.trim()) formData.append('opponent', opponent.trim());
-      if (ageGroup) formData.append('age_group', ageGroup);
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
+      // Step 1: Upload file directly to Supabase Storage (bypasses Vercel 4.5MB body limit)
+      const timestamp = Date.now();
+      const sanitizedName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
+
+      const { error: storageError } = await supabase.storage
+        .from('film_captures')
+        .upload(storagePath, uploadFile, {
+          contentType: uploadFile.type,
+          upsert: false,
+        });
+
+      if (storageError) {
+        throw new Error(`Storage upload failed: ${storageError.message}`);
+      }
+
+      setUploadProgress('Saving metadata...');
+
+      // Step 2: Save metadata via API route (small JSON payload, no file)
       const res = await fetch('/api/film-capture/upload', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sport_id: effectiveSportId,
+          game_date: effectiveGameDate,
+          opponent: opponent.trim() || null,
+          age_group: ageGroup || null,
+          storage_path: storagePath,
+          file_name: uploadFile.name,
+          file_size_bytes: uploadFile.size,
+          mime_type: uploadFile.type,
+        }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Upload failed');
+        // Clean up the uploaded file if metadata save fails
+        await supabase.storage.from('film_captures').remove([storagePath]);
+        throw new Error(data.error || 'Failed to save capture record');
       }
 
       setSuccess('Film uploaded successfully');

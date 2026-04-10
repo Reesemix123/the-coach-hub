@@ -1,6 +1,24 @@
+/**
+ * API: POST /api/film-capture/upload
+ * Saves film capture metadata after the client has uploaded the file
+ * directly to Supabase Storage. This avoids the Vercel 4.5MB body limit.
+ *
+ * Body (JSON): { sport_id, game_date, opponent?, age_group?, storage_path, file_name, file_size_bytes, mime_type }
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
-import { ALLOWED_VIDEO_TYPES, MAX_FILE_SIZE_BYTES } from '@/types/film-capture';
+
+interface UploadBody {
+  sport_id?: string;
+  game_date?: string;
+  opponent?: string | null;
+  age_group?: string | null;
+  storage_path?: string;
+  file_name?: string;
+  file_size_bytes?: number;
+  mime_type?: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,65 +42,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Film capture access not granted' }, { status: 403 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const sportId = formData.get('sport_id') as string;
-    const gameDate = formData.get('game_date') as string;
-    const opponent = formData.get('opponent') as string | null;
-    const ageGroup = formData.get('age_group') as string | null;
+    const body: UploadBody = await request.json();
+    const { sport_id, game_date, opponent, age_group, storage_path, file_name, file_size_bytes, mime_type } = body;
 
-    if (!file) return NextResponse.json({ error: 'File is required' }, { status: 400 });
-    if (!sportId) return NextResponse.json({ error: 'sport_id is required' }, { status: 400 });
-    if (!gameDate) return NextResponse.json({ error: 'game_date is required' }, { status: 400 });
-
-    // Validate file type
-    if (!ALLOWED_VIDEO_TYPES.includes(file.type as (typeof ALLOWED_VIDEO_TYPES)[number])) {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${file.type}. Allowed: mp4, mov, webm, avi, m4v, mpeg` },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return NextResponse.json({ error: 'File too large. Maximum: 5GB' }, { status: 400 });
-    }
+    if (!sport_id) return NextResponse.json({ error: 'sport_id is required' }, { status: 400 });
+    if (!game_date) return NextResponse.json({ error: 'game_date is required' }, { status: 400 });
+    if (!storage_path) return NextResponse.json({ error: 'storage_path is required' }, { status: 400 });
+    if (!file_name) return NextResponse.json({ error: 'file_name is required' }, { status: 400 });
 
     // TODO: MULTI-SPORT — Validate sport_id exists in sports table
-    const { data: sport } = await supabase.from('sports').select('id').eq('id', sportId).single();
+    const { data: sport } = await supabase.from('sports').select('id').eq('id', sport_id).single();
     if (!sport) return NextResponse.json({ error: 'Invalid sport' }, { status: 400 });
 
-    // Upload to storage using service client to bypass bucket RLS
-    const serviceClient = createServiceClient();
-    const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
-
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const { error: uploadError } = await serviceClient.storage
-      .from('film_captures')
-      .upload(storagePath, fileBuffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error('[film-capture] Storage upload failed:', uploadError);
-      return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    // Verify the storage path belongs to this user (prevent spoofing)
+    if (!storage_path.startsWith(`${user.id}/`)) {
+      return NextResponse.json({ error: 'Invalid storage path' }, { status: 400 });
     }
 
-    // Insert record
+    // Insert metadata record using service client
+    const serviceClient = createServiceClient();
     const { data: capture, error: insertError } = await serviceClient
       .from('film_captures')
       .insert({
-        sport_id: sportId,
-        game_date: gameDate,
+        sport_id,
+        game_date,
         opponent: opponent?.trim() || null,
-        age_group: ageGroup || null,
-        storage_path: storagePath,
-        file_name: file.name,
-        file_size_bytes: file.size,
-        mime_type: file.type,
+        age_group: age_group || null,
+        storage_path,
+        file_name,
+        file_size_bytes: file_size_bytes || null,
+        mime_type: mime_type || null,
         uploader_id: user.id,
         uploader_role: uploaderRole,
       })
@@ -91,8 +80,8 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('[film-capture] Insert failed:', insertError);
-      // Clean up the uploaded file to avoid orphaned storage objects
-      await serviceClient.storage.from('film_captures').remove([storagePath]);
+      // Try to clean up the orphaned storage file
+      await serviceClient.storage.from('film_captures').remove([storage_path]);
       return NextResponse.json({ error: 'Failed to save capture record' }, { status: 500 });
     }
 
