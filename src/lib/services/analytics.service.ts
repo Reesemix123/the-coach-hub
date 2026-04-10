@@ -237,7 +237,7 @@ export class AnalyticsService {
     );
 
     // Red zone (inside 20 yard line)
-    const redZonePlays = plays.filter(p => p.yard_line && p.yard_line <= 20);
+    const redZonePlays = plays.filter(p => p.yard_line != null && p.yard_line <= 20);
     // Use scoring_type for touchdowns (new field), fall back to is_touchdown or result
     const redZoneTouchdowns = redZonePlays.filter(p =>
       p.scoring_type === 'touchdown' || p.is_touchdown || p.result === 'touchdown' || p.result?.includes('touchdown')
@@ -444,8 +444,8 @@ export class AnalyticsService {
 
     // Helper to check if a pass was completed (uses result column)
     const isComplete = (p: any) =>
-      p.result === 'pass_complete' ||
-      p.result === 'complete' ||
+      p.result?.startsWith('pass_complete') ||
+      p.result?.startsWith('complete') ||
       p.is_complete === true;
 
     // Helper to check if a play was an interception
@@ -457,7 +457,7 @@ export class AnalyticsService {
 
     // Helper to check if a pass was incomplete (for drops)
     const isIncomplete = (p: any) =>
-      p.result === 'pass_incomplete' ||
+      p.result?.startsWith('pass_incomplete') ||
       p.result?.includes('incomplete');
 
     // ======================================================================

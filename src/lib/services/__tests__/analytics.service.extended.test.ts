@@ -14,7 +14,7 @@ function isPassComplete(play: {
   result?: string | null;
   is_complete?: boolean | null;
 }): boolean {
-  return play.result === 'pass_complete' || play.result === 'complete' || play.is_complete === true;
+  return play.result?.startsWith('pass_complete') || play.result?.startsWith('complete') || play.is_complete === true;
 }
 
 function isPassTouchdown(play: {
@@ -120,12 +120,11 @@ describe('isPlaySuccessful — down thresholds', () => {
 // Convention: yard_line represents distance from the OPPONENT'S goal line.
 // Red zone = yard_line <= 20.
 //
-// The service guard is: p.yard_line && p.yard_line <= 20
-// (truthy check excludes 0 and null)
+// The service guard is: p.yard_line != null && p.yard_line <= 20
 // ---------------------------------------------------------------------------
 
 function isRedZone(yardLine: number | null): boolean {
-  return !!(yardLine && yardLine <= 20);
+  return yardLine != null && yardLine <= 20;
 }
 
 describe('Red zone classification', () => {
@@ -137,11 +136,9 @@ describe('Red zone classification', () => {
     expect(isRedZone(21)).toBe(false);
   });
 
-  it('yard_line = 0 (at the goal line) is NOT flagged as red zone by the truthy guard', () => {
-    // NOTE: 0 is falsy — the guard `yardLine && yardLine <= 20` short-circuits to false.
-    // This means a play at the goal line (yard_line = 0) is NOT counted as a red zone play.
-    // Whether that is intentional is debatable; this test documents the current behavior.
-    expect(isRedZone(0)).toBe(false);
+  it('yard_line = 0 (at the goal line) IS in the red zone', () => {
+    // Fixed: null check uses != null instead of truthy, so 0 is correctly included.
+    expect(isRedZone(0)).toBe(true);
   });
 
   it('yard_line = 1 is in the red zone', () => {
@@ -158,14 +155,10 @@ describe('Red zone classification', () => {
 // ---------------------------------------------------------------------------
 
 describe('Play type classification', () => {
-  it('BUG: pass_complete_touchdown does NOT count as a completion with current string equality check', () => {
-    // The service checks: result === 'pass_complete' || result === 'complete'
-    // 'pass_complete_touchdown' matches neither — this is likely a bug.
-    // A play that ended in a passing TD would not register as a completion
-    // unless the is_complete boolean flag is explicitly set to true.
+  it('pass_complete_touchdown counts as a completion via startsWith check', () => {
     const play = { result: 'pass_complete_touchdown', play_type: 'pass', is_complete: null as boolean | null };
-    expect(isPassComplete(play)).toBe(false); // Current behavior — likely incorrect
-    // If is_complete boolean is set, the boolean fallback catches it:
+    expect(isPassComplete(play)).toBe(true);
+    // Boolean fallback also works:
     expect(isPassComplete({ ...play, is_complete: true })).toBe(true);
   });
 
