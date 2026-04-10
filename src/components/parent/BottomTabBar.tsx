@@ -16,7 +16,9 @@ import {
   UserCircle,
   LayoutDashboard,
   HelpCircle,
+  Video,
 } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 interface TeamInfo {
   id: string;
@@ -45,6 +47,7 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [athleteProfileId, setAthleteProfileId] = useState(initialAthleteId);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [hasFilmCapture, setHasFilmCapture] = useState(false);
 
   // Fallback: if server didn't provide athleteProfileId, fetch it client-side
   useEffect(() => {
@@ -56,6 +59,23 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       })
       .catch(() => {});
   }, [athleteProfileId]);
+
+  // Check film capture access for parent
+  useEffect(() => {
+    async function checkAccess() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('parent_profiles')
+          .select('film_capture_access')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setHasFilmCapture(data?.film_capture_access === true);
+      }
+    }
+    checkAccess();
+  }, []);
 
   // Derive active teamId from the current URL, or fall back to default
   const urlTeamMatch = pathname.match(/\/parent\/teams\/([^/]+)/);
@@ -142,6 +162,15 @@ export function BottomTabBar({ teamId: defaultTeamId, teams, parentName, athlete
       href: '/parent/settings',
     },
   ];
+
+  if (hasFilmCapture) {
+    moreMenuItems.splice(1, 0, {
+      key: 'film-capture',
+      label: 'Film Capture',
+      icon: Video,
+      href: '/film-capture',
+    });
+  }
 
   return (
     <>

@@ -164,6 +164,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ),
       is_platform_admin: profile.is_platform_admin || false,
       is_tester: profile.is_tester || false,
+      film_capture_access: profile.film_capture_access || false,
       is_deactivated: profile.is_deactivated || false,
       deactivated_at: profile.deactivated_at || null,
       deactivated_by: profile.deactivated_by || null,

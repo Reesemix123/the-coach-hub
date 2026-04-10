@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Activity,
   FlaskConical,
+  Video,
 } from 'lucide-react';
 import {
   UserDetail,
@@ -187,6 +188,33 @@ export default function UserDetailPage() {
     }
   };
 
+  // Toggle film capture access
+  const handleToggleFilmCapture = async () => {
+    setActionLoading('filmCapture');
+    setActionResult(null);
+    try {
+      const response = await fetch(`/api/admin/film-capture/access/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ film_capture_access: !user?.film_capture_access }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update');
+      setActionResult({
+        type: 'success',
+        message: user?.film_capture_access ? 'Film capture access revoked' : 'Film capture access granted',
+      });
+      fetchUser();
+    } catch (err) {
+      setActionResult({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to update',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // Toggle tester access
   const handleToggleTester = async () => {
     setActionLoading('tester');
@@ -303,6 +331,12 @@ export default function UserDetailPage() {
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded text-sm font-medium">
                 <FlaskConical className="w-4 h-4" />
                 Tester
+              </span>
+            )}
+            {user.film_capture_access && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
+                <Video className="w-4 h-4" />
+                Film Capture
               </span>
             )}
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[user.derived_status]}`}>
@@ -560,6 +594,26 @@ export default function UserDetailPage() {
                     <UserCheck className="w-4 h-4" />
                   )}
                   {user.is_tester ? 'Revoke Tester Access' : 'Grant Tester Access'}
+                </button>
+              </div>
+
+              {/* Film Capture Access */}
+              <div className="border-t border-gray-100 pt-3 mt-3">
+                <button
+                  onClick={handleToggleFilmCapture}
+                  disabled={actionLoading !== null}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                    user.film_capture_access
+                      ? 'border border-amber-200 text-amber-600 hover:bg-amber-50'
+                      : 'border border-green-200 text-green-600 hover:bg-green-50'
+                  }`}
+                >
+                  {actionLoading === 'filmCapture' ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Video className="w-4 h-4" />
+                  )}
+                  {user.film_capture_access ? 'Revoke Film Capture' : 'Grant Film Capture'}
                 </button>
               </div>
             </div>

@@ -470,6 +470,7 @@ export interface UserDetail {
   derived_status: UserDerivedStatus;
   is_platform_admin: boolean;
   is_tester: boolean;
+  film_capture_access: boolean;
   is_deactivated: boolean;
   deactivated_at: string | null;
   deactivated_by: string | null;

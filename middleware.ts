@@ -171,6 +171,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Gate /film-capture routes — require film_capture_access on profiles or parent_profiles
+  if (user && url.pathname.startsWith('/film-capture')) {
+    const [{ data: coachProfile }, { data: parentProfile }] = await Promise.all([
+      supabase.from('profiles').select('film_capture_access').eq('id', user.id).maybeSingle(),
+      supabase.from('parent_profiles').select('film_capture_access').eq('user_id', user.id).maybeSingle(),
+    ])
+
+    if (!coachProfile?.film_capture_access && !parentProfile?.film_capture_access) {
+      const redirectUrl = url.clone()
+      redirectUrl.pathname = '/dashboard'
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
   return supabaseResponse
 }
 

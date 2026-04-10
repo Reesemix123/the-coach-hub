@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Video } from 'lucide-react';
 import { createClient, createServiceClient } from '@/utils/supabase/server';
 import DashboardAvatar from './DashboardAvatar';
 
@@ -110,6 +112,14 @@ export default async function DashboardPage() {
     .select('full_name, email')
     .eq('id', user.id)
     .single();
+
+  // Film Capture access
+  const { data: captureProfile } = await supabase
+    .from('profiles')
+    .select('film_capture_access')
+    .eq('id', user.id)
+    .maybeSingle();
+  const hasFilmCapture = captureProfile?.film_capture_access === true;
 
   // Check if coach also has a parent profile (for dual-role card)
   const serviceClient = createServiceClient();
@@ -408,6 +418,46 @@ export default async function DashboardPage() {
                 >
                   Switch →
                 </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Film Capture card — only shown if user has film_capture_access */}
+        {hasFilmCapture && (
+          <div
+            className="rounded-xl overflow-hidden mt-4"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          >
+            <div className="px-5 py-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Video className="w-5 h-5" style={{ color: '#B8CA6E' }} />
+                    <span
+                      className="text-xs font-black tracking-widest uppercase"
+                      style={{ color: 'rgba(249,250,251,0.50)' }}
+                    >
+                      Film Capture
+                    </span>
+                  </div>
+                  <p className="text-base font-semibold" style={{ color: '#F9FAFB' }}>
+                    Upload and manage game film
+                  </p>
+                  <p className="text-sm mt-0.5" style={{ color: 'rgba(249,250,251,0.50)' }}>
+                    Across all sports.
+                  </p>
+                </div>
+                <Link
+                  href="/film-capture"
+                  className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  style={{ background: '#B8CA6E', color: '#1a1410' }}
+                >
+                  Open →
+                </Link>
               </div>
             </div>
           </div>
