@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Loader2, Upload, Trash2, Video, Calendar, Users, X,
+  Loader2, Upload, Trash2, Video, X,
   Grid3X3, List, Search, ChevronLeft, ChevronRight, SortAsc, SortDesc,
+  Share2,
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import type { FilmCaptureWithSport } from '@/types/film-capture';
+import type { FilmCaptureWithSport, ShareableUser } from '@/types/film-capture';
 import { AGE_GROUPS } from '@/types/film-capture';
+
+type Tab = 'mine' | 'shared' | 'all';
 
 export default function FilmCapturePage() {
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,16 @@ export default function FilmCapturePage() {
     return 'grid';
   });
 
+  // Tab
+  const [activeTab, setActiveTab] = useState<Tab>('mine');
+
+  // Sharing state
+  const [shareableUsers, setShareableUsers] = useState<ShareableUser[]>([]);
+  const [sharingCaptureId, setSharingCaptureId] = useState<string | null>(null);
+  const [selectedShareUsers, setSelectedShareUsers] = useState<Set<string>>(new Set());
+  const [sharing, setSharing] = useState(false);
+  const [loadingCurrentShares, setLoadingCurrentShares] = useState(false);
+
   // Filters
   const [filterSport, setFilterSport] = useState('');
   const [filterAgeGroup, setFilterAgeGroup] = useState('');
@@ -59,7 +72,7 @@ export default function FilmCapturePage() {
   const fetchCaptures = useCallback(async () => {
     try {
       const params = new URLSearchParams();
-      if (isAdmin) params.set('all', 'true');
+      params.set('tab', activeTab);
       if (filterSport) params.set('sport_id', filterSport);
       if (filterAgeGroup) params.set('age_group', filterAgeGroup);
       if (filterUploader) params.set('uploader_id', filterUploader);
@@ -78,23 +91,22 @@ export default function FilmCapturePage() {
     } catch (err) {
       console.error('Failed to fetch captures:', err);
     }
-  }, [isAdmin, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder, page]);
+  }, [activeTab, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder, page]);
 
-  // Fetch when any filter/pagination dep changes
+  // Fetch when any filter/pagination/tab dep changes
   useEffect(() => {
     fetchCaptures();
   }, [fetchCaptures]);
 
-  // Reset to page 1 whenever filters change (but not when page itself changes)
+  // Reset to page 1 whenever tab or filters change (but not when page itself changes)
   useEffect(() => {
     setPage(1);
-  }, [filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder]);
+  }, [activeTab, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder]);
 
   useEffect(() => {
     async function init() {
       const supabase = createClient();
 
-      // TODO: MULTI-SPORT — Sports query filters to active + internal for film capture
       const { data: sportsData } = await supabase
         .from('sports')
         .select('id, name, icon')
@@ -134,15 +146,45 @@ export default function FilmCapturePage() {
         }
       }
 
+      // Fetch shareable users for the share modal
+      try {
+        const shareRes = await fetch('/api/film-capture/shareable-users');
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          setShareableUsers(shareData.users ?? []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch shareable users:', err);
+      }
+
       setLoading(false);
     }
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When the share modal opens, fetch existing shares for pre-checking
+  useEffect(() => {
+    if (!sharingCaptureId) {
+      setSelectedShareUsers(new Set());
+      return;
+    }
+
+    setLoadingCurrentShares(true);
+    fetch(`/api/film-capture/${sharingCaptureId}/share`)
+      .then(res => res.ok ? res.json() : { shares: [] })
+      .then(data => {
+        const alreadySharedIds = new Set<string>(
+          (data.shares ?? []).map((s: { shared_with_user_id: string }) => s.shared_with_user_id)
+        );
+        setSelectedShareUsers(alreadySharedIds);
+      })
+      .catch(err => console.error('Failed to load current shares:', err))
+      .finally(() => setLoadingCurrentShares(false));
+  }, [sharingCaptureId]);
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
-    // Grab values from state, falling back to DOM inputs (Safari may not trigger onChange on restore)
     const uploadFile = file ?? (document.getElementById('film-file-input') as HTMLInputElement)?.files?.[0] ?? null;
     const effectiveGameDate = gameDate || (document.getElementById('film-game-date') as HTMLInputElement)?.value || '';
     const effectiveSportId = sportId || (document.getElementById('film-sport-select') as HTMLSelectElement)?.value || '';
@@ -161,7 +203,6 @@ export default function FilmCapturePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Step 1: Upload file directly to Supabase Storage (bypasses Vercel 4.5MB body limit)
       const timestamp = Date.now();
       const sanitizedName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
@@ -179,7 +220,6 @@ export default function FilmCapturePage() {
 
       setUploadProgress('Saving metadata...');
 
-      // Step 2: Save metadata via API route (small JSON payload, no file)
       const res = await fetch('/api/film-capture/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,7 +238,6 @@ export default function FilmCapturePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // Clean up the uploaded file if metadata save fails
         await supabase.storage.from('film_captures').remove([storagePath]);
         throw new Error(data.error || 'Failed to save capture record');
       }
@@ -209,10 +248,11 @@ export default function FilmCapturePage() {
       setGameDate('');
       setOpponent('');
       setAgeGroup('');
-      // Reset file input
       const fileInput = document.getElementById('film-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
+      // Switch to "My Uploads" tab so the user sees their new upload
+      setActiveTab('mine');
       await fetchCaptures();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
@@ -236,6 +276,31 @@ export default function FilmCapturePage() {
     }
   }
 
+  async function handleShare() {
+    if (!sharingCaptureId) return;
+    setSharing(true);
+    try {
+      const res = await fetch(`/api/film-capture/${sharingCaptureId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: Array.from(selectedShareUsers) }),
+      });
+      if (res.ok) {
+        setSharingCaptureId(null);
+        setSelectedShareUsers(new Set());
+        setSuccess('Video sharing updated');
+        await fetchCaptures();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to update sharing');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update sharing');
+    } finally {
+      setSharing(false);
+    }
+  }
+
   function formatFileSize(bytes: number | null): string {
     if (!bytes) return '—';
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -243,7 +308,22 @@ export default function FilmCapturePage() {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
+  function openShareModal(captureId: string) {
+    setSharingCaptureId(captureId);
+  }
+
+  function closeShareModal() {
+    setSharingCaptureId(null);
+    setSelectedShareUsers(new Set());
+  }
+
   const hasActiveFilters = !!(filterSport || filterAgeGroup || filterUploader || searchQuery);
+
+  // Heading text depends on the active tab
+  const libraryHeading =
+    activeTab === 'all' ? 'All Uploads' :
+    activeTab === 'shared' ? 'Shared with Me' :
+    'Your Uploads';
 
   return (
     <div className="min-h-screen bg-white">
@@ -276,7 +356,6 @@ export default function FilmCapturePage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Game Film</h2>
           <form onSubmit={handleUpload} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* TODO: MULTI-SPORT — Sport dropdown populated from sports table */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
                 <select
@@ -359,8 +438,47 @@ export default function FilmCapturePage() {
           </form>
         </div>
 
+        {/* Tabs */}
+        <div className="mt-8 flex items-center gap-1 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('mine')}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+              activeTab === 'mine' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            My Uploads
+            {activeTab === 'mine' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('shared')}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+              activeTab === 'shared' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Shared with Me
+            {activeTab === 'shared' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+            )}
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              All Uploads
+              {activeTab === 'all' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+              )}
+            </button>
+          )}
+        </div>
+
         {/* Filter bar */}
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           {/* View mode toggle */}
           <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
             <button
@@ -403,8 +521,8 @@ export default function FilmCapturePage() {
             ))}
           </select>
 
-          {/* Uploader filter (admin only) */}
-          {isAdmin && uploaders.length > 0 && (
+          {/* Uploader filter (admin + all tab only) */}
+          {isAdmin && activeTab === 'all' && uploaders.length > 0 && (
             <select
               value={filterUploader}
               onChange={e => setFilterUploader(e.target.value)}
@@ -444,7 +562,7 @@ export default function FilmCapturePage() {
         <div className="mt-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
-              {isAdmin ? 'All Uploads' : 'Your Uploads'}
+              {libraryHeading}
               {totalCount > 0 && (
                 <span className="text-gray-400 font-normal ml-2">({totalCount})</span>
               )}
@@ -459,7 +577,9 @@ export default function FilmCapturePage() {
             <div className="text-center py-12">
               <Video size={40} className="text-gray-200 mx-auto mb-3" />
               <p className="text-sm text-gray-500">
-                {hasActiveFilters
+                {activeTab === 'shared'
+                  ? 'No videos have been shared with you yet.'
+                  : hasActiveFilters
                   ? 'No uploads match your filters.'
                   : 'No uploads yet.'}
               </p>
@@ -490,17 +610,47 @@ export default function FilmCapturePage() {
                         <Video size={32} className="text-gray-600" />
                       </div>
                     )}
-                    {/* Delete overlay */}
-                    <button
-                      onClick={() => handleDelete(capture.id, capture.file_name)}
-                      disabled={deletingId === capture.id}
-                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                    >
-                      {deletingId === capture.id
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Trash2 size={14} />}
-                    </button>
+
+                    {/* Action buttons — only shown on hover */}
+                    {activeTab === 'mine' && (
+                      <>
+                        {/* Share button */}
+                        <button
+                          onClick={e => { e.stopPropagation(); openShareModal(capture.id); }}
+                          className="absolute top-2 right-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                          title="Share"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                        {/* Delete button */}
+                        <button
+                          onClick={() => handleDelete(capture.id, capture.file_name)}
+                          disabled={deletingId === capture.id}
+                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                          title="Delete"
+                        >
+                          {deletingId === capture.id
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : <Trash2 size={14} />}
+                        </button>
+                      </>
+                    )}
+
+                    {/* Admin delete on all-tab */}
+                    {activeTab === 'all' && (
+                      <button
+                        onClick={() => handleDelete(capture.id, capture.file_name)}
+                        disabled={deletingId === capture.id}
+                        className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        title="Delete"
+                      >
+                        {deletingId === capture.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Trash2 size={14} />}
+                      </button>
+                    )}
                   </div>
+
                   {/* Info */}
                   <div className="p-3">
                     <div className="flex items-center gap-2">
@@ -514,8 +664,33 @@ export default function FilmCapturePage() {
                       {capture.age_group && <span>· {capture.age_group}</span>}
                       <span>· {formatFileSize(capture.file_size_bytes)}</span>
                     </div>
-                    {isAdmin && capture.uploader_name && (
+
+                    {/* Shared by (shared tab) */}
+                    {activeTab === 'shared' && capture.shared_by_name && (
+                      <p className="text-xs text-gray-400 mt-1 truncate">
+                        Shared by: {capture.shared_by_name}
+                        {capture.shared_at && (
+                          <span className="ml-1">
+                            · {new Date(capture.shared_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </p>
+                    )}
+
+                    {/* Admin uploader info */}
+                    {activeTab === 'all' && capture.uploader_name && (
                       <p className="text-xs text-gray-400 mt-1 truncate">By: {capture.uploader_name}</p>
+                    )}
+
+                    {/* Share count indicator (mine tab) */}
+                    {activeTab === 'mine' && (capture.share_count ?? 0) > 0 && (
+                      <button
+                        onClick={() => openShareModal(capture.id)}
+                        className="mt-1.5 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <Share2 size={11} />
+                        Shared with {capture.share_count} {capture.share_count === 1 ? 'person' : 'people'}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -525,40 +700,72 @@ export default function FilmCapturePage() {
             /* List view */
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Header */}
-              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem] gap-3 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className={`grid gap-3 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide ${
+                activeTab === 'mine'
+                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem_3rem]'
+                  : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem]'
+              }`}>
                 <span>Title</span>
                 <span>Sport</span>
                 <span>Date</span>
-                <span>Age Group</span>
+                <span>{activeTab === 'shared' ? 'Shared By' : 'Age Group'}</span>
                 <span className="text-right">Size</span>
+                {activeTab === 'mine' && <span></span>}
                 <span></span>
               </div>
               {captures.map(capture => (
                 <div
                   key={capture.id}
-                  className="grid grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem] gap-3 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50"
+                  className={`grid gap-3 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 ${
+                    activeTab === 'mine'
+                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem_3rem]'
+                      : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem]'
+                  }`}
                 >
                   <div className="min-w-0">
                     <p className="text-sm text-gray-900 truncate">
                       {capture.opponent ? `vs ${capture.opponent}` : capture.file_name}
                     </p>
-                    {isAdmin && capture.uploader_name && (
+                    {activeTab === 'all' && capture.uploader_name && (
                       <p className="text-xs text-gray-400 truncate">By: {capture.uploader_name}</p>
                     )}
                   </div>
                   <span className="text-sm text-gray-600">{capture.sport_icon} {capture.sport_name}</span>
                   <span className="text-sm text-gray-600">{new Date(capture.game_date).toLocaleDateString()}</span>
-                  <span className="text-sm text-gray-600">{capture.age_group || '—'}</span>
+                  <span className="text-sm text-gray-600">
+                    {activeTab === 'shared'
+                      ? (capture.shared_by_name ?? '—')
+                      : (capture.age_group || '—')}
+                  </span>
                   <span className="text-sm text-gray-500 text-right">{formatFileSize(capture.file_size_bytes)}</span>
-                  <button
-                    onClick={() => handleDelete(capture.id, capture.file_name)}
-                    disabled={deletingId === capture.id}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                  >
-                    {deletingId === capture.id
-                      ? <Loader2 size={14} className="animate-spin" />
-                      : <Trash2 size={14} />}
-                  </button>
+
+                  {/* Share button (mine tab only) */}
+                  {activeTab === 'mine' && (
+                    <button
+                      onClick={() => openShareModal(capture.id)}
+                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                      title="Share"
+                    >
+                      <Share2 size={14} />
+                    </button>
+                  )}
+
+                  {/* Delete (mine and all tabs) */}
+                  {(activeTab === 'mine' || activeTab === 'all') && (
+                    <button
+                      onClick={() => handleDelete(capture.id, capture.file_name)}
+                      disabled={deletingId === capture.id}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                      title="Delete"
+                    >
+                      {deletingId === capture.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
+                  )}
+
+                  {/* Placeholder cell for shared tab (no actions) */}
+                  {activeTab === 'shared' && <span />}
                 </div>
               ))}
             </div>
@@ -588,6 +795,85 @@ export default function FilmCapturePage() {
           )}
         </div>
       </div>
+
+      {/* Share Modal */}
+      {sharingCaptureId && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center"
+          onClick={closeShareModal}
+        >
+          <div
+            className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Share Video</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Select users to share this video with. Uncheck to revoke access.
+            </p>
+
+            {loadingCurrentShares ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 size={20} className="animate-spin text-gray-400" />
+              </div>
+            ) : shareableUsers.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4">
+                No other users with film capture access.
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-60 overflow-y-auto">
+                {shareableUsers.map(u => (
+                  <label
+                    key={u.id}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedShareUsers.has(u.id)}
+                      onChange={e => {
+                        setSelectedShareUsers(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(u.id);
+                          else next.delete(u.id);
+                          return next;
+                        });
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-900">
+                        {u.name}
+                        <span className="ml-1.5 text-xs text-gray-400 font-normal">
+                          {u.role === 'parent' ? 'Parent' : 'Coach'}
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100">
+              <button
+                onClick={handleShare}
+                disabled={sharing || loadingCurrentShares}
+                className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {sharing && <Loader2 size={14} className="animate-spin" />}
+                {selectedShareUsers.size === 0
+                  ? 'Remove all shares'
+                  : `Share with ${selectedShareUsers.size} ${selectedShareUsers.size === 1 ? 'person' : 'people'}`}
+              </button>
+              <button
+                onClick={closeShareModal}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

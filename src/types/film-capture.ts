@@ -35,6 +35,24 @@ export interface FilmCaptureWithSport extends FilmCapture {
   sport_icon: string | null;
   playback_url?: string | null;
   uploader_name?: string | null; // Admin only — populated from profiles
+  shared_by_name?: string | null; // Shared tab — name of the user who shared this capture
+  shared_at?: string | null; // Shared tab — when the capture was shared with the current user
+  share_count?: number; // Mine tab — number of users this capture has been shared with
+}
+
+export interface FilmCaptureShare {
+  id: string;
+  capture_id: string;
+  shared_with_user_id: string;
+  shared_by_user_id: string;
+  shared_at: string;
+}
+
+export interface ShareableUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'coach' | 'parent';
 }
 
 export const AGE_GROUPS = ['Youth', 'JV', 'Varsity', 'College'] as const;
