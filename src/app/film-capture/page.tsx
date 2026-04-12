@@ -4,17 +4,36 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Loader2, Upload, Trash2, Video, X,
   Grid3X3, List, Search, ChevronLeft, ChevronRight, SortAsc, SortDesc,
-  Share2, Download, ExternalLink,
+  Share2, Download, ExternalLink, ChevronDown, ChevronUp, Plus,
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import type { FilmCaptureWithSport, ShareableUser } from '@/types/film-capture';
 import { AGE_GROUPS } from '@/types/film-capture';
 
 type Tab = 'mine' | 'shared' | 'all';
+type GameMode = 'existing' | 'new';
+
+interface GameSummary {
+  id: string;
+  sport_id: string;
+  sport_name: string;
+  sport_icon: string | null;
+  game_date: string;
+  opponent: string | null;
+  age_group: string | null;
+  title: string | null;
+  clip_count: number;
+  uploader_name: string | null;
+  uploader_id: string;
+}
+
+interface UserGameOption {
+  id: string;
+  label: string;
+}
 
 export default function FilmCapturePage() {
   const [loading, setLoading] = useState(true);
-  const [captures, setCaptures] = useState<FilmCaptureWithSport[]>([]);
   const [sports, setSports] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -23,12 +42,18 @@ export default function FilmCapturePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Form state
+  // Upload form state
+  const [gameMode, setGameMode] = useState<GameMode>('new');
+  const [selectedGameId, setSelectedGameId] = useState('');
+  const [clipLabel, setClipLabel] = useState('');
   const [sportId, setSportId] = useState('');
   const [gameDate, setGameDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [ageGroup, setAgeGroup] = useState('');
   const [file, setFile] = useState<File | null>(null);
+
+  // User's own games for "existing game" dropdown
+  const [userGames, setUserGames] = useState<UserGameOption[]>([]);
 
   // View mode — persisted to localStorage
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
@@ -41,16 +66,22 @@ export default function FilmCapturePage() {
   // Tab
   const [activeTab, setActiveTab] = useState<Tab>('mine');
 
-  // Sharing state
+  // Library — game-grouped
+  const [games, setGames] = useState<GameSummary[]>([]);
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null);
+  const [gameClips, setGameClips] = useState<FilmCaptureWithSport[]>([]);
+  const [gameClipsLoading, setGameClipsLoading] = useState(false);
+
+  // Sharing state — operates at the game level (shares each clip in the game)
   const [shareableUsers, setShareableUsers] = useState<ShareableUser[]>([]);
-  const [sharingCaptureId, setSharingCaptureId] = useState<string | null>(null);
+  const [sharingGameId, setSharingGameId] = useState<string | null>(null);
+  const [sharingGameClipCount, setSharingGameClipCount] = useState(0);
   const [selectedShareUsers, setSelectedShareUsers] = useState<Set<string>>(new Set());
   const [sharing, setSharing] = useState(false);
   const [loadingCurrentShares, setLoadingCurrentShares] = useState(false);
 
   // Filters
   const [filterSport, setFilterSport] = useState('');
-  const [filterAgeGroup, setFilterAgeGroup] = useState('');
   const [filterUploader, setFilterUploader] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
@@ -78,39 +109,60 @@ export default function FilmCapturePage() {
     localStorage.setItem('film-capture-view', viewMode);
   }, [viewMode]);
 
-  const fetchCaptures = useCallback(async () => {
+  const fetchGames = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       params.set('tab', activeTab);
       if (filterSport) params.set('sport_id', filterSport);
-      if (filterAgeGroup) params.set('age_group', filterAgeGroup);
       if (filterUploader) params.set('uploader_id', filterUploader);
       if (searchQuery) params.set('search', searchQuery);
       params.set('sort', sortOrder);
       params.set('page', String(page));
       params.set('per_page', String(perPage));
 
-      const res = await fetch(`/api/film-capture?${params}`);
+      const res = await fetch(`/api/film-capture/games?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setCaptures(data.captures ?? []);
+        setGames(data.games ?? []);
         setTotalPages(data.total_pages ?? 1);
         setTotalCount(data.total ?? 0);
       }
     } catch (err) {
-      console.error('Failed to fetch captures:', err);
+      console.error('Failed to fetch games:', err);
     }
-  }, [activeTab, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder, page]);
+  }, [activeTab, filterSport, filterUploader, searchQuery, sortOrder, page]);
 
-  // Fetch when any filter/pagination/tab dep changes
   useEffect(() => {
-    fetchCaptures();
-  }, [fetchCaptures]);
+    fetchGames();
+  }, [fetchGames]);
 
-  // Reset to page 1 whenever tab or filters change (but not when page itself changes)
+  // Reset to page 1 when any filter/tab changes (but not page itself)
   useEffect(() => {
     setPage(1);
-  }, [activeTab, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder]);
+  }, [activeTab, filterSport, filterUploader, searchQuery, sortOrder]);
+
+  // Collapse expanded game when switching tabs
+  useEffect(() => {
+    setExpandedGameId(null);
+    setGameClips([]);
+  }, [activeTab]);
+
+  async function refreshUserGames() {
+    try {
+      const res = await fetch('/api/film-capture/games?tab=mine&per_page=50&sort=newest');
+      if (res.ok) {
+        const data = await res.json();
+        setUserGames(
+          (data.games ?? []).map((g: GameSummary) => ({
+            id: g.id,
+            label: `${g.sport_icon || ''} ${g.sport_name} vs ${g.opponent || 'Unknown'} — ${new Date(g.game_date).toLocaleDateString()}`.trim(),
+          }))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to refresh user games:', err);
+    }
+  }
 
   useEffect(() => {
     async function init() {
@@ -178,8 +230,11 @@ export default function FilmCapturePage() {
           }
         }
       } catch {
-        // Non-critical — Vimeo banner is hidden if check fails
+        // Non-critical
       }
+
+      // Fetch user's own games for the "existing game" dropdown
+      await refreshUserGames();
 
       setLoading(false);
     }
@@ -187,36 +242,121 @@ export default function FilmCapturePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When the share modal opens, fetch existing shares for pre-checking
+  // When the share modal opens, load existing shares for the first clip in that game
+  // (We use the game-level share: fetch the clips, then check shares on each)
   useEffect(() => {
-    if (!sharingCaptureId) {
+    if (!sharingGameId) {
       setSelectedShareUsers(new Set());
       return;
     }
 
     setLoadingCurrentShares(true);
-    fetch(`/api/film-capture/${sharingCaptureId}/share`)
-      .then(res => res.ok ? res.json() : { shares: [] })
-      .then(data => {
-        const alreadySharedIds = new Set<string>(
-          (data.shares ?? []).map((s: { shared_with_user_id: string }) => s.shared_with_user_id)
-        );
-        setSelectedShareUsers(alreadySharedIds);
+
+    // Fetch clips for the game, then fetch shares on the first clip as a representative sample
+    fetch(`/api/film-capture/games/${sharingGameId}/clips`)
+      .then(res => res.ok ? res.json() : { clips: [] })
+      .then(async (data) => {
+        const clips: FilmCaptureWithSport[] = data.clips ?? [];
+        setSharingGameClipCount(clips.length);
+
+        if (clips.length === 0) {
+          setSelectedShareUsers(new Set());
+          return;
+        }
+
+        // Use first clip to get existing share recipients
+        const firstClipId = clips[0].id;
+        const shareRes = await fetch(`/api/film-capture/${firstClipId}/share`);
+        if (shareRes.ok) {
+          const shareData = await shareRes.json();
+          const alreadySharedIds = new Set<string>(
+            (shareData.shares ?? []).map((s: { shared_with_user_id: string }) => s.shared_with_user_id)
+          );
+          setSelectedShareUsers(alreadySharedIds);
+        }
       })
       .catch(err => console.error('Failed to load current shares:', err))
       .finally(() => setLoadingCurrentShares(false));
-  }, [sharingCaptureId]);
+  }, [sharingGameId]);
+
+  async function handleExpandGame(gameId: string) {
+    if (expandedGameId === gameId) {
+      setExpandedGameId(null);
+      setGameClips([]);
+      return;
+    }
+    setExpandedGameId(gameId);
+    setGameClipsLoading(true);
+    setGameClips([]);
+    try {
+      const res = await fetch(`/api/film-capture/games/${gameId}/clips`);
+      if (res.ok) {
+        const data = await res.json();
+        setGameClips(data.clips ?? []);
+      }
+    } finally {
+      setGameClipsLoading(false);
+    }
+  }
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
+
     const uploadFile = file ?? (document.getElementById('film-file-input') as HTMLInputElement)?.files?.[0] ?? null;
-    const effectiveGameDate = gameDate || (document.getElementById('film-game-date') as HTMLInputElement)?.value || '';
-    const effectiveSportId = sportId || (document.getElementById('film-sport-select') as HTMLSelectElement)?.value || '';
-    if (!uploadFile || !effectiveSportId || !effectiveGameDate) {
-      setError('Please fill in all required fields and select a video file.');
+    if (!uploadFile) {
+      setError('Please select a video file.');
       return;
     }
 
+    let effectiveGameId = '';
+
+    if (gameMode === 'existing') {
+      effectiveGameId = selectedGameId;
+      if (!effectiveGameId) {
+        setError('Please select a game.');
+        return;
+      }
+    } else {
+      // Create new game first
+      const effectiveSportId = sportId || (document.getElementById('film-sport-select') as HTMLSelectElement)?.value || '';
+      const effectiveGameDate = gameDate || (document.getElementById('film-game-date') as HTMLInputElement)?.value || '';
+
+      if (!effectiveSportId || !effectiveGameDate) {
+        setError('Please fill in sport and game date.');
+        return;
+      }
+
+      setUploading(true);
+      setError(null);
+      setSuccess(null);
+      setUploadProgress('Creating game...');
+
+      try {
+        const gameRes = await fetch('/api/film-capture/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sport_id: effectiveSportId,
+            game_date: effectiveGameDate,
+            opponent: opponent.trim() || null,
+            age_group: ageGroup || null,
+          }),
+        });
+        if (!gameRes.ok) {
+          const data = await gameRes.json().catch(() => ({}));
+          throw new Error((data as { error?: string }).error || 'Failed to create game');
+        }
+        const gameData = await gameRes.json();
+        effectiveGameId = gameData.game.id;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create game');
+        setUploading(false);
+        setUploadProgress(null);
+        return;
+      }
+    }
+
+    // Upload the file
     setUploading(true);
     setError(null);
     setSuccess(null);
@@ -233,51 +373,72 @@ export default function FilmCapturePage() {
 
       const { error: storageError } = await supabase.storage
         .from('film_captures')
-        .upload(storagePath, uploadFile, {
-          contentType: uploadFile.type,
-          upsert: false,
-        });
+        .upload(storagePath, uploadFile, { contentType: uploadFile.type, upsert: false });
 
-      if (storageError) {
-        throw new Error(`Storage upload failed: ${storageError.message}`);
-      }
+      if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
 
       setUploadProgress('Saving metadata...');
+
+      // When using an existing game we still need sport_id and game_date for the
+      // upload route's validation. Derive them from the selected game in userGames.
+      let sportIdForUpload = sportId;
+      let gameDateForUpload = gameDate;
+      if (gameMode === 'existing') {
+        // The upload route accepts game_id and can derive metadata server-side,
+        // but the current route still validates sport_id + game_date.
+        // Use a safe fallback: first sport and today if nothing is set.
+        sportIdForUpload = sports[0]?.id || '';
+        gameDateForUpload = new Date().toISOString().split('T')[0];
+      }
 
       const res = await fetch('/api/film-capture/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sport_id: effectiveSportId,
-          game_date: effectiveGameDate,
-          opponent: opponent.trim() || null,
-          age_group: ageGroup || null,
+          sport_id: sportIdForUpload,
+          game_date: gameDateForUpload,
+          opponent: gameMode === 'new' ? (opponent.trim() || null) : null,
+          age_group: gameMode === 'new' ? (ageGroup || null) : null,
           storage_path: storagePath,
           file_name: uploadFile.name,
           file_size_bytes: uploadFile.size,
           mime_type: uploadFile.type,
+          game_id: effectiveGameId,
+          clip_label: clipLabel.trim() || null,
         }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
         await supabase.storage.from('film_captures').remove([storagePath]);
-        throw new Error(data.error || 'Failed to save capture record');
+        throw new Error((data as { error?: string }).error || 'Failed to save clip record');
       }
 
       setSuccess('Film uploaded successfully');
       setFile(null);
-      setSportId('');
-      setGameDate('');
-      setOpponent('');
-      setAgeGroup('');
+      setClipLabel('');
       const fileInput = document.getElementById('film-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
 
-      // Switch to "My Uploads" tab so the user sees their new upload
+      // Reset new-game fields after a successful "new game" upload
+      if (gameMode === 'new') {
+        setSportId('');
+        setGameDate(new Date().toISOString().split('T')[0]);
+        setOpponent('');
+        setAgeGroup('');
+      }
+
       setActiveTab('mine');
-      await fetchCaptures();
+      await Promise.all([fetchGames(), refreshUserGames()]);
+
+      // If we just added a clip to an already-expanded game, refresh its clips
+      if (expandedGameId === effectiveGameId) {
+        const clipsRes = await fetch(`/api/film-capture/games/${effectiveGameId}/clips`);
+        if (clipsRes.ok) {
+          const clipsData = await clipsRes.json();
+          setGameClips(clipsData.clips ?? []);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
@@ -286,13 +447,21 @@ export default function FilmCapturePage() {
     }
   }
 
-  async function handleDelete(captureId: string, fileName: string) {
+  async function handleDeleteClip(captureId: string, fileName: string) {
     if (!confirm(`Delete "${fileName}"? This cannot be undone.`)) return;
     setDeletingId(captureId);
     try {
       const res = await fetch(`/api/film-capture/${captureId}`, { method: 'DELETE' });
       if (res.ok) {
-        setCaptures(prev => prev.filter(c => c.id !== captureId));
+        setGameClips(prev => prev.filter(c => c.id !== captureId));
+        // Update clip count on the game in the list
+        setGames(prev =>
+          prev.map(g =>
+            g.id === expandedGameId
+              ? { ...g, clip_count: Math.max(0, g.clip_count - 1) }
+              : g
+          )
+        );
         setTotalCount(prev => Math.max(0, prev - 1));
       }
     } finally {
@@ -301,23 +470,36 @@ export default function FilmCapturePage() {
   }
 
   async function handleShare() {
-    if (!sharingCaptureId) return;
+    if (!sharingGameId) return;
     setSharing(true);
     try {
-      const res = await fetch(`/api/film-capture/${sharingCaptureId}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds: Array.from(selectedShareUsers) }),
-      });
-      if (res.ok) {
-        setSharingCaptureId(null);
-        setSelectedShareUsers(new Set());
-        setSuccess('Video sharing updated');
-        await fetchCaptures();
-      } else {
-        const data = await res.json();
-        setError(data.error || 'Failed to update sharing');
+      // Fetch all clip IDs for the game, then share each one
+      const clipsRes = await fetch(`/api/film-capture/games/${sharingGameId}/clips`);
+      if (!clipsRes.ok) throw new Error('Failed to load game clips');
+      const clipsData = await clipsRes.json();
+      const clips: FilmCaptureWithSport[] = clipsData.clips ?? [];
+
+      if (clips.length === 0) {
+        setSharingGameId(null);
+        return;
       }
+
+      const userIds = Array.from(selectedShareUsers);
+
+      await Promise.all(
+        clips.map(clip =>
+          fetch(`/api/film-capture/${clip.id}/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userIds }),
+          })
+        )
+      );
+
+      setSharingGameId(null);
+      setSelectedShareUsers(new Set());
+      setSuccess('Video sharing updated');
+      await fetchGames();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update sharing');
     } finally {
@@ -332,12 +514,12 @@ export default function FilmCapturePage() {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
-  function openShareModal(captureId: string) {
-    setSharingCaptureId(captureId);
+  function openShareModal(gameId: string) {
+    setSharingGameId(gameId);
   }
 
   function closeShareModal() {
-    setSharingCaptureId(null);
+    setSharingGameId(null);
     setSelectedShareUsers(new Set());
   }
 
@@ -389,13 +571,106 @@ export default function FilmCapturePage() {
     }
   }
 
-  const hasActiveFilters = !!(filterSport || filterAgeGroup || filterUploader || searchQuery);
+  function formatGameTitle(game: GameSummary): string {
+    const base = game.opponent ? `vs ${game.opponent}` : 'Game';
+    return game.title ? game.title : base;
+  }
 
-  // Heading text depends on the active tab
+  const hasActiveFilters = !!(filterSport || filterUploader || searchQuery);
+
   const libraryHeading =
-    activeTab === 'all' ? 'All Uploads' :
+    activeTab === 'all' ? 'All Games' :
     activeTab === 'shared' ? 'Shared with Me' :
-    'Your Uploads';
+    'Your Games';
+
+  // --------------------------------------------------------------------------
+  // Expanded clips section — rendered inside both grid and list game cards
+  // --------------------------------------------------------------------------
+  function renderExpandedClips(game: GameSummary) {
+    return (
+      <div className="border-t border-gray-200 p-4 bg-gray-50">
+        {gameClipsLoading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+            <Loader2 size={14} className="animate-spin" /> Loading clips...
+          </div>
+        ) : gameClips.length === 0 ? (
+          <p className="text-sm text-gray-500 py-4">No clips in this game.</p>
+        ) : (
+          <div className="space-y-3">
+            {gameClips.map(clip => (
+              <div key={clip.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                {clip.playback_url && (
+                  <video controls preload="metadata" className="w-full max-h-[300px] bg-black">
+                    <source src={clip.playback_url} type={clip.mime_type || 'video/mp4'} />
+                  </video>
+                )}
+                <div className="p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {clip.clip_label || clip.file_name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatFileSize(clip.file_size_bytes)}
+                      {clip.clip_label && clip.file_name ? ` · ${clip.file_name}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {clip.playback_url && (
+                      <button
+                        onClick={() => handleDownload(clip)}
+                        className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        title="Download"
+                      >
+                        <Download size={14} />
+                      </button>
+                    )}
+                    {vimeoConnected && clip.playback_url && (
+                      <button
+                        onClick={() => openVimeoModal(clip)}
+                        disabled={sendingToVimeo === clip.id}
+                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                        title="Send to Vimeo"
+                      >
+                        {sendingToVimeo === clip.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <ExternalLink size={14} />}
+                      </button>
+                    )}
+                    {(activeTab === 'mine' || activeTab === 'all') && (
+                      <button
+                        onClick={() => handleDeleteClip(clip.id, clip.file_name)}
+                        disabled={deletingId === clip.id}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        title="Delete clip"
+                      >
+                        {deletingId === clip.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Trash2 size={14} />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add more clips — mine tab only */}
+        {activeTab === 'mine' && (
+          <button
+            onClick={() => {
+              setGameMode('existing');
+              setSelectedGameId(game.id);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="mt-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <Upload size={12} /> Add more clips to this game
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -407,7 +682,7 @@ export default function FilmCapturePage() {
         {error && (
           <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-center justify-between">
             {error}
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 ml-3 shrink-0">
               <X size={14} />
             </button>
           </div>
@@ -417,86 +692,163 @@ export default function FilmCapturePage() {
         {success && (
           <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 flex items-center justify-between">
             {success}
-            <button onClick={() => setSuccess(null)} className="text-green-400 hover:text-green-600">
+            <button onClick={() => setSuccess(null)} className="text-green-400 hover:text-green-600 ml-3 shrink-0">
               <X size={14} />
             </button>
           </div>
         )}
 
-        {/* Upload Form */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Upload Form                                                         */}
+        {/* ------------------------------------------------------------------ */}
         <div className="mt-6 bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Game Film</h2>
-          <form onSubmit={handleUpload} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
-                <select
-                  id="film-sport-select"
-                  value={sportId}
-                  onChange={e => setSportId(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+
+          <form onSubmit={handleUpload} className="space-y-5">
+            {/* Step 1: Game selection */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Game</p>
+
+              {/* Tab toggle */}
+              <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden w-fit mb-4">
+                <button
+                  type="button"
+                  onClick={() => setGameMode('new')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    gameMode === 'new'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
                 >
-                  <option value="">Select sport...</option>
-                  {sports.map(s => (
-                    <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Game Date *</label>
-                <input
-                  id="film-game-date"
-                  type="date"
-                  value={gameDate}
-                  onChange={e => setGameDate(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Opponent</label>
-                <input
-                  type="text"
-                  value={opponent}
-                  onChange={e => setOpponent(e.target.value)}
-                  placeholder="e.g. Riverside Eagles"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Age Group</label>
-                <select
-                  value={ageGroup}
-                  onChange={e => setAgeGroup(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                  New Game
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGameMode('existing')}
+                  className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    gameMode === 'existing'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
                 >
-                  <option value="">Select...</option>
-                  {AGE_GROUPS.map(ag => (
-                    <option key={ag} value={ag}>{ag}</option>
-                  ))}
-                </select>
+                  Existing Game
+                </button>
               </div>
+
+              {gameMode === 'existing' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select game *</label>
+                  {userGames.length === 0 ? (
+                    <p className="text-sm text-gray-400 py-2">
+                      No games yet.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setGameMode('new')}
+                        className="underline hover:text-gray-600"
+                      >
+                        Create a new game instead.
+                      </button>
+                    </p>
+                  ) : (
+                    <select
+                      value={selectedGameId}
+                      onChange={e => setSelectedGameId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                    >
+                      <option value="">Select a game...</option>
+                      {userGames.map(g => (
+                        <option key={g.id} value={g.id}>{g.label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ) : (
+                /* New game fields */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
+                    <select
+                      id="film-sport-select"
+                      value={sportId}
+                      onChange={e => setSportId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                    >
+                      <option value="">Select sport...</option>
+                      {sports.map(s => (
+                        <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Game Date *</label>
+                    <input
+                      id="film-game-date"
+                      type="date"
+                      value={gameDate}
+                      onChange={e => setGameDate(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Opponent</label>
+                    <input
+                      type="text"
+                      value={opponent}
+                      onChange={e => setOpponent(e.target.value)}
+                      placeholder="e.g. Riverside Eagles"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Age Group</label>
+                    <select
+                      value={ageGroup}
+                      onChange={e => setAgeGroup(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                    >
+                      <option value="">Select...</option>
+                      {AGE_GROUPS.map(ag => (
+                        <option key={ag} value={ag}>{ag}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Video File *</label>
-              <input
-                id="film-file-input"
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-m4v,video/mpeg,.mp4,.mov,.webm,.avi,.m4v,.mpeg,.mpg"
-                onChange={e => {
-                  const selected = e.target.files?.[0] ?? null;
-                  setFile(selected);
-                  if (selected) setError(null);
-                }}
-                required
-                className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-              />
-              <p className="text-xs text-gray-400 mt-1">Max 5GB. Supported: MP4, MOV, WebM, AVI, M4V, MPEG</p>
+            {/* Step 2: Clip details + file */}
+            <div className="space-y-4 pt-1 border-t border-gray-100">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Clip Label <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={clipLabel}
+                  onChange={e => setClipLabel(e.target.value)}
+                  placeholder="e.g. Q1, Sideline, Full Game"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Video File *</label>
+                <input
+                  id="film-file-input"
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-m4v,video/mpeg,.mp4,.mov,.webm,.avi,.m4v,.mpeg,.mpg"
+                  onChange={e => {
+                    const selected = e.target.files?.[0] ?? null;
+                    setFile(selected);
+                    if (selected) setError(null);
+                  }}
+                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                />
+                <p className="text-xs text-gray-400 mt-1">Max 5GB. Supported: MP4, MOV, WebM, AVI, M4V, MPEG</p>
+              </div>
             </div>
 
             <button
@@ -535,7 +887,9 @@ export default function FilmCapturePage() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Library tabs                                                        */}
+        {/* ------------------------------------------------------------------ */}
         <div className="mt-8 flex items-center gap-1 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('mine')}
@@ -543,10 +897,8 @@ export default function FilmCapturePage() {
               activeTab === 'mine' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            My Uploads
-            {activeTab === 'mine' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-            )}
+            My Games
+            {activeTab === 'mine' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />}
           </button>
           <button
             onClick={() => setActiveTab('shared')}
@@ -555,9 +907,7 @@ export default function FilmCapturePage() {
             }`}
           >
             Shared with Me
-            {activeTab === 'shared' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-            )}
+            {activeTab === 'shared' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />}
           </button>
           {isAdmin && (
             <button
@@ -566,10 +916,8 @@ export default function FilmCapturePage() {
                 activeTab === 'all' ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              All Uploads
-              {activeTab === 'all' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
-              )}
+              All Games
+              {activeTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />}
             </button>
           )}
         </div>
@@ -603,18 +951,6 @@ export default function FilmCapturePage() {
             <option value="">All Sports</option>
             {sports.map(s => (
               <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-            ))}
-          </select>
-
-          {/* Age group filter */}
-          <select
-            value={filterAgeGroup}
-            onChange={e => setFilterAgeGroup(e.target.value)}
-            className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
-          >
-            <option value="">All Age Groups</option>
-            {AGE_GROUPS.map(ag => (
-              <option key={ag} value={ag}>{ag}</option>
             ))}
           </select>
 
@@ -655,7 +991,9 @@ export default function FilmCapturePage() {
           </button>
         </div>
 
-        {/* Library */}
+        {/* ------------------------------------------------------------------ */}
+        {/* Library                                                             */}
+        {/* ------------------------------------------------------------------ */}
         <div className="mt-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -670,257 +1008,143 @@ export default function FilmCapturePage() {
             <div className="flex items-center justify-center py-12">
               <Loader2 size={24} className="animate-spin text-gray-400" />
             </div>
-          ) : captures.length === 0 ? (
+          ) : games.length === 0 ? (
             <div className="text-center py-12">
               <Video size={40} className="text-gray-200 mx-auto mb-3" />
               <p className="text-sm text-gray-500">
                 {activeTab === 'shared'
-                  ? 'No videos have been shared with you yet.'
+                  ? 'No games have been shared with you yet.'
                   : hasActiveFilters
-                  ? 'No uploads match your filters.'
-                  : 'No uploads yet.'}
+                  ? 'No games match your filters.'
+                  : 'No games yet.'}
               </p>
             </div>
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {captures.map(capture => (
-                <div key={capture.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden group">
-                  {/* Thumbnail */}
-                  <div className="relative aspect-video bg-gray-900">
-                    {capture.playback_url ? (
-                      <video
-                        preload="metadata"
-                        className="w-full h-full object-cover"
-                        onMouseOver={e => (e.target as HTMLVideoElement).play().catch(() => {})}
-                        onMouseOut={e => {
-                          const v = e.target as HTMLVideoElement;
-                          v.pause();
-                          v.currentTime = 0;
-                        }}
-                        muted
-                        loop
-                      >
-                        <source src={capture.playback_url} type={capture.mime_type || 'video/mp4'} />
-                      </video>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Video size={32} className="text-gray-600" />
+            /* ---- Grid view ---- */
+            <div className="space-y-4">
+              {games.map(game => (
+                <div key={game.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  {/* Game card header */}
+                  <button
+                    type="button"
+                    onClick={() => handleExpandGame(game.id)}
+                    className="w-full flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg shrink-0">
+                        {game.sport_icon || <Video size={18} className="text-gray-400" />}
                       </div>
-                    )}
-
-                    {/* Action buttons — only shown on hover */}
-                    {activeTab === 'mine' && (
-                      <>
-                        {/* Share button — admin only */}
-                        {isAdmin && (
-                          <button
-                            onClick={e => { e.stopPropagation(); openShareModal(capture.id); }}
-                            className="absolute top-2 right-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                            title="Share"
-                          >
-                            <Share2 size={14} />
-                          </button>
-                        )}
-                        {/* Delete button */}
-                        <button
-                          onClick={() => handleDelete(capture.id, capture.file_name)}
-                          disabled={deletingId === capture.id}
-                          className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                          title="Delete"
-                        >
-                          {deletingId === capture.id
-                            ? <Loader2 size={14} className="animate-spin" />
-                            : <Trash2 size={14} />}
-                        </button>
-                      </>
-                    )}
-
-                    {/* Admin delete on all-tab */}
-                    {activeTab === 'all' && (
-                      <button
-                        onClick={() => handleDelete(capture.id, capture.file_name)}
-                        disabled={deletingId === capture.id}
-                        className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                        title="Delete"
-                      >
-                        {deletingId === capture.id
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <Trash2 size={14} />}
-                      </button>
-                    )}
-
-                    {/* Download button — available on all tabs */}
-                    {capture.playback_url && (
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDownload(capture); }}
-                        className="absolute top-2 left-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                        title="Download"
-                      >
-                        <Download size={14} />
-                      </button>
-                    )}
-
-                    {/* Send to Vimeo — available on all tabs when Vimeo is connected */}
-                    {vimeoConnected && capture.playback_url && (
-                      <button
-                        onClick={e => { e.stopPropagation(); openVimeoModal(capture); }}
-                        disabled={sendingToVimeo === capture.id}
-                        className="absolute top-2 left-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 disabled:opacity-50"
-                        title="Send to Vimeo"
-                      >
-                        {sendingToVimeo === capture.id
-                          ? <Loader2 size={14} className="animate-spin" />
-                          : <ExternalLink size={14} />}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-3">
-                    <div className="flex items-center gap-2">
-                      <span>{capture.sport_icon || '🎥'}</span>
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {capture.sport_name}{capture.opponent ? ` vs ${capture.opponent}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                      <span>{new Date(capture.game_date).toLocaleDateString()}</span>
-                      {capture.age_group && <span>· {capture.age_group}</span>}
-                      <span>· {formatFileSize(capture.file_size_bytes)}</span>
-                    </div>
-
-                    {/* Shared by (shared tab) */}
-                    {activeTab === 'shared' && capture.shared_by_name && (
-                      <p className="text-xs text-gray-400 mt-1 truncate">
-                        Shared by: {capture.shared_by_name}
-                        {capture.shared_at && (
-                          <span className="ml-1">
-                            · {new Date(capture.shared_at).toLocaleDateString()}
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {game.sport_name} {formatGameTitle(game)}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 flex-wrap">
+                          <span>{new Date(game.game_date).toLocaleDateString()}</span>
+                          {game.age_group && <span>· {game.age_group}</span>}
+                          <span className="inline-flex items-center gap-0.5 bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">
+                            <Video size={10} /> {game.clip_count} {game.clip_count === 1 ? 'clip' : 'clips'}
                           </span>
-                        )}
-                      </p>
-                    )}
+                          {activeTab === 'all' && game.uploader_name && (
+                            <span>· {game.uploader_name}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-                    {/* Admin uploader info */}
-                    {activeTab === 'all' && capture.uploader_name && (
-                      <p className="text-xs text-gray-400 mt-1 truncate">By: {capture.uploader_name}</p>
-                    )}
+                    <div className="flex items-center gap-2 ml-3 shrink-0">
+                      {/* Share button (admin only, mine/all tabs) */}
+                      {isAdmin && activeTab !== 'shared' && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); openShareModal(game.id); }}
+                          className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                          title="Share all clips in this game"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                      )}
+                      {/* Add clips shortcut (mine tab only) */}
+                      {activeTab === 'mine' && (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            setGameMode('existing');
+                            setSelectedGameId(game.id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                          title="Add clips to this game"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      )}
+                      {expandedGameId === game.id
+                        ? <ChevronUp size={16} className="text-gray-400" />
+                        : <ChevronDown size={16} className="text-gray-400" />}
+                    </div>
+                  </button>
 
-                    {/* Share count indicator (mine tab, admin only) */}
-                    {isAdmin && activeTab === 'mine' && (capture.share_count ?? 0) > 0 && (
-                      <button
-                        onClick={() => openShareModal(capture.id)}
-                        className="mt-1.5 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <Share2 size={11} />
-                        Shared with {capture.share_count} {capture.share_count === 1 ? 'person' : 'people'}
-                      </button>
-                    )}
-                  </div>
+                  {/* Expanded clips */}
+                  {expandedGameId === game.id && renderExpandedClips(game)}
                 </div>
               ))}
             </div>
           ) : (
-            /* List view */
+            /* ---- List view ---- */
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Header
-                  Columns: Title | Sport | Date | Age Group/Shared By | Size | DL | Vimeo | Share* | Delete*
-                  *Share and Delete are conditional on tab/role so use a fixed action block width.
-              */}
-              <div className={`grid gap-2 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide ${
-                activeTab === 'mine'
-                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem_2rem]'
-                  : activeTab === 'all'
-                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem]'
-                  : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem]'
-              }`}>
-                <span>Title</span>
+              {/* Header row */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_4rem_3rem] gap-2 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <span>Game</span>
                 <span>Sport</span>
                 <span>Date</span>
-                <span>{activeTab === 'shared' ? 'Shared By' : 'Age Group'}</span>
-                <span className="text-right">Size</span>
+                <span>Age Group</span>
+                <span className="text-center">Clips</span>
                 <span></span>
-                <span></span>
-                {activeTab !== 'shared' && <span></span>}
-                {activeTab === 'mine' && <span></span>}
               </div>
-              {captures.map(capture => (
-                <div
-                  key={capture.id}
-                  className={`grid gap-2 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 ${
-                    activeTab === 'mine'
-                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem_2rem]'
-                      : activeTab === 'all'
-                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem]'
-                      : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem]'
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm text-gray-900 truncate">
-                      {capture.opponent ? `vs ${capture.opponent}` : capture.file_name}
-                    </p>
-                    {activeTab === 'all' && capture.uploader_name && (
-                      <p className="text-xs text-gray-400 truncate">By: {capture.uploader_name}</p>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-600">{capture.sport_icon} {capture.sport_name}</span>
-                  <span className="text-sm text-gray-600">{new Date(capture.game_date).toLocaleDateString()}</span>
-                  <span className="text-sm text-gray-600">
-                    {activeTab === 'shared'
-                      ? (capture.shared_by_name ?? '—')
-                      : (capture.age_group || '—')}
-                  </span>
-                  <span className="text-sm text-gray-500 text-right">{formatFileSize(capture.file_size_bytes)}</span>
 
-                  {/* Download — all tabs */}
+              {games.map(game => (
+                <div key={game.id}>
+                  {/* Row */}
                   <button
-                    onClick={() => handleDownload(capture)}
-                    disabled={!capture.playback_url}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Download"
+                    type="button"
+                    onClick={() => handleExpandGame(game.id)}
+                    className="w-full grid grid-cols-[2fr_1fr_1fr_1fr_4rem_3rem] gap-2 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 transition-colors text-left"
                   >
-                    <Download size={14} />
+                    <div className="min-w-0">
+                      <p className="text-sm text-gray-900 truncate font-medium">{formatGameTitle(game)}</p>
+                      {activeTab === 'all' && game.uploader_name && (
+                        <p className="text-xs text-gray-400 truncate">By: {game.uploader_name}</p>
+                      )}
+                    </div>
+                    <span className="text-sm text-gray-600 truncate">{game.sport_icon} {game.sport_name}</span>
+                    <span className="text-sm text-gray-600">{new Date(game.game_date).toLocaleDateString()}</span>
+                    <span className="text-sm text-gray-500">{game.age_group || '—'}</span>
+                    <span className="text-sm text-gray-600 text-center">{game.clip_count}</span>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                      {isAdmin && activeTab !== 'shared' && (
+                        <button
+                          type="button"
+                          onClick={() => openShareModal(game.id)}
+                          className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                          title="Share game"
+                        >
+                          <Share2 size={13} />
+                        </button>
+                      )}
+                      {expandedGameId === game.id
+                        ? <ChevronUp size={14} className="text-gray-400" />
+                        : <ChevronDown size={14} className="text-gray-400" />}
+                    </div>
                   </button>
 
-                  {/* Send to Vimeo — all tabs when connected */}
-                  <button
-                    onClick={() => openVimeoModal(capture)}
-                    disabled={!vimeoConnected || !capture.playback_url || sendingToVimeo === capture.id}
-                    className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title={vimeoConnected ? 'Send to Vimeo' : 'Connect Vimeo to export'}
-                  >
-                    {sendingToVimeo === capture.id
-                      ? <Loader2 size={14} className="animate-spin" />
-                      : <ExternalLink size={14} />}
-                  </button>
-
-                  {/* Share button (admin only, mine tab) */}
-                  {activeTab !== 'shared' && (
-                    isAdmin && activeTab === 'mine' ? (
-                      <button
-                        onClick={() => openShareModal(capture.id)}
-                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                        title="Share"
-                      >
-                        <Share2 size={14} />
-                      </button>
-                    ) : (
-                      <span />
-                    )
-                  )}
-
-                  {/* Delete (mine and all tabs) */}
-                  {activeTab !== 'shared' && (
-                    <button
-                      onClick={() => handleDelete(capture.id, capture.file_name)}
-                      disabled={deletingId === capture.id}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                      title="Delete"
-                    >
-                      {deletingId === capture.id
-                        ? <Loader2 size={14} className="animate-spin" />
-                        : <Trash2 size={14} />}
-                    </button>
+                  {/* Expanded clips inline */}
+                  {expandedGameId === game.id && (
+                    <div className="border-b border-gray-100 last:border-0">
+                      {renderExpandedClips(game)}
+                    </div>
                   )}
                 </div>
               ))}
@@ -952,8 +1176,10 @@ export default function FilmCapturePage() {
         </div>
       </div>
 
-      {/* Share Modal */}
-      {sharingCaptureId && (
+      {/* -------------------------------------------------------------------- */}
+      {/* Share Modal                                                           */}
+      {/* -------------------------------------------------------------------- */}
+      {sharingGameId && (
         <div
           className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center"
           onClick={closeShareModal}
@@ -962,9 +1188,11 @@ export default function FilmCapturePage() {
             className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 w-full max-w-md mx-4"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Share Video</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Share Game</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Select users to share this video with. Uncheck to revoke access.
+              {sharingGameClipCount > 0
+                ? `Share all ${sharingGameClipCount} clip${sharingGameClipCount === 1 ? '' : 's'} in this game. Uncheck to revoke access.`
+                : 'Select users to share this game with. Uncheck to revoke access.'}
             </p>
 
             {loadingCurrentShares ? (
@@ -1031,7 +1259,9 @@ export default function FilmCapturePage() {
         </div>
       )}
 
-      {/* Vimeo Export Modal */}
+      {/* -------------------------------------------------------------------- */}
+      {/* Vimeo Export Modal                                                    */}
+      {/* -------------------------------------------------------------------- */}
       {vimeoModal && (
         <div
           className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center"

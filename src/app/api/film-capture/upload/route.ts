@@ -3,7 +3,7 @@
  * Saves film capture metadata after the client has uploaded the file
  * directly to Supabase Storage. This avoids the Vercel 4.5MB body limit.
  *
- * Body (JSON): { sport_id, game_date, opponent?, age_group?, storage_path, file_name, file_size_bytes, mime_type }
+ * Body (JSON): { sport_id, game_date, opponent?, age_group?, storage_path, file_name, file_size_bytes, mime_type, game_id?, clip_label?, clip_order? }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,6 +18,9 @@ interface UploadBody {
   file_name?: string;
   file_size_bytes?: number;
   mime_type?: string;
+  game_id?: string;
+  clip_label?: string;
+  clip_order?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: UploadBody = await request.json();
-    const { sport_id, game_date, opponent, age_group, storage_path, file_name, file_size_bytes, mime_type } = body;
+    const { sport_id, game_date, opponent, age_group, storage_path, file_name, file_size_bytes, mime_type, game_id, clip_label, clip_order } = body;
 
     if (!sport_id) return NextResponse.json({ error: 'sport_id is required' }, { status: 400 });
     if (!game_date) return NextResponse.json({ error: 'game_date is required' }, { status: 400 });
@@ -74,6 +77,9 @@ export async function POST(request: NextRequest) {
         mime_type: mime_type || null,
         uploader_id: user.id,
         uploader_role: uploaderRole,
+        game_id: game_id || null,
+        clip_label: clip_label?.trim() || null,
+        clip_order: typeof clip_order === 'number' ? clip_order : 0,
       })
       .select()
       .single();

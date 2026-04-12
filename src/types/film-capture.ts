@@ -26,8 +26,31 @@ export interface FilmCapture {
   mime_type: string | null;
   uploader_id: string;
   uploader_role: 'coach' | 'parent';
+  game_id: string | null;
+  clip_label: string | null;
+  clip_order: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface FilmCaptureGame {
+  id: string;
+  sport_id: string;
+  game_date: string;
+  opponent: string | null;
+  age_group: string | null;
+  title: string | null;
+  uploader_id: string;
+  uploader_role: 'coach' | 'parent';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FilmCaptureGameWithDetails extends FilmCaptureGame {
+  sport_name: string;
+  sport_icon: string | null;
+  clip_count: number;
+  uploader_name?: string | null;
 }
 
 export interface FilmCaptureWithSport extends FilmCapture {
