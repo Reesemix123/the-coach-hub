@@ -614,14 +614,16 @@ export default function FilmCapturePage() {
                     {/* Action buttons — only shown on hover */}
                     {activeTab === 'mine' && (
                       <>
-                        {/* Share button */}
-                        <button
-                          onClick={e => { e.stopPropagation(); openShareModal(capture.id); }}
-                          className="absolute top-2 right-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
-                          title="Share"
-                        >
-                          <Share2 size={14} />
-                        </button>
+                        {/* Share button — admin only */}
+                        {isAdmin && (
+                          <button
+                            onClick={e => { e.stopPropagation(); openShareModal(capture.id); }}
+                            className="absolute top-2 right-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                            title="Share"
+                          >
+                            <Share2 size={14} />
+                          </button>
+                        )}
                         {/* Delete button */}
                         <button
                           onClick={() => handleDelete(capture.id, capture.file_name)}
@@ -682,8 +684,8 @@ export default function FilmCapturePage() {
                       <p className="text-xs text-gray-400 mt-1 truncate">By: {capture.uploader_name}</p>
                     )}
 
-                    {/* Share count indicator (mine tab) */}
-                    {activeTab === 'mine' && (capture.share_count ?? 0) > 0 && (
+                    {/* Share count indicator (mine tab, admin only) */}
+                    {isAdmin && activeTab === 'mine' && (capture.share_count ?? 0) > 0 && (
                       <button
                         onClick={() => openShareModal(capture.id)}
                         className="mt-1.5 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colors"
@@ -739,8 +741,8 @@ export default function FilmCapturePage() {
                   </span>
                   <span className="text-sm text-gray-500 text-right">{formatFileSize(capture.file_size_bytes)}</span>
 
-                  {/* Share button (mine tab only) */}
-                  {activeTab === 'mine' && (
+                  {/* Share button (admin only, mine tab) */}
+                  {isAdmin && activeTab === 'mine' && (
                     <button
                       onClick={() => openShareModal(capture.id)}
                       className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"

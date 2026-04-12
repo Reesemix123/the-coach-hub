@@ -36,8 +36,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       .single();
     const isAdmin = profile?.is_platform_admin === true;
 
-    if (capture.uploader_id !== user.id && !isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only admins can manage sharing' }, { status: 403 });
     }
 
     const { error: deleteError } = await serviceClient
