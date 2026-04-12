@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Loader2, Upload, Trash2, Video, X,
   Grid3X3, List, Search, ChevronLeft, ChevronRight, SortAsc, SortDesc,
-  Share2,
+  Share2, Download, ExternalLink,
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import type { FilmCaptureWithSport, ShareableUser } from '@/types/film-capture';
@@ -63,6 +63,15 @@ export default function FilmCapturePage() {
 
   // Uploaders list (admin only)
   const [uploaders, setUploaders] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Vimeo state
+  const [vimeoConnected, setVimeoConnected] = useState(false);
+  const [vimeoAccountName, setVimeoAccountName] = useState<string | null>(null);
+  const [sendingToVimeo, setSendingToVimeo] = useState<string | null>(null);
+  const [vimeoModal, setVimeoModal] = useState<{ captureId: string; defaultTitle: string } | null>(null);
+  const [vimeoTitle, setVimeoTitle] = useState('');
+  const [vimeoDescription, setVimeoDescription] = useState('');
+  const [vimeoPrivacy, setVimeoPrivacy] = useState<'unlisted' | 'public' | 'private'>('unlisted');
 
   // Persist view mode
   useEffect(() => {
@@ -155,6 +164,21 @@ export default function FilmCapturePage() {
         }
       } catch (err) {
         console.error('Failed to fetch shareable users:', err);
+      }
+
+      // Check Vimeo connection
+      try {
+        const vimeoRes = await fetch('/api/communication/external-accounts');
+        if (vimeoRes.ok) {
+          const vimeoData = await vimeoRes.json();
+          const vimeo = vimeoData.accounts?.vimeo;
+          if (vimeo?.connected && vimeo?.status === 'active') {
+            setVimeoConnected(true);
+            setVimeoAccountName(vimeo.accountName || null);
+          }
+        }
+      } catch {
+        // Non-critical — Vimeo banner is hidden if check fails
       }
 
       setLoading(false);
@@ -317,6 +341,54 @@ export default function FilmCapturePage() {
     setSelectedShareUsers(new Set());
   }
 
+  function handleDownload(capture: FilmCaptureWithSport) {
+    if (!capture.playback_url) return;
+    const a = document.createElement('a');
+    a.href = capture.playback_url;
+    a.download = capture.file_name;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function openVimeoModal(capture: FilmCaptureWithSport) {
+    const sportName = capture.sport_name || 'Film';
+    const defaultTitle = capture.opponent
+      ? `${sportName} vs ${capture.opponent} — ${new Date(capture.game_date).toLocaleDateString()}`
+      : `${sportName} — ${new Date(capture.game_date).toLocaleDateString()}`;
+    setVimeoModal({ captureId: capture.id, defaultTitle });
+    setVimeoTitle(defaultTitle);
+    setVimeoDescription('');
+    setVimeoPrivacy('unlisted');
+  }
+
+  async function handleSendToVimeo() {
+    if (!vimeoModal) return;
+    setSendingToVimeo(vimeoModal.captureId);
+    try {
+      const res = await fetch(`/api/film-capture/${vimeoModal.captureId}/vimeo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: vimeoTitle,
+          description: vimeoDescription,
+          privacySetting: vimeoPrivacy,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || 'Failed to send to Vimeo');
+      }
+      setSuccess('Video sent to Vimeo — it will appear in your Vimeo account shortly');
+      setVimeoModal(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send to Vimeo');
+    } finally {
+      setSendingToVimeo(null);
+    }
+  }
+
   const hasActiveFilters = !!(filterSport || filterAgeGroup || filterUploader || searchQuery);
 
   // Heading text depends on the active tab
@@ -437,6 +509,31 @@ export default function FilmCapturePage() {
             </button>
           </form>
         </div>
+
+        {/* Vimeo connection banner */}
+        {!vimeoConnected && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-900">Connect your Vimeo account</p>
+              <p className="text-xs text-blue-700 mt-0.5">Send film captures directly to your Vimeo library.</p>
+            </div>
+            <a
+              href="/api/auth/vimeo"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Connect Vimeo
+            </a>
+          </div>
+        )}
+
+        {vimeoConnected && (
+          <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+            <ExternalLink size={16} className="text-green-600" />
+            <p className="text-sm text-green-700">
+              Vimeo connected{vimeoAccountName ? `: ${vimeoAccountName}` : ''}
+            </p>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="mt-8 flex items-center gap-1 border-b border-gray-200">
@@ -651,6 +748,31 @@ export default function FilmCapturePage() {
                           : <Trash2 size={14} />}
                       </button>
                     )}
+
+                    {/* Download button — available on all tabs */}
+                    {capture.playback_url && (
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDownload(capture); }}
+                        className="absolute top-2 left-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                        title="Download"
+                      >
+                        <Download size={14} />
+                      </button>
+                    )}
+
+                    {/* Send to Vimeo — available on all tabs when Vimeo is connected */}
+                    {vimeoConnected && capture.playback_url && (
+                      <button
+                        onClick={e => { e.stopPropagation(); openVimeoModal(capture); }}
+                        disabled={sendingToVimeo === capture.id}
+                        className="absolute top-2 left-10 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70 disabled:opacity-50"
+                        title="Send to Vimeo"
+                      >
+                        {sendingToVimeo === capture.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <ExternalLink size={14} />}
+                      </button>
+                    )}
                   </div>
 
                   {/* Info */}
@@ -701,27 +823,36 @@ export default function FilmCapturePage() {
           ) : (
             /* List view */
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Header */}
-              <div className={`grid gap-3 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide ${
+              {/* Header
+                  Columns: Title | Sport | Date | Age Group/Shared By | Size | DL | Vimeo | Share* | Delete*
+                  *Share and Delete are conditional on tab/role so use a fixed action block width.
+              */}
+              <div className={`grid gap-2 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide ${
                 activeTab === 'mine'
-                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem_3rem]'
-                  : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem]'
+                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem_2rem]'
+                  : activeTab === 'all'
+                  ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem]'
+                  : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem]'
               }`}>
                 <span>Title</span>
                 <span>Sport</span>
                 <span>Date</span>
                 <span>{activeTab === 'shared' ? 'Shared By' : 'Age Group'}</span>
                 <span className="text-right">Size</span>
-                {activeTab === 'mine' && <span></span>}
                 <span></span>
+                <span></span>
+                {activeTab !== 'shared' && <span></span>}
+                {activeTab === 'mine' && <span></span>}
               </div>
               {captures.map(capture => (
                 <div
                   key={capture.id}
-                  className={`grid gap-3 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 ${
+                  className={`grid gap-2 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50 ${
                     activeTab === 'mine'
-                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem_3rem]'
-                      : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem]'
+                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem_2rem]'
+                      : activeTab === 'all'
+                      ? 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem_2rem]'
+                      : 'grid-cols-[2fr_1fr_1fr_1fr_5rem_2rem_2rem]'
                   }`}
                 >
                   <div className="min-w-0">
@@ -741,19 +872,45 @@ export default function FilmCapturePage() {
                   </span>
                   <span className="text-sm text-gray-500 text-right">{formatFileSize(capture.file_size_bytes)}</span>
 
+                  {/* Download — all tabs */}
+                  <button
+                    onClick={() => handleDownload(capture)}
+                    disabled={!capture.playback_url}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title="Download"
+                  >
+                    <Download size={14} />
+                  </button>
+
+                  {/* Send to Vimeo — all tabs when connected */}
+                  <button
+                    onClick={() => openVimeoModal(capture)}
+                    disabled={!vimeoConnected || !capture.playback_url || sendingToVimeo === capture.id}
+                    className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    title={vimeoConnected ? 'Send to Vimeo' : 'Connect Vimeo to export'}
+                  >
+                    {sendingToVimeo === capture.id
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <ExternalLink size={14} />}
+                  </button>
+
                   {/* Share button (admin only, mine tab) */}
-                  {isAdmin && activeTab === 'mine' && (
-                    <button
-                      onClick={() => openShareModal(capture.id)}
-                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
-                      title="Share"
-                    >
-                      <Share2 size={14} />
-                    </button>
+                  {activeTab !== 'shared' && (
+                    isAdmin && activeTab === 'mine' ? (
+                      <button
+                        onClick={() => openShareModal(capture.id)}
+                        className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                        title="Share"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    ) : (
+                      <span />
+                    )
                   )}
 
                   {/* Delete (mine and all tabs) */}
-                  {(activeTab === 'mine' || activeTab === 'all') && (
+                  {activeTab !== 'shared' && (
                     <button
                       onClick={() => handleDelete(capture.id, capture.file_name)}
                       disabled={deletingId === capture.id}
@@ -765,9 +922,6 @@ export default function FilmCapturePage() {
                         : <Trash2 size={14} />}
                     </button>
                   )}
-
-                  {/* Placeholder cell for shared tab (no actions) */}
-                  {activeTab === 'shared' && <span />}
                 </div>
               ))}
             </div>
@@ -868,6 +1022,76 @@ export default function FilmCapturePage() {
               </button>
               <button
                 onClick={closeShareModal}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vimeo Export Modal */}
+      {vimeoModal && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 flex items-center justify-center"
+          onClick={() => setVimeoModal(null)}
+        >
+          <div
+            className="bg-white rounded-xl border border-gray-200 shadow-lg p-6 w-full max-w-md mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Send to Vimeo</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={vimeoTitle}
+                  onChange={e => setVimeoTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={vimeoDescription}
+                  onChange={e => setVimeoDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Optional"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Privacy</label>
+                <select
+                  value={vimeoPrivacy}
+                  onChange={e => setVimeoPrivacy(e.target.value as 'unlisted' | 'public' | 'private')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                >
+                  <option value="unlisted">Unlisted (link only)</option>
+                  <option value="private">Private</option>
+                  <option value="public">Public</option>
+                </select>
+              </div>
+
+              <p className="text-xs text-gray-500">A watermark will be applied to the video.</p>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
+              <button
+                onClick={handleSendToVimeo}
+                disabled={sendingToVimeo !== null || !vimeoTitle.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              >
+                {sendingToVimeo ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                Send to Vimeo
+              </button>
+              <button
+                onClick={() => setVimeoModal(null)}
                 className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Cancel
