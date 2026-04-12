@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Upload, Trash2, Video, Calendar, Users, X } from 'lucide-react';
+import {
+  Loader2, Upload, Trash2, Video, Calendar, Users, X,
+  Grid3X3, List, Search, ChevronLeft, ChevronRight, SortAsc, SortDesc,
+} from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import type { FilmCaptureWithSport } from '@/types/film-capture';
 import { AGE_GROUPS } from '@/types/film-capture';
@@ -24,17 +27,68 @@ export default function FilmCapturePage() {
   const [ageGroup, setAgeGroup] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
+  // View mode — persisted to localStorage
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('film-capture-view') as 'grid' | 'list') || 'grid';
+    }
+    return 'grid';
+  });
+
+  // Filters
+  const [filterSport, setFilterSport] = useState('');
+  const [filterAgeGroup, setFilterAgeGroup] = useState('');
+  const [filterUploader, setFilterUploader] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const perPage = 20;
+
+  // Uploaders list (admin only)
+  const [uploaders, setUploaders] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Persist view mode
+  useEffect(() => {
+    localStorage.setItem('film-capture-view', viewMode);
+  }, [viewMode]);
+
   const fetchCaptures = useCallback(async () => {
     try {
-      const res = await fetch(`/api/film-capture${isAdmin ? '?all=true' : ''}`);
+      const params = new URLSearchParams();
+      if (isAdmin) params.set('all', 'true');
+      if (filterSport) params.set('sport_id', filterSport);
+      if (filterAgeGroup) params.set('age_group', filterAgeGroup);
+      if (filterUploader) params.set('uploader_id', filterUploader);
+      if (searchQuery) params.set('search', searchQuery);
+      params.set('sort', sortOrder);
+      params.set('page', String(page));
+      params.set('per_page', String(perPage));
+
+      const res = await fetch(`/api/film-capture?${params}`);
       if (res.ok) {
         const data = await res.json();
         setCaptures(data.captures ?? []);
+        setTotalPages(data.total_pages ?? 1);
+        setTotalCount(data.total ?? 0);
       }
     } catch (err) {
       console.error('Failed to fetch captures:', err);
     }
-  }, [isAdmin]);
+  }, [isAdmin, filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder, page]);
+
+  // Fetch when any filter/pagination dep changes
+  useEffect(() => {
+    fetchCaptures();
+  }, [fetchCaptures]);
+
+  // Reset to page 1 whenever filters change (but not when page itself changes)
+  useEffect(() => {
+    setPage(1);
+  }, [filterSport, filterAgeGroup, filterUploader, searchQuery, sortOrder]);
 
   useEffect(() => {
     async function init() {
@@ -56,14 +110,33 @@ export default function FilmCapturePage() {
           .select('is_platform_admin')
           .eq('id', user.id)
           .maybeSingle();
-        setIsAdmin(profile?.is_platform_admin === true);
+        const adminFlag = profile?.is_platform_admin === true;
+        setIsAdmin(adminFlag);
+
+        // Fetch uploader list for admin filter dropdown
+        if (adminFlag) {
+          const { data: uploaderData } = await supabase
+            .from('film_captures')
+            .select('uploader_id');
+          const uniqueIds = [...new Set((uploaderData ?? []).map(u => u.uploader_id as string))];
+          if (uniqueIds.length > 0) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('id, full_name, email')
+              .in('id', uniqueIds);
+            setUploaders(
+              (profileData ?? []).map(p => ({
+                id: p.id,
+                name: (p.full_name as string | null) || (p.email as string | null) || p.id,
+              }))
+            );
+          }
+        }
       }
 
-      await fetchCaptures();
       setLoading(false);
     }
     init();
-    // fetchCaptures is stable after isAdmin is resolved; init runs once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -156,6 +229,7 @@ export default function FilmCapturePage() {
       const res = await fetch(`/api/film-capture/${captureId}`, { method: 'DELETE' });
       if (res.ok) {
         setCaptures(prev => prev.filter(c => c.id !== captureId));
+        setTotalCount(prev => Math.max(0, prev - 1));
       }
     } finally {
       setDeletingId(null);
@@ -169,9 +243,11 @@ export default function FilmCapturePage() {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
+  const hasActiveFilters = !!(filterSport || filterAgeGroup || filterUploader || searchQuery);
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-semibold text-gray-900">Film Capture</h1>
         <p className="text-sm text-gray-500 mt-1">Upload and manage game film across all sports.</p>
 
@@ -283,11 +359,97 @@ export default function FilmCapturePage() {
           </form>
         </div>
 
+        {/* Filter bar */}
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          {/* View mode toggle */}
+          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              title="Grid view"
+            >
+              <Grid3X3 size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 ${viewMode === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              title="List view"
+            >
+              <List size={16} />
+            </button>
+          </div>
+
+          {/* Sport filter */}
+          <select
+            value={filterSport}
+            onChange={e => setFilterSport(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+          >
+            <option value="">All Sports</option>
+            {sports.map(s => (
+              <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+            ))}
+          </select>
+
+          {/* Age group filter */}
+          <select
+            value={filterAgeGroup}
+            onChange={e => setFilterAgeGroup(e.target.value)}
+            className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+          >
+            <option value="">All Age Groups</option>
+            {AGE_GROUPS.map(ag => (
+              <option key={ag} value={ag}>{ag}</option>
+            ))}
+          </select>
+
+          {/* Uploader filter (admin only) */}
+          {isAdmin && uploaders.length > 0 && (
+            <select
+              value={filterUploader}
+              onChange={e => setFilterUploader(e.target.value)}
+              className="text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+            >
+              <option value="">All Uploaders</option>
+              {uploaders.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[150px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search opponent..."
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400"
+            />
+          </div>
+
+          {/* Sort toggle */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50"
+            title={sortOrder === 'newest' ? 'Showing newest first' : 'Showing oldest first'}
+          >
+            {sortOrder === 'newest' ? <SortDesc size={14} /> : <SortAsc size={14} />}
+            {sortOrder === 'newest' ? 'Newest' : 'Oldest'}
+          </button>
+        </div>
+
         {/* Library */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            {isAdmin ? 'All Uploads' : 'Your Uploads'}
-          </h2>
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isAdmin ? 'All Uploads' : 'Your Uploads'}
+              {totalCount > 0 && (
+                <span className="text-gray-400 font-normal ml-2">({totalCount})</span>
+              )}
+            </h2>
+          </div>
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -296,65 +458,132 @@ export default function FilmCapturePage() {
           ) : captures.length === 0 ? (
             <div className="text-center py-12">
               <Video size={40} className="text-gray-200 mx-auto mb-3" />
-              <p className="text-sm text-gray-500">No uploads yet.</p>
+              <p className="text-sm text-gray-500">
+                {hasActiveFilters
+                  ? 'No uploads match your filters.'
+                  : 'No uploads yet.'}
+              </p>
             </div>
-          ) : (
-            <div className="space-y-4">
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {captures.map(capture => (
-                <div key={capture.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  {/* Video player */}
-                  {capture.playback_url && (
-                    <video
-                      controls
-                      preload="metadata"
-                      className="w-full max-h-[400px] bg-black"
-                    >
-                      <source src={capture.playback_url} type={capture.mime_type || 'video/mp4'} />
-                      Your browser does not support video playback.
-                    </video>
-                  )}
-
-                  {/* Metadata */}
-                  <div className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{capture.sport_icon || '🎥'}</span>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {capture.sport_name}{capture.opponent ? ` vs ${capture.opponent}` : ''}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={10} />
-                              {new Date(capture.game_date).toLocaleDateString()}
-                            </span>
-                            {capture.age_group && (
-                              <span className="flex items-center gap-1">
-                                <Users size={10} />
-                                {capture.age_group}
-                              </span>
-                            )}
-                            <span>{formatFileSize(capture.file_size_bytes)}</span>
-                            <span>{capture.file_name}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleDelete(capture.id, capture.file_name)}
-                        disabled={deletingId === capture.id}
-                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Delete"
+                <div key={capture.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden group">
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video bg-gray-900">
+                    {capture.playback_url ? (
+                      <video
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                        onMouseOver={e => (e.target as HTMLVideoElement).play().catch(() => {})}
+                        onMouseOut={e => {
+                          const v = e.target as HTMLVideoElement;
+                          v.pause();
+                          v.currentTime = 0;
+                        }}
+                        muted
+                        loop
                       >
-                        {deletingId === capture.id
-                          ? <Loader2 size={16} className="animate-spin" />
-                          : <Trash2 size={16} />
-                        }
-                      </button>
+                        <source src={capture.playback_url} type={capture.mime_type || 'video/mp4'} />
+                      </video>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Video size={32} className="text-gray-600" />
+                      </div>
+                    )}
+                    {/* Delete overlay */}
+                    <button
+                      onClick={() => handleDelete(capture.id, capture.file_name)}
+                      disabled={deletingId === capture.id}
+                      className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
+                    >
+                      {deletingId === capture.id
+                        ? <Loader2 size={14} className="animate-spin" />
+                        : <Trash2 size={14} />}
+                    </button>
+                  </div>
+                  {/* Info */}
+                  <div className="p-3">
+                    <div className="flex items-center gap-2">
+                      <span>{capture.sport_icon || '🎥'}</span>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {capture.sport_name}{capture.opponent ? ` vs ${capture.opponent}` : ''}
+                      </p>
                     </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <span>{new Date(capture.game_date).toLocaleDateString()}</span>
+                      {capture.age_group && <span>· {capture.age_group}</span>}
+                      <span>· {formatFileSize(capture.file_size_bytes)}</span>
+                    </div>
+                    {isAdmin && capture.uploader_name && (
+                      <p className="text-xs text-gray-400 mt-1 truncate">By: {capture.uploader_name}</p>
+                    )}
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            /* List view */
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="grid grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem] gap-3 px-4 py-2 border-b border-gray-100 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <span>Title</span>
+                <span>Sport</span>
+                <span>Date</span>
+                <span>Age Group</span>
+                <span className="text-right">Size</span>
+                <span></span>
+              </div>
+              {captures.map(capture => (
+                <div
+                  key={capture.id}
+                  className="grid grid-cols-[2fr_1fr_1fr_1fr_5rem_3rem] gap-3 px-4 py-3 border-b border-gray-100 last:border-0 items-center hover:bg-gray-50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm text-gray-900 truncate">
+                      {capture.opponent ? `vs ${capture.opponent}` : capture.file_name}
+                    </p>
+                    {isAdmin && capture.uploader_name && (
+                      <p className="text-xs text-gray-400 truncate">By: {capture.uploader_name}</p>
+                    )}
+                  </div>
+                  <span className="text-sm text-gray-600">{capture.sport_icon} {capture.sport_name}</span>
+                  <span className="text-sm text-gray-600">{new Date(capture.game_date).toLocaleDateString()}</span>
+                  <span className="text-sm text-gray-600">{capture.age_group || '—'}</span>
+                  <span className="text-sm text-gray-500 text-right">{formatFileSize(capture.file_size_bytes)}</span>
+                  <button
+                    onClick={() => handleDelete(capture.id, capture.file_name)}
+                    disabled={deletingId === capture.id}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === capture.id
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <Trash2 size={14} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={14} /> Previous
+              </button>
+              <span className="text-sm text-gray-500">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Next <ChevronRight size={14} />
+              </button>
             </div>
           )}
         </div>

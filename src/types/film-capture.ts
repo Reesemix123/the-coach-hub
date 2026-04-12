@@ -34,6 +34,7 @@ export interface FilmCaptureWithSport extends FilmCapture {
   sport_name: string;
   sport_icon: string | null;
   playback_url?: string | null;
+  uploader_name?: string | null; // Admin only — populated from profiles
 }
 
 export const AGE_GROUPS = ['Youth', 'JV', 'Varsity', 'College'] as const;
