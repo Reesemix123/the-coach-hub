@@ -351,13 +351,11 @@ export default async function Page() {
             ].map((plan, i) => (
               <AnimateOnScroll key={plan.name} delay={(i % 4) as 0 | 1 | 2 | 3}>
                 <div
-                  className="rounded-2xl p-5"
-                  style={{
-                    background: 'rgba(32,26,22,0.78)',
-                    border: plan.featured
-                      ? '1px solid rgba(184,202,110,0.35)'
-                      : '1px solid rgba(148,163,184,0.16)',
-                  }}
+                  className={`rounded-2xl p-5 transition-all duration-200 backdrop-blur-sm ${
+                    plan.featured
+                      ? 'border-2 border-[#B8CA6E]/50 bg-[#201a16]/70 shadow-lg shadow-[#B8CA6E]/10'
+                      : 'border border-white/10 bg-[#201a16]/60 hover:border-2 hover:border-[#B8CA6E]/50 hover:bg-[#201a16]/70 hover:shadow-lg hover:shadow-[#B8CA6E]/10'
+                  }`}
                 >
                   <p className="text-sm font-black" style={{ color: '#F9FAFB' }}>{plan.name}</p>
                   <p className="text-lg font-black mt-1" style={{ color: '#B8CA6E' }}>{plan.price}<span className="text-xs font-normal" style={{ color: 'rgba(249,250,251,0.40)' }}>/season</span></p>
