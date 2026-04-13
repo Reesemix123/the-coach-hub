@@ -14,6 +14,7 @@ import {
   UserCircle,
 } from 'lucide-react';
 import { AnimateOnScroll } from '@/components/marketing/AnimateOnScroll';
+import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 import { SportSelectorDropdown } from '@/components/marketing/SportSelectorDropdown';
 
 // =============================================================================
@@ -685,38 +686,7 @@ export default async function Page() {
       {/* ================================================================= */}
       {/* FOOTER                                                           */}
       {/* ================================================================= */}
-      <footer
-        className="py-8 px-4 sm:px-8"
-        style={{
-          background: '#120e0b',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src="/logo-darkmode.png" alt="Youth Coach Hub" className="h-7 w-auto" />
-            <span className="text-xs" style={{ color: 'rgba(249,250,251,0.40)' }}>
-              © 2026 Youth Coach Hub LLC
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            {[
-              { label: 'Football', href: '/football' },
-              { label: 'Privacy', href: '/privacy' },
-              { label: 'Terms', href: '/terms' },
-            ].map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="text-xs transition-colors hover:text-[#F9FAFB]"
-                style={{ color: 'rgba(249,250,251,0.40)' }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </div>
   );
 }

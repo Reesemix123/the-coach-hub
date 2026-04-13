@@ -12,6 +12,7 @@ import { FEATURE_DEMOS, getFeatureById } from '@/config/featureDemos';
 import FeatureCard from '@/components/home/FeatureCard';
 import FeatureDemoModal from '@/components/home/FeatureDemoModal';
 import { trackFeatureModalOpen } from '@/utils/analytics';
+import { MarketingFooter } from '@/components/marketing/MarketingFooter';
 
 // Pricing tier configurations
 interface PricingTier {
@@ -690,29 +691,7 @@ function HomeContent() {
       </section>
 
       {/* Footer */}
-      <footer className="relative py-12 px-8 bg-[#1a1410] border-t border-white/10">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo-darkmode.png"
-              alt="Youth Coach Hub"
-              className="h-8 w-auto"
-            />
-            <span className="text-[#F9FAFB] font-black tracking-tight">
-              youth<span className="text-[#B8CA6E]">coach</span>hub
-            </span>
-          </div>
-
-          <div className="flex items-center gap-6 text-sm font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>
-            <Link href="/about" className="hover:text-[#F9FAFB] transition-colors">About</Link>
-            <Link href="/contact" className="hover:text-[#F9FAFB] transition-colors">Contact</Link>
-            <Link href="/privacy" className="hover:text-[#F9FAFB] transition-colors">Privacy</Link>
-            <Link href="/terms" className="hover:text-[#F9FAFB] transition-colors">Terms</Link>
-          </div>
-
-          <p className="text-sm font-bold" style={{ color: 'rgba(249,250,251,.55)', opacity: 0.85 }}>© 2026 Youth Coach Hub</p>
-        </div>
-      </footer>
+      <MarketingFooter />
 
       {/* Trial Request Modal */}
       {showTrialModal && trialsEnabled && (
