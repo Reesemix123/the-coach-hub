@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         is_platform_admin,
         is_deactivated,
         last_active_at,
-        updated_at
+        created_at
       `);
 
     if (profilesError) throw profilesError;
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
         is_platform_admin: profile.is_platform_admin || false,
         is_deactivated: profile.is_deactivated || false,
         last_active_at: profile.last_active_at,
-        created_at: profile.updated_at // Use updated_at as fallback since created_at doesn't exist
+        created_at: profile.created_at
       };
     });
 
