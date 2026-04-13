@@ -3,14 +3,96 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from "next/link";
-import { Gift, Users, Shield, ChevronRight } from 'lucide-react';
+import { Gift, Users, Shield, ChevronRight, ChevronDown } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useGlobalOnboardingSafe } from '@/components/onboarding';
 import type { SubscriptionTier } from '@/types/admin';
+import { PricingGrid } from '@/components/pricing';
 import { FEATURE_DEMOS, getFeatureById } from '@/config/featureDemos';
 import FeatureCard from '@/components/home/FeatureCard';
 import FeatureDemoModal from '@/components/home/FeatureDemoModal';
 import { trackFeatureModalOpen } from '@/utils/analytics';
+
+// Pricing tier configurations
+interface PricingTier {
+  id: SubscriptionTier;
+  name: string;
+  description: string;
+  price_monthly: number;
+  price_annual: number;
+  annual_savings: number;
+  monthly_upload_tokens: number;
+  max_cameras_per_game: number;
+  retention_days: number;
+  features: string[];
+}
+
+const DEFAULT_TIER_CONFIGS: Record<SubscriptionTier, Omit<PricingTier, 'id'>> = {
+  basic: {
+    name: 'Basic',
+    description: 'Perfect for getting started',
+    price_monthly: 0,
+    price_annual: 0,
+    annual_savings: 0,
+    monthly_upload_tokens: 2,
+    max_cameras_per_game: 1,
+    retention_days: 30,
+    features: [
+      '2 games/month (1 team + 1 opponent)',
+      '1 camera per game',
+      '5 GB per game, 10 GB total',
+      '30-day film retention',
+      'Up to 3 coaches',
+      'All features included'
+    ]
+  },
+  plus: {
+    name: 'Plus',
+    description: 'For active coaching programs',
+    price_monthly: 29.99,
+    price_annual: 299.99,
+    annual_savings: 60,
+    monthly_upload_tokens: 4,
+    max_cameras_per_game: 3,
+    retention_days: 180,
+    features: [
+      '4 games/month (2 team + 2 opponent)',
+      '3 cameras per game',
+      '10 GB per game, ~240 GB total',
+      '180-day film retention',
+      'Up to 5 coaches',
+      'All features included'
+    ]
+  },
+  premium: {
+    name: 'Premium',
+    description: 'Maximum capacity for serious programs',
+    price_monthly: 79.99,
+    price_annual: 799.99,
+    annual_savings: 160,
+    monthly_upload_tokens: 8,
+    max_cameras_per_game: 5,
+    retention_days: 365,
+    features: [
+      '8 games/month (4 team + 4 opponent)',
+      '5 cameras per game',
+      '25 GB per game, ~2.4 TB total',
+      '365-day film retention',
+      'Up to 10 coaches',
+      'All features included'
+    ]
+  }
+};
+
+const faqs = [
+  { question: 'Can I change my plan later?', answer: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you\'ll get immediate access to new features. When downgrading, changes take effect at your next billing cycle.' },
+  { question: 'What are upload tokens?', answer: 'Upload tokens are used to upload game film to the platform. Each game you upload uses 1 token. Tokens refresh monthly. If you need more tokens, you can upgrade to a higher plan.' },
+  { question: 'How many cameras can I use per game?', answer: 'Each plan includes a certain number of camera angles per game. Basic allows 1 camera, Plus allows 3 cameras, and Premium allows 5 cameras. This lets you capture sideline, end zone, and other angles.' },
+  { question: 'What is game retention?', answer: 'Game retention is how long your uploaded games stay on the platform. Basic keeps games for 30 days, Plus for 6 months, and Premium for a full year. After this period, games are automatically archived.' },
+  { question: 'What if I run out of upload tokens?', answer: 'Tokens refresh at the start of each billing cycle. If you frequently run out of tokens, consider upgrading to a higher plan for more monthly uploads.' },
+  { question: 'What payment methods do you accept?', answer: 'We accept all major credit cards (Visa, Mastercard, American Express, Discover) through our secure payment processor, Stripe.' },
+  { question: 'Can I cancel at any time?', answer: 'Yes, you can cancel your subscription at any time. You\'ll continue to have access until the end of your current billing period.' },
+];
 
 interface UserTeam {
   id: string;
@@ -39,6 +121,11 @@ function HomeContent() {
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const supabase = createClient();
+
+  const tiers: PricingTier[] = (['basic', 'plus', 'premium'] as SubscriptionTier[]).map(tierId => ({
+    id: tierId,
+    ...DEFAULT_TIER_CONFIGS[tierId]
+  }));
 
   useEffect(() => {
     checkUserTeams();
@@ -327,7 +414,7 @@ function HomeContent() {
 
           <div className="flex items-center gap-4 sm:gap-8">
             <a href="#features" className="hidden sm:inline text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Features</a>
-            <Link href="/pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Pricing</Link>
+            <a href="#pricing" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold cursor-pointer" onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }); }}>Pricing</a>
             <Link href="/auth/login" className="text-[rgba(249,250,251,.72)] hover:text-white transition-colors text-sm font-bold">Log In</Link>
           </div>
         </nav>
@@ -346,9 +433,9 @@ function HomeContent() {
             </p>
 
             <div className="fade-in fade-in-delay-2 flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/pricing" className="h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }}>
-                Get Started Today
-              </Link>
+              <a href="#pricing" className="h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg flex items-center justify-center" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.25)' }} onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }); }}>
+                See Pricing
+              </a>
               <button
                 onClick={() => onboarding?.startDemoTour()}
                 className="h-14 px-7 text-white font-black rounded-2xl transition-all text-lg flex items-center justify-center gap-2"
@@ -542,29 +629,45 @@ function HomeContent() {
       </section>
 
       {/* Pricing Section */}
-      <section className="relative py-20 px-8">
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <div className="grid md:grid-cols-3 gap-5 mb-6">
-            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Basic</p>
-              <p className="text-3xl font-black text-[#F9FAFB]">Free</p>
-              <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Get started</p>
-            </Link>
+      <section id="pricing" className="relative py-20 px-4 sm:px-8">
+        <div className="relative z-10 mx-auto max-w-7xl">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white" style={{ letterSpacing: '-0.8px' }}>
+              Simple, transparent pricing
+            </h2>
+            <p className="mt-4 text-lg text-gray-300/80 max-w-2xl mx-auto">
+              Choose the plan that fits your program. Use upload tokens to add games,
+              multiple camera angles for better coverage, and keep your games for longer.
+            </p>
+          </div>
+          <PricingGrid tiers={tiers} />
+          <p className="text-center text-sm text-gray-400/60 mt-8">
+            All plans include every feature. Only capacity differs.
+          </p>
+        </div>
+      </section>
 
-            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '2px solid rgba(184,202,110,.38)', boxShadow: '0 18px 42px rgba(0,0,0,.35)' }}>
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#B8CA6E] text-[#1a1410] text-xs font-black rounded-full" style={{ boxShadow: '0 14px 32px rgba(184,202,110,.16)' }}>
-                Most Popular
-              </div>
-              <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Plus</p>
-              <p className="text-3xl font-black text-[#F9FAFB]">$29<span className="text-base font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>/mo</span></p>
-              <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Full AI coaching assist</p>
-            </Link>
-
-            <Link href="/pricing" className="p-6 rounded-2xl relative cursor-pointer hover:scale-[1.02] transition-transform" style={{ background: 'rgba(32,26,22,.78)', border: '1px solid rgba(148,163,184,.16)', boxShadow: '0 12px 30px rgba(0,0,0,.28)' }}>
-              <p className="text-sm mb-2 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>Premium</p>
-              <p className="text-3xl font-black text-[#F9FAFB]">$79<span className="text-base font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>/mo</span></p>
-              <p className="text-xs mt-2 font-bold" style={{ color: 'rgba(249,250,251,.55)' }}>Full AI + max film storage</p>
-            </Link>
+      {/* FAQ Section */}
+      <section className="relative py-16 px-4 sm:px-8">
+        <div className="relative z-10 mx-auto max-w-3xl">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">
+            Frequently asked questions
+          </h2>
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <details
+                key={index}
+                className="group rounded-2xl border border-white/10 bg-[#201a16]/60 backdrop-blur-sm"
+              >
+                <summary className="flex cursor-pointer items-center justify-between px-6 py-4 text-left">
+                  <span className="font-medium text-white">{faq.question}</span>
+                  <ChevronDown className="h-5 w-5 text-gray-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-6 pb-4">
+                  <p className="text-gray-300/80">{faq.answer}</p>
+                </div>
+              </details>
+            ))}
           </div>
         </div>
       </section>
@@ -580,9 +683,9 @@ function HomeContent() {
           <p className="text-lg mb-8 font-bold" style={{ color: 'rgba(249,250,251,.72)' }}>
             Join coaches who are leveling up their game—without breaking their budget.
           </p>
-          <Link href="/pricing" className="inline-flex items-center justify-center h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.14)' }}>
+          <a href="#pricing" className="inline-flex items-center justify-center h-14 px-7 bg-[#B8CA6E] text-[#1a1410] font-black rounded-2xl hover:bg-[#c9d88a] transition-all text-lg" style={{ boxShadow: '0 14px 28px rgba(184,202,110,.14)' }} onClick={(e) => { e.preventDefault(); document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' }); }}>
             Get Started Today
-          </Link>
+          </a>
         </div>
       </section>
 
