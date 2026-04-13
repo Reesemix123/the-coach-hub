@@ -341,10 +341,10 @@ export default async function Page() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { name: 'Rookie', price: '$149', detail: 'Up to 20 parents · 10 team videos', featured: false, note: null },
-              { name: 'Varsity', price: '$249', detail: 'Up to 40 parents · 10 team videos', featured: false, note: null },
-              { name: 'All-Conference', price: '$349', detail: 'Up to 60 parents · 10 team videos', featured: true, note: null },
-              { name: 'All-State', price: '$449', detail: 'Unlimited parents · 10 team videos', featured: false, note: 'Includes 5 gifted player profiles' },
+              { name: 'Rookie', price: 'Free', detail: 'Up to 20 parents · Messaging & scheduling', featured: false, note: null },
+              { name: 'Varsity', price: '$79', detail: 'Up to 40 parents · Video sharing & AI reports', featured: false, note: null },
+              { name: 'All-Conference', price: '$149', detail: 'Up to 60 parents · Video sharing & AI reports', featured: true, note: null },
+              { name: 'All-State', price: '$249', detail: 'Unlimited parents · Video sharing & AI reports', featured: false, note: null },
             ].map((plan, i) => (
               <AnimateOnScroll key={plan.name} delay={(i % 4) as 0 | 1 | 2 | 3}>
                 <div

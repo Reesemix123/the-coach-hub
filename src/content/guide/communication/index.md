@@ -45,9 +45,9 @@ All plans are billed as a one-time payment for a 6-month season:
 
 | Plan | Price | Max Parents | Team Videos |
 |------|-------|-------------|-------------|
-| Rookie | $149/season | 20 | 10 |
-| Varsity | $249/season | 40 | 10 |
-| All-Conference | $349/season | 60 | 10 |
-| All-State | $449/season | Unlimited | 10 |
+| Rookie | Free | 20 | 0 (messaging & scheduling only) |
+| Varsity | $79/season | 40 | 10 |
+| All-Conference | $149/season | 60 | 10 |
+| All-State | $249/season | Unlimited | 10 |
 
 All plans include: unlimited individual clips, SMS + email notifications, RSVP, reports, directory, and team treats. Additional video top-up packs available for $39 (5 videos).

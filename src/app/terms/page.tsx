@@ -234,34 +234,33 @@ export default function TermsPage() {
 
             <div className="bg-[#1a1410]/60 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-4 space-y-4 shadow-xl shadow-black/30">
               <div>
-                <h4 className="text-white font-semibold">Rookie — $149/season</h4>
+                <h4 className="text-white font-semibold">Rookie — Free</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>Up to 20 parents</li>
-                  <li>10 team video shares per season</li>
-                  <li>Unlimited individual player clips</li>
-                  <li>SMS + email notifications, family RSVP, player reports</li>
+                  <li>Team messaging, SMS + email notifications</li>
+                  <li>Scheduling + RSVP, roster management</li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-white font-semibold">Varsity — $249/season</h4>
+                <h4 className="text-white font-semibold">Varsity — $79/season</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>Up to 40 parents</li>
                   <li>10 team video shares per season</li>
-                  <li>Unlimited individual player clips</li>
-                  <li>SMS + email notifications, family RSVP, player reports</li>
+                  <li>AI-generated performance reports, parent portal (PWA)</li>
+                  <li>All Rookie features included</li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-white font-semibold">All-Conference — $349/season</h4>
+                <h4 className="text-white font-semibold">All-Conference — $149/season</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>Up to 60 parents</li>
                   <li>10 team video shares per season</li>
-                  <li>Unlimited individual player clips</li>
-                  <li>SMS + email notifications, family RSVP, player reports</li>
+                  <li>AI-generated performance reports, parent portal (PWA)</li>
+                  <li>All Rookie features included</li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-white font-semibold">All-State — $449/season</h4>
+                <h4 className="text-white font-semibold">All-State — $249/season</h4>
                 <ul className="text-gray-400 text-sm mt-2 space-y-1">
                   <li>Unlimited parents</li>
                   <li>10 team video shares per season</li>
