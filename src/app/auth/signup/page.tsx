@@ -26,6 +26,7 @@ function SignUpForm() {
   // Get URL params
   const tierParam = searchParams.get('tier') as SubscriptionTier | null;
   const inviteParam = searchParams.get('invite');
+  const fromParam = searchParams.get('from');
 
   // Validate tier param (only 3 tiers: basic, plus, premium)
   const validTiers: SubscriptionTier[] = ['basic', 'plus', 'premium'];
@@ -180,7 +181,7 @@ function SignUpForm() {
                 You&apos;ve been invited to join a team
               </p>
             )}
-            {!selectedTier && !isInviteFlow && (
+            {!selectedTier && !isInviteFlow && fromParam !== 'commhub' && (
               <p className="mt-2 text-sm text-gray-300">
                 <Link href="/pricing" className="text-[#B8CA6E] hover:text-[#c9d88a] transition-colors">
                   View pricing plans
@@ -188,6 +189,16 @@ function SignUpForm() {
               </p>
             )}
           </div>
+
+          {/* Comm Hub context notice */}
+          {fromParam === 'commhub' && (
+            <div className="rounded-xl border border-[#B8CA6E]/20 p-4" style={{ background: 'rgba(184,202,110,0.08)' }}>
+              <p className="text-sm font-semibold text-white">You&apos;re signing up for Communication Hub</p>
+              <p className="text-xs text-gray-300 mt-1">
+                Create your coach account first — you&apos;ll set up your team and activate Communication Hub in the next step. Takes 2 minutes.
+              </p>
+            </div>
+          )}
 
           <form className="mt-8 space-y-6" onSubmit={handleSignUp}>
             <div className="rounded-2xl bg-[#1a1410]/85 backdrop-blur-md border border-white/20 p-6 space-y-5 shadow-xl shadow-black/40">

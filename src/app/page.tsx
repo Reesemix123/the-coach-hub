@@ -328,6 +328,9 @@ export default async function Page() {
                     </li>
                   ))}
                 </ul>
+                <p className="text-xs mt-4" style={{ color: 'rgba(249,250,251,0.40)' }}>
+                  Parents join by invitation from their coach — no separate signup needed.
+                </p>
               </div>
             </AnimateOnScroll>
           </div>
@@ -362,11 +365,22 @@ export default async function Page() {
                   {plan.note && (
                     <p className="text-xs mt-1" style={{ color: 'rgba(249,250,251,0.35)' }}>{plan.note}</p>
                   )}
+                  <Link
+                    href="/auth/signup?from=commhub"
+                    className="block mt-3 text-xs font-black text-center rounded-xl px-4 py-2 transition-colors hover:bg-[#c9d88a]"
+                    style={{ background: plan.featured ? '#B8CA6E' : 'rgba(255,255,255,0.10)', color: plan.featured ? '#1a1410' : '#F9FAFB' }}
+                  >
+                    {plan.price === 'Free' ? 'Get Started Free' : 'Get Started'}
+                  </Link>
                 </div>
               </AnimateOnScroll>
             ))}
           </div>
 
+          <p className="text-sm mt-6" style={{ color: 'rgba(249,250,251,0.55)' }}>
+            Communication Hub is included with your coach account — no separate purchase at signup.
+            You&apos;ll activate and choose your plan after creating your team. Takes 2 minutes.
+          </p>
           <p className="text-xs mt-4" style={{ color: 'rgba(249,250,251,0.40)' }}>
             All plans: SMS + email alerts · RSVP · AI game summaries · Unlimited individual player clips · 30-day parent grace period
           </p>
