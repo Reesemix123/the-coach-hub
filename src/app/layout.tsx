@@ -92,8 +92,9 @@ export default function RootLayout({
                   <TeamSwitcher />
                   <AdminLink />
                 </div>
-                {/* Admin - Mobile (always visible for authorized users) */}
+                {/* Team Context + Admin - Mobile */}
                 <div className="flex md:hidden items-center gap-3 ml-4">
+                  <TeamSwitcher />
                   <AdminLink />
                 </div>
               </div>

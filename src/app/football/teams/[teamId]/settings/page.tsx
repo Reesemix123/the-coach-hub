@@ -8,7 +8,7 @@ import { TeamMembershipService } from '@/lib/services/team-membership.service';
 import { AdvancedAnalyticsService } from '@/lib/services/advanced-analytics.service';
 import type { Team, TeamMembership, TeamAnalyticsConfig } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
-import { Play, RefreshCw, PlusCircle } from 'lucide-react';
+import { Play, RefreshCw, PlusCircle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useGlobalOnboardingSafe } from '@/components/onboarding/GlobalOnboardingProvider';
 import SubscriptionBanner from '@/components/settings/SubscriptionBanner';
@@ -73,6 +73,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [teamDetailData, setTeamDetailData] = useState<TeamDetailData | null>(null);
   const [settingsTab, setSettingsTab] = useState<'billing' | 'team' | 'members' | 'usage_tokens' | 'onboarding'>('billing');
   const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+  const [hasParentProfile, setHasParentProfile] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#000000');
   const [secondaryColor, setSecondaryColor] = useState('#FFFFFF');
   const [savingColors, setSavingColors] = useState(false);
@@ -110,6 +111,17 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
         membershipService.getTeamMembers(teamId),
       ]);
 
+      // Check parent profile separately (depends on auth user)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: parentCheck } = await supabase
+          .from('parent_profiles')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+        setHasParentProfile(!!parentCheck);
+      }
+
       if (teamResult.error) throw teamResult.error;
       const teamData = teamResult.data;
 
@@ -128,6 +140,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       if (teamDetailResponse) {
         setTeamDetailData(teamDetailResponse);
       }
+      // hasParentProfile is set above after the parallel fetch block
 
       // Initialize colors and level from team data
       if (teamData.colors?.primary) {
@@ -637,6 +650,36 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
             </div>
           </div>
         )}
+
+        {/* Account section — always visible, below tab content */}
+        <div className="mt-8 pt-8 border-t border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Account</h2>
+          <div className="space-y-3">
+            <Link
+              href="/dashboard"
+              className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+            >
+              <div>
+                <p className="text-sm font-medium text-gray-900">View all my teams</p>
+                <p className="text-xs text-gray-500">Switch between teams or create a new one</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            </Link>
+
+            {hasParentProfile && (
+              <Link
+                href="/parent"
+                className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Switch to parent view</p>
+                  <p className="text-xs text-gray-500">View your athlete profiles and parent features</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

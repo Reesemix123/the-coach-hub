@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { User } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Users } from 'lucide-react';
 
 export default function UserMenu() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasParentProfile, setHasParentProfile] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -17,6 +18,15 @@ export default function UserMenu() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setLoading(false);
+
+      if (user) {
+        const { data: parentProfile } = await supabase
+          .from('parent_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        setHasParentProfile(!!parentProfile);
+      }
     };
 
     getUser();
@@ -60,7 +70,10 @@ export default function UserMenu() {
       onMouseEnter={() => setMenuOpen(true)}
       onMouseLeave={() => setMenuOpen(false)}
     >
-      <button className="text-gray-700 hover:text-gray-900 px-2 py-1 flex items-center gap-2">
+      <button
+        className="text-gray-700 hover:text-gray-900 px-2 py-1 flex items-center gap-2"
+        onClick={() => setMenuOpen(prev => !prev)}
+      >
         <div className="h-7 w-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm font-medium">
           {user.email?.charAt(0).toUpperCase()}
         </div>
@@ -71,6 +84,20 @@ export default function UserMenu() {
           <div className="px-4 py-2 border-b border-gray-100">
             <p className="text-sm font-medium text-gray-900 truncate">{user.email}</p>
           </div>
+
+          {hasParentProfile && (
+            <>
+              <Link
+                href="/parent"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-[#B8CA6E] hover:bg-gray-100"
+                onClick={() => setMenuOpen(false)}
+              >
+                <Users className="h-4 w-4" />
+                Switch to parent view
+              </Link>
+              <div className="border-t border-gray-100" />
+            </>
+          )}
 
           <Link
             href="/account"
