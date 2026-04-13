@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/utils/supabase/client';
 import type { FilmCaptureWithSport, ShareableUser } from '@/types/film-capture';
 import { AGE_GROUPS } from '@/types/film-capture';
+import { uploadFile as resumableUpload, formatBytes, formatTime, type UploadProgress } from '@/lib/utils/resumable-upload';
 
 type Tab = 'mine' | 'shared' | 'all';
 type GameMode = 'existing' | 'new';
@@ -36,7 +37,9 @@ export default function FilmCapturePage() {
   const [loading, setLoading] = useState(true);
   const [sports, setSports] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
+  const [uploadPercent, setUploadPercent] = useState<number>(0);
+  const [uploadDetails, setUploadDetails] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -329,7 +332,7 @@ export default function FilmCapturePage() {
       setUploading(true);
       setError(null);
       setSuccess(null);
-      setUploadProgress('Creating game...');
+      setUploadProgressText('Creating game...');
 
       try {
         const gameRes = await fetch('/api/film-capture/games', {
@@ -351,7 +354,7 @@ export default function FilmCapturePage() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create game');
         setUploading(false);
-        setUploadProgress(null);
+        setUploadProgressText(null);
         return;
       }
     }
@@ -360,7 +363,9 @@ export default function FilmCapturePage() {
     setUploading(true);
     setError(null);
     setSuccess(null);
-    setUploadProgress('Uploading to storage...');
+    setUploadProgressText('Preparing upload...');
+    setUploadPercent(0);
+    setUploadDetails(null);
 
     try {
       const supabase = createClient();
@@ -371,13 +376,33 @@ export default function FilmCapturePage() {
       const sanitizedName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
 
-      const { error: storageError } = await supabase.storage
-        .from('film_captures')
-        .upload(storagePath, uploadFile, { contentType: uploadFile.type, upsert: false });
+      // Use resumable upload with progress tracking (tus protocol for files > 100MB)
+      const uploadResult = await resumableUpload(
+        supabase,
+        'film_captures',
+        storagePath,
+        uploadFile,
+        {
+          onProgress: (progress: UploadProgress) => {
+            setUploadPercent(progress.percentage);
+            setUploadProgressText(`Uploading — ${progress.percentage}%`);
+            setUploadDetails(
+              `${formatBytes(progress.bytesUploaded)} of ${formatBytes(progress.bytesTotal)}` +
+              (progress.remainingTime > 0 ? ` — ${formatTime(progress.remainingTime)} remaining` : '')
+            );
+          },
+          onError: (err: Error) => {
+            console.error('Upload error:', err);
+          },
+        }
+      );
 
-      if (storageError) throw new Error(`Storage upload failed: ${storageError.message}`);
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Storage upload failed');
+      }
 
-      setUploadProgress('Saving metadata...');
+      setUploadProgressText('Saving metadata...');
+      setUploadPercent(100);
 
       // When using an existing game we still need sport_id and game_date for the
       // upload route's validation. Derive them from the selected game in userGames.
@@ -443,7 +468,9 @@ export default function FilmCapturePage() {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploading(false);
-      setUploadProgress(null);
+      setUploadProgressText(null);
+      setUploadPercent(0);
+      setUploadDetails(null);
     }
   }
 
@@ -857,8 +884,23 @@ export default function FilmCapturePage() {
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              {uploadProgress || 'Upload Film'}
+              {uploadProgressText || 'Upload Film'}
             </button>
+
+            {/* Upload progress bar */}
+            {uploading && uploadPercent > 0 && (
+              <div className="mt-4">
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-black rounded-full transition-all duration-300"
+                    style={{ width: `${uploadPercent}%` }}
+                  />
+                </div>
+                {uploadDetails && (
+                  <p className="text-xs text-gray-500 mt-1.5">{uploadDetails}</p>
+                )}
+              </div>
+            )}
           </form>
         </div>
 
