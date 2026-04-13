@@ -476,8 +476,15 @@ export default async function Page() {
             </AnimateOnScroll>
           </div>
 
+          {/* Explanatory line between feature cards and subscription card */}
+          <AnimateOnScroll className="mt-10">
+            <p className="text-sm text-center max-w-xl mx-auto" style={{ color: 'rgba(249,250,251,0.50)' }}>
+              Parents join by invitation from their coach. Once invited, your athlete profile and subscription are set up in minutes.
+            </p>
+          </AnimateOnScroll>
+
           {/* Subscription callout */}
-          <AnimateOnScroll className="mt-12">
+          <AnimateOnScroll className="mt-8">
             <div
               className="max-w-2xl mx-auto rounded-2xl p-8 text-center"
               style={{
@@ -494,8 +501,19 @@ export default async function Page() {
               <p className="text-sm mt-3" style={{ color: 'rgba(249,250,251,0.55)' }}>
                 Permanent clip + report history · Multi-sport · Survives team changes
               </p>
-              <p className="text-xs mt-2" style={{ color: 'rgba(249,250,251,0.35)' }}>
-                Auto-renews annually · Cancel anytime · 90-day grace period after lapse
+              <div className="mt-6">
+                <a
+                  href="mailto:?subject=Join%20Youth%20Coach%20Hub&body=I%20saw%20Youth%20Coach%20Hub%20and%20would%20love%20to%20join%20the%20team.%20Can%20you%20send%20me%20an%20invite%3F"
+                  className="inline-block text-sm font-black rounded-2xl px-6 py-3 transition-colors hover:bg-[#c9d88a]"
+                  style={{ background: '#B8CA6E', color: '#1a1410' }}
+                >
+                  Ask your coach to invite you
+                </a>
+              </div>
+              <p className="mt-3">
+                <Link href="/auth/login" className="text-xs transition-colors hover:text-white" style={{ color: 'rgba(249,250,251,0.45)' }}>
+                  Already invited? Sign in →
+                </Link>
               </p>
             </div>
           </AnimateOnScroll>
