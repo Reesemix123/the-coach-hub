@@ -159,11 +159,11 @@ export default function RootLayout({
         {/* Vercel Analytics */}
         <Analytics />
 
-        {/* PWA Service Worker Registration */}
+        {/* PWA Service Worker Registration — skip inside Capacitor native shell */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
+              if ('serviceWorker' in navigator && !window.Capacitor) {
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js');
                 });
