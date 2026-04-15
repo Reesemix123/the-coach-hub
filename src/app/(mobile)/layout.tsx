@@ -134,6 +134,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
   const [isCapacitor, setIsCapacitor] = useState(false)
   const [coachName, setCoachName] = useState('')
+  const [avatarInitial, setAvatarInitial] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [teamId, setTeamId] = useState<string | null>(null)
 
@@ -161,10 +162,24 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       main.classList.remove('pt-24')
     }
 
+    // Hide Next.js dev indicator ("N" logo in bottom-left)
+    const devIndicator = document.querySelector('nextjs-portal') as HTMLElement | null
+    const devIndicatorDisplay = devIndicator?.style.display ?? ''
+    if (devIndicator) devIndicator.style.display = 'none'
+
+    // Hide floating AI Assistant chat widget (ChatWidget from root layout)
+    // Injected as a <style> tag so it works even when ChatWidget renders after this effect
+    const style = document.createElement('style')
+    style.id = 'mobile-overrides'
+    style.textContent = `[aria-label="Open AI Assistant"], [aria-label="Open AI Assistant"] + div { display: none !important; }`
+    document.head.appendChild(style)
+
     return () => {
       if (nav) nav.style.display = originalNavDisplay.current
       if (banner) banner.style.display = originalBannerDisplay.current
       if (main) main.className = originalMainClass.current
+      if (devIndicator) devIndicator.style.display = devIndicatorDisplay
+      document.getElementById('mobile-overrides')?.remove()
     }
   }, [])
 
@@ -182,16 +197,23 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) return
 
-      // Fetch profile
+      // Fetch profile — full_name or fallback to 'Coach'
+      // Email should never appear as a display name
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
         .eq('id', user.id)
         .single()
 
-      if (profile) {
-        setCoachName(profile.full_name ?? '')
-        setAvatarUrl(profile.avatar_url ?? null)
+      setCoachName(profile?.full_name || 'Coach')
+      setAvatarUrl(profile?.avatar_url ?? null)
+
+      // Avatar initial: use first char of full_name, or first char of email prefix
+      if (profile?.full_name) {
+        setAvatarInitial(profile.full_name.charAt(0).toUpperCase())
+      } else {
+        const emailPrefix = (user.email ?? '').split('@')[0]
+        setAvatarInitial(emailPrefix ? emailPrefix.charAt(0).toUpperCase() : '?')
       }
 
       // Fetch primary team (most recent)
@@ -210,8 +232,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     loadProfileAndTeam()
   }, [])
 
-  const firstInitial = coachName ? coachName.charAt(0).toUpperCase() : '?'
-
   return (
     <MobileProvider value={{ teamId, coachName, isCapacitor }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
@@ -226,18 +246,12 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center justify-between px-4 h-14">
 
             {/* Left: Logo / AI Assistant button */}
-            <button
-              type="button"
-              className="flex items-center justify-center min-w-[44px] min-h-[44px]"
-              aria-label="AI Assistant"
-            >
-              <img src="/logo-darkmode.png" alt="YCH" className="h-7 w-auto" />
+            <button className="relative w-9 h-9 bg-[#1c1c1e] rounded-full flex items-center justify-center flex-shrink-0">
+              <img src="/logo-darkmode.png" className="w-5 h-5 object-contain" alt="AI Assistant" />
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#B8CA6E] rounded-full flex items-center justify-center">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>
+              </span>
             </button>
-
-            {/* Center: Coach name */}
-            <span className="text-sm font-semibold text-gray-900 truncate max-w-[40%]">
-              {coachName || '\u00A0'}
-            </span>
 
             {/* Right: Avatar */}
             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
@@ -250,7 +264,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
               ) : (
                 <div className="h-8 w-8 rounded-full bg-[#B8CA6E] flex items-center justify-center">
                   <span className="text-sm font-semibold text-[#1c1c1e]">
-                    {firstInitial}
+                    {avatarInitial}
                   </span>
                 </div>
               )}

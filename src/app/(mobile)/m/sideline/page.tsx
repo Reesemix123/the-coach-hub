@@ -10,6 +10,7 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 
 type MainSegment = 'log' | 'plays' | 'drive'
 type LogMode = 'wristband' | 'fromPlays' | 'quick'
+type QuickPlayType = 'run' | 'pass' | 'special_teams'
 type HashMark = 'left' | 'middle' | 'right'
 type OutcomeLabel = 'Gain' | 'Loss' | 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty'
 
@@ -455,14 +456,14 @@ interface OutcomeGridProps {
 }
 
 const OUTCOMES: { label: OutcomeLabel; className: string }[] = [
-  { label: 'Gain',       className: 'bg-green-900/30 text-green-400 border border-green-800/50' },
-  { label: 'Loss',       className: 'bg-red-900/30 text-red-400 border border-red-800/50' },
-  { label: 'TD',         className: 'bg-[#B8CA6E]/20 text-[#B8CA6E] border border-[#B8CA6E]/30' },
-  { label: 'Turnover',   className: 'bg-red-900/30 text-red-400 border border-red-800/50' },
-  { label: 'Incomplete', className: 'bg-gray-700/30 text-gray-300 border border-gray-600/50' },
-  { label: 'Complete',   className: 'bg-blue-900/30 text-blue-400 border border-blue-800/50' },
-  { label: 'Sack',       className: 'bg-orange-900/30 text-orange-400 border border-orange-800/50' },
-  { label: 'Penalty',    className: 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/50' },
+  { label: 'Gain',       className: 'bg-[#2a3a2a] text-[#7dc97d]' },
+  { label: 'Loss',       className: 'bg-[#3a3a3c] text-white' },
+  { label: 'TD',         className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
+  { label: 'Turnover',   className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
+  { label: 'Incomplete', className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Complete',   className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Sack',       className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
 ]
 
 function OutcomeGrid({ selected, onSelect }: OutcomeGridProps) {
@@ -746,6 +747,7 @@ function LogView({
   const [selectedPlayName, setSelectedPlayName] = useState<string | null>(null)
   const [selectedPlayType, setSelectedPlayType] = useState<string | null>(null)
   const [selectedFormation, setSelectedFormation] = useState<string | null>(null)
+  const [quickPlayType, setQuickPlayType] = useState<QuickPlayType | null>(null)
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeLabel | null>(null)
   const [yards, setYards] = useState(0)
   const [flagForReview, setFlagForReview] = useState(false)
@@ -822,6 +824,7 @@ function LogView({
     setSelectedPlayType(null)
     setSelectedFormation(null)
     setSelectedOutcome(null)
+    setQuickPlayType(null)
     setYards(0)
     setFlagForReview(false)
   }
@@ -849,8 +852,32 @@ function LogView({
       )}
 
       {logMode === 'quick' && (
-        <div className="px-4 mt-4">
-          <p className="text-xs text-gray-500 text-center">Quick mode — select result below</p>
+        <div className="px-4 mt-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            Play Type
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {([['run', 'Run'], ['pass', 'Pass'], ['special_teams', 'Special Teams']] as const).map(
+              ([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setQuickPlayType(key)
+                    setSelectedPlayType(key)
+                  }}
+                  className={[
+                    'rounded-xl py-4 text-sm font-semibold text-center min-h-[56px] transition-colors',
+                    quickPlayType === key
+                      ? 'bg-[#B8CA6E] text-[#1c1c1e]'
+                      : 'bg-[#3a3a3c] text-white',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ),
+            )}
+          </div>
         </div>
       )}
 

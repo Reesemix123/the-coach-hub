@@ -91,13 +91,13 @@ function UsersIcon() {
   )
 }
 
-function ConeIcon() {
+function PracticeIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
-      <path d="M12 2L6 19h12L12 2z" />
-      <path d="M5 19h14" />
-      <path d="M8 12h8" />
-      <path d="M9.5 7h5" />
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="M9 12h6" />
+      <path d="M9 16l2 2 4-4" />
     </svg>
   )
 }
@@ -226,7 +226,7 @@ export default function MobileHomePage() {
               href="/m/practice"
               className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
-              <ConeIcon />
+              <PracticeIcon />
               <span className="text-sm font-medium text-gray-900">Practice</span>
             </Link>
 
