@@ -86,6 +86,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // Mobile redirect: Capacitor WebView or explicit ?mobile=1
+  // Capacitor injects a custom user-agent substring; we also allow a query param override
+  const isMobileRoute = url.pathname.startsWith('/m/')
+  if (user && !isMobileRoute) {
+    const ua = request.headers.get('user-agent') ?? ''
+    const isCapacitor = ua.includes('CapacitorHTTP') || ua.includes('capacitor')
+    const hasMobileParam = url.searchParams.get('mobile') === '1'
+
+    if (isCapacitor || hasMobileParam) {
+      // Map coach dashboard entry points to mobile equivalents
+      const mobileEntryPoints = ['/', '/dashboard']
+      if (mobileEntryPoints.includes(url.pathname)) {
+        const redirectUrl = url.clone()
+        redirectUrl.pathname = '/m/home'
+        redirectUrl.searchParams.delete('mobile')
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
+  }
+
   // Logged-in user visiting home page → redirect to primary team or parent dashboard
   if (user && url.pathname === '/') {
     // Check if user is a parent
