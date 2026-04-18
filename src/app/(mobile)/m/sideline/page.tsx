@@ -67,6 +67,14 @@ interface DbDrive {
   points: number | null
 }
 
+interface ScheduledGame {
+  id: string
+  opponent: string | null
+  date: string
+  location: string | null
+  start_time: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Reducer for game state
 // ---------------------------------------------------------------------------
@@ -283,17 +291,219 @@ function ClipboardIcon() {
 }
 
 // ---------------------------------------------------------------------------
+// Game Selection Screen
+// ---------------------------------------------------------------------------
+
+interface GameSelectionScreenProps {
+  teamId: string | null
+  onSelectGame: (gameId: string, opponent: string) => void
+}
+
+function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps) {
+  const [games, setGames] = useState<ScheduledGame[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showQuickGame, setShowQuickGame] = useState(false)
+  const [quickOpponent, setQuickOpponent] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!teamId) {
+      setIsLoading(false)
+      return
+    }
+
+    const supabase = createClient()
+    const today = new Date().toISOString().split('T')[0]
+
+    supabase
+      .from('games')
+      .select('id, opponent, date, location, start_time')
+      .eq('team_id', teamId)
+      .eq('game_type', 'team')
+      .gte('date', today)
+      .order('date', { ascending: true })
+      .then(({ data }) => {
+        if (data) setGames(data as ScheduledGame[])
+        setIsLoading(false)
+      })
+  }, [teamId])
+
+  function formatGameDate(dateStr: string): string {
+    const date = new Date(dateStr + 'T00:00:00')
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
+  async function handleCreateQuickGame() {
+    if (!teamId || !quickOpponent.trim()) return
+    setIsCreating(true)
+    setCreateError(null)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setCreateError('Not authenticated')
+      setIsCreating(false)
+      return
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+    const { data: newGame, error } = await supabase
+      .from('games')
+      .insert({
+        team_id: teamId,
+        user_id: user.id,
+        name: `vs ${quickOpponent.trim()}`,
+        opponent: quickOpponent.trim(),
+        date: today,
+        game_type: 'team',
+      })
+      .select('id, opponent')
+      .single()
+
+    setIsCreating(false)
+
+    if (error || !newGame) {
+      setCreateError(error?.message ?? 'Failed to create game')
+      return
+    }
+
+    onSelectGame(newGame.id, newGame.opponent ?? quickOpponent.trim())
+  }
+
+  return (
+    <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center px-4 pt-12 pb-8">
+      {/* Logo */}
+      <img src="/logo-darkmode.png" alt="Youth Coach Hub" className="h-12 w-auto mb-6 opacity-60" />
+
+      <h2 className="text-2xl font-bold text-white">Ready to Track?</h2>
+      <p className="text-sm text-gray-500 mt-1 mb-8">Select a game to begin</p>
+
+      {/* Upcoming games */}
+      <div className="w-full max-w-md">
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="w-6 h-6 border-2 border-gray-600 border-t-[#B8CA6E] rounded-full animate-spin" />
+          </div>
+        ) : games.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {games.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => onSelectGame(g.id, g.opponent ?? 'Opponent')}
+                className="w-full bg-[#2c2c2e] rounded-xl px-4 py-4 flex items-center justify-between min-h-[64px] active:bg-[#3a3a3c] transition-colors text-left"
+              >
+                <div className="min-w-0">
+                  <p className="text-base font-semibold text-white truncate">
+                    vs {g.opponent ?? 'TBD'}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-gray-500">{formatGameDate(g.date)}</span>
+                    {g.location && (
+                      <span className="text-xs text-gray-600">{g.location}</span>
+                    )}
+                  </div>
+                </div>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <p className="text-sm text-gray-600">No upcoming games scheduled</p>
+          </div>
+        )}
+
+        {/* Quick Game button */}
+        <button
+          type="button"
+          onClick={() => setShowQuickGame(true)}
+          className="w-full mt-4 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-4 text-base font-bold text-center min-h-[56px] active:bg-[#a8b85e] transition-colors"
+        >
+          Quick Game
+        </button>
+        <p className="text-xs text-gray-600 text-center mt-2">
+          Start tracking without a scheduled game
+        </p>
+      </div>
+
+      {/* Quick Game bottom sheet */}
+      {showQuickGame && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowQuickGame(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6">
+              <h3 className="text-lg font-bold text-white">Quick Game</h3>
+              <p className="text-xs text-gray-500 mt-0.5 mb-4">Enter opponent name to start</p>
+
+              <input
+                type="text"
+                value={quickOpponent}
+                onChange={(e) => setQuickOpponent(e.target.value)}
+                placeholder="Opponent name"
+                autoFocus
+                className="w-full bg-[#3a3a3c] text-white placeholder-gray-500 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#B8CA6E]"
+              />
+
+              {createError && (
+                <p className="text-xs text-red-400 mt-2">{createError}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCreateQuickGame}
+                disabled={!quickOpponent.trim() || isCreating}
+                className={[
+                  'w-full mt-4 rounded-xl py-4 text-base font-bold text-center min-h-[56px] transition-colors',
+                  quickOpponent.trim() && !isCreating
+                    ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
+                    : 'bg-[#3a3a3c] text-gray-500',
+                ].join(' ')}
+              >
+                {isCreating ? 'Creating...' : 'Start Game'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Game State Bar
 // ---------------------------------------------------------------------------
 
 interface GameStateBarProps {
   game: GameState
+  opponentName: string
+  onEndGame: () => void
 }
 
-function GameStateBar({ game }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onEndGame }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore } = game
   return (
     <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
+      {/* Row 0: Opponent + End */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
+          vs {opponentName}
+        </p>
+        <button
+          type="button"
+          onClick={onEndGame}
+          className="text-xs text-gray-500 bg-[#3a3a3c] rounded-lg px-3 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
+        >
+          End
+        </button>
+      </div>
+
       {/* Row 1: Down & Distance */}
       <p className="text-3xl font-bold text-white leading-tight">
         {ordinalDown(down)} &amp; {distance}
@@ -727,6 +937,7 @@ interface LogViewProps {
   allPlays: { id: string; play_code: string; play_name: string; attributes: { odk: string; formation?: string; playType?: string } }[]
   isLoadingPlays: boolean
   teamId: string | null
+  activeGameId: string | null
   driveNumber: number
   onPlayLogged: (play: LoggedPlay) => void
 }
@@ -739,6 +950,7 @@ function LogView({
   allPlays,
   isLoadingPlays,
   teamId,
+  activeGameId,
   driveNumber,
   onPlayLogged,
 }: LogViewProps) {
@@ -774,6 +986,7 @@ function LogView({
 
     const { error } = await supabase.from('play_instances').insert({
       team_id: teamId,
+      game_id: activeGameId,
       source: 'sideline',
       local_id: localId,
       sync_status: 'unsynced',
@@ -1221,6 +1434,11 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId }: Dr
 export default function SidelinePage() {
   const { teamId } = useMobile()
 
+  // Active game selection
+  const [activeGameId, setActiveGameId] = useState<string | null>(null)
+  const [opponentName, setOpponentName] = useState('')
+  const [showEndConfirm, setShowEndConfirm] = useState(false)
+
   // Game state managed by reducer
   const [game, dispatchGame] = useReducer(gameReducer, INITIAL_GAME_STATE)
 
@@ -1234,7 +1452,7 @@ export default function SidelinePage() {
   // Game plan data
   const [gamePlanPlays, setGamePlanPlays] = useState<GamePlanPlay[]>([])
   const [gamePlanLoaded, setGamePlanLoaded] = useState(false)
-  const [isLoadingGamePlan, setIsLoadingGamePlan] = useState(true)
+  const [isLoadingGamePlan, setIsLoadingGamePlan] = useState(false)
 
   // All playbook plays (for "From Plays" mode)
   const [allPlays, setAllPlays] = useState<{
@@ -1243,7 +1461,7 @@ export default function SidelinePage() {
     play_name: string
     attributes: { odk: string; formation?: string; playType?: string }
   }[]>([])
-  const [isLoadingPlays, setIsLoadingPlays] = useState(true)
+  const [isLoadingPlays, setIsLoadingPlays] = useState(false)
 
   // Currently selected play (for switching from Plays view to Log)
   const [pendingPlayCode, setPendingPlayCode] = useState<string | null>(null)
@@ -1251,39 +1469,76 @@ export default function SidelinePage() {
   const [pendingPlayType, setPendingPlayType] = useState<string | null>(null)
   const [pendingFormation, setPendingFormation] = useState<string | null>(null)
 
-  // Current game id (if available — optional, enhances drive fetching)
-  const [currentGameId, setCurrentGameId] = useState<string | null>(null)
+  // -------------------------------------------------------------------------
+  // Activate a game
+  // -------------------------------------------------------------------------
+
+  function handleSelectGame(gameId: string, opponent: string) {
+    setActiveGameId(gameId)
+    setOpponentName(opponent)
+    // Reset game state for fresh tracking
+    dispatchGame({ type: 'SET_DOWN', down: 1 })
+    dispatchGame({ type: 'SET_DISTANCE', distance: 10 })
+    dispatchGame({ type: 'SET_YARD_LINE', yardLine: 25 })
+    setDriveNumber(1)
+    setLoggedPlays([])
+    setActiveSegment('log')
+  }
+
+  function handleEndGame() {
+    setShowEndConfirm(false)
+    setActiveGameId(null)
+    setOpponentName('')
+    setGamePlanPlays([])
+    setGamePlanLoaded(false)
+  }
 
   // -------------------------------------------------------------------------
-  // Fetch game plan
+  // Fetch game plan (runs when activeGameId changes)
   // -------------------------------------------------------------------------
 
   const fetchGamePlan = useCallback(async () => {
-    if (!teamId) {
+    if (!teamId || !activeGameId) {
       setIsLoadingGamePlan(false)
       return
     }
 
+    setIsLoadingGamePlan(true)
     const supabase = createClient()
 
-    // Latest game plan for the team
-    const { data: plans } = await supabase
+    // First try: game plan linked to this specific game
+    let planId: string | null = null
+
+    const { data: gamePlans } = await supabase
       .from('game_plans')
-      .select('id, game_id')
+      .select('id')
       .eq('team_id', teamId)
+      .eq('game_id', activeGameId)
       .order('created_at', { ascending: false })
       .limit(1)
 
-    if (!plans || plans.length === 0) {
+    if (gamePlans && gamePlans.length > 0) {
+      planId = gamePlans[0].id
+    }
+
+    // Fallback: latest game plan for the team (any game or no game)
+    if (!planId) {
+      const { data: fallbackPlans } = await supabase
+        .from('game_plans')
+        .select('id')
+        .eq('team_id', teamId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (fallbackPlans && fallbackPlans.length > 0) {
+        planId = fallbackPlans[0].id
+      }
+    }
+
+    if (!planId) {
       setGamePlanLoaded(false)
       setIsLoadingGamePlan(false)
       return
-    }
-
-    const plan = plans[0] as { id: string; game_id: string | null }
-
-    if (plan.game_id) {
-      setCurrentGameId(plan.game_id)
     }
 
     // Fetch game plan plays joined to playbook_plays
@@ -1301,11 +1556,10 @@ export default function SidelinePage() {
           attributes
         )
       `)
-      .eq('game_plan_id', plan.id)
+      .eq('game_plan_id', planId)
       .order('sort_order', { ascending: true })
 
     if (gppData && gppData.length > 0) {
-      // Filter out any rows where playbook_plays is null or an array (type safety)
       const cleaned = (gppData as unknown[]).filter((row): row is GamePlanPlay => {
         const r = row as Record<string, unknown>
         return (
@@ -1320,18 +1574,19 @@ export default function SidelinePage() {
     }
 
     setIsLoadingGamePlan(false)
-  }, [teamId])
+  }, [teamId, activeGameId])
 
   // -------------------------------------------------------------------------
   // Fetch all playbook plays
   // -------------------------------------------------------------------------
 
   const fetchAllPlays = useCallback(async () => {
-    if (!teamId) {
+    if (!teamId || !activeGameId) {
       setIsLoadingPlays(false)
       return
     }
 
+    setIsLoadingPlays(true)
     const supabase = createClient()
 
     const { data } = await supabase
@@ -1346,7 +1601,7 @@ export default function SidelinePage() {
     }
 
     setIsLoadingPlays(false)
-  }, [teamId])
+  }, [teamId, activeGameId])
 
   useEffect(() => {
     fetchGamePlan()
@@ -1410,10 +1665,53 @@ export default function SidelinePage() {
   // Render
   // -------------------------------------------------------------------------
 
+  // Show game selection when no active game
+  if (!activeGameId) {
+    return <GameSelectionScreen teamId={teamId} onSelectGame={handleSelectGame} />
+  }
+
   return (
     <div className="min-h-screen bg-[#1c1c1e] pb-6">
       {/* Game State Bar */}
-      <GameStateBar game={game} />
+      <GameStateBar
+        game={game}
+        opponentName={opponentName}
+        onEndGame={() => setShowEndConfirm(true)}
+      />
+
+      {/* End Game Confirmation */}
+      {showEndConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowEndConfirm(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6 text-center">
+              <h3 className="text-lg font-bold text-white">End Game?</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {loggedPlays.length} play{loggedPlays.length !== 1 ? 's' : ''} logged vs {opponentName}
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEndConfirm(false)}
+                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                >
+                  Continue
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEndGame}
+                  className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-red-700 transition-colors"
+                >
+                  End Game
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Segment Nav */}
       <SegmentNav active={activeSegment} onChange={setActiveSegment} />
@@ -1428,6 +1726,7 @@ export default function SidelinePage() {
           allPlays={allPlays}
           isLoadingPlays={isLoadingPlays}
           teamId={teamId}
+          activeGameId={activeGameId}
           driveNumber={driveNumber}
           onPlayLogged={handlePlayLogged}
         />
@@ -1450,7 +1749,7 @@ export default function SidelinePage() {
           loggedPlays={loggedPlays}
           driveNumber={driveNumber}
           teamId={teamId}
-          currentGameId={currentGameId}
+          currentGameId={activeGameId}
         />
       )}
     </div>
