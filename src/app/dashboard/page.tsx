@@ -388,7 +388,7 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
-        )
+        )}
 
         {/* Parent view card — only shown if coach also has a parent profile */}
         {parentProfile && (
