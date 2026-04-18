@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
+import MiniPlayDiagram from '@/components/MiniPlayDiagram'
+import { FORMATION_METADATA } from '@/config/footballConfig'
+import type { PlayDiagram, PlayAttributes as FullPlayAttributes } from '@/types/football'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,10 +25,12 @@ interface Play {
   play_name: string
   attributes: PlayAttributes
   is_archived: boolean
+  call_number?: number | null
 }
 
 type PhaseFilter = 'all' | 'offense' | 'defense' | 'specialTeams'
-type TypeFilter = 'all' | 'run' | 'pass' | 'redZone' | '2min'
+// TODO: Add 'redZone' | '2min' filters when plays can be tagged for situation
+type TypeFilter = 'all' | 'run' | 'pass'
 
 // ---------------------------------------------------------------------------
 // SVG Icons
@@ -176,14 +181,14 @@ function EmptyState() {
 function PlayTypeBadge({ odk, playType }: { odk: string; playType?: string }) {
   if (odk === 'defense') {
     return (
-      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700">
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800">
         Defense
       </span>
     )
   }
   if (odk === 'specialTeams') {
     return (
-      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800">
         Special
       </span>
     )
@@ -191,14 +196,14 @@ function PlayTypeBadge({ odk, playType }: { odk: string; playType?: string }) {
   const pt = playType?.toLowerCase()
   if (pt === 'run') {
     return (
-      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800">
         Run
       </span>
     )
   }
   if (pt === 'pass') {
     return (
-      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700">
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
         Pass
       </span>
     )
@@ -262,6 +267,240 @@ function SectionHeader({ label }: { label: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Play detail bottom sheet
+// ---------------------------------------------------------------------------
+
+interface PlayDetailSheetProps {
+  play: Play
+  onClose: () => void
+}
+
+function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
+  const { formation, direction, odk, playType, personnel, runConcept, passConcept } = play.attributes as PlayAttributes & { runConcept?: string; passConcept?: string }
+  const [diagram, setDiagram] = useState<PlayDiagram | null>(null)
+  const [comments, setComments] = useState<string | null>(null)
+  const [diagramLoading, setDiagramLoading] = useState(true)
+
+  // Coach notes inline editing
+  const [coachNotes, setCoachNotes] = useState('')
+  const [savedNotes, setSavedNotes] = useState('')
+  const [notesSaving, setNotesSaving] = useState(false)
+  const [notesSaved, setNotesSaved] = useState(false)
+  const notesChanged = coachNotes !== savedNotes
+  const NOTES_MAX = 500
+
+  // Fetch diagram + comments + coach_notes on-demand when sheet opens
+  useEffect(() => {
+    async function fetchPlayDetail() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('playbook_plays')
+        .select('diagram, comments, coach_notes')
+        .eq('id', play.id)
+        .single()
+
+      if (data?.diagram) {
+        setDiagram(data.diagram as PlayDiagram)
+      }
+      if (data?.comments) {
+        setComments(data.comments as string)
+      }
+      const notes = (data?.coach_notes as string) ?? ''
+      setCoachNotes(notes)
+      setSavedNotes(notes)
+      setDiagramLoading(false)
+    }
+
+    fetchPlayDetail()
+  }, [play.id])
+
+  async function handleSaveNotes() {
+    if (!notesChanged || notesSaving) return
+    setNotesSaving(true)
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('playbook_plays')
+      .update({ coach_notes: coachNotes || null })
+      .eq('id', play.id)
+
+    setNotesSaving(false)
+    if (!error) {
+      setSavedNotes(coachNotes)
+      setNotesSaved(true)
+      setTimeout(() => setNotesSaved(false), 1500)
+    }
+  }
+
+  // Look up formation metadata from footballConfig
+  const formationMeta = formation
+    ? (FORMATION_METADATA as Record<string, { usage?: string; runPercent?: number; passPercent?: number; personnel?: string; strengths?: string }>)[formation] ?? null
+    : null
+
+  // Use personnel from attributes first, fall back to formation metadata
+  const displayPersonnel = personnel || formationMeta?.personnel || null
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        <div className="px-5 pb-6">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-xl font-bold text-gray-900">{play.play_name}</h3>
+              {play.call_number != null && (
+                <p className="text-base font-bold text-[#B8CA6E] mt-0.5">
+                  Play #{play.call_number}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1 text-gray-400"
+              aria-label="Close"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+
+          {/* Diagram */}
+          {diagramLoading ? (
+            <div className="mt-4 flex items-center justify-center rounded-xl bg-gray-50 h-[220px]">
+              <div className="w-6 h-6 border-2 border-gray-300 border-t-[#B8CA6E] rounded-full animate-spin" />
+            </div>
+          ) : diagram ? (
+            <div className="mt-4 flex justify-center rounded-xl bg-gray-50 overflow-hidden">
+              <MiniPlayDiagram
+                diagram={diagram}
+                attributes={play.attributes as unknown as FullPlayAttributes}
+                width={340}
+                height={220}
+                showLabels
+              />
+            </div>
+          ) : null}
+
+          {/* Formation info card */}
+          {(formationMeta || displayPersonnel) && (
+            <div className="mt-4 rounded-xl bg-gray-50 p-3">
+              {formation && (
+                <p className="text-sm font-semibold text-gray-900">{formation}</p>
+              )}
+              {formationMeta?.usage && (
+                <p className="text-xs text-gray-500 mt-0.5">{formationMeta.usage}</p>
+              )}
+              {displayPersonnel && (
+                <p className="text-xs text-gray-500 mt-1">{displayPersonnel}</p>
+              )}
+              {formationMeta && formationMeta.runPercent != null && formationMeta.passPercent != null && (
+                <div className="flex gap-2 mt-2">
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-green-100 text-green-800">
+                    Run {formationMeta.runPercent}%
+                  </span>
+                  <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-800">
+                    Pass {formationMeta.passPercent}%
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Strengths */}
+          {formationMeta?.strengths && (
+            <div className="flex items-start gap-2 mt-3 px-1">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              <p className="text-sm text-green-700">{formationMeta.strengths}</p>
+            </div>
+          )}
+
+          {/* Details grid */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {direction && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Direction</p>
+                <p className="text-sm text-gray-900 mt-0.5 capitalize">{direction}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</p>
+              <div className="mt-1">
+                <PlayTypeBadge odk={odk} playType={playType} />
+              </div>
+            </div>
+            {runConcept && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Run Concept</p>
+                <p className="text-sm text-gray-900 mt-0.5">{runConcept}</p>
+              </div>
+            )}
+            {passConcept && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pass Concept</p>
+                <p className="text-sm text-gray-900 mt-0.5">{passConcept}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Coach Notes — inline editable */}
+          <div className="mt-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Coach Notes</p>
+            <textarea
+              value={coachNotes}
+              onChange={(e) => {
+                if (e.target.value.length <= NOTES_MAX) {
+                  setCoachNotes(e.target.value)
+                }
+              }}
+              placeholder="Add notes about this play..."
+              rows={2}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#B8CA6E] focus:border-transparent resize-none"
+              style={{ minHeight: '60px' }}
+            />
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-xs text-gray-400">{coachNotes.length}/{NOTES_MAX}</span>
+              <div className="flex items-center gap-2">
+                {notesSaved && (
+                  <span className="text-xs text-green-600 font-medium">Saved</span>
+                )}
+                {notesChanged && !notesSaved && (
+                  <button
+                    type="button"
+                    onClick={handleSaveNotes}
+                    disabled={notesSaving}
+                    className="rounded-lg bg-[#B8CA6E] text-[#1c1c1e] px-3 py-1.5 text-xs font-semibold min-h-[32px] transition-colors disabled:opacity-50"
+                  >
+                    {notesSaving ? 'Saving...' : 'Save'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Import/extraction notes (read-only, if present) */}
+          {comments && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</p>
+              <p className="text-sm text-gray-500 mt-1">{comments}</p>
+            </div>
+          )}
+
+          <p className="text-xs text-gray-400 mt-4">{play.play_code}</p>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Play row
 // ---------------------------------------------------------------------------
 
@@ -270,15 +509,16 @@ interface PlayRowProps {
   aiMode: boolean
   isSuggested: boolean
   isTopPick: boolean
+  onTap: () => void
 }
 
-function PlayRow({ play, aiMode, isSuggested, isTopPick }: PlayRowProps) {
+function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) {
   const { formation, direction, odk, playType } = play.attributes
 
   const subtitle = [formation, direction].filter(Boolean).join(' · ')
 
   const rowBase =
-    'bg-white border-b border-gray-100 px-4 py-3 min-h-[56px] flex items-center justify-between transition-opacity'
+    'bg-white border-b border-gray-100 px-4 py-3 min-h-[56px] flex items-center justify-between transition-opacity active:bg-gray-50 cursor-pointer'
 
   let rowClass = rowBase
   if (aiMode) {
@@ -292,7 +532,7 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick }: PlayRowProps) {
   }
 
   return (
-    <div className={rowClass}>
+    <button type="button" onClick={onTap} className={`${rowClass} w-full text-left`}>
       {/* Left: name + subtitle */}
       <div className="flex flex-col gap-0.5 flex-1 min-w-0 pr-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -315,12 +555,14 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick }: PlayRowProps) {
         )}
       </div>
 
-      {/* Right: badge + play code */}
+      {/* Right: badge + play # */}
       <div className="flex flex-col items-end shrink-0">
         <PlayTypeBadge odk={odk} playType={playType} />
-        <span className="text-xs text-gray-400 mt-1">{play.play_code}</span>
+        {play.call_number != null && (
+          <span className="text-xs text-gray-400 mt-1">Play #{play.call_number}</span>
+        )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -337,6 +579,7 @@ export default function MobilePlaybookPage() {
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('all')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [aiMode, setAiMode] = useState(false)
+  const [selectedPlay, setSelectedPlay] = useState<Play | null>(null)
 
   // -------------------------------------------------------------------------
   // Data fetching
@@ -350,17 +593,49 @@ export default function MobilePlaybookPage() {
 
     const supabase = createClient()
 
-    const { data, error } = await supabase
+    // Fetch plays
+    const { data: playsData, error: playsError } = await supabase
       .from('playbook_plays')
       .select('id, play_code, play_name, attributes, is_archived')
       .eq('team_id', teamId)
       .eq('is_archived', false)
       .order('play_code', { ascending: true })
 
-    if (!error && data) {
-      setPlays(data as Play[])
+    if (playsError || !playsData) {
+      setIsLoading(false)
+      return
     }
 
+    // Fetch the latest game plan for this team to get wristband call_numbers
+    const { data: gamePlans } = await supabase
+      .from('game_plans')
+      .select('id')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    let callNumberMap: Record<string, number> = {}
+
+    if (gamePlans && gamePlans.length > 0) {
+      const { data: gppData } = await supabase
+        .from('game_plan_plays')
+        .select('play_code, call_number')
+        .eq('game_plan_id', gamePlans[0].id)
+
+      if (gppData) {
+        for (const gpp of gppData) {
+          callNumberMap[gpp.play_code] = gpp.call_number
+        }
+      }
+    }
+
+    // Merge call_number into plays
+    const mergedPlays: Play[] = playsData.map((p) => ({
+      ...(p as Play),
+      call_number: callNumberMap[p.play_code] ?? null,
+    }))
+
+    setPlays(mergedPlays)
     setIsLoading(false)
   }, [teamId])
 
@@ -388,13 +663,11 @@ export default function MobilePlaybookPage() {
       }
 
       // Type filter — case-insensitive match against playType
-      // Red Zone and 2-Min are aspirational: show all qualifying plays
       if (typeFilter === 'run') {
         if (play.attributes.playType?.toLowerCase() !== 'run') return false
       } else if (typeFilter === 'pass') {
         if (play.attributes.playType?.toLowerCase() !== 'pass') return false
       }
-      // 'redZone' and '2min' show all qualifying plays (no extra filter)
 
       return true
     })
@@ -437,6 +710,7 @@ export default function MobilePlaybookPage() {
             aiMode={aiMode}
             isSuggested={suggestedIds.includes(play.id)}
             isTopPick={play.id === topPickId}
+            onTap={() => setSelectedPlay(play)}
           />
         ))}
       </div>
@@ -532,13 +806,12 @@ export default function MobilePlaybookPage() {
       {/* Type filter row                                                      */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex gap-2 px-4 mt-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* TODO: Add Red Zone and 2-Min filters when plays can be tagged for situation */}
         {(
           [
             { key: 'all', label: 'All' },
             { key: 'run', label: 'Run' },
             { key: 'pass', label: 'Pass' },
-            { key: 'redZone', label: 'Red Zone' },
-            { key: '2min', label: '2-Min' },
           ] as { key: TypeFilter; label: string }[]
         ).map(({ key, label }) => (
           <FilterChip
@@ -577,6 +850,13 @@ export default function MobilePlaybookPage() {
             Opponent tends to blitz on 3rd &amp; long
           </p>
         </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Play detail bottom sheet                                             */}
+      {/* ------------------------------------------------------------------ */}
+      {selectedPlay && (
+        <PlayDetailSheet play={selectedPlay} onClose={() => setSelectedPlay(null)} />
       )}
 
     </div>

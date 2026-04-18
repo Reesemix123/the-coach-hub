@@ -55,6 +55,8 @@ interface MiniPlayDiagramProps {
   width?: number;
   height?: number;
   className?: string;
+  /** Show position labels on all players. Default: false (only QB/RB/FB). */
+  showLabels?: boolean;
 }
 
 // Field configuration constants (matching PlayBuilder)
@@ -77,7 +79,8 @@ export default function MiniPlayDiagram({
   attributes,
   width = 140,
   height = 80,
-  className = ''
+  className = '',
+  showLabels = false,
 }: MiniPlayDiagramProps) {
   if (!diagram || !diagram.players || diagram.players.length === 0) {
     return (
@@ -756,18 +759,23 @@ export default function MiniPlayDiagram({
             }
           };
 
+          const showThisLabel = showLabels || player.label === 'QB' || player.label === 'RB' || player.label === 'FB' || isBallCarrier
+          const labelFontSize = showLabels ? 9 : 6
+          const labelOffset = showLabels ? radius + 7 : 8
+
           return (
             <g key={`${player.position}-${index}`}>
               {renderPlayerShape()}
-              {/* Show player label for key positions */}
-              {(player.label === 'QB' || player.label === 'RB' || player.label === 'FB' || isBallCarrier) && (
+              {/* Player position label */}
+              {showThisLabel && player.label && (
                 <text
                   x={x}
-                  y={y + 8}
-                  fontSize="6"
+                  y={y + labelOffset}
+                  fontSize={labelFontSize}
                   fill="#374151"
                   textAnchor="middle"
                   fontWeight="bold"
+                  fontFamily="Arial, sans-serif"
                 >
                   {player.label}
                 </text>

@@ -65,6 +65,18 @@ export const APP_FEATURES: FeatureCategory[] = [
         ],
       },
       {
+        name: 'Team Switching',
+        description: 'Switch between multiple teams from the dashboard or the team switcher pill in the top navigation bar',
+        guidePath: '/guide/teams/switching-teams',
+        navigationPath: 'Dashboard > Team card > Open | Top navbar > Team pill dropdown',
+        subFeatures: [
+          'Dashboard shows all teams as individual cards with Open buttons',
+          'Team switcher pill in top navbar dropdown with checkmark on active team',
+          'View All Teams link on dashboard navigates to /football/teams',
+          'Mobile: tap avatar to open bottom sheet team switcher',
+        ],
+      },
+      {
         name: 'Game Management',
         description: 'Create games on your schedule and delete them with automatic token refund if no plays have been tagged',
         guidePath: '/guide/teams/schedule',
@@ -716,6 +728,7 @@ export const COMMON_TASKS = [
   { task: 'View token balance', path: 'Team Settings > Usage' },
   { task: 'Purchase tokens', path: 'Team Settings > Usage > Purchase' },
   { task: 'Manage billing', path: 'Team Settings > Subscription > Manage Payment Method' },
+  { task: 'Switch teams', path: 'Dashboard > Open on team card | Top navbar > Team pill dropdown' },
   { task: 'Create another team', path: 'Team Settings > Team tab or Billing tab > Add Another Team' },
   { task: 'Upgrade communication plan', path: 'Communication > Plan > Upgrade to [tier]' },
   // Coach: player profile management

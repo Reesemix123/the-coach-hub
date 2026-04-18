@@ -43,6 +43,7 @@ export const docsNavigation: DocSection[] = [
     children: [
       { title: "Team Settings", slug: "team-settings" },
       { title: "Roster Management", slug: "roster-management" },
+      { title: "Switching Teams", slug: "switching-teams" },
       { title: "Schedule & Calendar", slug: "schedule" },
     ],
   },
