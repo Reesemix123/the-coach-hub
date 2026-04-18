@@ -89,7 +89,10 @@ export default function TeamSwitcher() {
     return null; // Don't show switcher if only one team or loading
   }
 
-  const currentTeamData = teams.find(t => t.team.id === currentTeam);
+  // On pages without a team ID in the URL (e.g. /dashboard), show first team as default
+  const currentTeamData = currentTeam
+    ? teams.find(t => t.team.id === currentTeam)
+    : teams[0];
 
   return (
     <div className="relative" ref={dropdownRef}>

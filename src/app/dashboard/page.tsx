@@ -216,9 +216,6 @@ export default async function DashboardPage() {
   const lastName = fullName.split(' ').pop() || fullName;
   const initial = fullName.charAt(0).toUpperCase();
   const greeting = getGreeting();
-  const smartContext = getSmartContext(nextGame, lastGame, gamesCount);
-  const currentYear = new Date().getFullYear();
-  const hasTeam = primaryTeam !== null;
   const hasMultipleTeams = allTeams.length > 1;
 
   return (
@@ -276,80 +273,90 @@ export default async function DashboardPage() {
           </h1>
         </div>
 
-        {/* YOUR SPORTS label */}
-        <p
-          className="text-xs font-black tracking-widest uppercase mt-10 mb-4"
-          style={{ color: '#B8CA6E' }}
-        >
-          Your Sports
-        </p>
+        {/* YOUR TEAMS label */}
+        <div className="flex items-center justify-between mt-10 mb-4">
+          <p
+            className="text-xs font-black tracking-widest uppercase"
+            style={{ color: '#B8CA6E' }}
+          >
+            Your Teams
+          </p>
+          {hasMultipleTeams && (
+            <a
+              href="/football/teams"
+              className="text-xs font-semibold transition-opacity hover:opacity-100"
+              style={{ color: '#B8CA6E', opacity: 0.8 }}
+            >
+              View all teams &rarr;
+            </a>
+          )}
+        </div>
 
-        {/* Football Card */}
-        <div
-          className="rounded-xl border-l-[3px] border-l-[#B8CA6E] overflow-hidden"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            borderLeft: '3px solid #B8CA6E',
-          }}
-        >
-          <div className="px-5 py-5">
-            {hasTeam && primaryTeam ? (
-              <div className="flex items-start justify-between gap-4">
-                {/* Left: sport info */}
-                <div className="min-w-0">
-                  {/* Sport icon + name */}
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xl leading-none">🏈</span>
-                    <span
-                      className="text-xs font-black tracking-widest uppercase"
-                      style={{ color: 'rgba(249,250,251,0.50)' }}
+        {/* Team Cards — one per team */}
+        {allTeams.length > 0 ? (
+          <div className="flex flex-col gap-3">
+            {allTeams.map((team) => (
+              <div
+                key={team.id}
+                className="rounded-xl border-l-[3px] overflow-hidden"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  borderLeft: '3px solid #B8CA6E',
+                }}
+              >
+                <div className="px-5 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg leading-none">🏈</span>
+                        <span
+                          className="text-xs font-black tracking-widest uppercase"
+                          style={{ color: 'rgba(249,250,251,0.50)' }}
+                        >
+                          Football
+                        </span>
+                        {team.level && (
+                          <span
+                            className="text-xs font-medium rounded-full px-2 py-0.5"
+                            style={{
+                              background: 'rgba(255,255,255,0.08)',
+                              color: 'rgba(249,250,251,0.60)',
+                            }}
+                          >
+                            {team.level}
+                          </span>
+                        )}
+                      </div>
+                      <p
+                        className="text-lg font-bold leading-snug truncate"
+                        style={{ color: '#F9FAFB' }}
+                      >
+                        {team.name}
+                      </p>
+                    </div>
+                    <a
+                      href={`/football/teams/${team.id}`}
+                      className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                      style={{ background: '#B8CA6E', color: '#1a1410' }}
                     >
-                      Football
-                    </span>
+                      Open &rarr;
+                    </a>
                   </div>
-
-                  {/* Team name + year */}
-                  <p
-                    className="text-xl font-bold leading-snug truncate"
-                    style={{ color: '#F9FAFB' }}
-                  >
-                    {primaryTeam.name}
-                    <span
-                      className="ml-2 text-base font-medium"
-                      style={{ color: 'rgba(249,250,251,0.50)' }}
-                    >
-                      · {currentYear}
-                    </span>
-                  </p>
-
-                  {/* Multi-team switcher hint */}
-                  {hasMultipleTeams && (
-                    <p className="text-xs mt-0.5" style={{ color: '#B8CA6E' }}>
-                      {allTeams.length} teams — switch in settings
-                    </p>
-                  )}
-
-                  {/* Smart context */}
-                  <p
-                    className="text-sm mt-2"
-                    style={{ color: 'rgba(249,250,251,0.60)' }}
-                  >
-                    {smartContext}
-                  </p>
                 </div>
-
-                {/* Right: Open button */}
-                <a
-                  href={`/football/teams/${primaryTeamId}`}
-                  className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                  style={{ background: '#B8CA6E', color: '#1a1410' }}
-                >
-                  Open →
-                </a>
               </div>
-            ) : (
-              /* No teams empty state */
+            ))}
+          </div>
+        ) : (
+          /* No teams empty state */
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.10)',
+            }}
+          >
+            <div className="px-5 py-5">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 mb-2">
@@ -376,12 +383,12 @@ export default async function DashboardPage() {
                   className="flex-shrink-0 self-center px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
                   style={{ background: '#B8CA6E', color: '#1a1410' }}
                 >
-                  Create team →
+                  Create team &rarr;
                 </a>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )
 
         {/* Parent view card — only shown if coach also has a parent profile */}
         {parentProfile && (

@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
-import { MobileProvider } from './MobileContext'
+import { MobileProvider, type TeamInfo } from './MobileContext'
+
+const STORAGE_KEY = 'ych-mobile-active-team'
 
 // ---------------------------------------------------------------------------
 // SVG Icon Components
@@ -12,17 +14,7 @@ import { MobileProvider } from './MobileContext'
 
 function HomeIcon({ className }: { className?: string }) {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
       <path d="M9 21V12h6v9" />
     </svg>
@@ -31,17 +23,7 @@ function HomeIcon({ className }: { className?: string }) {
 
 function PlaybookIcon({ className }: { className?: string }) {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M16 3H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2z" />
       <path d="M10 3V1m4 2V1m-4 8h4m-4 4h2" />
     </svg>
@@ -50,17 +32,7 @@ function PlaybookIcon({ className }: { className?: string }) {
 
 function SidelineIcon({ className }: { className?: string }) {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="12" cy="13" r="8" />
       <path d="M12 9v4l2.5 2.5M10 1h4M12 1v3" />
     </svg>
@@ -69,17 +41,7 @@ function SidelineIcon({ className }: { className?: string }) {
 
 function RosterIcon({ className }: { className?: string }) {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
       <circle cx="10" cy="7" r="4" />
       <path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
@@ -89,17 +51,7 @@ function RosterIcon({ className }: { className?: string }) {
 
 function MoreIcon({ className }: { className?: string }) {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <circle cx="5" cy="12" r="1.5" fill="currentColor" />
       <circle cx="12" cy="12" r="1.5" fill="currentColor" />
       <circle cx="19" cy="12" r="1.5" fill="currentColor" />
@@ -126,6 +78,84 @@ const TABS: TabConfig[] = [
 ]
 
 // ---------------------------------------------------------------------------
+// Bottom Sheet — Team Switcher
+// ---------------------------------------------------------------------------
+
+interface TeamSheetProps {
+  teams: TeamInfo[]
+  activeTeamId: string | null
+  onSelect: (teamId: string) => void
+  onClose: () => void
+}
+
+function TeamSheet({ teams, activeTeamId, onSelect, onClose }: TeamSheetProps) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/40 z-50"
+        onClick={onClose}
+      />
+      {/* Sheet */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+        {/* Handle */}
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        {/* Title */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 pb-2">
+          Switch Team
+        </p>
+
+        {/* Team list */}
+        <div className="max-h-[50vh] overflow-y-auto">
+          {teams.map((team) => {
+            const isActive = team.id === activeTeamId
+            return (
+              <button
+                key={team.id}
+                type="button"
+                onClick={() => onSelect(team.id)}
+                className="w-full flex items-center justify-between px-5 py-3.5 min-h-[56px] active:bg-gray-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0 text-left">
+                  <p className="text-base font-medium text-gray-900 truncate">
+                    {team.name}
+                  </p>
+                  <span className="inline-block mt-0.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    {team.level}
+                  </span>
+                </div>
+                {isActive && (
+                  <svg className="w-5 h-5 text-[#B8CA6E] flex-shrink-0 ml-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Divider + Account Settings */}
+        <div className="border-t border-gray-200 mx-5" />
+        <Link
+          href="/m/more"
+          onClick={onClose}
+          className="flex items-center gap-3 px-5 py-4 min-h-[56px] active:bg-gray-50 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+          </svg>
+          <span className="text-base font-medium text-gray-700">Account Settings</span>
+        </Link>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
 
@@ -137,6 +167,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [avatarInitial, setAvatarInitial] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [teamId, setTeamId] = useState<string | null>(null)
+  const [teams, setTeams] = useState<TeamInfo[]>([])
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // Track original styles so we can restore on unmount
   const originalNavDisplay = useRef<string>('')
@@ -168,7 +200,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     if (devIndicator) devIndicator.style.display = 'none'
 
     // Hide floating AI Assistant chat widget (ChatWidget from root layout)
-    // Injected as a <style> tag so it works even when ChatWidget renders after this effect
     const style = document.createElement('style')
     style.id = 'mobile-overrides'
     style.textContent = `[aria-label="Open AI Assistant"], [aria-label="Open AI Assistant"] + div { display: none !important; }`
@@ -189,16 +220,16 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     setIsCapacitor(capacitor?.isNative === true)
   }, [])
 
-  // Fetch coach profile and primary team
+  // Fetch coach profile and all teams
   useEffect(() => {
-    async function loadProfileAndTeam() {
+    async function loadProfileAndTeams() {
       const supabase = createClient()
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
+      console.log('[MobileLayout] auth result:', { user: user?.id ?? null, email: user?.email ?? null, authError: authError?.message ?? null })
       if (authError || !user) return
 
-      // Fetch profile — full_name or fallback to 'Coach'
-      // Email should never appear as a display name
+      // Fetch profile
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, avatar_url')
@@ -206,9 +237,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         .single()
 
       setCoachName(profile?.full_name || 'Coach')
-      setAvatarUrl(profile?.avatar_url ?? null)
+      setAvatarUrl(profile?.avatar_url || null)
 
-      // Avatar initial: use first char of full_name, or first char of email prefix
       if (profile?.full_name) {
         setAvatarInitial(profile.full_name.charAt(0).toUpperCase())
       } else {
@@ -216,24 +246,67 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         setAvatarInitial(emailPrefix ? emailPrefix.charAt(0).toUpperCase() : '?')
       }
 
-      // Fetch primary team (most recent)
-      const { data: teams } = await supabase
+      // Fetch ALL teams for this user (owned + memberships)
+      const { data: ownedTeams, error: teamsError } = await supabase
         .from('teams')
-        .select('id')
+        .select('id, name, level')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(1)
 
-      if (teams && teams.length > 0) {
-        setTeamId(teams[0].id)
+      console.log('[MobileLayout] owned teams query:', { ownedTeams, teamsError, userId: user.id })
+
+      const allTeams: TeamInfo[] = (ownedTeams ?? []).map((t) => ({
+        id: t.id,
+        name: t.name,
+        level: t.level ?? '',
+      }))
+
+      // Also check team_memberships for teams this user is a member of but doesn't own
+      const { data: memberships, error: membershipsError } = await supabase
+        .from('team_memberships')
+        .select('team_id, teams(id, name, level)')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+
+      console.log('[MobileLayout] memberships query:', { memberships, membershipsError })
+
+      if (memberships) {
+        for (const m of memberships) {
+          const t = m.teams as unknown as { id: string; name: string; level: string } | null
+          if (t && !allTeams.some((existing) => existing.id === t.id)) {
+            allTeams.push({ id: t.id, name: t.name, level: t.level ?? '' })
+          }
+        }
+      }
+
+      console.log('[MobileLayout] final teams array:', allTeams)
+      setTeams(allTeams)
+
+      // Resolve active team: localStorage → first team
+      const stored = localStorage.getItem(STORAGE_KEY)
+      const storedIsValid = stored && allTeams.some((t) => t.id === stored)
+
+      if (storedIsValid) {
+        setTeamId(stored)
+      } else if (allTeams.length > 0) {
+        const defaultId = allTeams[0].id
+        setTeamId(defaultId)
+        localStorage.setItem(STORAGE_KEY, defaultId)
       }
     }
 
-    loadProfileAndTeam()
+    loadProfileAndTeams()
+  }, [])
+
+  // Switch active team — persist to localStorage and update state
+  const switchTeam = useCallback((newTeamId: string) => {
+    setTeamId(newTeamId)
+    localStorage.setItem(STORAGE_KEY, newTeamId)
+    setSheetOpen(false)
   }, [])
 
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}
@@ -253,8 +326,13 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
               </span>
             </button>
 
-            {/* Right: Avatar */}
-            <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
+            {/* Right: Avatar — tappable, opens team switcher */}
+            <button
+              type="button"
+              onClick={() => setSheetOpen(true)}
+              className="flex items-center justify-center min-w-[44px] min-h-[44px]"
+              aria-label="Switch team"
+            >
               {avatarUrl ? (
                 <img
                   src={avatarUrl}
@@ -268,7 +346,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
                   </span>
                 </div>
               )}
-            </div>
+            </button>
 
           </div>
         </header>
@@ -305,6 +383,18 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           {/* Safe-area bottom padding for iOS home indicator */}
           <div className="pb-[env(safe-area-inset-bottom)]" />
         </nav>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Team Switcher Bottom Sheet                                           */}
+        {/* ------------------------------------------------------------------ */}
+        {sheetOpen && (
+          <TeamSheet
+            teams={teams}
+            activeTeamId={teamId}
+            onSelect={switchTeam}
+            onClose={() => setSheetOpen(false)}
+          />
+        )}
 
       </div>
     </MobileProvider>

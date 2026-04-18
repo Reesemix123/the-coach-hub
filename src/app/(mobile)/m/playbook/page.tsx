@@ -188,14 +188,15 @@ function PlayTypeBadge({ odk, playType }: { odk: string; playType?: string }) {
       </span>
     )
   }
-  if (playType === 'run') {
+  const pt = playType?.toLowerCase()
+  if (pt === 'run') {
     return (
       <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700">
         Run
       </span>
     )
   }
-  if (playType === 'pass') {
+  if (pt === 'pass') {
     return (
       <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700">
         Pass
@@ -386,11 +387,12 @@ export default function MobilePlaybookPage() {
         if (play.attributes.odk !== phaseFilter) return false
       }
 
-      // Type filter — Red Zone and 2-Min are aspirational: show all plays
+      // Type filter — case-insensitive match against playType
+      // Red Zone and 2-Min are aspirational: show all qualifying plays
       if (typeFilter === 'run') {
-        if (play.attributes.playType !== 'run') return false
+        if (play.attributes.playType?.toLowerCase() !== 'run') return false
       } else if (typeFilter === 'pass') {
-        if (play.attributes.playType !== 'pass') return false
+        if (play.attributes.playType?.toLowerCase() !== 'pass') return false
       }
       // 'redZone' and '2min' show all qualifying plays (no extra filter)
 
