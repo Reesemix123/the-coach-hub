@@ -98,11 +98,18 @@ export default function TeamSwitcher() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 text-gray-800 hover:text-black font-medium text-lg transition-colors"
+        className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 rounded-full px-3 py-1.5 text-gray-800 font-medium text-lg transition-colors"
+        title={currentTeamData?.team.name ?? 'Teams'}
       >
-        <span>{currentTeamData ? currentTeamData.team.name : 'Teams'}</span>
+        <span>
+          {currentTeamData
+            ? currentTeamData.team.name.length > 20
+              ? currentTeamData.team.name.slice(0, 20) + '\u2026'
+              : currentTeamData.team.name
+            : 'Teams'}
+        </span>
         <svg
-          className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
