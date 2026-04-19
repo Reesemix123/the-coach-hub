@@ -480,60 +480,398 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
 // Game State Bar
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Clock Entry Sheet
+// ---------------------------------------------------------------------------
+
+interface ClockSheetProps {
+  currentClock: string
+  onDone: (clock: string) => void
+  onClose: () => void
+}
+
+function parseClockToMinsSecs(clock: string): [number, number] {
+  const parts = clock.split(':')
+  return [parseInt(parts[0] || '0', 10), parseInt(parts[1] || '0', 10)]
+}
+
+function formatClockFromMinsSecs(mins: number, secs: number): string {
+  return `${mins}:${String(secs).padStart(2, '0')}`
+}
+
+function ClockSheet({ currentClock, onDone, onClose }: ClockSheetProps) {
+  const [initMins, initSecs] = parseClockToMinsSecs(currentClock)
+  const [mins, setMins] = useState(initMins)
+  const [secs, setSecs] = useState(initSecs)
+  const [mode, setMode] = useState<'stepper' | 'keypad'>('stepper')
+  const [raw, setRaw] = useState('')
+
+  // Sync steppers → keypad display when switching modes
+  function switchToKeypad() {
+    setRaw(`${mins}${String(secs).padStart(2, '0')}`)
+    setMode('keypad')
+  }
+
+  function switchToStepper() {
+    // Parse raw digits back into mins/secs
+    if (raw.length > 0) {
+      const padded = raw.padStart(4, '0')
+      setMins(Math.min(15, parseInt(padded.slice(0, 2), 10)))
+      setSecs(Math.min(59, parseInt(padded.slice(2, 4), 10)))
+    }
+    setMode('stepper')
+  }
+
+  // Keypad display: right-to-left fill into MM:SS
+  const keypadPadded = raw.padStart(4, '0')
+  const keypadDisplay = `${keypadPadded.slice(0, 2)}:${keypadPadded.slice(2, 4)}`
+
+  function handleKey(key: string) {
+    if (key === 'clear') { setRaw(''); return }
+    if (key === 'back') { setRaw((r) => r.slice(0, -1)); return }
+    if (raw.length >= 4) return
+    setRaw((r) => r + key)
+  }
+
+  // Resolve final clock value from current mode
+  function getClockValue(): string {
+    if (mode === 'keypad') {
+      const m = Math.min(15, parseInt(keypadPadded.slice(0, 2), 10))
+      const s = Math.min(59, parseInt(keypadPadded.slice(2, 4), 10))
+      return formatClockFromMinsSecs(m, s)
+    }
+    return formatClockFromMinsSecs(mins, secs)
+  }
+
+  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'back'] as const
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+        </div>
+        <div className="px-5 pb-6">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Game Clock</p>
+
+          {/* Mode toggle pill */}
+          <div className="flex bg-[#3a3a3c] rounded-full p-1 w-fit mx-auto">
+            <button
+              type="button"
+              onClick={() => switchToStepper()}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                mode === 'stepper' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'
+              }`}
+            >
+              Steppers
+            </button>
+            <button
+              type="button"
+              onClick={() => switchToKeypad()}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                mode === 'keypad' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'
+              }`}
+            >
+              Keypad
+            </button>
+          </div>
+
+          {/* Large time display */}
+          <p className="text-5xl font-bold text-white text-center py-4 tabular-nums">
+            {mode === 'keypad' ? keypadDisplay : formatClockFromMinsSecs(mins, secs)}
+          </p>
+
+          <div className="h-[320px] flex flex-col justify-center">
+          {mode === 'stepper' ? (
+            /* Stepper mode */
+            <div className="flex flex-col gap-8">
+              {/* Minutes */}
+              <div className="flex items-center justify-between py-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">MIN</span>
+                <div className="flex items-center gap-5">
+                  <button
+                    type="button"
+                    onClick={() => setMins((m) => Math.max(0, m - 1))}
+                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                  >
+                    <MinusIcon />
+                  </button>
+                  <span className="text-2xl font-bold text-white w-10 text-center tabular-nums">{mins}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMins((m) => Math.min(15, m + 1))}
+                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                  >
+                    <PlusIcon />
+                  </button>
+                </div>
+              </div>
+
+              {/* Seconds */}
+              <div className="flex items-center justify-between py-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">SEC</span>
+                <div className="flex items-center gap-5">
+                  <button
+                    type="button"
+                    onClick={() => setSecs((s) => (s <= 0 ? 55 : s - 5))}
+                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                  >
+                    <MinusIcon />
+                  </button>
+                  <span className="text-2xl font-bold text-white w-10 text-center tabular-nums">{String(secs).padStart(2, '0')}</span>
+                  <button
+                    type="button"
+                    onClick={() => setSecs((s) => (s >= 55 ? 0 : s + 5))}
+                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                  >
+                    <PlusIcon />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Keypad mode */
+            <div className="grid grid-cols-3 gap-2">
+              {KEYS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleKey(key)}
+                  className="bg-[#3a3a3c] rounded-xl text-white text-2xl font-semibold h-14 flex items-center justify-center active:opacity-70 transition-opacity"
+                >
+                  {key === 'clear' ? <span className="text-sm text-red-400">Clear</span> : key === 'back' ? <BackspaceIcon /> : key}
+                </button>
+              ))}
+            </div>
+          )}
+          </div>
+
+          {/* Bottom buttons */}
+          <div className="flex gap-3 mt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 text-sm font-semibold text-gray-500 min-h-[48px] active:text-gray-300 transition-colors"
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={() => onDone(getClockValue())}
+              className="flex-1 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-base font-bold min-h-[48px] active:bg-[#a8b85e] transition-colors"
+            >
+              Set Clock
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Score Entry Sheet
+// ---------------------------------------------------------------------------
+
+interface ScoreSheetProps {
+  homeScore: number
+  oppScore: number
+  opponentName: string
+  onDone: (home: number, opp: number) => void
+  onClose: () => void
+}
+
+function ScoreSheet({ homeScore, oppScore, opponentName, onDone, onClose }: ScoreSheetProps) {
+  const [home, setHome] = useState(homeScore)
+  const [opp, setOpp] = useState(oppScore)
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+        <div className="flex justify-center pt-3 pb-2">
+          <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+        </div>
+        <div className="px-5 pb-6">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Score</p>
+
+          {/* Our score */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-white">Us</span>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setHome(Math.max(0, home - 1))}
+                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+              >
+                <MinusIcon />
+              </button>
+              <span className="text-3xl font-bold text-white w-14 text-center tabular-nums">{home}</span>
+              <button
+                type="button"
+                onClick={() => setHome(home + 1)}
+                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+              >
+                <PlusIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* Opponent score */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-white truncate max-w-[80px]">{opponentName}</span>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setOpp(Math.max(0, opp - 1))}
+                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+              >
+                <MinusIcon />
+              </button>
+              <span className="text-3xl font-bold text-white w-14 text-center tabular-nums">{opp}</span>
+              <button
+                type="button"
+                onClick={() => setOpp(opp + 1)}
+                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+              >
+                <PlusIcon />
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onDone(home, opp)}
+            className="w-full mt-2 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-base font-bold min-h-[48px] active:bg-[#a8b85e] transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Game State Bar (interactive)
+// ---------------------------------------------------------------------------
+
+function formatQuarterLabel(q: number): string {
+  if (q <= 4) return `Q${q}`
+  return 'OT'
+}
+
+function nextQuarter(q: number): number {
+  if (q >= 5) return 1
+  return q + 1
+}
+
 interface GameStateBarProps {
   game: GameState
   opponentName: string
   onEndGame: () => void
+  dispatch: React.Dispatch<GameAction>
+  clockHasBeenSet: boolean
+  onClockSet: () => void
 }
 
-function GameStateBar({ game, opponentName, onEndGame }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onEndGame, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore } = game
+  const [showClock, setShowClock] = useState(false)
+  const [showScore, setShowScore] = useState(false)
+
   return (
-    <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
-      {/* Row 0: Opponent + End */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
-          vs {opponentName}
-        </p>
-        <button
-          type="button"
-          onClick={onEndGame}
-          className="text-xs text-gray-500 bg-[#3a3a3c] rounded-lg px-3 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
-        >
-          End
-        </button>
-      </div>
-
-      {/* Row 1: Down & Distance */}
-      <p className="text-3xl font-bold text-white leading-tight">
-        {ordinalDown(down)} &amp; {distance}
-      </p>
-
-      {/* Row 2: Field position */}
-      <p className="text-sm text-gray-400 mt-1">
-        {formatYardLine(yardLine)} &middot; {formatHash(hash)}
-      </p>
-
-      {/* Row 3: Score / Quarter / Clock */}
-      <div className="flex items-center mt-3">
-        <div className="flex-1 text-center">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Score</p>
-          <p className="text-lg font-semibold text-white">
-            {homeScore} - {oppScore}
+    <>
+      <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
+        {/* Row 0: Opponent + End */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
+            vs {opponentName}
           </p>
+          <button
+            type="button"
+            onClick={onEndGame}
+            className="text-xs text-gray-500 bg-[#3a3a3c] rounded-lg px-3 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
+          >
+            End
+          </button>
         </div>
-        <div className="w-px h-8 bg-[#3a3a3c]" />
-        <div className="flex-1 text-center">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Quarter</p>
-          <p className="text-lg font-semibold text-white">Q{quarter}</p>
-        </div>
-        <div className="w-px h-8 bg-[#3a3a3c]" />
-        <div className="flex-1 text-center">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Clock</p>
-          <p className="text-lg font-semibold text-[#B8CA6E]">{clock}</p>
+
+        {/* Row 1: Down & Distance */}
+        <p className="text-3xl font-bold text-white leading-tight">
+          {ordinalDown(down)} &amp; {distance}
+        </p>
+
+        {/* Row 2: Field position */}
+        <p className="text-sm text-gray-400 mt-1">
+          {formatYardLine(yardLine)} &middot; {formatHash(hash)}
+        </p>
+
+        {/* Row 3: Score / Quarter / Clock — all tappable */}
+        <div className="flex items-center mt-3">
+          {/* Score — tappable */}
+          <button
+            type="button"
+            onClick={() => setShowScore(true)}
+            className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
+          >
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Score</p>
+            <p className="text-lg font-semibold text-white">
+              {homeScore} - {oppScore}
+            </p>
+          </button>
+          <div className="w-px h-8 bg-[#3a3a3c]" />
+          {/* Quarter — tap to cycle */}
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'SET_QUARTER', quarter: nextQuarter(quarter) })}
+            className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
+          >
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Quarter</p>
+            <p className="text-lg font-semibold text-white">{formatQuarterLabel(quarter)}</p>
+          </button>
+          <div className="w-px h-8 bg-[#3a3a3c]" />
+          {/* Clock — tappable */}
+          <button
+            type="button"
+            onClick={() => setShowClock(true)}
+            className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
+          >
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Clock</p>
+            <p className={`text-lg font-semibold tabular-nums ${clockHasBeenSet ? 'text-[#B8CA6E]' : 'text-gray-500'}`}>{clock}</p>
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* Clock entry sheet */}
+      {showClock && (
+        <ClockSheet
+          currentClock={clock}
+          onDone={(newClock) => {
+            dispatch({ type: 'SET_CLOCK', clock: newClock })
+            onClockSet()
+            setShowClock(false)
+          }}
+          onClose={() => setShowClock(false)}
+        />
+      )}
+
+      {/* Score entry sheet */}
+      {showScore && (
+        <ScoreSheet
+          homeScore={homeScore}
+          oppScore={oppScore}
+          opponentName={opponentName}
+          onDone={(home, opp) => {
+            dispatch({ type: 'SET_HOME_SCORE', score: home })
+            dispatch({ type: 'SET_OPP_SCORE', score: opp })
+            setShowScore(false)
+          }}
+          onClose={() => setShowScore(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -1443,6 +1781,7 @@ export default function SidelinePage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
   const [opponentName, setOpponentName] = useState('')
   const [showEndConfirm, setShowEndConfirm] = useState(false)
+  const [clockHasBeenSet, setClockHasBeenSet] = useState(false)
 
   // Game state managed by reducer
   const [game, dispatchGame] = useReducer(gameReducer, INITIAL_GAME_STATE)
@@ -1494,6 +1833,7 @@ export default function SidelinePage() {
     setShowEndConfirm(false)
     setActiveGameId(null)
     setOpponentName('')
+    setClockHasBeenSet(false)
     setGamePlanPlays([])
     setGamePlanLoaded(false)
   }
@@ -1682,6 +2022,9 @@ export default function SidelinePage() {
         game={game}
         opponentName={opponentName}
         onEndGame={() => setShowEndConfirm(true)}
+        dispatch={dispatchGame}
+        clockHasBeenSet={clockHasBeenSet}
+        onClockSet={() => setClockHasBeenSet(true)}
       />
 
       {/* End Game Confirmation */}
