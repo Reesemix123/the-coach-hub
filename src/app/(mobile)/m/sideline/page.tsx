@@ -89,6 +89,12 @@ interface ScheduledGame {
 // Reducer for game state
 // ---------------------------------------------------------------------------
 
+interface UndoSnapshot {
+  gameState: GameState
+  driveNumber: number
+  playsCount: number
+}
+
 type GameAction =
   | { type: 'SET_DOWN'; down: number }
   | { type: 'SET_DISTANCE'; distance: number }
@@ -100,6 +106,7 @@ type GameAction =
   | { type: 'SET_OPP_SCORE'; score: number }
   | { type: 'SET_POSSESSION'; possession: Possession }
   | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null }
+  | { type: 'RESTORE'; state: GameState }
 
 const INITIAL_GAME_STATE: GameState = {
   down: 1,
@@ -188,6 +195,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         yardLine: newYardLine,
       }
     }
+    case 'RESTORE':
+      return action.state
     default:
       return state
   }
@@ -821,12 +830,15 @@ interface GameStateBarProps {
   game: GameState
   opponentName: string
   onEndGame: () => void
+  onMenuOpen: () => void
+  onUndo: () => void
+  canUndo: boolean
   dispatch: React.Dispatch<GameAction>
   clockHasBeenSet: boolean
   onClockSet: () => void
 }
 
-function GameStateBar({ game, opponentName, onEndGame, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onEndGame, onMenuOpen, onUndo, canUndo, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
@@ -834,18 +846,40 @@ function GameStateBar({ game, opponentName, onEndGame, dispatch, clockHasBeenSet
   return (
     <>
       <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
-        {/* Row 0: Opponent + End */}
+        {/* Row 0: Opponent + Undo + Menu */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
             vs {opponentName}
           </p>
-          <button
-            type="button"
-            onClick={onEndGame}
-            className="text-xs text-gray-500 bg-[#3a3a3c] rounded-lg px-3 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
-          >
-            End
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Undo button */}
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={!canUndo}
+              className={[
+                'text-xs rounded-lg px-2.5 py-1 min-h-[28px] transition-colors flex items-center gap-1',
+                canUndo
+                  ? 'text-white bg-[#3a3a3c] active:bg-[#48484a]'
+                  : 'text-gray-600 bg-[#2c2c2e]',
+              ].join(' ')}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6" /><path d="M3 13a9 9 0 103-7.7L3 7" />
+              </svg>
+              Undo
+            </button>
+            {/* Menu button */}
+            <button
+              type="button"
+              onClick={onMenuOpen}
+              className="text-gray-500 bg-[#3a3a3c] rounded-lg px-2 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Row 1: Down & Distance */}
@@ -2199,6 +2233,9 @@ export default function SidelinePage() {
   const [clockHasBeenSet, setClockHasBeenSet] = useState(false)
   const [pendingTry, setPendingTry] = useState<PendingTry>(null)
   const [pendingBlockedTD, setPendingBlockedTD] = useState<PendingBlockedTD>(null)
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null)
+  const [showGameMenu, setShowGameMenu] = useState(false)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // Game state managed by reducer
   const [game, dispatchGame] = useReducer(gameReducer, INITIAL_GAME_STATE)
@@ -2376,6 +2413,13 @@ export default function SidelinePage() {
   // -------------------------------------------------------------------------
 
   function handlePlayLogged(play: LoggedPlay) {
+    // Save snapshot for undo BEFORE any state changes
+    setUndoSnapshot({
+      gameState: { ...game },
+      driveNumber,
+      playsCount: loggedPlays.length,
+    })
+
     setLoggedPlays((prev) => [...prev, play])
 
     // Use original outcomeLabel directly — avoids the lossy mapOutcomeToResult → reverseMapResult roundtrip
@@ -2430,6 +2474,41 @@ export default function SidelinePage() {
       case 'penalty':         return 'Penalty'
       default:                return 'Complete' // run_gain/run_loss don't have explicit outcomes anymore
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Undo last play
+  // -------------------------------------------------------------------------
+
+  function handleUndo() {
+    if (!undoSnapshot) return
+    // Restore game state
+    dispatchGame({ type: 'RESTORE', state: undoSnapshot.gameState })
+    // Restore drive number
+    setDriveNumber(undoSnapshot.driveNumber)
+    // Remove the last logged play(s) added since snapshot
+    setLoggedPlays((prev) => prev.slice(0, undoSnapshot.playsCount))
+    // Clear any pending prompts
+    setPendingTry(null)
+    setPendingBlockedTD(null)
+    // Clear undo — only one level
+    setUndoSnapshot(null)
+  }
+
+  // -------------------------------------------------------------------------
+  // Reset game
+  // -------------------------------------------------------------------------
+
+  function handleResetGame() {
+    dispatchGame({ type: 'RESTORE', state: INITIAL_GAME_STATE })
+    setDriveNumber(1)
+    setLoggedPlays([])
+    setClockHasBeenSet(false)
+    setPendingTry(null)
+    setPendingBlockedTD(null)
+    setUndoSnapshot(null)
+    setShowResetConfirm(false)
+    setShowGameMenu(false)
   }
 
   // -------------------------------------------------------------------------
@@ -2509,6 +2588,9 @@ export default function SidelinePage() {
         game={game}
         opponentName={opponentName}
         onEndGame={() => setShowEndConfirm(true)}
+        onMenuOpen={() => setShowGameMenu(true)}
+        onUndo={handleUndo}
+        canUndo={undoSnapshot !== null}
         dispatch={dispatchGame}
         clockHasBeenSet={clockHasBeenSet}
         onClockSet={() => setClockHasBeenSet(true)}
@@ -2541,6 +2623,75 @@ export default function SidelinePage() {
                   className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-red-700 transition-colors"
                 >
                   End Game
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Game Menu */}
+      {showGameMenu && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowGameMenu(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6">
+              <button
+                type="button"
+                onClick={() => { setShowGameMenu(false); setShowEndConfirm(true) }}
+                className="w-full bg-[#3a3a3c] text-white rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[#48484a] transition-colors"
+              >
+                End Game
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowGameMenu(false); setShowResetConfirm(true) }}
+                className="w-full mt-2 bg-[#3a3a3c] text-red-400 rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[#48484a] transition-colors"
+              >
+                Reset Game
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGameMenu(false)}
+                className="w-full mt-2 text-sm font-semibold text-gray-500 min-h-[44px] active:text-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Reset Game Confirmation */}
+      {showResetConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowResetConfirm(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6 text-center">
+              <h3 className="text-lg font-bold text-white">Reset Game?</h3>
+              <p className="text-sm text-gray-500 mt-2">
+                This will clear all score, possession, and drive data for this session. Plays already synced cannot be undone.
+              </p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetGame}
+                  className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-red-700 transition-colors"
+                >
+                  Reset
                 </button>
               </div>
             </div>
