@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useReducer } from 'react'
+import { useState, useEffect, useCallback, useReducer, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 
@@ -1508,6 +1508,28 @@ interface PlaysViewProps {
   onSelectPlay: (playCode: string, playName: string, playType: string, formation: string) => void
 }
 
+function scorePlay(gpp: GamePlanPlay, game: GameState): number {
+  const pt = gpp.playbook_plays.attributes.playType?.toLowerCase() ?? ''
+  const isPass = pt === 'pass'
+  const isRun = pt === 'run'
+  let score = 0
+
+  // Long distance favors passing
+  if (game.distance >= 8 && isPass) score += 3
+  // Short distance favors running
+  if (game.distance <= 3 && isRun) score += 3
+  // Red zone favors running
+  if (game.yardLine >= 80 && isRun) score += 2
+  // Late-game long distance favors passing
+  if (game.quarter >= 4 && game.distance >= 5 && isPass) score += 2
+  // Medium distance slight pass preference
+  if (game.distance >= 4 && game.distance <= 7 && isPass) score += 1
+  // Goal line heavy run preference
+  if (game.yardLine >= 95 && isRun) score += 3
+
+  return score
+}
+
 function PlaysView({
   game,
   gamePlanPlays,
@@ -1516,6 +1538,13 @@ function PlaysView({
   loggedPlaysCount,
   onSelectPlay,
 }: PlaysViewProps) {
+  // Score and sort plays by situational relevance
+  const rankedPlays = useMemo(() => {
+    return [...gamePlanPlays]
+      .map((gpp) => ({ gpp, score: scorePlay(gpp, game) }))
+      .sort((a, b) => b.score - a.score)
+  }, [gamePlanPlays, game.down, game.distance, game.yardLine, game.quarter])
+
   if (isLoadingGamePlan) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1528,41 +1557,55 @@ function PlaysView({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <ClipboardIcon />
-        <p className="text-sm text-gray-500 mt-3">No game plan loaded for this game</p>
-        <p className="text-xs text-gray-600 mt-1">Build a game plan on the desktop to see play suggestions here</p>
+        <p className="text-sm text-gray-500 mt-3">No game plan for this game</p>
+        <p className="text-xs text-gray-600 mt-1">Set one up on desktop to see suggestions here</p>
       </div>
     )
   }
 
+  // Situation context string
+  const situationText = `${ordinalDown(game.down)} & ${game.distance} · ${formatYardLine(game.yardLine)} · Q${game.quarter}`
+
   return (
     <div className="pb-8">
-      {/* AI Suggestion Banner */}
-      <div className="bg-[#2c2c2e] rounded-xl mx-4 mt-3 p-3 flex items-center gap-2">
-        <SparkleIcon />
-        <div>
+      {/* AI Context Banner */}
+      <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <SparkleIcon />
           <p className="text-sm font-semibold text-[#B8CA6E]">AI Suggestions</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Based on {ordinalDown(game.down)} &amp; {game.distance} from {formatYardLine(game.yardLine)} &middot; {loggedPlaysCount} plays logged
-          </p>
         </div>
+        <p className="text-xs text-gray-400">
+          {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
+        </p>
       </div>
 
-      {/* Play list */}
+      {/* Ranked play list */}
       <div className="mt-3">
-        {gamePlanPlays.map((gpp, index) => {
-          const isTopPick = index === 0
-          const isSuggested = index >= 1 && index <= 3
-
-          let rowClass = 'px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px]'
-          if (isTopPick) {
-            rowClass += ' bg-[#1a2e1a] border-l-4 border-[#B8CA6E]'
-          } else if (isSuggested) {
-            rowClass += ' bg-[#1f2a1f] border-l-4 border-[#B8CA6E]/40'
-          } else {
-            rowClass += ' opacity-50'
-          }
+        {rankedPlays.map(({ gpp, score }: { gpp: GamePlanPlay; score: number }, index: number) => {
+          const isTopPick = index === 0 && score > 0
+          const isSuggested = (index === 1 || index === 2) && score > 0
 
           const { play_name, attributes } = gpp.playbook_plays
+          const pt = attributes.playType?.toLowerCase()
+
+          let rowClass = 'w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70'
+          if (isTopPick) {
+            rowClass += ' bg-[#253515] border-l-4 border-[#B8CA6E]'
+          } else if (isSuggested) {
+            rowClass += ' bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
+          } else {
+            rowClass += ' bg-[#2c2c2e] opacity-50'
+          }
+
+          // Contextual hint for top pick
+          let hint = ''
+          if (isTopPick) {
+            if (game.distance <= 3 && pt === 'run') hint = 'Short yardage — power run situation'
+            else if (game.distance >= 8 && pt === 'pass') hint = 'Long distance — passing situation'
+            else if (game.yardLine >= 80 && pt === 'run') hint = 'Red zone — ground game'
+            else if (game.quarter >= 4 && pt === 'pass') hint = '4th quarter — stretch the field'
+            else hint = 'Best match for this situation'
+          }
 
           return (
             <button
@@ -1576,7 +1619,7 @@ function PlaysView({
                   attributes.formation ?? '',
                 )
               }
-              className={rowClass + ' w-full text-left active:opacity-70 transition-opacity'}
+              className={rowClass}
             >
               <div className="flex-1 min-w-0 pr-3">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1586,22 +1629,33 @@ function PlaysView({
                       TOP PICK
                     </span>
                   )}
+                  {isSuggested && (
+                    <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">
+                      SUGGESTED
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">
                   {[attributes.formation, attributes.playType].filter(Boolean).join(' · ')}
                 </p>
-                {isTopPick && (
-                  <p className="text-xs text-[#B8CA6E] mt-0.5">72% success rate</p>
+                {isTopPick && hint && (
+                  <p className="text-xs text-[#B8CA6E] mt-0.5">{hint}</p>
                 )}
               </div>
 
               <div className="flex flex-col items-end shrink-0">
-                {attributes.playType === 'run' ? (
-                  <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Run</span>
-                ) : attributes.playType === 'pass' ? (
-                  <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
-                ) : null}
-                <span className="text-xs text-gray-500 mt-1">#{gpp.call_number}</span>
+                {pt === 'run' ? (
+                  <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
+                ) : pt === 'pass' ? (
+                  <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
+                ) : (
+                  <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">
+                    {attributes.playType || attributes.odk}
+                  </span>
+                )}
+                {gpp.call_number != null && (
+                  <span className="text-xs text-gray-500 mt-1">Play #{gpp.call_number}</span>
+                )}
               </div>
             </button>
           )

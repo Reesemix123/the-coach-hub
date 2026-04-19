@@ -267,12 +267,12 @@ export async function addPlayToSituation(
     // Use the same call number as the existing entry
     callNumber = existingPlay.call_number;
   } else {
-    // Get the current max call number for this side and assign a new one
+    // Get the current max call number across ALL sides — call numbers are
+    // unique per game plan (not per side) to match the DB constraint
     const { data: maxPlays } = await supabase
       .from('game_plan_plays')
       .select('call_number')
       .eq('game_plan_id', gamePlanId)
-      .eq('side', side)
       .order('call_number', { ascending: false })
       .limit(1);
 
