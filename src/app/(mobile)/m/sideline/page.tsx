@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useReducer, useMemo } from 'react'
+import { useState, useEffect, useCallback, useReducer, useMemo, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 
@@ -2056,16 +2056,117 @@ function PlaysView({
 // Drive View
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Swipeable Play Row (swipe left to reveal delete)
+// ---------------------------------------------------------------------------
+
+function SwipeablePlayRow({
+  play,
+  index,
+  onDelete,
+}: {
+  play: LoggedPlay
+  index: number
+  onDelete: () => void
+}) {
+  const [offsetX, setOffsetX] = useState(0)
+  const [swiping, setSwiping] = useState(false)
+  const startXRef = useRef(0)
+  const DELETE_THRESHOLD = -70
+
+  function handleTouchStart(e: React.TouchEvent) {
+    startXRef.current = e.touches[0].clientX
+    setSwiping(true)
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!swiping) return
+    const dx = e.touches[0].clientX - startXRef.current
+    // Only allow swipe left
+    setOffsetX(Math.min(0, Math.max(-100, dx)))
+  }
+
+  function handleTouchEnd() {
+    setSwiping(false)
+    if (offsetX <= DELETE_THRESHOLD) {
+      setOffsetX(-100) // Lock open
+    } else {
+      setOffsetX(0) // Snap back
+    }
+  }
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Delete action behind the row */}
+      <div className="absolute inset-y-0 right-0 flex items-center">
+        <button
+          type="button"
+          onClick={onDelete}
+          className="bg-red-600 text-white text-xs font-semibold h-full px-5 flex items-center active:bg-red-700"
+        >
+          Delete
+        </button>
+      </div>
+      {/* Swipeable row */}
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ transform: `translateX(${offsetX}px)`, transition: swiping ? 'none' : 'transform 0.2s ease-out' }}
+        className="relative bg-[#1c1c1e] flex items-center gap-3 px-4 py-3 border-b border-[#3a3a3c]"
+      >
+        {/* Play number circle */}
+        <div className="w-8 h-8 rounded-full bg-[#3a3a3c] text-white text-sm flex items-center justify-center shrink-0">
+          {index + 1}
+        </div>
+
+        {/* Play details */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">
+            {play.playName ?? 'Quick Play'}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine)}
+          </p>
+          <p className="text-[10px] text-gray-600 mt-0.5">
+            {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
+          </p>
+        </div>
+
+        {/* Yards gained */}
+        <span
+          className={[
+            'text-sm font-semibold shrink-0',
+            play.yardsGained > 0
+              ? 'text-green-400'
+              : play.yardsGained < 0
+              ? 'text-red-400'
+              : 'text-gray-400',
+          ].join(' ')}
+        >
+          {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Drive View
+// ---------------------------------------------------------------------------
+
 interface DriveViewProps {
   game: GameState
   loggedPlays: LoggedPlay[]
   driveNumber: number
   teamId: string | null
   currentGameId: string | null
+  onDeletePlay: (playId: string) => void
 }
 
-function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId }: DriveViewProps) {
+function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDeletePlay }: DriveViewProps) {
   const [dbDrives, setDbDrives] = useState<DbDrive[]>([])
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!teamId) return
@@ -2137,44 +2238,48 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId }: Dr
       ) : (
         <div className="mt-2">
           {currentDrivePlays.map((play, index) => (
-            <div
+            <SwipeablePlayRow
               key={play.id}
-              className="flex items-center gap-3 px-4 py-3 border-b border-[#3a3a3c]"
-            >
-              {/* Play number circle */}
-              <div className="w-8 h-8 rounded-full bg-[#3a3a3c] text-white text-sm flex items-center justify-center shrink-0">
-                {index + 1}
-              </div>
-
-              {/* Play details */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {play.playName ?? 'Quick Play'}
-                </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine)}
-                </p>
-                <p className="text-[10px] text-gray-600 mt-0.5">
-                  {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
-                </p>
-              </div>
-
-              {/* Yards gained */}
-              <span
-                className={[
-                  'text-sm font-semibold shrink-0',
-                  play.yardsGained > 0
-                    ? 'text-green-400'
-                    : play.yardsGained < 0
-                    ? 'text-red-400'
-                    : 'text-gray-400',
-                ].join(' ')}
-              >
-                {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
-              </span>
-            </div>
+              play={play}
+              index={index}
+              onDelete={() => setDeleteConfirmId(play.id)}
+            />
           ))}
         </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteConfirmId && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setDeleteConfirmId(null)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6 text-center">
+              <p className="text-sm text-white font-semibold">Remove this play from the drive?</p>
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmId(null)}
+                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeletePlay(deleteConfirmId)
+                    setDeleteConfirmId(null)
+                  }}
+                  className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-red-700 transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* "Now" indicator */}
@@ -2833,6 +2938,7 @@ export default function SidelinePage() {
           driveNumber={driveNumber}
           teamId={teamId}
           currentGameId={activeGameId}
+          onDeletePlay={(playId) => setLoggedPlays((prev) => prev.filter((p) => p.id !== playId))}
         />
       )}
     </div>
