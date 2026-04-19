@@ -11,8 +11,11 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 type MainSegment = 'log' | 'plays' | 'drive'
 type LogMode = 'wristband' | 'fromPlays' | 'quick'
 type QuickPlayType = 'run' | 'pass' | 'special_teams'
+type STSubType = 'kickoff' | 'punt' | 'field_goal_pat'
 type HashMark = 'left' | 'middle' | 'right'
-type OutcomeLabel = 'Gain' | 'Loss' | 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty'
+type OutcomeLabel = 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty' | 'Return' | 'Fair Catch' | 'Touchback' | 'Punted' | 'Blocked' | 'Good' | 'No Good'
+
+type Possession = 'us' | 'them'
 
 interface GameState {
   down: number
@@ -23,6 +26,7 @@ interface GameState {
   clock: string
   homeScore: number
   oppScore: number
+  possession: Possession
 }
 
 interface LoggedPlay {
@@ -45,6 +49,7 @@ interface GamePlanPlay {
   play_code: string
   call_number: number
   sort_order: number
+  situation: string | null
   playbook_plays: {
     id: string
     play_code: string
@@ -88,7 +93,8 @@ type GameAction =
   | { type: 'SET_CLOCK'; clock: string }
   | { type: 'SET_HOME_SCORE'; score: number }
   | { type: 'SET_OPP_SCORE'; score: number }
-  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel }
+  | { type: 'SET_POSSESSION'; possession: Possession }
+  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession }
 
 const INITIAL_GAME_STATE: GameState = {
   down: 1,
@@ -99,6 +105,7 @@ const INITIAL_GAME_STATE: GameState = {
   clock: '15:00',
   homeScore: 0,
   oppScore: 0,
+  possession: 'us',
 }
 
 function clampYardLine(yl: number): number {
@@ -123,22 +130,39 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, homeScore: action.score }
     case 'SET_OPP_SCORE':
       return { ...state, oppScore: action.score }
+    case 'SET_POSSESSION':
+      return { ...state, possession: action.possession }
     case 'ADVANCE': {
-      const { yardsGained, outcome } = action
+      const { yardsGained, outcome, possession } = action
+      const flip: Possession = possession === 'us' ? 'them' : 'us'
+
+      // TD: score for whoever has possession, flip possession (other team kicks off)
       if (outcome === 'TD') {
-        return { ...state, down: 1, distance: 10, yardLine: 25, homeScore: state.homeScore + 6 }
+        const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
+        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
+      // FG/PAT Good: score for whoever has possession, flip possession
+      if (outcome === 'Good') {
+        const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
+        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 3, possession: flip }
+      }
+      // Turnover: flip possession
       if (outcome === 'Turnover') {
-        return { ...state, down: 1, distance: 10, yardLine: 25 }
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
       }
+      // Punt/Kickoff results that flip possession
+      if (outcome === 'Punted' || outcome === 'Touchback' || outcome === 'Fair Catch') {
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - (state.yardLine + yardsGained)), possession: flip }
+      }
+      // Normal play advancement
       const newYardLine = clampYardLine(state.yardLine + yardsGained)
       const newDistance = state.distance - yardsGained
       if (newDistance <= 0 || outcome === 'Complete' && yardsGained >= state.distance) {
         return { ...state, down: 1, distance: 10, yardLine: newYardLine }
       }
       if (state.down >= 4) {
-        // Turnover on downs — reset
-        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - newYardLine) }
+        // Turnover on downs — flip possession
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - newYardLine), possession: flip }
       }
       return {
         ...state,
@@ -182,18 +206,27 @@ function parseTimeToSeconds(clock: string): number {
   return mins * 60 + secs
 }
 
-function mapOutcomeToResult(outcome: OutcomeLabel): string {
-  switch (outcome) {
-    case 'Gain':       return 'run_gain'
-    case 'Loss':       return 'run_loss'
-    case 'TD':         return 'touchdown'
-    case 'Turnover':   return 'fumble'
-    case 'Incomplete': return 'pass_incomplete'
-    case 'Complete':   return 'pass_complete'
-    case 'Sack':       return 'sack'
-    case 'Penalty':    return 'penalty'
-    default:           return 'run_gain'
+function mapOutcomeToResult(outcome: OutcomeLabel | null, playType: string | null, yards: number): string {
+  if (outcome) {
+    switch (outcome) {
+      case 'TD':         return 'touchdown'
+      case 'Turnover':   return 'fumble'
+      case 'Incomplete': return 'pass_incomplete'
+      case 'Complete':   return 'pass_complete'
+      case 'Sack':       return 'sack'
+      case 'Penalty':    return 'penalty'
+      case 'Return':     return 'run_gain'
+      case 'Fair Catch':  return 'run_no_gain'
+      case 'Touchback':  return 'run_no_gain'
+      case 'Punted':     return 'run_gain'
+      case 'Blocked':    return 'fumble'
+      case 'Good':       return 'run_gain'
+      case 'No Good':    return 'run_no_gain'
+    }
   }
+  const pt = playType?.toLowerCase()
+  if (pt === 'pass') return yards >= 0 ? 'pass_complete' : 'pass_incomplete'
+  return yards >= 0 ? 'run_gain' : 'run_loss'
 }
 
 // ---------------------------------------------------------------------------
@@ -777,7 +810,7 @@ interface GameStateBarProps {
 }
 
 function GameStateBar({ game, opponentName, onEndGame, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
-  const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore } = game
+  const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
 
@@ -803,10 +836,24 @@ function GameStateBar({ game, opponentName, onEndGame, dispatch, clockHasBeenSet
           {ordinalDown(down)} &amp; {distance}
         </p>
 
-        {/* Row 2: Field position */}
-        <p className="text-sm text-gray-400 mt-1">
-          {formatYardLine(yardLine)} &middot; {formatHash(hash)}
-        </p>
+        {/* Row 2: Field position + possession */}
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-sm text-gray-400">
+            {formatYardLine(yardLine)} &middot; {formatHash(hash)}
+          </p>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'SET_POSSESSION', possession: possession === 'us' ? 'them' : 'us' })}
+            className={[
+              'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[24px]',
+              possession === 'us'
+                ? 'bg-[#B8CA6E] text-[#1c1c1e]'
+                : 'bg-[#3a3a3c] text-white',
+            ].join(' ')}
+          >
+            {possession === 'us' ? 'Our Ball' : 'Their Ball'}
+          </button>
+        </div>
 
         {/* Row 3: Score / Quarter / Clock — all tappable */}
         <div className="flex items-center mt-3">
@@ -1001,31 +1048,145 @@ function Numpad({ value, onChange }: NumpadProps) {
 interface OutcomeGridProps {
   selected: OutcomeLabel | null
   onSelect: (o: OutcomeLabel) => void
+  playType: QuickPlayType | null
+  stSubType: STSubType | null
+  onSTSubTypeChange: (st: STSubType) => void
+  onAutoYards?: (yards: number) => void
+  yardLine: number
 }
 
-const OUTCOMES: { label: OutcomeLabel; className: string }[] = [
-  { label: 'Gain',       className: 'bg-[#2a3a2a] text-[#7dc97d]' },
-  { label: 'Loss',       className: 'bg-[#3a3a3c] text-white' },
+const RUN_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
+  { label: 'TD',       className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
+  { label: 'Turnover', className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
+  { label: 'Penalty',  className: 'bg-[#3a3a3c] text-white' },
+]
+
+const PASS_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
   { label: 'TD',         className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
   { label: 'Turnover',   className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
-  { label: 'Incomplete', className: 'bg-[#3a3a3c] text-white' },
   { label: 'Complete',   className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Incomplete', className: 'bg-[#3a3a3c] text-white' },
   { label: 'Sack',       className: 'bg-[#3a3a3c] text-white' },
   { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
 ]
 
-function OutcomeGrid({ selected, onSelect }: OutcomeGridProps) {
+const ST_OUTCOMES: Record<STSubType, { label: OutcomeLabel; className: string; autoYards?: number }[]> = {
+  kickoff: [
+    { label: 'Return',    className: 'bg-[#3a3a3c] text-white' },
+    { label: 'Touchback', className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'TD',        className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
+    { label: 'Penalty',   className: 'bg-[#3a3a3c] text-white' },
+  ],
+  punt: [
+    { label: 'Return',     className: 'bg-[#3a3a3c] text-white' },
+    { label: 'Fair Catch',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'Touchback',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'Blocked',    className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
+    { label: 'TD',         className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
+    { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
+  ],
+  field_goal_pat: [
+    { label: 'Good',    className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
+    { label: 'No Good', className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'Blocked', className: 'bg-[#3a1a1a] text-[#ff6b6b]', autoYards: 0 },
+    { label: 'Penalty', className: 'bg-[#3a3a3c] text-white' },
+  ],
+}
+
+const ST_TYPE_OPTIONS: { key: STSubType; label: string }[] = [
+  { key: 'kickoff', label: 'Kickoff' },
+  { key: 'punt', label: 'Punt' },
+  { key: 'field_goal_pat', label: 'FG / PAT' },
+]
+
+function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChange, onAutoYards, yardLine }: OutcomeGridProps) {
+  if (!playType) {
+    return (
+      <div className="px-4 mt-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</p>
+        <p className="text-xs text-gray-600 mt-2">Select a play type above</p>
+      </div>
+    )
+  }
+
+  // Special teams: show ST type selector first, then type-specific results
+  if (playType === 'special_teams') {
+    return (
+      <div>
+        {/* ST Type selector */}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+          Special Teams Type
+        </p>
+        <div className="grid grid-cols-3 gap-2 px-4 mt-2">
+          {ST_TYPE_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onSTSubTypeChange(key)}
+              className={[
+                'rounded-xl py-3 text-sm font-semibold text-center min-h-[44px] transition-colors',
+                stSubType === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-white',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* ST Result buttons */}
+        {stSubType ? (
+          <>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+              Result
+            </p>
+            <div className="grid grid-cols-2 gap-2 px-4 mt-2">
+              {ST_OUTCOMES[stSubType].map(({ label, className, autoYards }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    onSelect(label)
+                    if (autoYards != null && onAutoYards) onAutoYards(autoYards)
+                    if (label === 'TD' && onAutoYards) onAutoYards(Math.max(1, 100 - yardLine))
+                  }}
+                  className={[
+                    'rounded-xl py-3 text-sm font-semibold text-center transition-all min-h-[44px]',
+                    className,
+                    selected === label ? 'ring-2 ring-[#B8CA6E]' : '',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="px-4 mt-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</p>
+            <p className="text-xs text-gray-600 mt-2">Select play type above</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Run or Pass
+  const outcomes = playType === 'pass' ? PASS_OUTCOMES : RUN_OUTCOMES
+
   return (
     <div>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
         Result
       </p>
       <div className="grid grid-cols-2 gap-2 px-4 mt-2">
-        {OUTCOMES.map(({ label, className }) => (
+        {outcomes.map(({ label, className }) => (
           <button
             key={label}
             type="button"
-            onClick={() => onSelect(label)}
+            onClick={() => {
+              onSelect(label)
+              if (label === 'TD' && onAutoYards) onAutoYards(Math.max(1, 100 - yardLine))
+            }}
             className={[
               'rounded-xl py-3 text-sm font-semibold text-center transition-all min-h-[44px]',
               className,
@@ -1050,6 +1211,22 @@ interface YardsStepperProps {
 }
 
 function YardsStepper({ value, onChange }: YardsStepperProps) {
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState('')
+
+  function handleStartEdit() {
+    setEditValue(String(value))
+    setEditing(true)
+  }
+
+  function handleCommit() {
+    const parsed = parseInt(editValue, 10)
+    if (!isNaN(parsed)) {
+      onChange(Math.max(0, Math.min(99, parsed)))
+    }
+    setEditing(false)
+  }
+
   return (
     <div>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
@@ -1058,17 +1235,36 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
       <div className="flex items-center justify-center gap-6 mt-2">
         <button
           type="button"
-          onClick={() => onChange(value - 1)}
+          onClick={() => onChange(Math.max(0, value - 1))}
           className="w-14 h-14 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
         >
           <MinusIcon />
         </button>
-        <span className="text-4xl font-bold text-white w-20 text-center tabular-nums">
-          {value}
-        </span>
+        {editing ? (
+          <input
+            type="number"
+            inputMode="numeric"
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleCommit}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
+            min={0}
+            max={99}
+            className="text-4xl font-bold text-white w-20 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="text-4xl font-bold text-white w-20 text-center tabular-nums min-h-[56px]"
+          >
+            {value}
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => onChange(value + 1)}
+          onClick={() => onChange(Math.min(99, value + 1))}
           className="w-14 h-14 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
         >
           <PlusIcon />
@@ -1298,8 +1494,10 @@ function LogView({
   const [selectedPlayType, setSelectedPlayType] = useState<string | null>(null)
   const [selectedFormation, setSelectedFormation] = useState<string | null>(null)
   const [quickPlayType, setQuickPlayType] = useState<QuickPlayType | null>(null)
+  const [stSubType, setStSubType] = useState<STSubType | null>(null)
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeLabel | null>(null)
   const [yards, setYards] = useState(0)
+  const [tdAutoYards, setTdAutoYards] = useState(false)
   const [flagForReview, setFlagForReview] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -1313,7 +1511,9 @@ function LogView({
   }
 
   async function handleLogPlay() {
-    if (!selectedOutcome) return
+    // Allow logging with explicit outcome OR with just yards (auto-derive result)
+    const effectivePlayType = logMode === 'quick' ? quickPlayType : selectedPlayType
+    if (!selectedOutcome && yards === 0) return
     if (!teamId) return
 
     setIsSaving(true)
@@ -1321,6 +1521,7 @@ function LogView({
 
     const supabase = createClient()
     const localId = crypto.randomUUID()
+    const resolvedResult = mapOutcomeToResult(selectedOutcome, effectivePlayType, yards)
 
     const insertPayload = {
       team_id: teamId,
@@ -1337,8 +1538,9 @@ function LogView({
       time_remaining: parseTimeToSeconds(game.clock),
       play_code: selectedPlayCode ?? null,
       formation: selectedFormation ?? null,
-      play_type: selectedPlayType ?? null,
-      result: mapOutcomeToResult(selectedOutcome),
+      play_type: effectivePlayType ?? null,
+      is_opponent_play: game.possession === 'them',
+      result: resolvedResult,
       yards_gained: yards,
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
@@ -1366,7 +1568,7 @@ function LogView({
       distance: game.distance,
       yardLine: game.yardLine,
       quarter: game.quarter,
-      result: mapOutcomeToResult(selectedOutcome),
+      result: resolvedResult,
       yardsGained: yards,
       driveNumber,
     })
@@ -1381,7 +1583,9 @@ function LogView({
     setSelectedFormation(null)
     setSelectedOutcome(null)
     setQuickPlayType(null)
+    setStSubType(null)
     setYards(0)
+    setTdAutoYards(false)
     setFlagForReview(false)
   }
 
@@ -1413,7 +1617,11 @@ function LogView({
             Play Type
           </p>
           <div className="grid grid-cols-3 gap-2">
-            {([['run', 'Run'], ['pass', 'Pass'], ['special_teams', 'Special Teams']] as const).map(
+            {([
+              ['run', game.possession === 'them' ? 'Run Def' : 'Run'],
+              ['pass', game.possession === 'them' ? 'Pass Def' : 'Pass'],
+              ['special_teams', 'Special Teams'],
+            ] as [QuickPlayType, string][]).map(
               ([key, label]) => (
                 <button
                   key={key}
@@ -1421,6 +1629,8 @@ function LogView({
                   onClick={() => {
                     setQuickPlayType(key)
                     setSelectedPlayType(key)
+                    setStSubType(null)
+                    setSelectedOutcome(null)
                   }}
                   className={[
                     'rounded-xl py-4 text-sm font-semibold text-center min-h-[56px] transition-colors',
@@ -1459,14 +1669,39 @@ function LogView({
         </div>
       )}
 
-      {/* Outcome Grid */}
-      <OutcomeGrid selected={selectedOutcome} onSelect={setSelectedOutcome} />
+      {/* Outcome Grid — hidden in wristband mode when no game plan loaded */}
+      {logMode === 'wristband' && !gamePlanLoaded ? null : (
+        <OutcomeGrid
+          selected={selectedOutcome}
+          onSelect={(o) => {
+            setSelectedOutcome(o)
+            if (o !== 'TD') setTdAutoYards(false)
+          }}
+          playType={logMode === 'quick' ? quickPlayType : (selectedPlayType?.toLowerCase() as QuickPlayType | null) ?? 'run'}
+          stSubType={stSubType}
+          onSTSubTypeChange={(st) => { setStSubType(st); setSelectedOutcome(null) }}
+          onAutoYards={(y) => { setYards(y); setTdAutoYards(y > 0) }}
+          yardLine={game.yardLine}
+        />
+      )}
 
       {/* Yards Stepper */}
-      <YardsStepper value={yards} onChange={setYards} />
+      {logMode === 'wristband' && !gamePlanLoaded ? null : (
+        <div>
+          <YardsStepper
+            value={yards}
+            onChange={(v) => { setYards(v); setTdAutoYards(false) }}
+          />
+          {tdAutoYards && (
+            <p className="text-[10px] text-[#B8CA6E] text-center mt-1">Auto-calculated to end zone</p>
+          )}
+        </div>
+      )}
 
       {/* Film Flag */}
-      <FilmFlagToggle value={flagForReview} onChange={setFlagForReview} />
+      {logMode === 'wristband' && !gamePlanLoaded ? null : (
+        <FilmFlagToggle value={flagForReview} onChange={setFlagForReview} />
+      )}
 
       {/* Error */}
       {saveError && (
@@ -1477,13 +1712,13 @@ function LogView({
       <div className="px-4 mt-6 mb-4">
         <button
           type="button"
-          disabled={!selectedOutcome || isSaving}
+          disabled={(!selectedOutcome && yards === 0) || isSaving}
           onClick={handleLogPlay}
           className={[
             'w-full rounded-xl py-4 text-lg font-bold text-center transition-colors',
             saveSuccess
               ? 'bg-green-600 text-white'
-              : selectedOutcome && !isSaving
+              : (selectedOutcome || yards !== 0) && !isSaving
               ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
               : 'bg-[#3a3a3c] text-gray-500',
           ].join(' ')}
@@ -1498,6 +1733,13 @@ function LogView({
 // ---------------------------------------------------------------------------
 // Plays View
 // ---------------------------------------------------------------------------
+
+interface SituationInfo {
+  key: string
+  label: string
+  situationIds: string[]
+  description: string
+}
 
 interface PlaysViewProps {
   game: GameState
@@ -1530,6 +1772,91 @@ function scorePlay(gpp: GamePlanPlay, game: GameState): number {
   return score
 }
 
+function detectSituation(game: GameState, loggedPlaysCount: number): SituationInfo | null {
+  if (game.yardLine >= 95) {
+    return { key: 'goal_line', label: 'Goal Line', situationIds: ['goal_line'], description: 'Goal line stand. Power runs and sneaks.' }
+  }
+  if (game.yardLine >= 80) {
+    return { key: 'red_zone', label: 'Red Zone', situationIds: ['red_zone'], description: 'Red zone. Condensed field, exploit coverage gaps.' }
+  }
+  if (game.yardLine <= 10) {
+    return { key: 'backed_up', label: 'Backed Up', situationIds: ['backed_up'], description: 'Backed up. Safe calls, field position first.' }
+  }
+  if ((game.quarter === 2 || game.quarter >= 4) && parseTimeToSeconds(game.clock) <= 120) {
+    return { key: '2_minute', label: '2-Minute', situationIds: ['2_minute'], description: 'Two-minute drill. Spread formation, sideline routes.' }
+  }
+  if (game.down === 1 && game.distance === 10 && loggedPlaysCount <= 15 && game.quarter === 1) {
+    return { key: 'first_15', label: 'First 15', situationIds: ['first_15', 'opening_script'], description: 'Opening script. Execute your game plan.' }
+  }
+  return null
+}
+
+function PlayRow({
+  gpp,
+  isTopPick,
+  isSuggested,
+  isSituationPlay,
+  hint,
+  game,
+  onSelect,
+}: {
+  gpp: GamePlanPlay
+  isTopPick?: boolean
+  isSuggested?: boolean
+  isSituationPlay?: boolean
+  hint?: string
+  game: GameState
+  onSelect: () => void
+}) {
+  const { play_name, attributes } = gpp.playbook_plays
+  const pt = attributes.playType?.toLowerCase()
+
+  let rowClass = 'w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70'
+  if (isSituationPlay) {
+    rowClass += ' bg-[#1a2a3a] border-l-4 border-[#B8CA6E]'
+  } else if (isTopPick) {
+    rowClass += ' bg-[#253515] border-l-4 border-[#B8CA6E]'
+  } else if (isSuggested) {
+    rowClass += ' bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
+  } else {
+    rowClass += ' bg-[#2c2c2e] opacity-50'
+  }
+
+  return (
+    <button type="button" onClick={onSelect} className={rowClass}>
+      <div className="flex-1 min-w-0 pr-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-base font-medium text-white">{play_name}</span>
+          {isTopPick && (
+            <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
+          )}
+          {isSuggested && (
+            <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
+          )}
+        </div>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {[attributes.formation, attributes.playType].filter(Boolean).join(' · ')}
+        </p>
+        {hint && <p className="text-xs text-[#B8CA6E] mt-0.5">{hint}</p>}
+      </div>
+      <div className="flex flex-col items-end shrink-0">
+        {pt === 'run' ? (
+          <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
+        ) : pt === 'pass' ? (
+          <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
+        ) : (
+          <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">
+            {attributes.playType || attributes.odk}
+          </span>
+        )}
+        {gpp.call_number != null && (
+          <span className="text-xs text-gray-500 mt-1">Play #{gpp.call_number}</span>
+        )}
+      </div>
+    </button>
+  )
+}
+
 function PlaysView({
   game,
   gamePlanPlays,
@@ -1538,12 +1865,28 @@ function PlaysView({
   loggedPlaysCount,
   onSelectPlay,
 }: PlaysViewProps) {
-  // Score and sort plays by situational relevance
+  const situation = useMemo(
+    () => detectSituation(game, loggedPlaysCount),
+    [game.down, game.distance, game.yardLine, game.quarter, game.clock, loggedPlaysCount]
+  )
+
+  // Plays tagged for the current situation
+  const situationPlays = useMemo(() => {
+    if (!situation) return []
+    return gamePlanPlays.filter(
+      (gpp) => gpp.situation && situation.situationIds.includes(gpp.situation)
+    )
+  }, [gamePlanPlays, situation])
+
+  // Exclude situation plays from AI ranking, then score and sort
+  const situationPlayIds = useMemo(() => new Set(situationPlays.map((p) => p.id)), [situationPlays])
+
   const rankedPlays = useMemo(() => {
-    return [...gamePlanPlays]
+    const remaining = gamePlanPlays.filter((gpp) => !situationPlayIds.has(gpp.id))
+    return remaining
       .map((gpp) => ({ gpp, score: scorePlay(gpp, game) }))
       .sort((a, b) => b.score - a.score)
-  }, [gamePlanPlays, game.down, game.distance, game.yardLine, game.quarter])
+  }, [gamePlanPlays, situationPlayIds, game.down, game.distance, game.yardLine, game.quarter])
 
   if (isLoadingGamePlan) {
     return (
@@ -1563,41 +1906,73 @@ function PlaysView({
     )
   }
 
-  // Situation context string
   const situationText = `${ordinalDown(game.down)} & ${game.distance} · ${formatYardLine(game.yardLine)} · Q${game.quarter}`
+
+  const selectPlay = (gpp: GamePlanPlay) =>
+    onSelectPlay(
+      gpp.play_code,
+      gpp.playbook_plays.play_name,
+      gpp.playbook_plays.attributes.playType ?? '',
+      gpp.playbook_plays.attributes.formation ?? '',
+    )
 
   return (
     <div className="pb-8">
-      {/* AI Context Banner */}
-      <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
-        <div className="flex items-center gap-2 mb-1">
-          <SparkleIcon />
-          <p className="text-sm font-semibold text-[#B8CA6E]">AI Suggestions</p>
+      {/* Situation banner or AI banner */}
+      {situation ? (
+        <div className="bg-[#B8CA6E]/15 border border-[#B8CA6E]/25 rounded-xl mx-4 mt-3 p-3">
+          <p className="text-sm font-bold text-[#B8CA6E]">{situation.label}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{situation.description}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
+          </p>
         </div>
-        <p className="text-xs text-gray-400">
-          {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
-        </p>
-      </div>
+      ) : (
+        <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <SparkleIcon />
+            <p className="text-sm font-semibold text-[#B8CA6E]">AI Suggestions</p>
+          </div>
+          <p className="text-xs text-gray-400">
+            {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
+          </p>
+        </div>
+      )}
 
-      {/* Ranked play list */}
+      {/* Situation plays section */}
+      {situation && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
+            {situation.label} Plays
+          </p>
+          {situationPlays.length > 0 ? (
+            situationPlays.map((gpp) => (
+              <PlayRow
+                key={gpp.id}
+                gpp={gpp}
+                isSituationPlay
+                game={game}
+                onSelect={() => selectPlay(gpp)}
+              />
+            ))
+          ) : (
+            <p className="text-xs text-gray-600 px-4 py-3">
+              No plays tagged for this situation yet — tag them in your desktop game plan
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* AI suggestions section */}
       <div className="mt-3">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
+          AI Suggestions
+        </p>
         {rankedPlays.map(({ gpp, score }: { gpp: GamePlanPlay; score: number }, index: number) => {
           const isTopPick = index === 0 && score > 0
           const isSuggested = (index === 1 || index === 2) && score > 0
+          const pt = gpp.playbook_plays.attributes.playType?.toLowerCase()
 
-          const { play_name, attributes } = gpp.playbook_plays
-          const pt = attributes.playType?.toLowerCase()
-
-          let rowClass = 'w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70'
-          if (isTopPick) {
-            rowClass += ' bg-[#253515] border-l-4 border-[#B8CA6E]'
-          } else if (isSuggested) {
-            rowClass += ' bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
-          } else {
-            rowClass += ' bg-[#2c2c2e] opacity-50'
-          }
-
-          // Contextual hint for top pick
           let hint = ''
           if (isTopPick) {
             if (game.distance <= 3 && pt === 'run') hint = 'Short yardage — power run situation'
@@ -1608,56 +1983,15 @@ function PlaysView({
           }
 
           return (
-            <button
+            <PlayRow
               key={gpp.id}
-              type="button"
-              onClick={() =>
-                onSelectPlay(
-                  gpp.play_code,
-                  play_name,
-                  attributes.playType ?? '',
-                  attributes.formation ?? '',
-                )
-              }
-              className={rowClass}
-            >
-              <div className="flex-1 min-w-0 pr-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-base font-medium text-white">{play_name}</span>
-                  {isTopPick && (
-                    <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">
-                      TOP PICK
-                    </span>
-                  )}
-                  {isSuggested && (
-                    <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">
-                      SUGGESTED
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {[attributes.formation, attributes.playType].filter(Boolean).join(' · ')}
-                </p>
-                {isTopPick && hint && (
-                  <p className="text-xs text-[#B8CA6E] mt-0.5">{hint}</p>
-                )}
-              </div>
-
-              <div className="flex flex-col items-end shrink-0">
-                {pt === 'run' ? (
-                  <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
-                ) : pt === 'pass' ? (
-                  <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
-                ) : (
-                  <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">
-                    {attributes.playType || attributes.odk}
-                  </span>
-                )}
-                {gpp.call_number != null && (
-                  <span className="text-xs text-gray-500 mt-1">Play #{gpp.call_number}</span>
-                )}
-              </div>
-            </button>
+              gpp={gpp}
+              isTopPick={isTopPick}
+              isSuggested={isSuggested}
+              hint={isTopPick ? hint : undefined}
+              game={game}
+              onSelect={() => selectPlay(gpp)}
+            />
           )
         })}
       </div>
@@ -1735,6 +2069,11 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId }: Dr
         <p className="text-xs text-gray-500 mt-0.5">
           {currentDrivePlays.length} plays &middot; {currentDriveYards} yards
         </p>
+        {currentDrivePlays.length > 0 && (
+          <p className="text-xs text-gray-600 mt-0.5">
+            {formatYardLine(currentDrivePlays[0].yardLine)} &rarr; {formatYardLine(game.yardLine)}
+          </p>
+        )}
       </div>
 
       {/* Play list for current drive */}
@@ -1761,6 +2100,9 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId }: Dr
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine)}
+                </p>
+                <p className="text-[10px] text-gray-600 mt-0.5">
+                  {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
                 </p>
               </div>
 
@@ -1948,6 +2290,7 @@ export default function SidelinePage() {
         play_code,
         call_number,
         sort_order,
+        situation,
         playbook_plays (
           id,
           play_code,
@@ -2016,13 +2359,16 @@ export default function SidelinePage() {
 
     // Advance game state
     const outcome = reverseMapResult(play.result)
-    dispatchGame({ type: 'ADVANCE', yardsGained: play.yardsGained, outcome })
+    dispatchGame({ type: 'ADVANCE', yardsGained: play.yardsGained, outcome, possession: game.possession })
 
-    // Check if we need to start a new drive
+    // Check if we need to start a new drive (possession changes)
     if (
       outcome === 'TD' ||
       outcome === 'Turnover' ||
-      (outcome !== 'Gain' && outcome !== 'Complete' && outcome !== 'Incomplete' && outcome !== 'Loss' && outcome !== 'Sack' && outcome !== 'Penalty')
+      outcome === 'Punted' ||
+      outcome === 'Touchback' ||
+      outcome === 'Fair Catch' ||
+      outcome === 'Good'
     ) {
       setDriveNumber((n) => n + 1)
     }
@@ -2030,16 +2376,14 @@ export default function SidelinePage() {
 
   function reverseMapResult(result: string): OutcomeLabel {
     switch (result) {
-      case 'run_gain':      return 'Gain'
-      case 'run_loss':      return 'Loss'
-      case 'touchdown':     return 'TD'
-      case 'fumble':        return 'Turnover'
-      case 'interception':  return 'Turnover'
+      case 'touchdown':       return 'TD'
+      case 'fumble':          return 'Turnover'
+      case 'interception':    return 'Turnover'
       case 'pass_incomplete': return 'Incomplete'
-      case 'pass_complete': return 'Complete'
-      case 'sack':          return 'Sack'
-      case 'penalty':       return 'Penalty'
-      default:              return 'Gain'
+      case 'pass_complete':   return 'Complete'
+      case 'sack':            return 'Sack'
+      case 'penalty':         return 'Penalty'
+      default:                return 'Complete' // run_gain/run_loss don't have explicit outcomes anymore
     }
   }
 
