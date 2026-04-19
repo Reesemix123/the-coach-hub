@@ -40,6 +40,8 @@ interface LoggedPlay {
   yardLine: number
   quarter: number
   result: string
+  outcomeLabel: OutcomeLabel | null
+  stSubType: STSubType | null
   yardsGained: number
   driveNumber: number
 }
@@ -94,7 +96,7 @@ type GameAction =
   | { type: 'SET_HOME_SCORE'; score: number }
   | { type: 'SET_OPP_SCORE'; score: number }
   | { type: 'SET_POSSESSION'; possession: Possession }
-  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession }
+  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null }
 
 const INITIAL_GAME_STATE: GameState = {
   down: 1,
@@ -133,26 +135,47 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SET_POSSESSION':
       return { ...state, possession: action.possession }
     case 'ADVANCE': {
-      const { yardsGained, outcome, possession } = action
+      const { yardsGained, outcome, possession, stSubType: actionStSubType } = action
       const flip: Possession = possession === 'us' ? 'them' : 'us'
+      const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
 
-      // TD: score for whoever has possession, flip possession (other team kicks off)
+      // TD: score 6 for possessing team, flip possession (other team kicks off)
       if (outcome === 'TD') {
-        const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
-      // FG/PAT Good: score for whoever has possession, flip possession
-      if (outcome === 'Good') {
-        const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
-        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 3, possession: flip }
+      // Return that goes for a TD (yards reach end zone)
+      if (outcome === 'Return' && yardsGained > 0 && (state.yardLine + yardsGained) >= 100) {
+        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
-      // Turnover: flip possession
-      if (outcome === 'Turnover') {
+      // FG/PAT Good: score depends on play type
+      if (outcome === 'Good') {
+        let points = 3 // Default: field goal
+        if (actionStSubType === 'field_goal_pat') {
+          // Distinguish FG from PAT by field position — PATs are from ~3 yard line (97+)
+          if (state.yardLine >= 95) {
+            points = 1 // Extra point attempt (close to end zone = PAT)
+          }
+          // Could also be 2-pt conversion — but we can't distinguish without another field
+          // For now: yardLine >= 95 = 1pt PAT, otherwise = 3pt FG
+        }
+        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + points, possession: flip }
+      }
+      // Turnover: flip possession, mirror field position
+      if (outcome === 'Turnover' || outcome === 'Blocked') {
         return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
       }
       // Punt/Kickoff results that flip possession
       if (outcome === 'Punted' || outcome === 'Touchback' || outcome === 'Fair Catch') {
         return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - (state.yardLine + yardsGained)), possession: flip }
+      }
+      // No Good: no score, flip possession (missed FG = other team gets ball)
+      if (outcome === 'No Good') {
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
+      }
+      // Return (non-TD): normal yardage, no flip — returner still has ball
+      if (outcome === 'Return') {
+        const newYl = clampYardLine(state.yardLine + yardsGained)
+        return { ...state, down: 1, distance: 10, yardLine: newYl }
       }
       // Normal play advancement
       const newYardLine = clampYardLine(state.yardLine + yardsGained)
@@ -1569,6 +1592,8 @@ function LogView({
       yardLine: game.yardLine,
       quarter: game.quarter,
       result: resolvedResult,
+      outcomeLabel: selectedOutcome,
+      stSubType,
       yardsGained: yards,
       driveNumber,
     })
@@ -2357,18 +2382,28 @@ export default function SidelinePage() {
   function handlePlayLogged(play: LoggedPlay) {
     setLoggedPlays((prev) => [...prev, play])
 
-    // Advance game state
-    const outcome = reverseMapResult(play.result)
-    dispatchGame({ type: 'ADVANCE', yardsGained: play.yardsGained, outcome, possession: game.possession })
+    // Use original outcomeLabel directly — avoids the lossy mapOutcomeToResult → reverseMapResult roundtrip
+    const outcome = play.outcomeLabel ?? reverseMapResult(play.result)
+    dispatchGame({
+      type: 'ADVANCE',
+      yardsGained: play.yardsGained,
+      outcome,
+      possession: game.possession,
+      stSubType: play.stSubType,
+    })
 
     // Check if we need to start a new drive (possession changes)
+    const isReturnTD = outcome === 'Return' && play.yardsGained > 0 && (game.yardLine + play.yardsGained) >= 100
     if (
       outcome === 'TD' ||
       outcome === 'Turnover' ||
+      outcome === 'Blocked' ||
       outcome === 'Punted' ||
       outcome === 'Touchback' ||
       outcome === 'Fair Catch' ||
-      outcome === 'Good'
+      outcome === 'Good' ||
+      outcome === 'No Good' ||
+      isReturnTD
     ) {
       setDriveNumber((n) => n + 1)
     }
