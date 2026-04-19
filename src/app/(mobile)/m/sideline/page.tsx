@@ -984,9 +984,10 @@ function LogView({
     const supabase = createClient()
     const localId = crypto.randomUUID()
 
-    const { error } = await supabase.from('play_instances').insert({
+    const insertPayload = {
       team_id: teamId,
       game_id: activeGameId,
+      timestamp_start: Date.now(),
       source: 'sideline',
       local_id: localId,
       sync_status: 'unsynced',
@@ -1003,11 +1004,15 @@ function LogView({
       yards_gained: yards,
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
-    })
+    }
+
+    const { error } = await supabase.from('play_instances').insert(insertPayload)
 
     setIsSaving(false)
 
     if (error) {
+      console.error('[Sideline] Insert error:', JSON.stringify(error, null, 2))
+      console.error('[Sideline] Insert payload:', JSON.stringify(insertPayload, null, 2))
       setSaveError('Failed to save. Check your connection.')
       return
     }
