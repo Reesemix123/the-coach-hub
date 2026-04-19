@@ -14,6 +14,9 @@ type QuickPlayType = 'run' | 'pass' | 'special_teams'
 type STSubType = 'kickoff' | 'punt' | 'field_goal_pat'
 type HashMark = 'left' | 'middle' | 'right'
 type OutcomeLabel = 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty' | 'Return' | 'Fair Catch' | 'Touchback' | 'Punted' | 'Blocked' | 'Good' | 'No Good'
+type TryType = 'pat' | '2pt'
+type PendingTry = { scoringTeam: Possession } | null
+type PendingBlockedTD = { blockingTeam: Possession } | null
 
 type Possession = 'us' | 'them'
 
@@ -147,18 +150,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (outcome === 'Return' && yardsGained > 0 && (state.yardLine + yardsGained) >= 100) {
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
-      // FG/PAT Good: score depends on play type
+      // FG Good: always 3 points (PAT/2pt handled separately via TrySheet)
       if (outcome === 'Good') {
-        let points = 3 // Default: field goal
-        if (actionStSubType === 'field_goal_pat') {
-          // Distinguish FG from PAT by field position — PATs are from ~3 yard line (97+)
-          if (state.yardLine >= 95) {
-            points = 1 // Extra point attempt (close to end zone = PAT)
-          }
-          // Could also be 2-pt conversion — but we can't distinguish without another field
-          // For now: yardLine >= 95 = 1pt PAT, otherwise = 3pt FG
-        }
-        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + points, possession: flip }
+        return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 3, possession: flip }
       }
       // Turnover: flip possession, mirror field position
       if (outcome === 'Turnover' || outcome === 'Blocked') {
@@ -2203,6 +2197,8 @@ export default function SidelinePage() {
   const [opponentName, setOpponentName] = useState('')
   const [showEndConfirm, setShowEndConfirm] = useState(false)
   const [clockHasBeenSet, setClockHasBeenSet] = useState(false)
+  const [pendingTry, setPendingTry] = useState<PendingTry>(null)
+  const [pendingBlockedTD, setPendingBlockedTD] = useState<PendingBlockedTD>(null)
 
   // Game state managed by reducer
   const [game, dispatchGame] = useReducer(gameReducer, INITIAL_GAME_STATE)
@@ -2384,11 +2380,13 @@ export default function SidelinePage() {
 
     // Use original outcomeLabel directly — avoids the lossy mapOutcomeToResult → reverseMapResult roundtrip
     const outcome = play.outcomeLabel ?? reverseMapResult(play.result)
+    const currentPossession = game.possession
+
     dispatchGame({
       type: 'ADVANCE',
       yardsGained: play.yardsGained,
       outcome,
-      possession: game.possession,
+      possession: currentPossession,
       stSubType: play.stSubType,
     })
 
@@ -2407,6 +2405,18 @@ export default function SidelinePage() {
     ) {
       setDriveNumber((n) => n + 1)
     }
+
+    // Post-TD: prompt for PAT/2pt try (TD scored by whoever had possession)
+    if (outcome === 'TD' || isReturnTD) {
+      setPendingTry({ scoringTeam: currentPossession })
+    }
+
+    // Blocked kick: prompt for return TD option
+    if (outcome === 'Blocked') {
+      // The blocking team now has possession (reducer already flipped)
+      const blockingTeam: Possession = currentPossession === 'us' ? 'them' : 'us'
+      setPendingBlockedTD({ blockingTeam })
+    }
   }
 
   function reverseMapResult(result: string): OutcomeLabel {
@@ -2420,6 +2430,50 @@ export default function SidelinePage() {
       case 'penalty':         return 'Penalty'
       default:                return 'Complete' // run_gain/run_loss don't have explicit outcomes anymore
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Post-TD try resolution
+  // -------------------------------------------------------------------------
+
+  function handleTryResult(tryType: TryType, good: boolean) {
+    if (pendingTry && good) {
+      const points = tryType === 'pat' ? 1 : 2
+      const scoreKey = pendingTry.scoringTeam === 'us' ? 'homeScore' : 'oppScore'
+      if (scoreKey === 'homeScore') {
+        dispatchGame({ type: 'SET_HOME_SCORE', score: game[scoreKey] + points })
+      } else {
+        dispatchGame({ type: 'SET_OPP_SCORE', score: game[scoreKey] + points })
+      }
+    }
+    setPendingTry(null)
+  }
+
+  // -------------------------------------------------------------------------
+  // Blocked kick return TD resolution
+  // -------------------------------------------------------------------------
+
+  function handleBlockedTDResult(returnedForTD: boolean) {
+    if (pendingBlockedTD && returnedForTD) {
+      // Score 6 for the blocking team (who now has possession)
+      const scoreKey = pendingBlockedTD.blockingTeam === 'us' ? 'homeScore' : 'oppScore'
+      if (scoreKey === 'homeScore') {
+        dispatchGame({ type: 'SET_HOME_SCORE', score: game[scoreKey] + 6 })
+      } else {
+        dispatchGame({ type: 'SET_OPP_SCORE', score: game[scoreKey] + 6 })
+      }
+      // Flip possession again (scoring team kicks off) and reset field
+      const flip: Possession = pendingBlockedTD.blockingTeam === 'us' ? 'them' : 'us'
+      dispatchGame({ type: 'SET_POSSESSION', possession: flip })
+      dispatchGame({ type: 'SET_YARD_LINE', yardLine: 25 })
+      setDriveNumber((n) => n + 1)
+
+      // Show try prompt for the blocked kick return TD
+      setPendingBlockedTD(null)
+      setPendingTry({ scoringTeam: pendingBlockedTD.blockingTeam })
+      return
+    }
+    setPendingBlockedTD(null)
   }
 
   // -------------------------------------------------------------------------
@@ -2487,6 +2541,103 @@ export default function SidelinePage() {
                   className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-red-700 transition-colors"
                 >
                   End Game
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Post-TD Try Sheet */}
+      {pendingTry && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6">
+              <h3 className="text-lg font-bold text-white text-center">Extra Point</h3>
+              <p className="text-xs text-gray-500 text-center mt-1">
+                {pendingTry.scoringTeam === 'us' ? 'Our' : 'Opponent'} touchdown
+              </p>
+
+              {/* PAT row */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">PAT (Kick)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTryResult('pat', true)}
+                  className="bg-[#2a3a2a] text-[#B8CA6E] rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                >
+                  Good (+1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTryResult('pat', false)}
+                  className="bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                >
+                  No Good
+                </button>
+              </div>
+
+              {/* 2-pt row */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">2-Point Conversion</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTryResult('2pt', true)}
+                  className="bg-[#2a3a2a] text-[#B8CA6E] rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                >
+                  Good (+2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTryResult('2pt', false)}
+                  className="bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                >
+                  No Good
+                </button>
+              </div>
+
+              {/* Skip */}
+              <button
+                type="button"
+                onClick={() => setPendingTry(null)}
+                className="w-full mt-4 text-sm font-semibold text-gray-500 min-h-[44px] active:text-gray-300 transition-colors"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Blocked Kick Return TD Prompt */}
+      {pendingBlockedTD && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6 text-center">
+              <h3 className="text-lg font-bold text-white">Blocked Kick</h3>
+              <p className="text-sm text-gray-500 mt-1">Was it returned for a touchdown?</p>
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => handleBlockedTDResult(false)}
+                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBlockedTDResult(true)}
+                  className="flex-1 bg-[#2a3a2a] text-[#B8CA6E] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:opacity-70 transition-colors"
+                >
+                  Yes — TD
                 </button>
               </div>
             </div>
