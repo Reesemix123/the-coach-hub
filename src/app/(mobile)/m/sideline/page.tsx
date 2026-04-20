@@ -1099,6 +1099,7 @@ interface OutcomeGridProps {
   onSTSubTypeChange: (st: STSubType) => void
   onAutoYards?: (yards: number) => void
   yardLine: number
+  possession: Possession
 }
 
 const RUN_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
@@ -1145,7 +1146,7 @@ const ST_TYPE_OPTIONS: { key: STSubType; label: string }[] = [
   { key: 'field_goal_pat', label: 'FG / PAT' },
 ]
 
-function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChange, onAutoYards, yardLine }: OutcomeGridProps) {
+function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChange, onAutoYards, yardLine, possession }: OutcomeGridProps) {
   if (!playType) {
     return (
       <div className="px-4 mt-4">
@@ -1164,19 +1165,26 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
           Special Teams Type
         </p>
         <div className="grid grid-cols-3 gap-2 px-4 mt-2">
-          {ST_TYPE_OPTIONS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onSTSubTypeChange(key)}
-              className={[
-                'rounded-xl py-3 text-sm font-semibold text-center min-h-[44px] transition-colors',
-                stSubType === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-white',
-              ].join(' ')}
-            >
-              {label}
-            </button>
-          ))}
+          {ST_TYPE_OPTIONS.map(({ key, label }) => {
+            // Possession-aware labels for kickoff and punt
+            let displayLabel = label
+            if (key === 'kickoff') displayLabel = possession === 'us' ? 'Kickoff' : 'Kick Return'
+            else if (key === 'punt') displayLabel = possession === 'us' ? 'Punt' : 'Punt Return'
+
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onSTSubTypeChange(key)}
+                className={[
+                  'rounded-xl py-3 text-sm font-semibold text-center min-h-[44px] transition-colors',
+                  stSubType === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-white',
+                ].join(' ')}
+              >
+                {displayLabel}
+              </button>
+            )
+          })}
         </div>
 
         {/* ST Result buttons */}
@@ -1731,6 +1739,7 @@ function LogView({
           onSTSubTypeChange={(st) => { setStSubType(st); setSelectedOutcome(null) }}
           onAutoYards={(y) => { setYards(y); setTdAutoYards(y > 0) }}
           yardLine={game.yardLine}
+          possession={game.possession}
         />
       )}
 
@@ -2309,31 +2318,71 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
         Previous Drives
       </p>
 
-      {dbDrives.length === 0 && loggedPlays.filter((p) => p.driveNumber < driveNumber).length === 0 ? (
-        <div className="text-center py-8 px-4">
-          <p className="text-sm text-gray-600">No drives yet — log your first play to start</p>
-        </div>
-      ) : (
-        <div className="mt-2">
-          {dbDrives.map((drive) => (
-            <div key={drive.id} className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
-              <p className="text-sm font-semibold text-white">
-                Drive #{drive.drive_number} &middot; Q{drive.quarter}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                {drive.result && (
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${driveBadgeClass(drive.result)}`}>
-                    {drive.result}
-                  </span>
-                )}
-                <span className="text-xs text-gray-500">
-                  {drive.plays_count} plays &middot; {drive.yards_gained} yards
-                </span>
-              </div>
+      {(() => {
+        // Build local previous drives from logged plays
+        const previousDriveNumbers = Array.from(
+          new Set(loggedPlays.filter((p) => p.driveNumber < driveNumber).map((p) => p.driveNumber))
+        ).sort((a, b) => b - a) // Most recent first
+
+        const hasLocalDrives = previousDriveNumbers.length > 0
+        const hasDbDrives = dbDrives.length > 0
+
+        if (!hasLocalDrives && !hasDbDrives) {
+          return (
+            <div className="text-center py-8 px-4">
+              <p className="text-sm text-gray-600">No drives yet — log your first play to start</p>
             </div>
-          ))}
-        </div>
-      )}
+          )
+        }
+
+        return (
+          <div className="mt-2">
+            {/* Local previous drives (from this session) */}
+            {previousDriveNumbers.map((dn) => {
+              const drivePlays = loggedPlays.filter((p) => p.driveNumber === dn)
+              const totalYards = drivePlays.reduce((sum, p) => sum + p.yardsGained, 0)
+              const lastPlay = drivePlays[drivePlays.length - 1]
+              const driveResult = lastPlay?.outcomeLabel ?? null
+
+              return (
+                <div key={`local-drive-${dn}`} className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
+                  <p className="text-sm font-semibold text-white">
+                    Drive #{dn} &middot; Q{drivePlays[0]?.quarter ?? game.quarter}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {driveResult && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${driveBadgeClass(driveResult)}`}>
+                        {driveResult}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      {drivePlays.length} plays &middot; {totalYards} yards
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+            {/* DB previous drives (from prior sessions) */}
+            {dbDrives.map((drive) => (
+              <div key={drive.id} className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
+                <p className="text-sm font-semibold text-white">
+                  Drive #{drive.drive_number} &middot; Q{drive.quarter}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  {drive.result && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${driveBadgeClass(drive.result)}`}>
+                      {drive.result}
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-500">
+                    {drive.plays_count} plays &middot; {drive.yards_gained} yards
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
     </div>
   )
 }
