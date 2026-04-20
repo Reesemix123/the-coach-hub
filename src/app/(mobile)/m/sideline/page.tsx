@@ -45,6 +45,7 @@ interface LoggedPlay {
   result: string
   outcomeLabel: OutcomeLabel | null
   stSubType: STSubType | null
+  possession: Possession
   yardsGained: number
   driveNumber: number
 }
@@ -173,9 +174,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (outcome === 'No Good') {
         return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
       }
-      // Return (non-TD): normal yardage, no flip — returner still has ball
+      // Return: for kickoff returns, the returner already has the ball (no flip).
+      // For punt returns, possession needs to flip (punting team loses ball).
+      // stSubType distinguishes: 'punt' = punt return (flip), 'kickoff' = kickoff return (no flip)
       if (outcome === 'Return') {
         const newYl = clampYardLine(state.yardLine + yardsGained)
+        if (actionStSubType === 'punt') {
+          // Punt return: flip possession, mirror field position for returning team
+          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - newYl), possession: flip }
+        }
+        // Kickoff return: returner keeps ball, advance from starting position
         return { ...state, down: 1, distance: 10, yardLine: newYl }
       }
       // Normal play advancement
@@ -829,16 +837,13 @@ function nextQuarter(q: number): number {
 interface GameStateBarProps {
   game: GameState
   opponentName: string
-  onEndGame: () => void
   onMenuOpen: () => void
-  onUndo: () => void
-  canUndo: boolean
   dispatch: React.Dispatch<GameAction>
   clockHasBeenSet: boolean
   onClockSet: () => void
 }
 
-function GameStateBar({ game, opponentName, onEndGame, onMenuOpen, onUndo, canUndo, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
@@ -846,40 +851,20 @@ function GameStateBar({ game, opponentName, onEndGame, onMenuOpen, onUndo, canUn
   return (
     <>
       <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
-        {/* Row 0: Opponent + Undo + Menu */}
+        {/* Row 0: Opponent + Menu */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
             vs {opponentName}
           </p>
-          <div className="flex items-center gap-2">
-            {/* Undo button */}
-            <button
-              type="button"
-              onClick={onUndo}
-              disabled={!canUndo}
-              className={[
-                'text-xs rounded-lg px-2.5 py-1 min-h-[28px] transition-colors flex items-center gap-1',
-                canUndo
-                  ? 'text-white bg-[#3a3a3c] active:bg-[#48484a]'
-                  : 'text-gray-600 bg-[#2c2c2e]',
-              ].join(' ')}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7v6h6" /><path d="M3 13a9 9 0 103-7.7L3 7" />
-              </svg>
-              Undo
-            </button>
-            {/* Menu button */}
-            <button
-              type="button"
-              onClick={onMenuOpen}
-              className="text-gray-500 bg-[#3a3a3c] rounded-lg px-2 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
-              </svg>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onMenuOpen}
+            className="text-gray-500 bg-[#3a3a3c] rounded-lg px-2 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+            </svg>
+          </button>
         </div>
 
         {/* Row 1: Down & Distance */}
@@ -892,18 +877,28 @@ function GameStateBar({ game, opponentName, onEndGame, onMenuOpen, onUndo, canUn
           <p className="text-sm text-gray-400">
             {formatYardLine(yardLine)} &middot; {formatHash(hash)}
           </p>
-          <button
-            type="button"
-            onClick={() => dispatch({ type: 'SET_POSSESSION', possession: possession === 'us' ? 'them' : 'us' })}
-            className={[
-              'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[24px]',
-              possession === 'us'
-                ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                : 'bg-[#3a3a3c] text-white',
-            ].join(' ')}
-          >
-            {possession === 'us' ? 'Our Ball' : 'Their Ball'}
-          </button>
+          <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'SET_POSSESSION', possession: 'us' })}
+              className={[
+                'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[22px]',
+                possession === 'us' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500',
+              ].join(' ')}
+            >
+              Our Ball
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'SET_POSSESSION', possession: 'them' })}
+              className={[
+                'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[22px]',
+                possession === 'them' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500',
+              ].join(' ')}
+            >
+              Their Ball
+            </button>
+          </div>
         </div>
 
         {/* Row 3: Score / Quarter / Clock — all tappable */}
@@ -1622,6 +1617,7 @@ function LogView({
       result: resolvedResult,
       outcomeLabel: selectedOutcome,
       stSubType,
+      possession: game.possession,
       yardsGained: yards,
       driveNumber,
     })
@@ -2162,9 +2158,11 @@ interface DriveViewProps {
   teamId: string | null
   currentGameId: string | null
   onDeletePlay: (playId: string) => void
+  onUndo: () => void
+  canUndo: boolean
 }
 
-function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDeletePlay }: DriveViewProps) {
+function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDeletePlay, onUndo, canUndo }: DriveViewProps) {
   const [dbDrives, setDbDrives] = useState<DbDrive[]>([])
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
@@ -2237,14 +2235,30 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
         </div>
       ) : (
         <div className="mt-2">
-          {currentDrivePlays.map((play, index) => (
-            <SwipeablePlayRow
-              key={play.id}
-              play={play}
-              index={index}
-              onDelete={() => setDeleteConfirmId(play.id)}
-            />
-          ))}
+          {currentDrivePlays.map((play, index) => {
+            const isLastPlay = index === currentDrivePlays.length - 1
+            return (
+              <div key={play.id}>
+                <SwipeablePlayRow
+                  play={play}
+                  index={index}
+                  onDelete={() => setDeleteConfirmId(play.id)}
+                />
+                {isLastPlay && canUndo && (
+                  <button
+                    type="button"
+                    onClick={onUndo}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-500 active:text-white transition-colors"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 7v6h6" /><path d="M3 13a9 9 0 103-7.7L3 7" />
+                    </svg>
+                    Undo last play
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -2529,7 +2543,8 @@ export default function SidelinePage() {
 
     // Use original outcomeLabel directly — avoids the lossy mapOutcomeToResult → reverseMapResult roundtrip
     const outcome = play.outcomeLabel ?? reverseMapResult(play.result)
-    const currentPossession = game.possession
+    // Use possession captured at tap time in LogView, not parent's game.possession (avoids stale closure)
+    const currentPossession = play.possession
 
     dispatchGame({
       type: 'ADVANCE',
@@ -2540,17 +2555,18 @@ export default function SidelinePage() {
     })
 
     // Check if we need to start a new drive (possession changes)
-    const isReturnTD = outcome === 'Return' && play.yardsGained > 0 && (game.yardLine + play.yardsGained) >= 100
+    const isReturnTD = outcome === 'Return' && play.yardsGained > 0 && (play.yardLine + play.yardsGained) >= 100
+    const isPuntReturn = outcome === 'Return' && play.stSubType === 'punt'
     if (
       outcome === 'TD' ||
       outcome === 'Turnover' ||
       outcome === 'Blocked' ||
-      outcome === 'Punted' ||
       outcome === 'Touchback' ||
       outcome === 'Fair Catch' ||
       outcome === 'Good' ||
       outcome === 'No Good' ||
-      isReturnTD
+      isReturnTD ||
+      isPuntReturn
     ) {
       setDriveNumber((n) => n + 1)
     }
@@ -2692,10 +2708,7 @@ export default function SidelinePage() {
       <GameStateBar
         game={game}
         opponentName={opponentName}
-        onEndGame={() => setShowEndConfirm(true)}
         onMenuOpen={() => setShowGameMenu(true)}
-        onUndo={handleUndo}
-        canUndo={undoSnapshot !== null}
         dispatch={dispatchGame}
         clockHasBeenSet={clockHasBeenSet}
         onClockSet={() => setClockHasBeenSet(true)}
@@ -2939,6 +2952,8 @@ export default function SidelinePage() {
           teamId={teamId}
           currentGameId={activeGameId}
           onDeletePlay={(playId) => setLoggedPlays((prev) => prev.filter((p) => p.id !== playId))}
+          onUndo={handleUndo}
+          canUndo={undoSnapshot !== null}
         />
       )}
     </div>
