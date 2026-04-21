@@ -1551,6 +1551,7 @@ function LogView({
   const [stSubType, setStSubType] = useState<STSubType | null>(null)
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeLabel | null>(null)
   const [yards, setYards] = useState(0)
+  const [kickYards, setKickYards] = useState(0)
   const [tdAutoYards, setTdAutoYards] = useState(false)
   const [flagForReview, setFlagForReview] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -1577,7 +1578,11 @@ function LogView({
     const localId = crypto.randomUUID()
     const resolvedResult = mapOutcomeToResult(selectedOutcome, effectivePlayType, yards)
 
-    const insertPayload = {
+    // For punt/kickoff, use return yards for field position and store kick distance separately
+    const isPuntOrKick = stSubType === 'punt' || stSubType === 'kickoff'
+    const effectiveYards = isPuntOrKick ? yards : yards // yards always represents field position change
+
+    const insertPayload: Record<string, unknown> = {
       team_id: teamId,
       game_id: activeGameId,
       timestamp_start: Date.now(),
@@ -1595,9 +1600,15 @@ function LogView({
       play_type: effectivePlayType ?? null,
       is_opponent_play: game.possession === 'them',
       result: resolvedResult,
-      yards_gained: yards,
+      yards_gained: effectiveYards,
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
+    }
+
+    // Add kick distance and return yards for punt/kickoff plays
+    if (isPuntOrKick && kickYards > 0) {
+      insertPayload.kick_distance = kickYards
+      insertPayload.return_yards = yards
     }
 
     const { error } = await supabase.from('play_instances').insert(insertPayload)
@@ -1642,6 +1653,7 @@ function LogView({
     setQuickPlayType(null)
     setStSubType(null)
     setYards(0)
+    setKickYards(0)
     setTdAutoYards(false)
     setFlagForReview(false)
   }
@@ -1743,15 +1755,47 @@ function LogView({
         />
       )}
 
-      {/* Yards Stepper */}
+      {/* Yards Stepper(s) */}
       {logMode === 'wristband' && !gamePlanLoaded ? null : (
         <div>
-          <YardsStepper
-            value={yards}
-            onChange={(v) => { setYards(v); setTdAutoYards(false) }}
-          />
-          {tdAutoYards && (
-            <p className="text-[10px] text-[#B8CA6E] text-center mt-1">Auto-calculated to end zone</p>
+          {(stSubType === 'punt' || stSubType === 'kickoff') ? (
+            <>
+              {/* Dual yards: kick distance + return yards */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+                Kick Yards
+              </p>
+              <div className="flex items-center justify-center gap-6 mt-2">
+                <button type="button" onClick={() => setKickYards(Math.max(0, kickYards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                  <MinusIcon />
+                </button>
+                <span className="text-3xl font-bold text-white w-16 text-center tabular-nums">{kickYards}</span>
+                <button type="button" onClick={() => setKickYards(Math.min(99, kickYards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                  <PlusIcon />
+                </button>
+              </div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+                Return Yards
+              </p>
+              <div className="flex items-center justify-center gap-6 mt-2">
+                <button type="button" onClick={() => setYards(Math.max(0, yards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                  <MinusIcon />
+                </button>
+                <span className="text-3xl font-bold text-white w-16 text-center tabular-nums">{yards}</span>
+                <button type="button" onClick={() => setYards(Math.min(99, yards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                  <PlusIcon />
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <YardsStepper
+                value={yards}
+                onChange={(v) => { setYards(v); setTdAutoYards(false) }}
+              />
+              {tdAutoYards && (
+                <p className="text-[10px] text-[#B8CA6E] text-center mt-1">Auto-calculated to end zone</p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -2174,6 +2218,7 @@ interface DriveViewProps {
 function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDeletePlay, onUndo, canUndo }: DriveViewProps) {
   const [dbDrives, setDbDrives] = useState<DbDrive[]>([])
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [expandedDrive, setExpandedDrive] = useState<number | null>(null)
 
   useEffect(() => {
     if (!teamId) return
@@ -2337,28 +2382,70 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 
         return (
           <div className="mt-2">
-            {/* Local previous drives (from this session) */}
+            {/* Local previous drives (from this session) — expandable */}
             {previousDriveNumbers.map((dn) => {
               const drivePlays = loggedPlays.filter((p) => p.driveNumber === dn)
               const totalYards = drivePlays.reduce((sum, p) => sum + p.yardsGained, 0)
               const lastPlay = drivePlays[drivePlays.length - 1]
               const driveResult = lastPlay?.outcomeLabel ?? null
+              const isExpanded = expandedDrive === dn
 
               return (
-                <div key={`local-drive-${dn}`} className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
-                  <p className="text-sm font-semibold text-white">
-                    Drive #{dn} &middot; Q{drivePlays[0]?.quarter ?? game.quarter}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {driveResult && (
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${driveBadgeClass(driveResult)}`}>
-                        {driveResult}
-                      </span>
-                    )}
-                    <span className="text-xs text-gray-500">
-                      {drivePlays.length} plays &middot; {totalYards} yards
-                    </span>
-                  </div>
+                <div key={`local-drive-${dn}`} className="mx-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedDrive(isExpanded ? null : dn)}
+                    className="w-full bg-[#2c2c2e] rounded-xl p-3 text-left active:bg-[#3a3a3c] transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          Drive #{dn} &middot; Q{drivePlays[0]?.quarter ?? game.quarter}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {driveResult && (
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${driveBadgeClass(driveResult)}`}>
+                              {driveResult}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {drivePlays.length} plays &middot; {totalYards} yards
+                          </span>
+                        </div>
+                      </div>
+                      <svg
+                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        className={`text-gray-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </div>
+                  </button>
+                  {isExpanded && (
+                    <div className="bg-[#252527] rounded-b-xl mx-1 -mt-1 pt-2 pb-1">
+                      {drivePlays.map((play, idx) => (
+                        <div key={play.id} className="flex items-center gap-3 px-3 py-2 border-b border-[#3a3a3c] last:border-b-0">
+                          <div className="w-6 h-6 rounded-full bg-[#3a3a3c] text-white text-[10px] flex items-center justify-center shrink-0">
+                            {idx + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-white truncate">
+                              {play.playName ?? 'Quick Play'}
+                            </p>
+                            <p className="text-[10px] text-gray-600">
+                              {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
+                            </p>
+                          </div>
+                          <span className={[
+                            'text-xs font-semibold shrink-0',
+                            play.yardsGained > 0 ? 'text-green-400' : play.yardsGained < 0 ? 'text-red-400' : 'text-gray-400',
+                          ].join(' ')}>
+                            {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
