@@ -1706,10 +1706,35 @@ interface PlayAttributes {
 interface FromPlaysModeProps {
   plays: { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]
   isLoading: boolean
+  possession: Possession
   onSelect: (playCode: string, playName: string, playType: string, formation: string, attributes: PlayAttributes) => void
 }
 
-function FromPlaysMode({ plays, isLoading, onSelect }: FromPlaysModeProps) {
+function FromPlaysMode({ plays, isLoading, possession, onSelect }: FromPlaysModeProps) {
+  const [filter, setFilter] = useState('all')
+
+  // Reset filter when possession changes
+  useEffect(() => { setFilter('all') }, [possession])
+
+  const filteredPlays = useMemo(() => {
+    if (filter === 'all') return plays
+    if (possession === 'us') {
+      // Offensive filters
+      return plays.filter((p) => {
+        const pt = p.attributes.playType?.toLowerCase()
+        if (filter === 'run') return pt === 'run'
+        if (filter === 'pass') return pt === 'pass'
+        if (filter === 'special') return p.attributes.odk?.toLowerCase() === 'specialteams'
+        return true
+      })
+    }
+    // Defensive filters
+    return plays.filter((p) => {
+      if (filter === 'rund') return !!p.attributes.front
+      if (filter === 'passd') return !!p.attributes.coverage
+      return true
+    })
+  }, [plays, filter, possession])
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1727,9 +1752,30 @@ function FromPlaysMode({ plays, isLoading, onSelect }: FromPlaysModeProps) {
     )
   }
 
+  const filterOptions = possession === 'us'
+    ? [{ key: 'all', label: 'All' }, { key: 'run', label: 'Run' }, { key: 'pass', label: 'Pass' }, { key: 'special', label: 'Special' }]
+    : [{ key: 'all', label: 'All' }, { key: 'rund', label: 'Run D' }, { key: 'passd', label: 'Pass D' }]
+
   return (
     <div className="mt-3">
-      {plays.map((play) => (
+      {/* Quick filter */}
+      <div className="flex gap-1.5 px-4 mb-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {filterOptions.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilter(key)}
+            className={[
+              'rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors min-h-[30px]',
+              filter === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-gray-400',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="text-[10px] text-gray-600 self-center ml-1 whitespace-nowrap">{filteredPlays.length} plays</span>
+      </div>
+      {filteredPlays.map((play) => (
         <button
           key={play.id}
           type="button"
@@ -2019,6 +2065,7 @@ function LogView({
             return odk === 'defense'
           })}
           isLoading={isLoadingPlays}
+          possession={game.possession}
           onSelect={handlePlaySelected}
         />
       )}
@@ -2199,7 +2246,12 @@ function LogView({
         <div className="mx-4 mt-3 mb-2 bg-[#2c2c2e] rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-              {enrichmentContext.possession === 'us' ? 'Their Defense' : enrichmentStep === 1 ? 'Their Offense' : 'Our Defense'}
+              {(() => {
+                if (enrichmentContext.possession === 'us') return 'Their Defense'
+                if (enrichmentContext.possession === 'them' && enrichmentStep === 1) return 'Their Offense'
+                if (enrichmentContext.possession === 'them' && enrichmentStep === 2) return 'Our Defense'
+                return 'Enrichment'
+              })()}
               {enrichmentTotalSteps > 1 && ` (${enrichmentStep} of ${enrichmentTotalSteps})`}
             </p>
             <button
