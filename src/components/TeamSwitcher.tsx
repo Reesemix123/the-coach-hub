@@ -34,10 +34,12 @@ export default function TeamSwitcher() {
   }, []);
 
   // Update current team when pathname changes (no refetch needed)
+  // Also persist to localStorage so mobile app picks up the last active team
   useEffect(() => {
     const match = pathname.match(/\/football\/teams\/([^\/]+)/);
     if (match) {
       setCurrentTeam(match[1]);
+      try { localStorage.setItem('ych-mobile-active-team', match[1]); } catch {}
     }
   }, [pathname]);
 
