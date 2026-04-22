@@ -197,8 +197,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         // Fair catch: ball spotted where caught. kickYards determines land spot from kicker's position.
         const kd = actionKickYards ?? 0
         if (kd > 0) {
-          // Kicker is at state.yardLine (possession-relative). Kick travels kd yards toward opponent.
-          const kickerAbsolute = toAbsolute(state.yardLine, possTeam, fieldLength)
+          // Kickoffs from OWN 40, punts from current yard line
+          const kickerYardLine = actionStSubType === 'kickoff' ? 40 : state.yardLine
+          const kickerAbsolute = toAbsolute(kickerYardLine, possTeam, fieldLength)
           const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
           const receivingTeam = oppTeam
           const newYl = toRelative(Math.max(1, Math.min(fieldLength - 1, landAbsolute)), receivingTeam, fieldLength)
@@ -217,8 +218,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         const receivingTeam = actionStSubType === 'punt' ? oppTeam : possTeam
 
         if (kd > 0) {
-          // Calculate land position from kick distance
-          const kickerAbsolute = toAbsolute(state.yardLine, possTeam, fieldLength)
+          // Kickoffs originate from OWN 40 (NFHS default), punts from current yard line
+          const kickerYardLine = actionStSubType === 'kickoff' ? 40 : state.yardLine
+          const kickerAbsolute = toAbsolute(kickerYardLine, possTeam, fieldLength)
           const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
 
           // Check for touchback (kick into end zone)
@@ -1189,13 +1191,11 @@ const PASS_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
 
 const ST_OUTCOMES: Record<STSubType, { label: OutcomeLabel; className: string; autoYards?: number }[]> = {
   kickoff: [
-    { label: 'Return',    className: 'bg-[#3a3a3c] text-white' },
     { label: 'Touchback', className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
     { label: 'TD',        className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
     { label: 'Penalty',   className: 'bg-[#3a3a3c] text-white' },
   ],
   punt: [
-    { label: 'Return',     className: 'bg-[#3a3a3c] text-white' },
     { label: 'Fair Catch',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
     { label: 'Touchback',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
     { label: 'Blocked',    className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
@@ -1636,21 +1636,31 @@ function LogView({
   }
 
   async function handleLogPlay() {
-    // Allow logging with explicit outcome OR with just yards (auto-derive result)
     const effectivePlayType = logMode === 'quick' ? quickPlayType : selectedPlayType
-    if (!selectedOutcome && yards === 0) return
+    const isPuntOrKick = stSubType === 'punt' || stSubType === 'kickoff'
+
+    // For punt/kick: kickYards > 0 is sufficient to log (return with yards inferred)
+    // For other plays: need explicit outcome or non-zero yards
+    if (isPuntOrKick) {
+      if (kickYards === 0 && !selectedOutcome) return
+    } else {
+      if (!selectedOutcome && yards === 0) return
+    }
     if (!teamId) return
+
+    // Infer 'Return' outcome for punt/kick when coach entered yards but no explicit result
+    const effectiveOutcome: OutcomeLabel | null = isPuntOrKick && !selectedOutcome && kickYards > 0
+      ? 'Return'
+      : selectedOutcome
 
     setIsSaving(true)
     setSaveError(null)
 
     const supabase = createClient()
     const localId = crypto.randomUUID()
-    const resolvedResult = mapOutcomeToResult(selectedOutcome, effectivePlayType, yards)
+    const resolvedResult = mapOutcomeToResult(effectiveOutcome, effectivePlayType, yards)
 
-    // For punt/kickoff, use return yards for field position and store kick distance separately
-    const isPuntOrKick = stSubType === 'punt' || stSubType === 'kickoff'
-    const effectiveYards = isPuntOrKick ? yards : yards // yards always represents field position change
+    const effectiveYards = yards
 
     const insertPayload: Record<string, unknown> = {
       team_id: teamId,
@@ -1704,7 +1714,7 @@ function LogView({
       yardLine: game.yardLine,
       quarter: game.quarter,
       result: resolvedResult,
-      outcomeLabel: selectedOutcome,
+      outcomeLabel: effectiveOutcome,
       stSubType,
       possession: game.possession,
       yardsGained: yards,
@@ -1885,13 +1895,21 @@ function LogView({
       <div className="px-4 mt-6 mb-4">
         <button
           type="button"
-          disabled={(!selectedOutcome && yards === 0) || isSaving}
+          disabled={(() => {
+            const isPK = stSubType === 'punt' || stSubType === 'kickoff'
+            if (isPK) return (kickYards === 0 && !selectedOutcome) || isSaving
+            return (!selectedOutcome && yards === 0) || isSaving
+          })()}
           onClick={handleLogPlay}
           className={[
             'w-full rounded-xl py-4 text-lg font-bold text-center transition-colors',
             saveSuccess
               ? 'bg-green-600 text-white'
-              : (selectedOutcome || yards !== 0) && !isSaving
+              : !isSaving && (() => {
+                  const isPK = stSubType === 'punt' || stSubType === 'kickoff'
+                  if (isPK) return kickYards > 0 || !!selectedOutcome
+                  return !!selectedOutcome || yards !== 0
+                })()
               ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
               : 'bg-[#3a3a3c] text-gray-500',
           ].join(' ')}
