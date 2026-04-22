@@ -921,6 +921,30 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
+  const [showAdjust, setShowAdjust] = useState(false)
+  const [adjDown, setAdjDown] = useState(down)
+  const [adjDistance, setAdjDistance] = useState(distance)
+  const [adjYardLine, setAdjYardLine] = useState(yardLine < 50 ? yardLine : 100 - yardLine)
+  const [adjOwnOpp, setAdjOwnOpp] = useState<'own' | 'opp'>(yardLine < 50 ? 'own' : 'opp')
+  const [adjHash, setAdjHash] = useState<HashMark>(hash)
+
+  function openAdjust() {
+    setAdjDown(down)
+    setAdjDistance(distance)
+    setAdjYardLine(yardLine <= 50 ? yardLine : 100 - yardLine)
+    setAdjOwnOpp(yardLine <= 50 ? 'own' : 'opp')
+    setAdjHash(hash)
+    setShowAdjust(true)
+  }
+
+  function confirmAdjust() {
+    const yl = adjOwnOpp === 'own' ? adjYardLine : 100 - adjYardLine
+    dispatch({ type: 'SET_DOWN', down: adjDown })
+    dispatch({ type: 'SET_DISTANCE', distance: adjDistance })
+    dispatch({ type: 'SET_YARD_LINE', yardLine: Math.max(1, Math.min(99, yl)) })
+    dispatch({ type: 'SET_HASH', hash: adjHash })
+    setShowAdjust(false)
+  }
 
   return (
     <>
@@ -941,10 +965,19 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
           </button>
         </div>
 
-        {/* Row 1: Down & Distance */}
-        <p className="text-3xl font-bold text-white leading-tight">
-          {ordinalDown(down)} &amp; {distance}
-        </p>
+        {/* Row 1: Down & Distance + Adjust */}
+        <div className="flex items-center gap-2">
+          <p className="text-3xl font-bold text-white leading-tight">
+            {ordinalDown(down)} &amp; {distance}
+          </p>
+          <button
+            type="button"
+            onClick={openAdjust}
+            className="text-[10px] text-gray-500 bg-[#3a3a3c] rounded-full px-2 py-0.5 min-h-[22px] active:bg-[#48484a] transition-colors"
+          >
+            Adjust
+          </button>
+        </div>
 
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
@@ -1037,6 +1070,91 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
           }}
           onClose={() => setShowScore(false)}
         />
+      )}
+
+      {/* Adjust sheet */}
+      {showAdjust && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowAdjust(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-center pt-3 pb-2">
+              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+            </div>
+            <div className="px-5 pb-6">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Adjust Game State</p>
+
+              {/* Down */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Down</p>
+              <div className="flex bg-[#3a3a3c] rounded-full p-1 mb-4">
+                {[1, 2, 3, 4].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setAdjDown(d)}
+                    className={[
+                      'flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px]',
+                      adjDown === d ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400',
+                    ].join(' ')}
+                  >
+                    {ordinalDown(d)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Distance */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Distance</p>
+              <div className="flex items-center justify-center gap-5 mb-4">
+                <button type="button" onClick={() => setAdjDistance(Math.max(1, adjDistance - 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><MinusIcon /></button>
+                <TappableNumber value={adjDistance} onChange={(v) => setAdjDistance(Math.max(1, Math.min(99, v)))} />
+                <button type="button" onClick={() => setAdjDistance(Math.min(99, adjDistance + 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><PlusIcon /></button>
+              </div>
+
+              {/* Yard Line */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Yard Line</p>
+              <div className="flex bg-[#3a3a3c] rounded-full p-1 w-fit mx-auto mb-2">
+                <button
+                  type="button"
+                  onClick={() => setAdjOwnOpp('own')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'own' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'}`}
+                >OWN</button>
+                <button
+                  type="button"
+                  onClick={() => setAdjOwnOpp('opp')}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'opp' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'}`}
+                >OPP</button>
+              </div>
+              <div className="flex items-center justify-center gap-5 mb-4">
+                <button type="button" onClick={() => setAdjYardLine(Math.max(1, adjYardLine - 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><MinusIcon /></button>
+                <TappableNumber value={adjYardLine} onChange={(v) => setAdjYardLine(Math.max(1, Math.min(50, v)))} />
+                <button type="button" onClick={() => setAdjYardLine(Math.min(50, adjYardLine + 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><PlusIcon /></button>
+              </div>
+
+              {/* Hash */}
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Hash</p>
+              <div className="flex bg-[#3a3a3c] rounded-full p-1 mb-5">
+                {(['left', 'middle', 'right'] as HashMark[]).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setAdjHash(h)}
+                    className={[
+                      'flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px] capitalize',
+                      adjHash === h ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400',
+                    ].join(' ')}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setShowAdjust(false)} className="flex-1 text-sm font-semibold text-gray-500 min-h-[48px] active:text-gray-300 transition-colors">Cancel</button>
+                <button type="button" onClick={confirmAdjust} className="flex-1 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-base font-bold min-h-[48px] active:bg-[#a8b85e] transition-colors">Set</button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </>
   )
@@ -1570,10 +1688,25 @@ function WristbandMode({
 // From Plays Mode
 // ---------------------------------------------------------------------------
 
+interface PlayAttributes {
+  odk: string
+  formation?: string
+  playType?: string
+  personnel?: string
+  runConcept?: string
+  passConcept?: string
+  direction?: string
+  front?: string
+  coverage?: string
+  blitzType?: string
+  pressLevel?: string
+  [key: string]: unknown
+}
+
 interface FromPlaysModeProps {
-  plays: { id: string; play_code: string; play_name: string; attributes: { odk: string; formation?: string; playType?: string } }[]
+  plays: { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]
   isLoading: boolean
-  onSelect: (playCode: string, playName: string, playType: string, formation: string) => void
+  onSelect: (playCode: string, playName: string, playType: string, formation: string, attributes: PlayAttributes) => void
 }
 
 function FromPlaysMode({ plays, isLoading, onSelect }: FromPlaysModeProps) {
@@ -1606,6 +1739,7 @@ function FromPlaysMode({ plays, isLoading, onSelect }: FromPlaysModeProps) {
               play.play_name,
               play.attributes.playType ?? '',
               play.attributes.formation ?? '',
+              play.attributes,
             )
           }
           className="w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px]"
@@ -1681,15 +1815,29 @@ function LogView({
   const [kickYards, setKickYards] = useState(0)
   const [tdAutoYards, setTdAutoYards] = useState(false)
   const [flagForReview, setFlagForReview] = useState(false)
+
+  // Enrichment state
+  const [enrichmentStep, setEnrichmentStep] = useState(0) // 0 = hidden, 1 = step 1, 2 = step 2
+  const [enrichmentTotalSteps, setEnrichmentTotalSteps] = useState(0)
+  const [enrichmentContext, setEnrichmentContext] = useState<{
+    possession: Possession
+    logMode: LogMode
+    playType: string | null
+    odk: string | null
+    lastPlayId: string | null
+  } | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  function handlePlaySelected(playCode: string, playName: string, playType: string, formation: string) {
+  const [selectedPlayAttrs, setSelectedPlayAttrs] = useState<PlayAttributes | null>(null)
+
+  function handlePlaySelected(playCode: string, playName: string, playType: string, formation: string, attributes?: PlayAttributes) {
     setSelectedPlayCode(playCode)
     setSelectedPlayName(playName)
     setSelectedPlayType(playType)
     setSelectedFormation(formation)
+    setSelectedPlayAttrs(attributes ?? null)
   }
 
   async function handleLogPlay() {
@@ -1779,6 +1927,53 @@ function LogView({
       driveNumber,
     })
 
+    // Trigger enrichment for non-ST plays
+    const isSTPlay = effectivePlayType === 'special_teams' || stSubType != null
+    if (!isSTPlay) {
+      const effectiveOdk = selectedPlayAttrs?.odk ?? null
+      const effPlayType = effectivePlayType ?? quickPlayType
+
+      // Determine steps based on enrichment matrix
+      let totalSteps = 0
+      if (game.possession === 'us') {
+        totalSteps = 1 // Step 1: their defensive response
+      } else if (game.possession === 'them' && logMode === 'quick') {
+        totalSteps = 2 // Step 1: their offensive tendency, Step 2: our defensive response
+      } else if (game.possession === 'them') {
+        totalSteps = 1 // Step 1: their offensive tendency (defense already known from play)
+      }
+
+      if (totalSteps > 0) {
+        setEnrichmentContext({
+          possession: game.possession,
+          logMode,
+          playType: effPlayType,
+          odk: effectiveOdk,
+          lastPlayId: localId,
+        })
+        setEnrichmentStep(1)
+        setEnrichmentTotalSteps(totalSteps)
+      }
+
+      // Write known attributes from From Plays selection to DB
+      if (selectedPlayAttrs && localId) {
+        const supabaseUpdate = createClient()
+        const enrichmentFields: Record<string, unknown> = {}
+        if (game.possession === 'us' && selectedPlayAttrs.odk === 'offense') {
+          if (selectedPlayAttrs.personnel) enrichmentFields.personnel = selectedPlayAttrs.personnel
+          if (selectedPlayAttrs.runConcept) enrichmentFields.run_concept = selectedPlayAttrs.runConcept
+          if (selectedPlayAttrs.passConcept) enrichmentFields.pass_concept = selectedPlayAttrs.passConcept
+          if (selectedPlayAttrs.direction) enrichmentFields.direction = selectedPlayAttrs.direction
+        } else if (game.possession === 'them' && selectedPlayAttrs.odk === 'defense') {
+          if (selectedPlayAttrs.front) enrichmentFields.play_concept = selectedPlayAttrs.front
+          if (selectedPlayAttrs.coverage) enrichmentFields.play_concept = (enrichmentFields.play_concept ? enrichmentFields.play_concept + ' ' : '') + selectedPlayAttrs.coverage
+        }
+        if (Object.keys(enrichmentFields).length > 0) {
+          supabaseUpdate.from('play_instances').update(enrichmentFields).eq('local_id', localId).then(() => {})
+        }
+      }
+    }
+
     // Flash success, reset form
     setSaveSuccess(true)
     setTimeout(() => setSaveSuccess(false), 1500)
@@ -1787,6 +1982,7 @@ function LogView({
     setSelectedPlayName(null)
     setSelectedPlayType(null)
     setSelectedFormation(null)
+    setSelectedPlayAttrs(null)
     setSelectedOutcome(null)
     setQuickPlayType(null)
     setStSubType(null)
@@ -1812,7 +2008,7 @@ function LogView({
 
       {logMode === 'fromPlays' && (
         <FromPlaysMode
-          plays={allPlays}
+          plays={allPlays as { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]}
           isLoading={isLoadingPlays}
           onSelect={handlePlaySelected}
         />
@@ -1984,6 +2180,143 @@ function LogView({
           {isSaving ? 'Saving...' : saveSuccess ? 'Logged' : 'LOG PLAY'}
         </button>
       </div>
+
+      {/* Enrichment shelf — persistent non-blocking panel */}
+      {enrichmentStep > 0 && enrichmentContext && (
+        <div className="mx-4 mt-3 mb-2 bg-[#2c2c2e] rounded-xl p-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+              {enrichmentContext.possession === 'us' ? 'Their Defense' : enrichmentStep === 1 ? 'Their Offense' : 'Our Defense'}
+              {enrichmentTotalSteps > 1 && ` (${enrichmentStep} of ${enrichmentTotalSteps})`}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (enrichmentStep < enrichmentTotalSteps) {
+                  setEnrichmentStep(enrichmentStep + 1)
+                } else {
+                  setEnrichmentStep(0)
+                  setEnrichmentContext(null)
+                }
+              }}
+              className="text-xs text-gray-500 min-h-[32px] min-w-[32px] flex items-center justify-center active:text-gray-300"
+            >
+              Skip
+            </button>
+          </div>
+
+          {/* Step 1: OUR BALL — Their coverage */}
+          {enrichmentContext.possession === 'us' && enrichmentStep === 1 && (
+            <div className="flex gap-2 flex-wrap">
+              {['Man', 'Zone', 'Blitz', 'Zone Blitz'].map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => {
+                    // Save coverage to DB
+                    if (enrichmentContext.lastPlayId) {
+                      const sb = createClient()
+                      sb.from('play_instances').update({ facing_blitz: opt.includes('Blitz') }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                    }
+                    setEnrichmentStep(0)
+                    setEnrichmentContext(null)
+                  }}
+                  className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step 1: THEIR BALL — Their offensive tendency */}
+          {enrichmentContext.possession === 'them' && enrichmentStep === 1 && (
+            <div className="flex gap-2 flex-wrap">
+              {enrichmentContext.playType?.toLowerCase() === 'run'
+                ? ['Left', 'Middle', 'Right'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        if (enrichmentContext.lastPlayId) {
+                          const sb = createClient()
+                          sb.from('play_instances').update({ direction: opt.toLowerCase() }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                        }
+                        if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
+                        else { setEnrichmentStep(0); setEnrichmentContext(null) }
+                      }}
+                      className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                    >
+                      {opt}
+                    </button>
+                  ))
+                : ['Left Short', 'Left Deep', 'Middle', 'Right Short', 'Right Deep'].map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        if (enrichmentContext.lastPlayId) {
+                          const sb = createClient()
+                          sb.from('play_instances').update({ pass_location: opt.toLowerCase().split(' ')[0] }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                        }
+                        if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
+                        else { setEnrichmentStep(0); setEnrichmentContext(null) }
+                      }}
+                      className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                    >
+                      {opt}
+                    </button>
+                  ))
+              }
+            </div>
+          )}
+
+          {/* Step 2: THEIR BALL + Quick — Our defensive response */}
+          {enrichmentContext.possession === 'them' && enrichmentStep === 2 && (
+            <div>
+              <p className="text-[10px] text-gray-600 mb-1.5">Front</p>
+              <div className="flex gap-2 flex-wrap mb-2">
+                {['4-3', '3-4', 'Nickel', 'Dime'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      if (enrichmentContext.lastPlayId) {
+                        const sb = createClient()
+                        sb.from('play_instances').update({ play_concept: opt }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                      }
+                    }}
+                    className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-600 mb-1.5">Coverage</p>
+              <div className="flex gap-2 flex-wrap">
+                {['Man', 'Zone', 'Blitz', 'Zone Blitz'].map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      if (enrichmentContext.lastPlayId) {
+                        const sb = createClient()
+                        sb.from('play_instances').update({ facing_blitz: opt.includes('Blitz') }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                      }
+                      setEnrichmentStep(0)
+                      setEnrichmentContext(null)
+                    }}
+                    className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   )
 }
