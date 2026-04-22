@@ -54,14 +54,18 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!teamId) { setLoading(false); return }
+    if (!teamId) return // Keep loading=true until teamId arrives
+    setLoading(true)
     const supabase = createClient()
     supabase
       .from('teams')
       .select('field_length, touchback_yard_line, kickoff_yard_line')
       .eq('id', teamId)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[LeagueRules] Fetch error:', error.message)
+        }
         if (data) {
           const fl = data.field_length ?? 100, tb = data.touchback_yard_line ?? 20, ko = data.kickoff_yard_line ?? 40
           setFieldLength(fl); setTouchbackYardLine(tb); setKickoffYardLine(ko)
