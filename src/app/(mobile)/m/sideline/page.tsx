@@ -111,6 +111,9 @@ type GameAction =
   | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null; kickYards?: number }
   | { type: 'RESTORE'; state: GameState }
 
+// TODO: PRE-LAUNCH - pull from team league settings (kickoff_yard_line)
+const KICKOFF_YARD_LINE = 40
+
 const INITIAL_GAME_STATE: GameState = {
   down: 1,
   distance: 10,
@@ -198,7 +201,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         const kd = actionKickYards ?? 0
         if (kd > 0) {
           // Kickoffs from OWN 40, punts from current yard line
-          const kickerYardLine = actionStSubType === 'kickoff' ? 40 : state.yardLine
+          const kickerYardLine = actionStSubType === 'kickoff' ? KICKOFF_YARD_LINE : state.yardLine
           const kickerAbsolute = toAbsolute(kickerYardLine, possTeam, fieldLength)
           const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
           const receivingTeam = oppTeam
@@ -220,7 +223,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         if (kd > 0) {
           // Kickoffs originate from OWN 40 (NFHS default), punts from current yard line
-          const kickerYardLine = actionStSubType === 'kickoff' ? 40 : state.yardLine
+          const kickerYardLine = actionStSubType === 'kickoff' ? KICKOFF_YARD_LINE : state.yardLine
           const kickerAbsolute = toAbsolute(kickerYardLine, possTeam, fieldLength)
           const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
 
@@ -946,7 +949,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-sm text-gray-400">
-            {activeSTSubType === 'kickoff' ? 'OWN 40' : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
+            {activeSTSubType === 'kickoff' ? formatYardLine(KICKOFF_YARD_LINE, possession) : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
           </p>
           <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
             <button
@@ -1899,7 +1902,7 @@ function LogView({
               {stSubType === 'kickoff' ? (
                 <div className="px-4 mt-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kickoff From</p>
-                  <p className="text-sm text-[#B8CA6E] font-semibold mt-1">OWN 40</p>
+                  <p className="text-sm text-[#B8CA6E] font-semibold mt-1">{formatYardLine(KICKOFF_YARD_LINE, game.possession)}</p>
                 </div>
               ) : null}
 
