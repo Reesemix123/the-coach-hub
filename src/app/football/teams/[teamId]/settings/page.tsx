@@ -71,7 +71,7 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [userRole, setUserRole] = useState<'owner' | 'coach' | null>(null);
   const [loading, setLoading] = useState(true);
   const [teamDetailData, setTeamDetailData] = useState<TeamDetailData | null>(null);
-  const [settingsTab, setSettingsTab] = useState<'billing' | 'team' | 'members' | 'usage_tokens' | 'onboarding'>('billing');
+  const [settingsTab, setSettingsTab] = useState<'billing' | 'team' | 'members' | 'usage_tokens' | 'onboarding' | 'account'>('billing');
   const [showChangePlanModal, setShowChangePlanModal] = useState(false);
   const [hasParentProfile, setHasParentProfile] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#000000');
@@ -353,6 +353,19 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               >
                 Onboarding
                 {settingsTab === 'onboarding' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
+                )}
+              </button>
+              <button
+                onClick={() => setSettingsTab('account')}
+                className={`pb-2 px-1 text-sm font-medium transition-colors relative ${
+                  settingsTab === 'account'
+                    ? 'text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Account
+                {settingsTab === 'account' && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-900" />
                 )}
               </button>
@@ -654,35 +667,52 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
           </div>
         )}
 
-        {/* Account section — always visible, below tab content */}
-        <div className="mt-8 pt-8 border-t border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Account</h2>
-          <div className="space-y-3">
-            <Link
-              href="/dashboard"
-              className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-            >
-              <div>
-                <p className="text-sm font-medium text-gray-900">View all my teams</p>
-                <p className="text-xs text-gray-500">Switch between teams or create a new one</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-gray-400" />
-            </Link>
+        {/* Account tab content */}
+        {settingsTab === 'account' && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Account</h2>
+              <p className="text-gray-600">Manage your account and switch between teams or roles.</p>
+            </div>
 
-            {hasParentProfile && (
+            <div className="space-y-3">
               <Link
-                href="/parent"
+                href="/dashboard"
                 className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
               >
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Switch to parent view</p>
-                  <p className="text-xs text-gray-500">View your athlete profiles and parent features</p>
+                  <p className="text-sm font-medium text-gray-900">View all my teams</p>
+                  <p className="text-xs text-gray-500">Switch between teams or create a new one</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               </Link>
-            )}
+
+              {hasParentProfile && (
+                <Link
+                  href="/parent"
+                  className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Switch to parent view</p>
+                    <p className="text-xs text-gray-500">View your athlete profiles and parent features</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                </Link>
+              )}
+
+              <Link
+                href="/auth/signout"
+                className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Sign out</p>
+                  <p className="text-xs text-gray-500">Sign out of your account</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -719,20 +749,33 @@ function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | nul
   const [fieldLength, setFieldLength] = useState(team?.field_length ?? 100)
   const [touchbackYl, setTouchbackYl] = useState(team?.touchback_yard_line ?? 20)
   const [kickoffYl, setKickoffYl] = useState(team?.kickoff_yard_line ?? 40)
-  const [saved, setSaved] = useState<string | null>(null)
+  const [savedFl, setSavedFl] = useState(team?.field_length ?? 100)
+  const [savedTb, setSavedTb] = useState(team?.touchback_yard_line ?? 20)
+  const [savedKo, setSavedKo] = useState(team?.kickoff_yard_line ?? 40)
+  const [saving, setSaving] = useState(false)
+  const [showSaved, setShowSaved] = useState(false)
 
   useEffect(() => {
     if (team) {
-      setFieldLength(team.field_length ?? 100)
-      setTouchbackYl(team.touchback_yard_line ?? 20)
-      setKickoffYl(team.kickoff_yard_line ?? 40)
+      const fl = team.field_length ?? 100, tb = team.touchback_yard_line ?? 20, ko = team.kickoff_yard_line ?? 40
+      setFieldLength(fl); setTouchbackYl(tb); setKickoffYl(ko)
+      setSavedFl(fl); setSavedTb(tb); setSavedKo(ko)
     }
   }, [team])
 
-  async function save(field: string, value: number) {
-    await supabase.from('teams').update({ [field]: value }).eq('id', teamId)
-    setSaved(field)
-    setTimeout(() => setSaved(null), 1500)
+  const hasChanges = fieldLength !== savedFl || touchbackYl !== savedTb || kickoffYl !== savedKo
+
+  async function handleSave() {
+    setSaving(true)
+    await supabase.from('teams').update({
+      field_length: fieldLength,
+      touchback_yard_line: touchbackYl,
+      kickoff_yard_line: kickoffYl,
+    }).eq('id', teamId)
+    setSavedFl(fieldLength); setSavedTb(touchbackYl); setSavedKo(kickoffYl)
+    setSaving(false)
+    setShowSaved(true)
+    setTimeout(() => setShowSaved(false), 1500)
   }
 
   return (
@@ -742,43 +785,43 @@ function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | nul
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <label className="block text-sm font-medium text-gray-700">Field Length</label>
-            {saved === 'field_length' && <span className="text-xs text-green-600 font-medium">Saved</span>}
-          </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Field Length</label>
           <DesktopPill
             options={[50, 80, 100]}
             value={fieldLength}
-            onChange={(v) => { setFieldLength(v); save('field_length', v) }}
+            onChange={setFieldLength}
             labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }}
           />
         </div>
-
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <label className="block text-sm font-medium text-gray-700">Touchback</label>
-            {saved === 'touchback_yard_line' && <span className="text-xs text-green-600 font-medium">Saved</span>}
-          </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Touchback</label>
           <DesktopPill
             options={[20, 25, 30]}
             value={touchbackYl}
-            onChange={(v) => { setTouchbackYl(v); save('touchback_yard_line', v) }}
+            onChange={setTouchbackYl}
             labels={{ '20': '20 yd line', '25': '25 yd line', '30': '30 yd line' }}
           />
         </div>
-
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <label className="block text-sm font-medium text-gray-700">Kickoff From</label>
-            {saved === 'kickoff_yard_line' && <span className="text-xs text-green-600 font-medium">Saved</span>}
-          </div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Kickoff From</label>
           <DesktopPill
             options={[30, 35, 40]}
             value={kickoffYl}
-            onChange={(v) => { setKickoffYl(v); save('kickoff_yard_line', v) }}
+            onChange={setKickoffYl}
             labels={{ '30': '30 yd line', '35': '35 yd line', '40': '40 yd line' }}
           />
         </div>
+      </div>
+
+      <div className="flex items-center gap-3 mt-5">
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || saving}
+          className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400 font-medium"
+        >
+          {saving ? 'Saving...' : 'Save League Rules'}
+        </button>
+        {showSaved && <span className="text-xs text-green-600 font-medium">Saved</span>}
       </div>
     </div>
   )

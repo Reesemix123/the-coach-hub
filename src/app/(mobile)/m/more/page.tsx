@@ -46,7 +46,11 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
   const [fieldLength, setFieldLength] = useState(100)
   const [touchbackYardLine, setTouchbackYardLine] = useState(20)
   const [kickoffYardLine, setKickoffYardLine] = useState(40)
-  const [saved, setSaved] = useState<string | null>(null)
+  const [savedFl, setSavedFl] = useState(100)
+  const [savedTb, setSavedTb] = useState(20)
+  const [savedKo, setSavedKo] = useState(40)
+  const [saving, setSaving] = useState(false)
+  const [showSaved, setShowSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -59,20 +63,29 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
       .single()
       .then(({ data }) => {
         if (data) {
-          setFieldLength(data.field_length ?? 100)
-          setTouchbackYardLine(data.touchback_yard_line ?? 20)
-          setKickoffYardLine(data.kickoff_yard_line ?? 40)
+          const fl = data.field_length ?? 100, tb = data.touchback_yard_line ?? 20, ko = data.kickoff_yard_line ?? 40
+          setFieldLength(fl); setTouchbackYardLine(tb); setKickoffYardLine(ko)
+          setSavedFl(fl); setSavedTb(tb); setSavedKo(ko)
         }
         setLoading(false)
       })
   }, [teamId])
 
-  async function saveSetting(field: string, value: number) {
+  const hasChanges = fieldLength !== savedFl || touchbackYardLine !== savedTb || kickoffYardLine !== savedKo
+
+  async function handleSave() {
     if (!teamId) return
+    setSaving(true)
     const supabase = createClient()
-    await supabase.from('teams').update({ [field]: value }).eq('id', teamId)
-    setSaved(field)
-    setTimeout(() => setSaved(null), 1500)
+    await supabase.from('teams').update({
+      field_length: fieldLength,
+      touchback_yard_line: touchbackYardLine,
+      kickoff_yard_line: kickoffYardLine,
+    }).eq('id', teamId)
+    setSavedFl(fieldLength); setSavedTb(touchbackYardLine); setSavedKo(kickoffYardLine)
+    setSaving(false)
+    setShowSaved(true)
+    setTimeout(() => setShowSaved(false), 1500)
   }
 
   if (loading) {
@@ -90,44 +103,53 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
     <div>
       {/* Field Length */}
       <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium text-white">Field Length</p>
-          {saved === 'field_length' && <span className="text-[10px] text-[#B8CA6E] font-medium">Saved</span>}
-        </div>
+        <p className="text-sm font-medium text-white mb-2">Field Length</p>
         <SegmentedPill
           options={[50, 80, 100]}
           value={fieldLength}
-          onChange={(v) => { setFieldLength(v); saveSetting('field_length', v) }}
+          onChange={setFieldLength}
           labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }}
         />
       </div>
 
       {/* Touchback Yard Line */}
       <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium text-white">Touchback Yard Line</p>
-          {saved === 'touchback_yard_line' && <span className="text-[10px] text-[#B8CA6E] font-medium">Saved</span>}
-        </div>
+        <p className="text-sm font-medium text-white mb-2">Touchback Yard Line</p>
         <SegmentedPill
           options={[20, 25, 30]}
           value={touchbackYardLine}
-          onChange={(v) => { setTouchbackYardLine(v); saveSetting('touchback_yard_line', v) }}
+          onChange={setTouchbackYardLine}
           labels={{ '20': '20 yd', '25': '25 yd', '30': '30 yd' }}
         />
       </div>
 
       {/* Kickoff Yard Line */}
       <div className="mb-5">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-medium text-white">Kickoff Yard Line</p>
-          {saved === 'kickoff_yard_line' && <span className="text-[10px] text-[#B8CA6E] font-medium">Saved</span>}
-        </div>
+        <p className="text-sm font-medium text-white mb-2">Kickoff Yard Line</p>
         <SegmentedPill
           options={[30, 35, 40]}
           value={kickoffYardLine}
-          onChange={(v) => { setKickoffYardLine(v); saveSetting('kickoff_yard_line', v) }}
+          onChange={setKickoffYardLine}
           labels={{ '30': '30 yd', '35': '35 yd', '40': '40 yd' }}
         />
+      </div>
+
+      {/* Save button */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!hasChanges || saving}
+          className={[
+            'rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors min-h-[40px]',
+            hasChanges && !saving
+              ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
+              : 'bg-[#3a3a3c] text-gray-500',
+          ].join(' ')}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+        {showSaved && <span className="text-xs text-[#B8CA6E] font-medium">Saved</span>}
       </div>
     </div>
   )
