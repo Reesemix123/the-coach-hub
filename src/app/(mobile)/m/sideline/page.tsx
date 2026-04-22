@@ -291,10 +291,15 @@ function ordinalDown(down: number): string {
   return suffixes[down] ?? `${down}th`
 }
 
-function formatYardLine(yl: number): string {
+function formatYardLine(yl: number, possession: Possession = 'us'): string {
   if (yl === 50) return 'MIDFIELD'
-  if (yl < 50) return `OWN ${yl}`
-  return `OPP ${100 - yl}`
+  if (possession === 'us') {
+    if (yl < 50) return `OWN ${yl}`
+    return `OPP ${100 - yl}`
+  }
+  // Their ball: flip OWN/OPP from our perspective
+  if (yl < 50) return `OPP ${yl}`
+  return `OWN ${100 - yl}`
 }
 
 function formatHash(hash: HashMark): string {
@@ -947,7 +952,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-sm text-gray-400">
-            {formatYardLine(yardLine)} &middot; {formatHash(hash)}
+            {formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
           </p>
           <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
             <button
@@ -2097,7 +2102,7 @@ function PlaysView({
     )
   }
 
-  const situationText = `${ordinalDown(game.down)} & ${game.distance} · ${formatYardLine(game.yardLine)} · Q${game.quarter}`
+  const situationText = `${ordinalDown(game.down)} & ${game.distance} · ${formatYardLine(game.yardLine, game.possession)} · Q${game.quarter}`
 
   const selectPlay = (gpp: GamePlanPlay) =>
     onSelectPlay(
@@ -2264,10 +2269,10 @@ function SwipeablePlayRow({
             {play.playName ?? 'Quick Play'}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">
-            {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine)}
+            {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine, play.possession)}
           </p>
           <p className="text-[10px] text-gray-600 mt-0.5">
-            {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
+            {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained), play.possession)}
           </p>
         </div>
 
@@ -2366,7 +2371,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
         </p>
         {currentDrivePlays.length > 0 && (
           <p className="text-xs text-gray-600 mt-0.5">
-            {formatYardLine(currentDrivePlays[0].yardLine)} &rarr; {formatYardLine(game.yardLine)}
+            {formatYardLine(currentDrivePlays[0].yardLine, currentDrivePlays[0].possession)} &rarr; {formatYardLine(game.yardLine, game.possession)}
           </p>
         )}
       </div>
@@ -2522,7 +2527,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                               {play.playName ?? 'Quick Play'}
                             </p>
                             <p className="text-[10px] text-gray-600">
-                              {formatYardLine(play.yardLine)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained))}
+                              {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained), play.possession)}
                             </p>
                           </div>
                           <span className={[
