@@ -911,9 +911,10 @@ interface GameStateBarProps {
   dispatch: React.Dispatch<GameAction>
   clockHasBeenSet: boolean
   onClockSet: () => void
+  activeSTSubType?: STSubType | null
 }
 
-function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSet, onClockSet }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSet, onClockSet, activeSTSubType }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
@@ -945,7 +946,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-sm text-gray-400">
-            {formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
+            {activeSTSubType === 'kickoff' ? 'OWN 40' : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
           </p>
           <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
             <button
@@ -1645,6 +1646,7 @@ interface LogViewProps {
   activeGameId: string | null
   driveNumber: number
   onPlayLogged: (play: LoggedPlay) => void
+  onSTSubTypeChange: (st: STSubType | null) => void
 }
 
 function LogView({
@@ -1658,6 +1660,7 @@ function LogView({
   activeGameId,
   driveNumber,
   onPlayLogged,
+  onSTSubTypeChange,
 }: LogViewProps) {
   const [logMode, setLogMode] = useState<LogMode>('wristband')
   const [selectedPlayCode, setSelectedPlayCode] = useState<string | null>(null)
@@ -1665,7 +1668,11 @@ function LogView({
   const [selectedPlayType, setSelectedPlayType] = useState<string | null>(null)
   const [selectedFormation, setSelectedFormation] = useState<string | null>(null)
   const [quickPlayType, setQuickPlayType] = useState<QuickPlayType | null>(null)
-  const [stSubType, setStSubType] = useState<STSubType | null>(null)
+  const [stSubType, _setStSubType] = useState<STSubType | null>(null)
+  function setStSubType(st: STSubType | null) {
+    _setStSubType(st)
+    onSTSubTypeChange(st)
+  }
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeLabel | null>(null)
   const [yards, setYards] = useState(0)
   const [kickYards, setKickYards] = useState(0)
@@ -2637,6 +2644,7 @@ export default function SidelinePage() {
   const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null)
   const [showGameMenu, setShowGameMenu] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [activeSTSubType, setActiveSTSubType] = useState<STSubType | null>(null)
 
   // Game state managed by reducer
   const [game, dispatchGame] = useReducer(gameReducer, INITIAL_GAME_STATE)
@@ -2995,6 +3003,7 @@ export default function SidelinePage() {
         dispatch={dispatchGame}
         clockHasBeenSet={clockHasBeenSet}
         onClockSet={() => setClockHasBeenSet(true)}
+        activeSTSubType={activeSTSubType}
       />
 
       {/* End Game Confirmation */}
@@ -3213,6 +3222,7 @@ export default function SidelinePage() {
           activeGameId={activeGameId}
           driveNumber={driveNumber}
           onPlayLogged={handlePlayLogged}
+          onSTSubTypeChange={setActiveSTSubType}
         />
       )}
 
