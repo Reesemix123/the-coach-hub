@@ -305,6 +305,52 @@ function formatHash(hash: HashMark): string {
   return 'Middle'
 }
 
+function formatPlayResult(play: LoggedPlay): string | null {
+  const { outcomeLabel, playType, stSubType, yardsGained } = play
+
+  // Terminal outcomes always show regardless of play type
+  if (outcomeLabel === 'TD') return 'Touchdown'
+  if (outcomeLabel === 'Turnover') return 'Turnover'
+
+  // Special teams — stSubType takes precedence
+  if (stSubType) {
+    const stLabel = stSubType === 'kickoff' ? 'Kickoff' : stSubType === 'punt' ? 'Punt' : 'FG/PAT'
+    if (outcomeLabel === 'Touchback') return `${stLabel} · Touchback`
+    if (outcomeLabel === 'Fair Catch') return `${stLabel} · Fair Catch`
+    if (outcomeLabel === 'Good') return `${stLabel} · Good`
+    if (outcomeLabel === 'No Good') return `${stLabel} · No Good`
+    if (outcomeLabel === 'Blocked') return `${stLabel} · Blocked`
+    if (outcomeLabel === 'Return') return `${stLabel} · Return`
+    if (outcomeLabel === 'Penalty') return `${stLabel} · Penalty`
+    return stLabel
+  }
+
+  // Run plays
+  const pt = playType?.toLowerCase()
+  if (pt === 'run') {
+    if (yardsGained > 0) return 'Run · Gain'
+    if (yardsGained < 0) return 'Run · Loss'
+    return 'Run · No Gain'
+  }
+
+  // Pass plays
+  if (pt === 'pass') {
+    if (outcomeLabel === 'Complete') return 'Pass · Complete'
+    if (outcomeLabel === 'Incomplete') return 'Pass · Incomplete'
+    if (outcomeLabel === 'Sack') return 'Pass · Sack'
+    if (yardsGained > 0) return 'Pass · Complete'
+    if (yardsGained < 0) return 'Pass · Sack'
+    return 'Pass · Incomplete'
+  }
+
+  // No derivable data — render nothing
+  if (!playType && !outcomeLabel) return null
+
+  // Generic fallback with outcome if available
+  if (outcomeLabel) return String(outcomeLabel)
+  return null
+}
+
 function parseTimeToSeconds(clock: string): number {
   const parts = clock.split(':')
   if (parts.length !== 2) return 0
@@ -1296,7 +1342,7 @@ function TappableNumber({ value, onChange }: { value: number; onChange: (v: numb
   function handleCommit() {
     const parsed = parseInt(editValue, 10)
     if (!isNaN(parsed)) {
-      onChange(Math.max(0, Math.min(99, parsed)))
+      onChange(Math.max(-99, Math.min(99, parsed)))
     }
     setEditing(false)
   }
@@ -1311,7 +1357,7 @@ function TappableNumber({ value, onChange }: { value: number; onChange: (v: numb
         onChange={(e) => setEditValue(e.target.value)}
         onBlur={handleCommit}
         onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
-        min={0}
+        min={-99}
         max={99}
         className="text-3xl font-bold text-white w-16 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
@@ -1516,7 +1562,7 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
   function handleCommit() {
     const parsed = parseInt(editValue, 10)
     if (!isNaN(parsed)) {
-      onChange(Math.max(0, Math.min(99, parsed)))
+      onChange(Math.max(-99, Math.min(99, parsed)))
     }
     setEditing(false)
   }
@@ -1529,7 +1575,7 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
       <div className="flex items-center justify-center gap-6 mt-2">
         <button
           type="button"
-          onClick={() => onChange(Math.max(0, value - 1))}
+          onClick={() => onChange(Math.max(-99, value - 1))}
           className="w-14 h-14 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
         >
           <MinusIcon />
@@ -1543,7 +1589,7 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={handleCommit}
             onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
-            min={0}
+            min={-99}
             max={99}
             className="text-4xl font-bold text-white w-20 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
@@ -2737,11 +2783,12 @@ function SwipeablePlayRow({
           <p className="text-sm font-medium text-white truncate">
             {play.playName ?? 'Quick Play'}
           </p>
+          {(() => { const rl = formatPlayResult(play); return rl ? <p className="text-[10px] text-gray-500">{rl}</p> : null })()}
           <p className="text-xs text-gray-500 mt-0.5">
             {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine, play.possession)}
           </p>
           <p className="text-[10px] text-gray-600 mt-0.5">
-            {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained), play.possession)}
+            {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, Math.max(1, play.yardLine + play.yardsGained)), play.possession)}
           </p>
         </div>
 
@@ -2986,7 +3033,9 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                   </button>
                   {isExpanded && (
                     <div className="bg-[#252527] rounded-b-xl mx-1 -mt-1 pt-2 pb-1">
-                      {drivePlays.map((play, idx) => (
+                      {drivePlays.map((play, idx) => {
+                        const resultLabel = formatPlayResult(play)
+                        return (
                         <div key={play.id} className="flex items-center gap-3 px-3 py-2 border-b border-[#3a3a3c] last:border-b-0">
                           <div className="w-6 h-6 rounded-full bg-[#3a3a3c] text-white text-[10px] flex items-center justify-center shrink-0">
                             {idx + 1}
@@ -2995,8 +3044,11 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                             <p className="text-xs font-medium text-white truncate">
                               {play.playName ?? 'Quick Play'}
                             </p>
+                            {resultLabel && (
+                              <p className="text-[10px] text-gray-500">{resultLabel}</p>
+                            )}
                             <p className="text-[10px] text-gray-600">
-                              {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, play.yardLine + play.yardsGained), play.possession)}
+                              {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, Math.max(1, play.yardLine + play.yardsGained)), play.possession)}
                             </p>
                           </div>
                           <span className={[
@@ -3006,7 +3058,8 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                             {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
                           </span>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
