@@ -1881,8 +1881,8 @@ function LogView({
       quarter: game.quarter,
       time_remaining: parseTimeToSeconds(game.clock),
       play_code: selectedPlayCode ?? null,
-      formation: selectedFormation ?? null,
-      play_type: effectivePlayType ?? null,
+      formation: selectedFormation || null,
+      play_type: effectivePlayType || null,
       is_opponent_play: game.possession === 'them',
       result: resolvedResult,
       yards_gained: effectiveYards,
@@ -2008,7 +2008,11 @@ function LogView({
 
       {logMode === 'fromPlays' && (
         <FromPlaysMode
-          plays={allPlays as { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]}
+          plays={(allPlays as { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]).filter((p) => {
+            const odk = p.attributes.odk?.toLowerCase()
+            if (game.possession === 'us') return odk === 'offense'
+            return odk === 'defense'
+          })}
           isLoading={isLoadingPlays}
           onSelect={handlePlaySelected}
         />
