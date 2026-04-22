@@ -213,9 +213,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - state.yardLine), possession: flip }
       }
       // Return (punt or kickoff): use calculateBallPlacement
+      // Receiving team is ALWAYS the opponent of the kicking team
       if (outcome === 'Return') {
         const kd = actionKickYards ?? 0
-        const receivingTeam = actionStSubType === 'punt' ? oppTeam : possTeam
+        const receivingTeam = oppTeam
 
         if (kd > 0) {
           // Kickoffs originate from OWN 40 (NFHS default), punts from current yard line
@@ -238,25 +239,17 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
           if (absolute === -1) {
             console.warn('[Sideline] Safety detected — defaulting to yard line 1')
-            if (actionStSubType === 'punt') {
-              return { ...state, down: 1, distance: 10, yardLine: 1, possession: flip }
-            }
-            return { ...state, down: 1, distance: 10, yardLine: 1 }
+            return { ...state, down: 1, distance: 10, yardLine: 1, possession: flip }
           }
 
           const newYl = toRelative(absolute, receivingTeam, fieldLength)
-          if (actionStSubType === 'punt') {
-            return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl), possession: flip }
-          }
-          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl) }
+          // Both punt and kickoff returns flip possession (receiving team gets ball)
+          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl), possession: flip }
         }
 
-        // No kick distance: fall back to simple advancement
+        // No kick distance: fall back to simple advancement with flip
         const newYl = clampYardLine(state.yardLine + yardsGained)
-        if (actionStSubType === 'punt') {
-          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - newYl), possession: flip }
-        }
-        return { ...state, down: 1, distance: 10, yardLine: newYl }
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - newYl), possession: flip }
       }
       // Normal play advancement
       const newYardLine = clampYardLine(state.yardLine + yardsGained)
@@ -1165,6 +1158,55 @@ function Numpad({ value, onChange }: NumpadProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Tappable Number (tap to type, shared by inline steppers)
+// ---------------------------------------------------------------------------
+
+function TappableNumber({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [editValue, setEditValue] = useState('')
+
+  function handleStartEdit() {
+    setEditValue(String(value))
+    setEditing(true)
+  }
+
+  function handleCommit() {
+    const parsed = parseInt(editValue, 10)
+    if (!isNaN(parsed)) {
+      onChange(Math.max(0, Math.min(99, parsed)))
+    }
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        inputMode="numeric"
+        autoFocus
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleCommit}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
+        min={0}
+        max={99}
+        className="text-3xl font-bold text-white w-16 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleStartEdit}
+      className="text-3xl font-bold text-white w-16 text-center tabular-nums min-h-[48px]"
+    >
+      {value}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Outcome Grid
 // ---------------------------------------------------------------------------
 
@@ -1846,19 +1888,29 @@ function LogView({
         <div>
           {(stSubType === 'punt' || stSubType === 'kickoff') ? (
             <>
-              {/* Dual yards: kick distance + return yards */}
+              {/* Kickoff: show fixed starting position, punt: show kick distance stepper */}
+              {stSubType === 'kickoff' ? (
+                <div className="px-4 mt-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kickoff From</p>
+                  <p className="text-sm text-[#B8CA6E] font-semibold mt-1">OWN 40</p>
+                </div>
+              ) : null}
+
+              {/* Kick/Punt distance */}
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
-                Kick Yards
+                {stSubType === 'kickoff' ? 'Kick Distance' : 'Punt Distance'}
               </p>
               <div className="flex items-center justify-center gap-6 mt-2">
                 <button type="button" onClick={() => setKickYards(Math.max(0, kickYards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
                   <MinusIcon />
                 </button>
-                <span className="text-3xl font-bold text-white w-16 text-center tabular-nums">{kickYards}</span>
+                <TappableNumber value={kickYards} onChange={setKickYards} />
                 <button type="button" onClick={() => setKickYards(Math.min(99, kickYards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
                   <PlusIcon />
                 </button>
               </div>
+
+              {/* Return yards */}
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
                 Return Yards
               </p>
@@ -1866,7 +1918,7 @@ function LogView({
                 <button type="button" onClick={() => setYards(Math.max(0, yards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
                   <MinusIcon />
                 </button>
-                <span className="text-3xl font-bold text-white w-16 text-center tabular-nums">{yards}</span>
+                <TappableNumber value={yards} onChange={setYards} />
                 <button type="button" onClick={() => setYards(Math.min(99, yards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
                   <PlusIcon />
                 </button>
@@ -2787,7 +2839,7 @@ export default function SidelinePage() {
 
     // Check if we need to start a new drive (possession changes)
     const isReturnTD = outcome === 'Return' && play.yardsGained > 0 && (play.yardLine + play.yardsGained) >= 100
-    const isPuntReturn = outcome === 'Return' && play.stSubType === 'punt'
+    const isKickReturn = outcome === 'Return' && (play.stSubType === 'punt' || play.stSubType === 'kickoff')
     if (
       outcome === 'TD' ||
       outcome === 'Turnover' ||
@@ -2797,7 +2849,7 @@ export default function SidelinePage() {
       outcome === 'Good' ||
       outcome === 'No Good' ||
       isReturnTD ||
-      isPuntReturn
+      isKickReturn
     ) {
       setDriveNumber((n) => n + 1)
     }
