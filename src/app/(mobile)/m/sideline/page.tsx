@@ -43,7 +43,7 @@ interface LoggedPlay {
   distance: number
   yardLine: number
   quarter: number
-  result: string
+  result: string | null
   outcomeLabel: OutcomeLabel | null
   stSubType: STSubType | null
   possession: Possession
@@ -1845,10 +1845,12 @@ function LogView({
     const isPuntOrKick = stSubType === 'punt' || stSubType === 'kickoff'
 
     // For punt/kick: kickYards > 0 is sufficient to log (return with yards inferred)
+    // For From Plays with a selected play: play selection is sufficient
     // For other plays: need explicit outcome or non-zero yards
+    const hasSelectedPlay = logMode === 'fromPlays' && !!selectedPlayCode
     if (isPuntOrKick) {
       if (kickYards === 0 && !selectedOutcome) return
-    } else {
+    } else if (!hasSelectedPlay) {
       if (!selectedOutcome && yards === 0) return
     }
     if (!teamId) return
@@ -1863,7 +1865,10 @@ function LogView({
 
     const supabase = createClient()
     const localId = crypto.randomUUID()
-    const resolvedResult = mapOutcomeToResult(effectiveOutcome, effectivePlayType, yards)
+    // For From Plays with no explicit outcome (e.g. defensive plays), result is null
+    const resolvedResult = hasSelectedPlay && !effectiveOutcome && yards === 0
+      ? null
+      : mapOutcomeToResult(effectiveOutcome, effectivePlayType, yards)
 
     const effectiveYards = yards
 
@@ -2164,7 +2169,9 @@ function LogView({
           type="button"
           disabled={(() => {
             const isPK = stSubType === 'punt' || stSubType === 'kickoff'
+            const hasPlay = logMode === 'fromPlays' && !!selectedPlayCode
             if (isPK) return (kickYards === 0 && !selectedOutcome) || isSaving
+            if (hasPlay) return isSaving
             return (!selectedOutcome && yards === 0) || isSaving
           })()}
           onClick={handleLogPlay}
@@ -2174,7 +2181,9 @@ function LogView({
               ? 'bg-green-600 text-white'
               : !isSaving && (() => {
                   const isPK = stSubType === 'punt' || stSubType === 'kickoff'
+                  const hasPlay = logMode === 'fromPlays' && !!selectedPlayCode
                   if (isPK) return kickYards > 0 || !!selectedOutcome
+                  if (hasPlay) return true
                   return !!selectedOutcome || yards !== 0
                 })()
               ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
@@ -3172,7 +3181,7 @@ export default function SidelinePage() {
     setLoggedPlays((prev) => [...prev, play])
 
     // Use original outcomeLabel directly — avoids the lossy mapOutcomeToResult → reverseMapResult roundtrip
-    const outcome = play.outcomeLabel ?? reverseMapResult(play.result)
+    const outcome = play.outcomeLabel ?? (play.result ? reverseMapResult(play.result) : 'Complete' as OutcomeLabel)
     // Use possession captured at tap time in LogView, not parent's game.possession (avoids stale closure)
     const currentPossession = play.possession
 
