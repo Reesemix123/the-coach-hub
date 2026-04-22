@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useReducer, useMemo, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
+import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -47,6 +48,7 @@ interface LoggedPlay {
   stSubType: STSubType | null
   possession: Possession
   yardsGained: number
+  kickYards: number
   driveNumber: number
 }
 
@@ -106,7 +108,7 @@ type GameAction =
   | { type: 'SET_HOME_SCORE'; score: number }
   | { type: 'SET_OPP_SCORE'; score: number }
   | { type: 'SET_POSSESSION'; possession: Possession }
-  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null }
+  | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null; kickYards?: number }
   | { type: 'RESTORE'; state: GameState }
 
 const INITIAL_GAME_STATE: GameState = {
@@ -146,16 +148,24 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SET_POSSESSION':
       return { ...state, possession: action.possession }
     case 'ADVANCE': {
-      const { yardsGained, outcome, possession, stSubType: actionStSubType } = action
+      const { yardsGained, outcome, possession, stSubType: actionStSubType, kickYards: actionKickYards } = action
       const flip: Possession = possession === 'us' ? 'them' : 'us'
       const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
+      // TODO: PRE-LAUNCH - pull from team league settings (field_length)
+      const fieldLength = 100
+      // TODO: PRE-LAUNCH - pull from team league settings (touchback_yard_line)
+      const touchbackYardLine = 20
+
+      // Map possession to team designation: 'us' = 'A' (home), 'them' = 'B' (opponent)
+      const possTeam = possession === 'us' ? 'A' as const : 'B' as const
+      const oppTeam = possession === 'us' ? 'B' as const : 'A' as const
 
       // TD: score 6 for possessing team, flip possession (other team kicks off)
       if (outcome === 'TD') {
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
       // Return that goes for a TD (yards reach end zone)
-      if (outcome === 'Return' && yardsGained > 0 && (state.yardLine + yardsGained) >= 100) {
+      if (outcome === 'Return' && yardsGained > 0 && (state.yardLine + yardsGained) >= fieldLength) {
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
       // FG Good: always 3 points (PAT/2pt handled separately via TrySheet)
@@ -164,26 +174,86 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
       // Turnover: flip possession, mirror field position
       if (outcome === 'Turnover' || outcome === 'Blocked') {
-        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - state.yardLine), possession: flip }
       }
-      // Punt/Kickoff results that flip possession
-      if (outcome === 'Punted' || outcome === 'Touchback' || outcome === 'Fair Catch') {
-        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - (state.yardLine + yardsGained)), possession: flip }
+      // Touchback / Fair Catch: use calculateBallPlacement for proper field position
+      if (outcome === 'Touchback') {
+        const isTouchback = true
+        // Receiving team is the opponent of whoever is kicking (possessing team kicks)
+        const receivingTeam = oppTeam
+        const absolute = calculateBallPlacement({
+          fieldLength,
+          landYardLine: 0,
+          landTeam: receivingTeam,
+          returnYards: 0,
+          receivingTeam,
+          touchback: isTouchback,
+          touchbackYardLine,
+        })
+        const newYl = toRelative(absolute, receivingTeam, fieldLength)
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl), possession: flip }
+      }
+      if (outcome === 'Fair Catch') {
+        // Fair catch: ball spotted where caught. kickYards determines land spot from kicker's position.
+        const kd = actionKickYards ?? 0
+        if (kd > 0) {
+          // Kicker is at state.yardLine (possession-relative). Kick travels kd yards toward opponent.
+          const kickerAbsolute = toAbsolute(state.yardLine, possTeam, fieldLength)
+          const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
+          const receivingTeam = oppTeam
+          const newYl = toRelative(Math.max(1, Math.min(fieldLength - 1, landAbsolute)), receivingTeam, fieldLength)
+          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl), possession: flip }
+        }
+        // No kick distance: simple mirror
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - state.yardLine), possession: flip }
       }
       // No Good: no score, flip possession (missed FG = other team gets ball)
       if (outcome === 'No Good') {
-        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - state.yardLine), possession: flip }
+        return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - state.yardLine), possession: flip }
       }
-      // Return: for kickoff returns, the returner already has the ball (no flip).
-      // For punt returns, possession needs to flip (punting team loses ball).
-      // stSubType distinguishes: 'punt' = punt return (flip), 'kickoff' = kickoff return (no flip)
+      // Return (punt or kickoff): use calculateBallPlacement
       if (outcome === 'Return') {
+        const kd = actionKickYards ?? 0
+        const receivingTeam = actionStSubType === 'punt' ? oppTeam : possTeam
+
+        if (kd > 0) {
+          // Calculate land position from kick distance
+          const kickerAbsolute = toAbsolute(state.yardLine, possTeam, fieldLength)
+          const landAbsolute = possTeam === 'A' ? kickerAbsolute + kd : kickerAbsolute - kd
+
+          // Check for touchback (kick into end zone)
+          const isTouchback = landAbsolute <= 0 || landAbsolute >= fieldLength
+
+          const absolute = calculateBallPlacement({
+            fieldLength,
+            landYardLine: isTouchback ? 0 : (receivingTeam === 'A' ? landAbsolute : fieldLength - landAbsolute),
+            landTeam: receivingTeam,
+            returnYards: yardsGained,
+            receivingTeam,
+            touchback: isTouchback,
+            touchbackYardLine,
+          })
+
+          if (absolute === -1) {
+            console.warn('[Sideline] Safety detected — defaulting to yard line 1')
+            if (actionStSubType === 'punt') {
+              return { ...state, down: 1, distance: 10, yardLine: 1, possession: flip }
+            }
+            return { ...state, down: 1, distance: 10, yardLine: 1 }
+          }
+
+          const newYl = toRelative(absolute, receivingTeam, fieldLength)
+          if (actionStSubType === 'punt') {
+            return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl), possession: flip }
+          }
+          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(newYl) }
+        }
+
+        // No kick distance: fall back to simple advancement
         const newYl = clampYardLine(state.yardLine + yardsGained)
         if (actionStSubType === 'punt') {
-          // Punt return: flip possession, mirror field position for returning team
-          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(100 - newYl), possession: flip }
+          return { ...state, down: 1, distance: 10, yardLine: clampYardLine(fieldLength - newYl), possession: flip }
         }
-        // Kickoff return: returner keeps ball, advance from starting position
         return { ...state, down: 1, distance: 10, yardLine: newYl }
       }
       // Normal play advancement
@@ -1638,6 +1708,7 @@ function LogView({
       stSubType,
       possession: game.possession,
       yardsGained: yards,
+      kickYards,
       driveNumber,
     })
 
@@ -2688,6 +2759,7 @@ export default function SidelinePage() {
       outcome,
       possession: currentPossession,
       stSubType: play.stSubType,
+      kickYards: play.kickYards,
     })
 
     // Check if we need to start a new drive (possession changes)
