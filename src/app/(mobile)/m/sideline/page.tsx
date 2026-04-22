@@ -31,6 +31,10 @@ interface GameState {
   homeScore: number
   oppScore: number
   possession: Possession
+  // League settings (loaded from team record)
+  fieldLength: number
+  touchbackYardLine: number
+  kickoffYardLine: number
 }
 
 interface LoggedPlay {
@@ -111,9 +115,6 @@ type GameAction =
   | { type: 'ADVANCE'; yardsGained: number; outcome: OutcomeLabel; possession: Possession; stSubType?: STSubType | null; kickYards?: number }
   | { type: 'RESTORE'; state: GameState }
 
-// TODO: PRE-LAUNCH - pull from team league settings (kickoff_yard_line)
-const KICKOFF_YARD_LINE = 40
-
 const INITIAL_GAME_STATE: GameState = {
   down: 1,
   distance: 10,
@@ -124,6 +125,9 @@ const INITIAL_GAME_STATE: GameState = {
   homeScore: 0,
   oppScore: 0,
   possession: 'us',
+  fieldLength: 100,
+  touchbackYardLine: 20,
+  kickoffYardLine: 40,
 }
 
 function clampYardLine(yl: number): number {
@@ -154,10 +158,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const { yardsGained, outcome, possession, stSubType: actionStSubType, kickYards: actionKickYards } = action
       const flip: Possession = possession === 'us' ? 'them' : 'us'
       const scoreKey = possession === 'us' ? 'homeScore' : 'oppScore'
-      // TODO: PRE-LAUNCH - pull from team league settings (field_length)
-      const fieldLength = 100
-      // TODO: PRE-LAUNCH - pull from team league settings (touchback_yard_line)
-      const touchbackYardLine = 20
+      const { fieldLength, touchbackYardLine, kickoffYardLine: KICKOFF_YARD_LINE } = state
 
       // Map possession to team designation: 'us' = 'A' (home), 'them' = 'B' (opponent)
       const possTeam = possession === 'us' ? 'A' as const : 'B' as const
@@ -982,7 +983,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
           <p className="text-sm text-gray-400">
-            {activeSTSubType === 'kickoff' ? formatYardLine(KICKOFF_YARD_LINE, possession) : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
+            {activeSTSubType === 'kickoff' ? formatYardLine(game.kickoffYardLine, possession) : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
           </p>
           <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
             <button
@@ -2162,7 +2163,7 @@ function LogView({
               {stSubType === 'kickoff' ? (
                 <div className="px-4 mt-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kickoff From</p>
-                  <p className="text-sm text-[#B8CA6E] font-semibold mt-1">{formatYardLine(KICKOFF_YARD_LINE, game.possession)}</p>
+                  <p className="text-sm text-[#B8CA6E] font-semibold mt-1">{formatYardLine(game.kickoffYardLine, game.possession)}</p>
                 </div>
               ) : null}
 
@@ -3089,13 +3090,31 @@ export default function SidelinePage() {
   // Activate a game
   // -------------------------------------------------------------------------
 
-  function handleSelectGame(gameId: string, opponent: string) {
+  async function handleSelectGame(gameId: string, opponent: string) {
     setActiveGameId(gameId)
     setOpponentName(opponent)
-    // Reset game state for fresh tracking
-    dispatchGame({ type: 'SET_DOWN', down: 1 })
-    dispatchGame({ type: 'SET_DISTANCE', distance: 10 })
-    dispatchGame({ type: 'SET_YARD_LINE', yardLine: 25 })
+
+    // Fetch team league settings
+    let fl = 100, tb = 20, ko = 40
+    if (teamId) {
+      const supabase = createClient()
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('field_length, touchback_yard_line, kickoff_yard_line')
+        .eq('id', teamId)
+        .single()
+      if (teamData) {
+        fl = teamData.field_length ?? 100
+        tb = teamData.touchback_yard_line ?? 20
+        ko = teamData.kickoff_yard_line ?? 40
+      }
+    }
+
+    // Reset game state with team-specific league settings
+    dispatchGame({
+      type: 'RESTORE',
+      state: { ...INITIAL_GAME_STATE, fieldLength: fl, touchbackYardLine: tb, kickoffYardLine: ko },
+    })
     setDriveNumber(1)
     setLoggedPlays([])
     setActiveSegment('log')

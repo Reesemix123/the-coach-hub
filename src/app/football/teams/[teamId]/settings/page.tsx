@@ -529,6 +529,9 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
               </button>
             </div>
 
+            {/* League Rules */}
+            <LeagueRulesDesktop teamId={teamId} team={team} />
+
             {/* Add Another Team */}
             <div className="border border-gray-200 rounded-lg p-6">
               <div className="flex items-center justify-between">
@@ -683,4 +686,100 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// League Rules Component (Desktop)
+// ---------------------------------------------------------------------------
+
+function DesktopPill<T extends string | number>({ options, value, onChange, labels }: {
+  options: T[]; value: T; onChange: (v: T) => void; labels?: Record<string, string>
+}) {
+  return (
+    <div className="flex bg-gray-100 rounded-full p-1 w-fit">
+      {options.map((opt) => (
+        <button
+          key={String(opt)}
+          type="button"
+          onClick={() => onChange(opt)}
+          className={[
+            'px-4 py-2 rounded-full text-sm font-semibold transition-colors min-h-[36px]',
+            value === opt ? 'bg-black text-white' : 'text-gray-500 hover:text-gray-700',
+          ].join(' ')}
+        >
+          {labels?.[String(opt)] ?? String(opt)}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | null }) {
+  const supabase = createClient();
+  const [fieldLength, setFieldLength] = useState(team?.field_length ?? 100)
+  const [touchbackYl, setTouchbackYl] = useState(team?.touchback_yard_line ?? 20)
+  const [kickoffYl, setKickoffYl] = useState(team?.kickoff_yard_line ?? 40)
+  const [saved, setSaved] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (team) {
+      setFieldLength(team.field_length ?? 100)
+      setTouchbackYl(team.touchback_yard_line ?? 20)
+      setKickoffYl(team.kickoff_yard_line ?? 40)
+    }
+  }, [team])
+
+  async function save(field: string, value: number) {
+    await supabase.from('teams').update({ [field]: value }).eq('id', teamId)
+    setSaved(field)
+    setTimeout(() => setSaved(null), 1500)
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-6 mb-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-1">League Rules</h3>
+      <p className="text-sm text-gray-500 mb-5">Configure field dimensions for your league. These settings affect the sideline tracker and analytics.</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <label className="block text-sm font-medium text-gray-700">Field Length</label>
+            {saved === 'field_length' && <span className="text-xs text-green-600 font-medium">Saved</span>}
+          </div>
+          <DesktopPill
+            options={[50, 80, 100]}
+            value={fieldLength}
+            onChange={(v) => { setFieldLength(v); save('field_length', v) }}
+            labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <label className="block text-sm font-medium text-gray-700">Touchback</label>
+            {saved === 'touchback_yard_line' && <span className="text-xs text-green-600 font-medium">Saved</span>}
+          </div>
+          <DesktopPill
+            options={[20, 25, 30]}
+            value={touchbackYl}
+            onChange={(v) => { setTouchbackYl(v); save('touchback_yard_line', v) }}
+            labels={{ '20': '20 yd line', '25': '25 yd line', '30': '30 yd line' }}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <label className="block text-sm font-medium text-gray-700">Kickoff From</label>
+            {saved === 'kickoff_yard_line' && <span className="text-xs text-green-600 font-medium">Saved</span>}
+          </div>
+          <DesktopPill
+            options={[30, 35, 40]}
+            value={kickoffYl}
+            onChange={(v) => { setKickoffYl(v); save('kickoff_yard_line', v) }}
+            labels={{ '30': '30 yd line', '35': '35 yd line', '40': '40 yd line' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
 }
