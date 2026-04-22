@@ -1707,10 +1707,11 @@ interface FromPlaysModeProps {
   plays: { id: string; play_code: string; play_name: string; attributes: PlayAttributes }[]
   isLoading: boolean
   possession: Possession
+  selectedPlayCode: string | null
   onSelect: (playCode: string, playName: string, playType: string, formation: string, attributes: PlayAttributes) => void
 }
 
-function FromPlaysMode({ plays, isLoading, possession, onSelect }: FromPlaysModeProps) {
+function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelect }: FromPlaysModeProps) {
   const [filter, setFilter] = useState('all')
 
   // Reset filter when possession changes
@@ -1775,7 +1776,9 @@ function FromPlaysMode({ plays, isLoading, possession, onSelect }: FromPlaysMode
         ))}
         <span className="text-[10px] text-gray-600 self-center ml-1 whitespace-nowrap">{filteredPlays.length} plays</span>
       </div>
-      {filteredPlays.map((play) => (
+      {filteredPlays.map((play) => {
+        const isSelected = play.play_code === selectedPlayCode
+        return (
         <button
           key={play.id}
           type="button"
@@ -1788,7 +1791,10 @@ function FromPlaysMode({ plays, isLoading, possession, onSelect }: FromPlaysMode
               play.attributes,
             )
           }
-          className="w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px]"
+          className={[
+            'w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px]',
+            isSelected ? 'border-l-[3px] border-l-[#B8CA6E] bg-[#B8CA6E]/5' : '',
+          ].join(' ')}
         >
           <div>
             <p className="text-sm font-medium text-white">{play.play_name}</p>
@@ -1809,7 +1815,8 @@ function FromPlaysMode({ plays, isLoading, possession, onSelect }: FromPlaysMode
             <span className="text-xs text-gray-600 mt-1">{play.play_code}</span>
           </div>
         </button>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -1933,7 +1940,7 @@ function LogView({
       time_remaining: parseTimeToSeconds(game.clock),
       play_code: selectedPlayCode ?? null,
       formation: selectedFormation || null,
-      play_type: effectivePlayType || null,
+      play_type: effectivePlayType?.toLowerCase() || null,
       is_opponent_play: game.possession === 'them',
       result: resolvedResult,
       yards_gained: effectiveYards,
@@ -1954,7 +1961,7 @@ function LogView({
     if (error) {
       console.error('[Sideline] Insert error:', JSON.stringify(error, null, 2))
       console.error('[Sideline] Insert payload:', JSON.stringify(insertPayload, null, 2))
-      setSaveError('Failed to save. Check your connection.')
+      setSaveError(process.env.NODE_ENV === 'development' ? `Save failed: ${error.message}` : 'Failed to save. Check your connection.')
       return
     }
 
@@ -2066,6 +2073,7 @@ function LogView({
           })}
           isLoading={isLoadingPlays}
           possession={game.possession}
+          selectedPlayCode={selectedPlayCode}
           onSelect={handlePlaySelected}
         />
       )}
