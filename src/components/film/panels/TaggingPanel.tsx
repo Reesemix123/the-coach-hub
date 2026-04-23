@@ -71,9 +71,9 @@ function detectPossessionChange(play: any): { changed: boolean; isAfterScore: bo
   return { changed: false, isAfterScore: false };
 }
 
-// TODO: Replace with calculateBallPlacement from
-// @/lib/football/fieldPosition when full kick/punt
-// math is needed here (currently coach-entered only)
+// calculateNextYardLine handles scrimmage play advancement.
+// calculateBallPlacement handles kick/punt placement.
+// These are separate concerns.
 function calculateNextYardLine(play: any): number {
   let yardLine = (play.yard_line || 20) + (play.yards_gained || 0);
   if (play.penalty_on_play && play.penalty_yards && !play.penalty_declined) {
