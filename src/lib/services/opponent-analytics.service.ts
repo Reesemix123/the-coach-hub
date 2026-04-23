@@ -91,7 +91,7 @@ export async function getOpponentTendencies(
            play.play_type; // Also include general plays for success rate analysis
   });
 
-  if (opponentDefensivePlays.length === 0) {
+  if (opponentDefensivePlays.length < 10) {
     return getEmptyOpponentProfile(opponentName);
   }
 
@@ -291,7 +291,7 @@ export async function getOpponentOffensiveTendencies(
            playType === 'unknown' || playType === ''; // Include untyped plays as likely offensive
   });
 
-  if (opponentPlays.length === 0) {
+  if (opponentPlays.length < 10) {
     return getEmptyOpponentOffensiveProfile(opponentName);
   }
 

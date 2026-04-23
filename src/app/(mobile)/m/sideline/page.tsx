@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useReducer, useMemo, useRef } from 'r
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
+import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions } from '@/lib/football/sidelineiq'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2472,50 +2473,12 @@ interface PlaysViewProps {
   gamePlanPlays: GamePlanPlay[]
   gamePlanLoaded: boolean
   isLoadingGamePlan: boolean
-  loggedPlaysCount: number
+  loggedPlays: LoggedPlay[]
+  sidelineIQCache: SituationalSuggestionMap | null
+  sidelineIQLoading: boolean
   onSelectPlay: (playCode: string, playName: string, playType: string, formation: string) => void
 }
 
-function scorePlay(gpp: GamePlanPlay, game: GameState): number {
-  const pt = gpp.playbook_plays.attributes.playType?.toLowerCase() ?? ''
-  const isPass = pt === 'pass'
-  const isRun = pt === 'run'
-  let score = 0
-
-  // Long distance favors passing
-  if (game.distance >= 8 && isPass) score += 3
-  // Short distance favors running
-  if (game.distance <= 3 && isRun) score += 3
-  // Red zone favors running
-  if (game.yardLine >= 80 && isRun) score += 2
-  // Late-game long distance favors passing
-  if (game.quarter >= 4 && game.distance >= 5 && isPass) score += 2
-  // Medium distance slight pass preference
-  if (game.distance >= 4 && game.distance <= 7 && isPass) score += 1
-  // Goal line heavy run preference
-  if (game.yardLine >= 95 && isRun) score += 3
-
-  return score
-}
-
-function detectSituation(game: GameState, loggedPlaysCount: number): SituationInfo | null {
-  if (game.yardLine >= 95) {
-    return { key: 'goal_line', label: 'Goal Line', situationIds: ['goal_line'], description: 'Goal line stand. Power runs and sneaks.' }
-  }
-  if (game.yardLine >= 80) {
-    return { key: 'red_zone', label: 'Red Zone', situationIds: ['red_zone'], description: 'Red zone. Condensed field, exploit coverage gaps.' }
-  }
-  if (game.yardLine <= 10) {
-    return { key: 'backed_up', label: 'Backed Up', situationIds: ['backed_up'], description: 'Backed up. Safe calls, field position first.' }
-  }
-  if ((game.quarter === 2 || game.quarter >= 4) && parseTimeToSeconds(game.clock) <= 120) {
-    return { key: '2_minute', label: '2-Minute', situationIds: ['2_minute'], description: 'Two-minute drill. Spread formation, sideline routes.' }
-  }
-  if (game.down === 1 && game.distance === 10 && loggedPlaysCount <= 15 && game.quarter === 1) {
-    return { key: 'first_15', label: 'First 15', situationIds: ['first_15', 'opening_script'], description: 'Opening script. Execute your game plan.' }
-  }
-  return null
-}
 
 function PlayRow({
   gpp,
@@ -2588,31 +2551,71 @@ function PlaysView({
   gamePlanPlays,
   gamePlanLoaded,
   isLoadingGamePlan,
-  loggedPlaysCount,
+  loggedPlays,
+  sidelineIQCache,
+  sidelineIQLoading,
   onSelectPlay,
 }: PlaysViewProps) {
-  const situation = useMemo(
-    () => detectSituation(game, loggedPlaysCount),
-    [game.down, game.distance, game.yardLine, game.quarter, game.clock, loggedPlaysCount]
+  const [mode, setMode] = useState<'manual' | 'sidelineiq'>('sidelineiq')
+
+  // Map game plan plays to the shape getSuggestions expects
+  const gppForSuggestions: GamePlanPlayForSuggestions[] = useMemo(
+    () =>
+      gamePlanPlays.map((gpp) => ({
+        play_code: gpp.play_code,
+        call_number: gpp.call_number,
+        situation: gpp.situation ?? null,
+        playbook_plays: {
+          play_code: gpp.playbook_plays.play_code ?? gpp.play_code,
+          play_name: gpp.playbook_plays.play_name,
+          attributes: gpp.playbook_plays.attributes as Record<string, unknown>,
+        },
+      })),
+    [gamePlanPlays]
   )
 
-  // Plays tagged for the current situation
-  const situationPlays = useMemo(() => {
-    if (!situation) return []
-    return gamePlanPlays.filter(
-      (gpp) => gpp.situation && situation.situationIds.includes(gpp.situation)
-    )
-  }, [gamePlanPlays, situation])
+  // Map logged plays for getSuggestions
+  const loggedForSuggestions: LoggedPlayForSuggestions[] = useMemo(
+    () =>
+      loggedPlays.map((lp) => ({
+        playCode: lp.playCode ?? null,
+        playType: lp.playType ?? null,
+        yardsGained: lp.yardsGained,
+        possession: lp.possession,
+        outcomeLabel: lp.outcomeLabel ?? null,
+      })),
+    [loggedPlays]
+  )
 
-  // Exclude situation plays from AI ranking, then score and sort
-  const situationPlayIds = useMemo(() => new Set(situationPlays.map((p) => p.id)), [situationPlays])
+  // Map game state
+  const gameStateForSuggestions: GameStateForSuggestions = useMemo(
+    () => ({
+      down: game.down,
+      distance: game.distance,
+      yardLine: game.yardLine,
+      possession: game.possession,
+      quarter: game.quarter,
+      homeScore: game.homeScore,
+      oppScore: game.oppScore,
+    }),
+    [game.down, game.distance, game.yardLine, game.possession, game.quarter, game.homeScore, game.oppScore]
+  )
 
-  const rankedPlays = useMemo(() => {
-    const remaining = gamePlanPlays.filter((gpp) => !situationPlayIds.has(gpp.id))
-    return remaining
-      .map((gpp) => ({ gpp, score: scorePlay(gpp, game) }))
-      .sort((a, b) => b.score - a.score)
-  }, [gamePlanPlays, situationPlayIds, game.down, game.distance, game.yardLine, game.quarter])
+  // Get suggestions from SidelineIQ
+  const suggestions = useMemo(
+    () => getSuggestions(gameStateForSuggestions, loggedForSuggestions, gppForSuggestions, sidelineIQCache),
+    [gameStateForSuggestions, loggedForSuggestions, gppForSuggestions, sidelineIQCache]
+  )
+
+  // Manual mode: just show all game plan plays grouped by side
+  const manualPlays = useMemo(() => {
+    const side = game.possession === 'us' ? 'offense' : 'defense'
+    return gamePlanPlays.filter((gpp) => {
+      const odk = (gpp.playbook_plays.attributes.odk as string)?.toLowerCase()
+      if (side === 'offense') return odk === 'offense'
+      return odk === 'defense'
+    })
+  }, [gamePlanPlays, game.possession])
 
   if (isLoadingGamePlan) {
     return (
@@ -2642,85 +2645,152 @@ function PlaysView({
       gpp.playbook_plays.attributes.formation ?? '',
     )
 
+  const selectSuggestion = (s: { playCode: string; playName: string; playType: string }) => {
+    const gpp = gamePlanPlays.find((g) => g.play_code === s.playCode)
+    onSelectPlay(
+      s.playCode,
+      s.playName,
+      s.playType,
+      gpp?.playbook_plays.attributes.formation ?? '',
+    )
+  }
+
   return (
     <div className="pb-8">
-      {/* Situation banner or AI banner */}
-      {situation ? (
-        <div className="bg-[#B8CA6E]/15 border border-[#B8CA6E]/25 rounded-xl mx-4 mt-3 p-3">
-          <p className="text-sm font-bold text-[#B8CA6E]">{situation.label}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{situation.description}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
-          </p>
-        </div>
-      ) : (
-        <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <SparkleIcon />
-            <p className="text-sm font-semibold text-[#B8CA6E]">AI Suggestions</p>
-          </div>
-          <p className="text-xs text-gray-400">
-            {situationText} &middot; {loggedPlaysCount} play{loggedPlaysCount !== 1 ? 's' : ''} logged
-          </p>
-        </div>
-      )}
+      {/* Mode toggle pill */}
+      <div className="flex items-center justify-center gap-1 mt-3 mx-4">
+        <button
+          type="button"
+          onClick={() => setMode('manual')}
+          className={`flex-1 py-2 text-sm font-semibold rounded-l-lg transition-colors ${
+            mode === 'manual'
+              ? 'bg-white text-[#1c1c1e]'
+              : 'bg-[#3a3a3c] text-gray-400'
+          }`}
+        >
+          Manual
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('sidelineiq')}
+          className={`flex-1 py-2 text-sm font-semibold rounded-r-lg transition-colors flex items-center justify-center gap-1.5 ${
+            mode === 'sidelineiq'
+              ? 'bg-[#B8CA6E] text-[#1c1c1e]'
+              : 'bg-[#3a3a3c] text-gray-400'
+          }`}
+        >
+          <SparkleIcon />
+          SidelineIQ
+        </button>
+      </div>
 
-      {/* Situation plays section */}
-      {situation && (
-        <div className="mt-3">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
-            {situation.label} Plays
-          </p>
-          {situationPlays.length > 0 ? (
-            situationPlays.map((gpp) => (
+      {mode === 'sidelineiq' ? (
+        <>
+          {/* Situation banner */}
+          <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <SparkleIcon />
+              <p className="text-sm font-semibold text-[#B8CA6E]">
+                {sidelineIQCache ? 'AI Suggestions' : 'Situational Suggestions'}
+              </p>
+              {sidelineIQLoading && (
+                <span className="text-xs text-gray-500 animate-pulse">Analyzing...</span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">
+              {situationText} · {loggedPlays.length} play{loggedPlays.length !== 1 ? 's' : ''} logged
+            </p>
+            {!sidelineIQCache && !sidelineIQLoading && (
+              <p className="text-xs text-gray-600 mt-1">
+                No pre-game analysis — using football situational logic
+              </p>
+            )}
+          </div>
+
+          {/* Suggestion rows */}
+          <div className="mt-3">
+            {suggestions.length > 0 ? (
+              suggestions.map((s, i) => (
+                <button
+                  key={`${s.playCode}-${i}`}
+                  type="button"
+                  onClick={() => selectSuggestion(s)}
+                  className={`w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70 ${
+                    i === 0
+                      ? 'bg-[#253515] border-l-4 border-[#B8CA6E]'
+                      : i <= 2
+                        ? 'bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
+                        : 'bg-[#2c2c2e] opacity-60'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0 pr-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-base font-medium text-white">{s.playName}</span>
+                      {i === 0 && (
+                        <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
+                      )}
+                      {(i === 1 || i === 2) && (
+                        <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-600">
+                        {Math.round(s.confidence * 100)}% confidence
+                      </span>
+                      <span className="text-xs text-gray-600">·</span>
+                      <span className="text-xs text-gray-600 capitalize">{s.source}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0">
+                    {s.playType === 'run' ? (
+                      <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
+                    ) : s.playType === 'pass' ? (
+                      <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
+                    ) : s.playType === 'defense' ? (
+                      <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Defense</span>
+                    ) : (
+                      <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">{s.playType}</span>
+                    )}
+                    {s.callNumber != null && (
+                      <span className="text-xs text-gray-500 mt-1">Play #{s.callNumber}</span>
+                    )}
+                  </div>
+                </button>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500">No suggestions for this situation</p>
+                <p className="text-xs text-gray-600 mt-1">Switch to Manual to browse all plays</p>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Manual mode header */}
+          <div className="bg-[#2c2c2e] rounded-xl mx-4 mt-3 p-3">
+            <p className="text-sm font-semibold text-white">
+              {game.possession === 'us' ? 'Offensive' : 'Defensive'} Plays
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {situationText} · {manualPlays.length} plays
+            </p>
+          </div>
+
+          {/* Manual play list */}
+          <div className="mt-3">
+            {manualPlays.map((gpp) => (
               <PlayRow
                 key={gpp.id}
                 gpp={gpp}
-                isSituationPlay
                 game={game}
                 onSelect={() => selectPlay(gpp)}
               />
-            ))
-          ) : (
-            <p className="text-xs text-gray-600 px-4 py-3">
-              No plays tagged for this situation yet — tag them in your desktop game plan
-            </p>
-          )}
-        </div>
+            ))}
+          </div>
+        </>
       )}
-
-      {/* AI suggestions section */}
-      <div className="mt-3">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
-          AI Suggestions
-        </p>
-        {rankedPlays.map(({ gpp, score }: { gpp: GamePlanPlay; score: number }, index: number) => {
-          const isTopPick = index === 0 && score > 0
-          const isSuggested = (index === 1 || index === 2) && score > 0
-          const pt = gpp.playbook_plays.attributes.playType?.toLowerCase()
-
-          let hint = ''
-          if (isTopPick) {
-            if (game.distance <= 3 && pt === 'run') hint = 'Short yardage — power run situation'
-            else if (game.distance >= 8 && pt === 'pass') hint = 'Long distance — passing situation'
-            else if (game.yardLine >= 80 && pt === 'run') hint = 'Red zone — ground game'
-            else if (game.quarter >= 4 && pt === 'pass') hint = '4th quarter — stretch the field'
-            else hint = 'Best match for this situation'
-          }
-
-          return (
-            <PlayRow
-              key={gpp.id}
-              gpp={gpp}
-              isTopPick={isTopPick}
-              isSuggested={isSuggested}
-              hint={isTopPick ? hint : undefined}
-              game={game}
-              onSelect={() => selectPlay(gpp)}
-            />
-          )
-        })}
-      </div>
     </div>
   )
 }
@@ -3219,6 +3289,10 @@ export default function SidelinePage() {
   }[]>([])
   const [isLoadingPlays, setIsLoadingPlays] = useState(false)
 
+  // SidelineIQ
+  const [sidelineIQCache, setSidelineIQCache] = useState<SituationalSuggestionMap | null>(null)
+  const [sidelineIQLoading, setSidelineIQLoading] = useState(false)
+
   // Currently selected play (for switching from Plays view to Log)
   const [pendingPlayCode, setPendingPlayCode] = useState<string | null>(null)
   const [pendingPlayName, setPendingPlayName] = useState<string | null>(null)
@@ -3257,6 +3331,28 @@ export default function SidelinePage() {
     setDriveNumber(1)
     setLoggedPlays([])
     setActiveSegment('log')
+
+    // SidelineIQ: check cache first, then fire pre-game analysis
+    const cached = getCachedSuggestions(gameId)
+    if (cached) {
+      setSidelineIQCache(cached)
+    } else if (teamId) {
+      setSidelineIQLoading(true)
+      fetch('/api/sidelineiq/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId, gameId, opponentName: opponent }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.suggestions) {
+            setSidelineIQCache(data.suggestions)
+            setCachedSuggestions(gameId, data.suggestions)
+          }
+        })
+        .catch(() => {/* silent — fallback to situational */})
+        .finally(() => setSidelineIQLoading(false))
+    }
   }
 
   function handleEndGame() {
@@ -3266,6 +3362,7 @@ export default function SidelinePage() {
     setClockHasBeenSet(false)
     setGamePlanPlays([])
     setGamePlanLoaded(false)
+    setSidelineIQCache(null)
   }
 
   // -------------------------------------------------------------------------
@@ -3801,7 +3898,9 @@ export default function SidelinePage() {
           gamePlanPlays={gamePlanPlays}
           gamePlanLoaded={gamePlanLoaded}
           isLoadingGamePlan={isLoadingGamePlan}
-          loggedPlaysCount={loggedPlays.length}
+          loggedPlays={loggedPlays}
+          sidelineIQCache={sidelineIQCache}
+          sidelineIQLoading={sidelineIQLoading}
           onSelectPlay={handleSelectPlayFromPlays}
         />
       )}
