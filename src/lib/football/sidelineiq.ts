@@ -18,6 +18,7 @@ export interface SuggestedPlay {
   playName: string
   playType: string       // 'run' | 'pass' | 'rpo' | 'defense' | 'special_teams'
   reason: string         // max 6 words
+  rationale?: string     // one-sentence AI reasoning (from analyze API)
   confidence: number     // 0-1
   source: 'ai' | 'situational' | 'performance'
 }

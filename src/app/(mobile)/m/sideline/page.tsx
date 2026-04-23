@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useReducer, useMemo, useRef } from 'r
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
-import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions } from '@/lib/football/sidelineiq'
+import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions, type SuggestedPlay } from '@/lib/football/sidelineiq'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2483,6 +2483,13 @@ interface PlaysViewProps {
   sidelineIQCache: SituationalSuggestionMap | null
   sidelineIQLoading: boolean
   onSelectPlay: (playCode: string, playName: string, playType: string, formation: string) => void
+  aiSuggestions: { offense: SuggestedPlay[]; defense: SuggestedPlay[] } | null
+  aiLoading: boolean
+  fourthDownDecision: { decision: string; reasoning: string } | null
+  onReAnalyze: () => void
+  onAskAI4thDown: () => void
+  fourthDownAIResponse: string | null
+  fourthDownAILoading: boolean
 }
 
 
@@ -2563,8 +2570,20 @@ function PlaysView({
   sidelineIQCache,
   sidelineIQLoading,
   onSelectPlay,
+  aiSuggestions,
+  aiLoading,
+  fourthDownDecision,
+  onReAnalyze,
+  onAskAI4thDown,
+  fourthDownAIResponse,
+  fourthDownAILoading,
 }: PlaysViewProps) {
   const [mode, setMode] = useState<'manual' | 'sidelineiq'>('sidelineiq')
+
+  // Trigger re-analyze when this tab opens if state has changed
+  useEffect(() => {
+    onReAnalyze()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Effective plays: game plan if available, otherwise synthesize from full playbook
   const usingPlaybookFallback = gamePlanPlays.length === 0 && allPlays.length > 0
@@ -2633,6 +2652,15 @@ function PlaysView({
     () => getSuggestions(gameStateForSuggestions, loggedForSuggestions, gppForSuggestions, sidelineIQCache),
     [gameStateForSuggestions, loggedForSuggestions, gppForSuggestions, sidelineIQCache]
   )
+
+  // Overlay AI suggestions when available — local scoring is the instant fallback
+  const displaySuggestions = useMemo(() => {
+    if (!aiSuggestions) return suggestions
+    const side = game.possession === 'us' ? 'offense' : 'defense'
+    const aiPlays = side === 'offense' ? aiSuggestions.offense : aiSuggestions.defense
+    if (aiPlays && aiPlays.length > 0) return aiPlays
+    return suggestions
+  }, [aiSuggestions, suggestions, game.possession])
 
   // Manual mode: just show all game plan plays grouped by side
   const manualPlays = useMemo(() => {
@@ -2740,10 +2768,40 @@ function PlaysView({
             )}
           </div>
 
+          {/* 4th Down Decision */}
+          {game.down === 4 && fourthDownDecision && (
+            <div className="bg-[#2a1a1a] border border-red-900/40 rounded-xl mx-4 mt-3 p-3">
+              <p className="text-sm font-bold text-red-400">4th Down Decision</p>
+              <p className="text-base font-semibold text-white mt-1 capitalize">{fourthDownDecision.decision.replace(/_/g, ' ')}</p>
+              <p className="text-xs text-gray-400 mt-1">{fourthDownDecision.reasoning}</p>
+              {/* Ask AI escape hatch */}
+              {!fourthDownAIResponse && (
+                <button
+                  type="button"
+                  onClick={onAskAI4thDown}
+                  disabled={fourthDownAILoading}
+                  className="mt-2 text-xs text-[#B8CA6E] font-medium active:opacity-70"
+                >
+                  {fourthDownAILoading ? 'Thinking...' : 'Ask AI for advice →'}
+                </button>
+              )}
+              {fourthDownAIResponse && (
+                <div className="mt-2 bg-[#1c1c1e] rounded-lg p-2.5">
+                  <p className="text-xs text-gray-300 leading-relaxed">{fourthDownAIResponse}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI loading indicator — subtle, never blocks */}
+          {aiLoading && (
+            <p className="text-xs text-gray-600 text-center mt-2 animate-pulse">Updating suggestions...</p>
+          )}
+
           {/* Suggestion rows */}
           <div className="mt-3">
-            {suggestions.length > 0 ? (
-              suggestions.map((s, i) => (
+            {displaySuggestions.length > 0 ? (
+              displaySuggestions.map((s, i) => (
                 <button
                   key={`${s.playCode}-${i}`}
                   type="button"
@@ -2766,7 +2824,13 @@ function PlaysView({
                         <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
                       )}
                     </div>
-                    <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
+                    {s.rationale ? (
+                      <>
+                        <p className="text-xs text-gray-400 mt-0.5">{s.rationale}</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
+                    )}
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-gray-600">
                         {Math.round(s.confidence * 100)}% confidence
@@ -3325,6 +3389,12 @@ export default function SidelinePage() {
   // SidelineIQ
   const [sidelineIQCache, setSidelineIQCache] = useState<SituationalSuggestionMap | null>(null)
   const [sidelineIQLoading, setSidelineIQLoading] = useState(false)
+  const [lastAnalyzeState, setLastAnalyzeState] = useState<{ down: number; quarter: number; scoreOwn: number; scoreOpp: number } | null>(null)
+  const [aiSuggestions, setAiSuggestions] = useState<{ offense: SuggestedPlay[]; defense: SuggestedPlay[] } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [fourthDownDecision, setFourthDownDecision] = useState<{ decision: string; reasoning: string } | null>(null)
+  const [fourthDownAIResponse, setFourthDownAIResponse] = useState<string | null>(null)
+  const [fourthDownAILoading, setFourthDownAILoading] = useState(false)
   const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12)
 
   // Currently selected play (for switching from Plays view to Log)
@@ -3332,6 +3402,14 @@ export default function SidelinePage() {
   const [pendingPlayName, setPendingPlayName] = useState<string | null>(null)
   const [pendingPlayType, setPendingPlayType] = useState<string | null>(null)
   const [pendingFormation, setPendingFormation] = useState<string | null>(null)
+
+  // Clear 4th down AI response when no longer on 4th down
+  useEffect(() => {
+    if (game.down !== 4) {
+      setFourthDownAIResponse(null)
+      setFourthDownDecision(null)
+    }
+  }, [game.down])
 
   // -------------------------------------------------------------------------
   // Activate a game
@@ -3378,13 +3456,32 @@ export default function SidelinePage() {
       fetch('/api/sidelineiq/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId, gameId, opponentName: opponent }),
+        body: JSON.stringify({
+          teamId, gameId, opponentName: opponent,
+          clock_start: `${ql}:00`,
+          quarter: 1,
+          quarter_length_minutes: ql,
+          score_own: 0,
+          score_opponent: 0,
+          field_length: fl,
+          down: 1,
+          distance: 10,
+          yard_line: 25,
+        }),
       })
         .then((res) => res.json())
         .then((data) => {
           if (data.suggestions) {
-            setSidelineIQCache(data.suggestions)
-            setCachedSuggestions(gameId, data.suggestions)
+            // Store AI suggestions directly
+            const s = data.suggestions as { offense?: unknown[]; defense?: unknown[] }
+            setAiSuggestions({
+              offense: (s.offense || []).map((p) => { const r = p as Record<string, unknown>; return { ...r, source: 'ai' as const, reason: (r.rationale as string) || (r.reason as string) || '' } }) as SuggestedPlay[],
+              defense: (s.defense || []).map((p) => { const r = p as Record<string, unknown>; return { ...r, source: 'ai' as const, reason: (r.rationale as string) || (r.reason as string) || '' } }) as SuggestedPlay[],
+            })
+            if (data.fourthDownDecision) {
+              setFourthDownDecision(data.fourthDownDecision)
+            }
+            setLastAnalyzeState({ down: 1, quarter: 1, scoreOwn: 0, scoreOpp: 0 })
           }
         })
         .catch(() => {/* silent — fallback to situational */})
@@ -3401,6 +3498,101 @@ export default function SidelinePage() {
     setGamePlanLoaded(false)
     setSidelineIQCache(null)
     setQuarterLengthMinutes(12)
+    setAiSuggestions(null)
+    setAiLoading(false)
+    setLastAnalyzeState(null)
+    setFourthDownDecision(null)
+    setFourthDownAIResponse(null)
+  }
+
+  // -------------------------------------------------------------------------
+  // Re-analyze when game state changes significantly
+  // -------------------------------------------------------------------------
+
+  function triggerReAnalyze() {
+    if (!teamId || !activeGameId || aiLoading) return
+
+    // Check if state has changed: down, quarter, score_own, or score_opponent
+    const current = { down: game.down, quarter: game.quarter, scoreOwn: game.homeScore, scoreOpp: game.oppScore }
+    if (lastAnalyzeState &&
+        lastAnalyzeState.down === current.down &&
+        lastAnalyzeState.quarter === current.quarter &&
+        lastAnalyzeState.scoreOwn === current.scoreOwn &&
+        lastAnalyzeState.scoreOpp === current.scoreOpp) {
+      return // No significant change
+    }
+
+    setAiLoading(true)
+    fetch('/api/sidelineiq/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        teamId,
+        gameId: activeGameId,
+        opponentName,
+        clock_start: game.clock,
+        quarter: game.quarter,
+        quarter_length_minutes: quarterLengthMinutes,
+        score_own: game.homeScore,
+        score_opponent: game.oppScore,
+        field_length: game.fieldLength,
+        down: game.down,
+        distance: game.distance,
+        yard_line: game.yardLine,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.suggestions) {
+          const s = data.suggestions as { offense?: unknown[]; defense?: unknown[] }
+          setAiSuggestions({
+            offense: (s.offense || []).map((p) => { const r = p as Record<string, unknown>; return { ...r, source: 'ai' as const, reason: (r.rationale as string) || (r.reason as string) || '' } }) as SuggestedPlay[],
+            defense: (s.defense || []).map((p) => { const r = p as Record<string, unknown>; return { ...r, source: 'ai' as const, reason: (r.rationale as string) || (r.reason as string) || '' } }) as SuggestedPlay[],
+          })
+          if (data.fourthDownDecision) {
+            setFourthDownDecision(data.fourthDownDecision)
+          } else {
+            setFourthDownDecision(null)
+          }
+        }
+        setLastAnalyzeState({ down: game.down, quarter: game.quarter, scoreOwn: game.homeScore, scoreOpp: game.oppScore })
+      })
+      .catch(() => {/* silent */})
+      .finally(() => setAiLoading(false))
+  }
+
+  async function handleAskAI4thDown() {
+    if (fourthDownAILoading) return
+    setFourthDownAILoading(true)
+    try {
+      const res = await fetch('/api/sidelineiq/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          gameId: activeGameId,
+          opponentName,
+          askAI4thDown: true,
+          clock_start: game.clock,
+          quarter: game.quarter,
+          quarter_length_minutes: quarterLengthMinutes,
+          score_own: game.homeScore,
+          score_opponent: game.oppScore,
+          field_length: game.fieldLength,
+          down: game.down,
+          distance: game.distance,
+          yard_line: game.yardLine,
+        }),
+      })
+      const data = await res.json()
+      if (data.fourthDownAdvice) {
+        setFourthDownAIResponse(data.fourthDownAdvice)
+      }
+    } catch {
+      setFourthDownAIResponse('Unable to get AI advice right now.')
+    } finally {
+      setFourthDownAILoading(false)
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -3942,6 +4134,13 @@ export default function SidelinePage() {
           isLoadingPlays={isLoadingPlays}
           sidelineIQCache={sidelineIQCache}
           sidelineIQLoading={sidelineIQLoading}
+          aiSuggestions={aiSuggestions}
+          aiLoading={aiLoading}
+          fourthDownDecision={fourthDownDecision}
+          onReAnalyze={triggerReAnalyze}
+          onAskAI4thDown={handleAskAI4thDown}
+          fourthDownAIResponse={fourthDownAIResponse}
+          fourthDownAILoading={fourthDownAILoading}
           onSelectPlay={handleSelectPlayFromPlays}
         />
       )}
