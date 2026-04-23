@@ -2854,6 +2854,22 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
   const currentDrivePlays = loggedPlays.filter((p) => p.driveNumber === driveNumber)
   const currentDriveYards = currentDrivePlays.reduce((sum, p) => sum + p.yardsGained, 0)
 
+  // Game stats
+  const gameStats = useMemo(() => {
+    const off = loggedPlays.filter((p) => p.possession === 'us')
+    const def = loggedPlays.filter((p) => p.possession === 'them')
+    return {
+      offRush: off.filter((p) => p.playType?.toLowerCase() === 'run').reduce((s, p) => s + p.yardsGained, 0),
+      offPass: off.filter((p) => p.playType?.toLowerCase() === 'pass').reduce((s, p) => s + p.yardsGained, 0),
+      offTotal: off.reduce((s, p) => s + p.yardsGained, 0),
+      offTurnovers: off.filter((p) => p.outcomeLabel === 'Turnover').length,
+      defRush: def.filter((p) => p.playType?.toLowerCase() === 'run').reduce((s, p) => s + p.yardsGained, 0),
+      defPass: def.filter((p) => p.playType?.toLowerCase() === 'pass').reduce((s, p) => s + p.yardsGained, 0),
+      defTotal: def.reduce((s, p) => s + p.yardsGained, 0),
+      defTurnovers: def.filter((p) => p.outcomeLabel === 'Turnover').length,
+    }
+  }, [loggedPlays])
+
   function driveBadgeClass(result: string | null): string {
     if (!result) return 'bg-gray-700/30 text-gray-400'
     if (result.toLowerCase().includes('td') || result.toLowerCase().includes('touchdown')) {
@@ -3086,6 +3102,58 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
           </div>
         )
       })()}
+
+      {/* Game Stats Summary */}
+      <div className="mx-4 mt-6 border-t border-[#3a3a3c] pt-4">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Game Stats</p>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Offense */}
+          <div className="bg-[#2c2c2e] rounded-xl p-3">
+            <p className="text-[10px] font-semibold text-[#B8CA6E] uppercase tracking-wider mb-2">Offense</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">Rush Yds</span>
+                <span className="text-xs font-semibold text-[#B8CA6E]">{gameStats.offRush}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">Pass Yds</span>
+                <span className="text-xs font-semibold text-[#B8CA6E]">{gameStats.offPass}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#3a3a3c] pt-1.5">
+                <span className="text-[10px] text-gray-500">Total Yds</span>
+                <span className="text-xs font-bold text-[#B8CA6E]">{gameStats.offTotal}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">TO Lost</span>
+                <span className={`text-xs font-semibold ${gameStats.offTurnovers > 0 ? 'text-red-400' : 'text-gray-400'}`}>{gameStats.offTurnovers}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Defense */}
+          <div className="bg-[#2c2c2e] rounded-xl p-3">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Defense</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">Rush Allowed</span>
+                <span className="text-xs font-semibold text-white">{gameStats.defRush}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">Pass Allowed</span>
+                <span className="text-xs font-semibold text-white">{gameStats.defPass}</span>
+              </div>
+              <div className="flex justify-between border-t border-[#3a3a3c] pt-1.5">
+                <span className="text-[10px] text-gray-500">Total Allowed</span>
+                <span className="text-xs font-bold text-white">{gameStats.defTotal}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[10px] text-gray-500">TO Forced</span>
+                <span className={`text-xs font-semibold ${gameStats.defTurnovers > 0 ? 'text-[#B8CA6E]' : 'text-gray-400'}`}>{gameStats.defTurnovers}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
