@@ -1227,7 +1227,7 @@ interface SegmentNavProps {
 
 const SEGMENTS: { key: MainSegment; label: string }[] = [
   { key: 'log', label: 'Log' },
-  { key: 'plays', label: 'Plays' },
+  { key: 'plays', label: 'Next Play' },
   { key: 'drive', label: 'Drive' },
 ]
 
@@ -2474,6 +2474,8 @@ interface PlaysViewProps {
   gamePlanLoaded: boolean
   isLoadingGamePlan: boolean
   loggedPlays: LoggedPlay[]
+  allPlays: { id: string; play_code: string; play_name: string; attributes: { odk: string; formation?: string; playType?: string } }[]
+  isLoadingPlays: boolean
   sidelineIQCache: SituationalSuggestionMap | null
   sidelineIQLoading: boolean
   onSelectPlay: (playCode: string, playName: string, playType: string, formation: string) => void
@@ -2538,7 +2540,7 @@ function PlayRow({
             {attributes.playType || attributes.odk}
           </span>
         )}
-        {gpp.call_number != null && (
+        {gpp.call_number != null && gpp.call_number > 0 && (
           <span className="text-xs text-gray-500 mt-1">Play #{gpp.call_number}</span>
         )}
       </div>
@@ -2552,16 +2554,37 @@ function PlaysView({
   gamePlanLoaded,
   isLoadingGamePlan,
   loggedPlays,
+  allPlays,
+  isLoadingPlays,
   sidelineIQCache,
   sidelineIQLoading,
   onSelectPlay,
 }: PlaysViewProps) {
   const [mode, setMode] = useState<'manual' | 'sidelineiq'>('sidelineiq')
 
+  // Effective plays: game plan if available, otherwise synthesize from full playbook
+  const usingPlaybookFallback = gamePlanPlays.length === 0 && allPlays.length > 0
+  const effectivePlays: GamePlanPlay[] = useMemo(() => {
+    if (gamePlanPlays.length > 0) return gamePlanPlays
+    return allPlays.map((p, i) => ({
+      id: p.id,
+      play_code: p.play_code,
+      call_number: 0,
+      sort_order: i,
+      situation: null,
+      playbook_plays: {
+        id: p.id,
+        play_code: p.play_code,
+        play_name: p.play_name,
+        attributes: p.attributes,
+      },
+    }))
+  }, [gamePlanPlays, allPlays])
+
   // Map game plan plays to the shape getSuggestions expects
   const gppForSuggestions: GamePlanPlayForSuggestions[] = useMemo(
     () =>
-      gamePlanPlays.map((gpp) => ({
+      effectivePlays.map((gpp) => ({
         play_code: gpp.play_code,
         call_number: gpp.call_number,
         situation: gpp.situation ?? null,
@@ -2571,7 +2594,7 @@ function PlaysView({
           attributes: gpp.playbook_plays.attributes as Record<string, unknown>,
         },
       })),
-    [gamePlanPlays]
+    [effectivePlays]
   )
 
   // Map logged plays for getSuggestions
@@ -2610,27 +2633,27 @@ function PlaysView({
   // Manual mode: just show all game plan plays grouped by side
   const manualPlays = useMemo(() => {
     const side = game.possession === 'us' ? 'offense' : 'defense'
-    return gamePlanPlays.filter((gpp) => {
+    return effectivePlays.filter((gpp) => {
       const odk = (gpp.playbook_plays.attributes.odk as string)?.toLowerCase()
       if (side === 'offense') return odk === 'offense'
       return odk === 'defense'
     })
-  }, [gamePlanPlays, game.possession])
+  }, [effectivePlays, game.possession])
 
-  if (isLoadingGamePlan) {
+  if (isLoadingGamePlan || isLoadingPlays) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading game plan...</p>
+        <p className="text-sm text-gray-500">Loading plays...</p>
       </div>
     )
   }
 
-  if (!gamePlanLoaded || gamePlanPlays.length === 0) {
+  if (effectivePlays.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <ClipboardIcon />
-        <p className="text-sm text-gray-500 mt-3">No game plan for this game</p>
-        <p className="text-xs text-gray-600 mt-1">Set one up on desktop to see suggestions here</p>
+        <p className="text-sm text-gray-500 mt-3">No plays in playbook</p>
+        <p className="text-xs text-gray-600 mt-1">Add plays on desktop to get started</p>
       </div>
     )
   }
@@ -2646,7 +2669,7 @@ function PlaysView({
     )
 
   const selectSuggestion = (s: { playCode: string; playName: string; playType: string }) => {
-    const gpp = gamePlanPlays.find((g) => g.play_code === s.playCode)
+    const gpp = effectivePlays.find((g) => g.play_code === s.playCode)
     onSelectPlay(
       s.playCode,
       s.playName,
@@ -2657,6 +2680,12 @@ function PlaysView({
 
   return (
     <div className="pb-8">
+      {/* Playbook fallback banner */}
+      {usingPlaybookFallback && (
+        <div className="bg-[#3a3a3c] rounded-xl mx-4 mt-3 px-3 py-2">
+          <p className="text-xs text-gray-400">Using full playbook — create a game plan for focused suggestions</p>
+        </div>
+      )}
       {/* Mode toggle pill */}
       <div className="flex items-center justify-center gap-1 mt-3 mx-4">
         <button
@@ -3899,6 +3928,8 @@ export default function SidelinePage() {
           gamePlanLoaded={gamePlanLoaded}
           isLoadingGamePlan={isLoadingGamePlan}
           loggedPlays={loggedPlays}
+          allPlays={allPlays}
+          isLoadingPlays={isLoadingPlays}
           sidelineIQCache={sidelineIQCache}
           sidelineIQLoading={sidelineIQLoading}
           onSelectPlay={handleSelectPlayFromPlays}

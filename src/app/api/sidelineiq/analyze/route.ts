@@ -93,6 +93,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fallback: if no game plan plays, use full playbook
+    let usingPlaybookFallback = false
+    if (gamePlanPlays.length === 0) {
+      const { data: playbookData } = await supabase
+        .from('playbook_plays')
+        .select('play_code, play_name, attributes')
+        .eq('team_id', teamId)
+        .eq('is_archived', false)
+        .order('play_code', { ascending: true })
+
+      if (playbookData && playbookData.length > 0) {
+        usingPlaybookFallback = true
+        gamePlanPlays = playbookData.map((p) => ({
+          play_code: p.play_code,
+          call_number: 0,
+          situation: null,
+          side: ((p.attributes as Record<string, unknown>)?.odk as string)?.toLowerCase() === 'defense' ? 'defense' : 'offense',
+          playbook_plays: {
+            play_code: p.play_code,
+            play_name: p.play_name,
+            attributes: p.attributes as Record<string, unknown>,
+          },
+        }))
+      }
+    }
+
     // 2. Get opponent tendencies
     const [defensiveProfile, offensiveProfile] = await Promise.all([
       getOpponentTendencies(teamId, opponentName || '', supabase),
@@ -106,7 +132,7 @@ export async function POST(request: NextRequest) {
       .filter(p => p.side === 'offense')
       .map(p => ({
         playCode: p.play_code,
-        callNumber: p.call_number,
+        callNumber: p.call_number || undefined,
         name: p.playbook_plays.play_name,
         type: (p.playbook_plays.attributes.playType as string) ?? 'unknown',
         formation: (p.playbook_plays.attributes.formation as string) ?? '',
@@ -117,7 +143,7 @@ export async function POST(request: NextRequest) {
       .filter(p => p.side === 'defense')
       .map(p => ({
         playCode: p.play_code,
-        callNumber: p.call_number,
+        callNumber: p.call_number || undefined,
         name: p.playbook_plays.play_name,
         front: (p.playbook_plays.attributes.front as string) ?? '',
         coverage: (p.playbook_plays.attributes.coverage as string) ?? '',
@@ -132,13 +158,14 @@ ${totalPlaysAnalyzed >= 10 ? `- Opponent defensive tendencies: blitz rate ${defe
 - Coverage distribution: ${JSON.stringify(defensiveProfile.coverageDistribution)}
 - Opponent offensive tendencies: run/pass split ${JSON.stringify((offensiveProfile as unknown as Record<string, unknown>).runPassSplit || {})}` : ''}
 
-GAME PLAN PLAYS:
+${usingPlaybookFallback ? 'FULL PLAYBOOK (no game plan selected)' : 'GAME PLAN PLAYS'}:
 Offense (${offensePlays.length}): ${JSON.stringify(offensePlays)}
 Defense (${defensePlays.length}): ${JSON.stringify(defensePlays)}
+${usingPlaybookFallback ? 'No game plan narrowing — select situationally best plays from full playbook.' : ''}
 
 Generate a SituationalSuggestionMap JSON object. Keys are situation strings like "1_short_midfield_offense". For each key, include top 3 offense plays, top 3 defense plays.
 
-Each SuggestedPlay has: playCode (must match a play from the game plan), callNumber, reason (max 6 words), confidence (0-1).
+Each SuggestedPlay has: playCode (must match a play from the ${usingPlaybookFallback ? 'playbook' : 'game plan'}), callNumber, reason (max 6 words), confidence (0-1).
 
 Situation keys to generate (all combinations):
 Downs: 1, 2, 3, 4
@@ -178,6 +205,7 @@ Return format:
       suggestions,
       totalPlaysAnalyzed,
       playsInGamePlan: gamePlanPlays.length,
+      source: usingPlaybookFallback ? 'playbook' : 'game_plan',
       generatedAt: Date.now(),
     })
   } catch (err) {
