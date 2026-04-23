@@ -122,7 +122,7 @@ const INITIAL_GAME_STATE: GameState = {
   yardLine: 25,
   hash: 'middle',
   quarter: 1,
-  clock: '15:00',
+  clock: '12:00',
   homeScore: 0,
   oppScore: 0,
   possession: 'us',
@@ -682,6 +682,7 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
 
 interface ClockSheetProps {
   currentClock: string
+  maxMinutes?: number
   onDone: (clock: string) => void
   onClose: () => void
 }
@@ -695,7 +696,7 @@ function formatClockFromMinsSecs(mins: number, secs: number): string {
   return `${mins}:${String(secs).padStart(2, '0')}`
 }
 
-function ClockSheet({ currentClock, onDone, onClose }: ClockSheetProps) {
+function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockSheetProps) {
   const [initMins, initSecs] = parseClockToMinsSecs(currentClock)
   const [mins, setMins] = useState(initMins)
   const [secs, setSecs] = useState(initSecs)
@@ -712,7 +713,7 @@ function ClockSheet({ currentClock, onDone, onClose }: ClockSheetProps) {
     // Parse raw digits back into mins/secs
     if (raw.length > 0) {
       const padded = raw.padStart(4, '0')
-      setMins(Math.min(15, parseInt(padded.slice(0, 2), 10)))
+      setMins(Math.min(maxMinutes, parseInt(padded.slice(0, 2), 10)))
       setSecs(Math.min(59, parseInt(padded.slice(2, 4), 10)))
     }
     setMode('stepper')
@@ -732,7 +733,7 @@ function ClockSheet({ currentClock, onDone, onClose }: ClockSheetProps) {
   // Resolve final clock value from current mode
   function getClockValue(): string {
     if (mode === 'keypad') {
-      const m = Math.min(15, parseInt(keypadPadded.slice(0, 2), 10))
+      const m = Math.min(maxMinutes, parseInt(keypadPadded.slice(0, 2), 10))
       const s = Math.min(59, parseInt(keypadPadded.slice(2, 4), 10))
       return formatClockFromMinsSecs(m, s)
     }
@@ -796,7 +797,7 @@ function ClockSheet({ currentClock, onDone, onClose }: ClockSheetProps) {
                   <span className="text-2xl font-bold text-white w-10 text-center tabular-nums">{mins}</span>
                   <button
                     type="button"
-                    onClick={() => setMins((m) => Math.min(15, m + 1))}
+                    onClick={() => setMins((m) => Math.min(maxMinutes, m + 1))}
                     className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
                   >
                     <PlusIcon />
@@ -971,9 +972,10 @@ interface GameStateBarProps {
   clockHasBeenSet: boolean
   onClockSet: () => void
   activeSTSubType?: STSubType | null
+  quarterLengthMinutes?: number
 }
 
-function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSet, onClockSet, activeSTSubType }: GameStateBarProps) {
+function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSet, onClockSet, activeSTSubType, quarterLengthMinutes }: GameStateBarProps) {
   const { down, distance, yardLine, hash, quarter, clock, homeScore, oppScore, possession } = game
   const [showClock, setShowClock] = useState(false)
   const [showScore, setShowScore] = useState(false)
@@ -1104,6 +1106,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
       {showClock && (
         <ClockSheet
           currentClock={clock}
+          maxMinutes={quarterLengthMinutes ?? 15}
           onDone={(newClock) => {
             dispatch({ type: 'SET_CLOCK', clock: newClock })
             onClockSet()
@@ -1996,6 +1999,7 @@ function LogView({
       hash_mark: game.hash,
       quarter: game.quarter,
       time_remaining: parseTimeToSeconds(game.clock),
+      clock_start: game.clock,
       play_code: selectedPlayCode ?? null,
       formation: selectedFormation || null,
       play_type: effectivePlayType?.toLowerCase() || null,
@@ -3321,6 +3325,7 @@ export default function SidelinePage() {
   // SidelineIQ
   const [sidelineIQCache, setSidelineIQCache] = useState<SituationalSuggestionMap | null>(null)
   const [sidelineIQLoading, setSidelineIQLoading] = useState(false)
+  const [quarterLengthMinutes, setQuarterLengthMinutes] = useState(12)
 
   // Currently selected play (for switching from Plays view to Log)
   const [pendingPlayCode, setPendingPlayCode] = useState<string | null>(null)
@@ -3337,25 +3342,28 @@ export default function SidelinePage() {
     setOpponentName(opponent)
 
     // Fetch team league settings
-    let fl = 100, tb = 20, ko = 40
+    let fl = 100, tb = 20, ko = 40, ql = 12
     if (teamId) {
       const supabase = createClient()
       const { data: teamData } = await supabase
         .from('teams')
-        .select('field_length, touchback_yard_line, kickoff_yard_line')
+        .select('field_length, touchback_yard_line, kickoff_yard_line, quarter_length_minutes')
         .eq('id', teamId)
         .single()
       if (teamData) {
         fl = teamData.field_length ?? 100
         tb = teamData.touchback_yard_line ?? 20
         ko = teamData.kickoff_yard_line ?? 40
+        ql = teamData.quarter_length_minutes ?? 12
       }
     }
+
+    setQuarterLengthMinutes(ql)
 
     // Reset game state with team-specific league settings
     dispatchGame({
       type: 'RESTORE',
-      state: { ...INITIAL_GAME_STATE, fieldLength: fl, touchbackYardLine: tb, kickoffYardLine: ko },
+      state: { ...INITIAL_GAME_STATE, fieldLength: fl, touchbackYardLine: tb, kickoffYardLine: ko, clock: `${ql}:00` },
     })
     setDriveNumber(1)
     setLoggedPlays([])
@@ -3392,6 +3400,7 @@ export default function SidelinePage() {
     setGamePlanPlays([])
     setGamePlanLoaded(false)
     setSidelineIQCache(null)
+    setQuarterLengthMinutes(12)
   }
 
   // -------------------------------------------------------------------------
@@ -3699,6 +3708,7 @@ export default function SidelinePage() {
         clockHasBeenSet={clockHasBeenSet}
         onClockSet={() => setClockHasBeenSet(true)}
         activeSTSubType={activeSTSubType}
+        quarterLengthMinutes={quarterLengthMinutes}
       />
 
       {/* End Game Confirmation */}

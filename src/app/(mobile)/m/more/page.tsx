@@ -46,9 +46,11 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
   const [fieldLength, setFieldLength] = useState(100)
   const [touchbackYardLine, setTouchbackYardLine] = useState(20)
   const [kickoffYardLine, setKickoffYardLine] = useState(40)
+  const [quarterLength, setQuarterLength] = useState(12)
   const [savedFl, setSavedFl] = useState(100)
   const [savedTb, setSavedTb] = useState(20)
   const [savedKo, setSavedKo] = useState(40)
+  const [savedQl, setSavedQl] = useState(12)
   const [saving, setSaving] = useState(false)
   const [showSaved, setShowSaved] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -62,22 +64,22 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
     const supabase = createClient()
     supabase
       .from('teams')
-      .select('field_length, touchback_yard_line, kickoff_yard_line')
+      .select('field_length, touchback_yard_line, kickoff_yard_line, quarter_length_minutes')
       .eq('id', teamId)
       .single()
       .then(({ data, error }) => {
         console.log('[LeagueRules] fetch result:', { data, error })
         if (data) {
-          const fl = data.field_length ?? 100, tb = data.touchback_yard_line ?? 20, ko = data.kickoff_yard_line ?? 40
-          console.log('[LeagueRules] setting values:', { fl, tb, ko })
-          setFieldLength(fl); setTouchbackYardLine(tb); setKickoffYardLine(ko)
-          setSavedFl(fl); setSavedTb(tb); setSavedKo(ko)
+          const fl = data.field_length ?? 100, tb = data.touchback_yard_line ?? 20, ko = data.kickoff_yard_line ?? 40, ql = data.quarter_length_minutes ?? 12
+          console.log('[LeagueRules] setting values:', { fl, tb, ko, ql })
+          setFieldLength(fl); setTouchbackYardLine(tb); setKickoffYardLine(ko); setQuarterLength(ql)
+          setSavedFl(fl); setSavedTb(tb); setSavedKo(ko); setSavedQl(ql)
         }
         setLoading(false)
       })
   }, [teamId])
 
-  const hasChanges = fieldLength !== savedFl || touchbackYardLine !== savedTb || kickoffYardLine !== savedKo
+  const hasChanges = fieldLength !== savedFl || touchbackYardLine !== savedTb || kickoffYardLine !== savedKo || quarterLength !== savedQl
 
   async function handleSave() {
     if (!teamId) return
@@ -87,8 +89,9 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
       field_length: fieldLength,
       touchback_yard_line: touchbackYardLine,
       kickoff_yard_line: kickoffYardLine,
+      quarter_length_minutes: quarterLength,
     }).eq('id', teamId)
-    setSavedFl(fieldLength); setSavedTb(touchbackYardLine); setSavedKo(kickoffYardLine)
+    setSavedFl(fieldLength); setSavedTb(touchbackYardLine); setSavedKo(kickoffYardLine); setSavedQl(quarterLength)
     setSaving(false)
     setShowSaved(true)
     setTimeout(() => setShowSaved(false), 1500)
@@ -98,6 +101,7 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
     return (
       <div className="px-4 py-6">
         <div className="h-4 w-32 bg-[#3a3a3c] rounded animate-pulse mb-4" />
+        <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
         <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
         <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
         <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse" />
@@ -137,6 +141,17 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
           value={kickoffYardLine}
           onChange={setKickoffYardLine}
           labels={{ '30': '30 yd', '35': '35 yd', '40': '40 yd' }}
+        />
+      </div>
+
+      {/* Quarter Length */}
+      <div className="mb-5">
+        <p className="text-sm font-medium text-white mb-2">Quarter Length</p>
+        <SegmentedPill
+          options={[8, 10, 12, 15]}
+          value={quarterLength}
+          onChange={setQuarterLength}
+          labels={{ '8': '8 min', '10': '10 min', '12': '12 min', '15': '15 min' }}
         />
       </div>
 

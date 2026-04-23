@@ -749,21 +749,23 @@ function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | nul
   const [fieldLength, setFieldLength] = useState(team?.field_length ?? 100)
   const [touchbackYl, setTouchbackYl] = useState(team?.touchback_yard_line ?? 20)
   const [kickoffYl, setKickoffYl] = useState(team?.kickoff_yard_line ?? 40)
+  const [quarterLength, setQuarterLength] = useState(team?.quarter_length_minutes ?? 12)
   const [savedFl, setSavedFl] = useState(team?.field_length ?? 100)
   const [savedTb, setSavedTb] = useState(team?.touchback_yard_line ?? 20)
   const [savedKo, setSavedKo] = useState(team?.kickoff_yard_line ?? 40)
+  const [savedQl, setSavedQl] = useState(team?.quarter_length_minutes ?? 12)
   const [saving, setSaving] = useState(false)
   const [showSaved, setShowSaved] = useState(false)
 
   useEffect(() => {
     if (team) {
-      const fl = team.field_length ?? 100, tb = team.touchback_yard_line ?? 20, ko = team.kickoff_yard_line ?? 40
-      setFieldLength(fl); setTouchbackYl(tb); setKickoffYl(ko)
-      setSavedFl(fl); setSavedTb(tb); setSavedKo(ko)
+      const fl = team.field_length ?? 100, tb = team.touchback_yard_line ?? 20, ko = team.kickoff_yard_line ?? 40, ql = team.quarter_length_minutes ?? 12
+      setFieldLength(fl); setTouchbackYl(tb); setKickoffYl(ko); setQuarterLength(ql)
+      setSavedFl(fl); setSavedTb(tb); setSavedKo(ko); setSavedQl(ql)
     }
   }, [team])
 
-  const hasChanges = fieldLength !== savedFl || touchbackYl !== savedTb || kickoffYl !== savedKo
+  const hasChanges = fieldLength !== savedFl || touchbackYl !== savedTb || kickoffYl !== savedKo || quarterLength !== savedQl
 
   async function handleSave() {
     setSaving(true)
@@ -771,8 +773,9 @@ function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | nul
       field_length: fieldLength,
       touchback_yard_line: touchbackYl,
       kickoff_yard_line: kickoffYl,
+      quarter_length_minutes: quarterLength,
     }).eq('id', teamId)
-    setSavedFl(fieldLength); setSavedTb(touchbackYl); setSavedKo(kickoffYl)
+    setSavedFl(fieldLength); setSavedTb(touchbackYl); setSavedKo(kickoffYl); setSavedQl(quarterLength)
     setSaving(false)
     setShowSaved(true)
     setTimeout(() => setShowSaved(false), 1500)
@@ -809,6 +812,15 @@ function LeagueRulesDesktop({ teamId, team }: { teamId: string; team: Team | nul
             value={kickoffYl}
             onChange={setKickoffYl}
             labels={{ '30': '30 yd line', '35': '35 yd line', '40': '40 yd line' }}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Quarter Length</label>
+          <DesktopPill
+            options={[8, 10, 12, 15]}
+            value={quarterLength}
+            onChange={setQuarterLength}
+            labels={{ '8': '8 min', '10': '10 min', '12': '12 min', '15': '15 min' }}
           />
         </div>
       </div>

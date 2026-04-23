@@ -148,6 +148,7 @@ export interface Team {
   field_length?: number;          // Default: 100. 80 for 8-man.
   touchback_yard_line?: number;   // Default: 20. 25 for NFL kickoffs.
   kickoff_yard_line?: number;     // Default: 40. 35 for NCAA/NFL.
+  quarter_length_minutes?: number; // Default: 12. 8/10 for younger youth leagues.
 }
 
 /**
