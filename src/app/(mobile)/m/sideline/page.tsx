@@ -14,7 +14,7 @@ type LogMode = 'wristband' | 'fromPlays' | 'quick'
 type QuickPlayType = 'run' | 'pass' | 'special_teams'
 type STSubType = 'kickoff' | 'punt' | 'field_goal_pat'
 type HashMark = 'left' | 'middle' | 'right'
-type OutcomeLabel = 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty' | 'Return' | 'Fair Catch' | 'Touchback' | 'Punted' | 'Blocked' | 'Good' | 'No Good'
+type OutcomeLabel = 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty' | 'Return' | 'Fair Catch' | 'Touchback' | 'Punted' | 'Blocked' | 'Good' | 'No Good' | 'Safety'
 type TryType = 'pat' | '2pt'
 type PendingTry = { scoringTeam: Possession } | null
 type PendingBlockedTD = { blockingTeam: Possession } | null
@@ -168,6 +168,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (outcome === 'TD') {
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
       }
+      // Safety: defense scores 2. Ball carrier's team gave up the safety.
+      // The defending team (flip) scores. Ball carrier's team kicks from own 20.
+      if (outcome === 'Safety') {
+        const defenseScoreKey = flip === 'us' ? 'homeScore' : 'oppScore'
+        return { ...state, down: 1, distance: 10, yardLine: 20, [defenseScoreKey]: state[defenseScoreKey] + 2, possession }
+      }
       // Return that goes for a TD (yards reach end zone)
       if (outcome === 'Return' && yardsGained > 0 && (state.yardLine + yardsGained) >= fieldLength) {
         return { ...state, down: 1, distance: 10, yardLine: 25, [scoreKey]: state[scoreKey] + 6, possession: flip }
@@ -310,6 +316,7 @@ function formatPlayResult(play: LoggedPlay): string | null {
 
   // Terminal outcomes always show regardless of play type
   if (outcomeLabel === 'TD') return 'Touchdown'
+  if (outcomeLabel === 'Safety') return 'Safety'
   if (outcomeLabel === 'Turnover') return 'Turnover'
 
   // Special teams — stSubType takes precedence
@@ -369,6 +376,7 @@ function mapOutcomeToResult(outcome: OutcomeLabel | null, playType: string | nul
       case 'Complete':   return 'pass_complete'
       case 'Sack':       return 'sack'
       case 'Penalty':    return 'penalty'
+      case 'Safety':     return 'safety'
       case 'Return':     return 'run_gain'
       case 'Fair Catch':  return 'run_no_gain'
       case 'Touchback':  return 'run_no_gain'
@@ -1393,6 +1401,7 @@ interface OutcomeGridProps {
 const RUN_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
   { label: 'TD',       className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
   { label: 'Turnover', className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
+  { label: 'Safety',   className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
   { label: 'Penalty',  className: 'bg-[#3a3a3c] text-white' },
 ]
 
@@ -1402,6 +1411,7 @@ const PASS_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
   { label: 'Complete',   className: 'bg-[#3a3a3c] text-white' },
   { label: 'Incomplete', className: 'bg-[#3a3a3c] text-white' },
   { label: 'Sack',       className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Safety',     className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
   { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
 ]
 
@@ -1994,6 +2004,11 @@ function LogView({
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
     }
+
+    // Add scoring_type for scoring plays
+    if (effectiveOutcome === 'TD') insertPayload.scoring_type = 'touchdown'
+    if (effectiveOutcome === 'Safety') insertPayload.scoring_type = 'safety'
+    if (effectiveOutcome === 'Good' && stSubType === 'field_goal_pat') insertPayload.scoring_type = 'field_goal'
 
     // Add kick distance and return yards for punt/kickoff plays
     if (isPuntOrKick && kickYards > 0) {
@@ -2881,6 +2896,9 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
     if (result.toLowerCase().includes('punt')) {
       return 'bg-gray-700/30 text-gray-400'
     }
+    if (result.toLowerCase().includes('safety')) {
+      return 'bg-red-900/30 text-red-400'
+    }
     if (result.toLowerCase().includes('turnover') || result.toLowerCase().includes('fumble') || result.toLowerCase().includes('interception')) {
       return 'bg-red-900/30 text-red-400'
     }
@@ -3399,6 +3417,7 @@ export default function SidelinePage() {
     const isKickReturn = outcome === 'Return' && (play.stSubType === 'punt' || play.stSubType === 'kickoff')
     if (
       outcome === 'TD' ||
+      outcome === 'Safety' ||
       outcome === 'Turnover' ||
       outcome === 'Blocked' ||
       outcome === 'Touchback' ||
@@ -3427,6 +3446,7 @@ export default function SidelinePage() {
   function reverseMapResult(result: string): OutcomeLabel {
     switch (result) {
       case 'touchdown':       return 'TD'
+      case 'safety':          return 'Safety'
       case 'fumble':          return 'Turnover'
       case 'interception':    return 'Turnover'
       case 'pass_incomplete': return 'Incomplete'
