@@ -6,57 +6,16 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
 import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions, type SuggestedPlay } from '@/lib/football/sidelineiq'
 import { DriveService } from '@/lib/services/drive.service'
+import { saveGameState, loadGameState, clearGameState } from '@/lib/utils/gameStatePersistence'
+import type { MainSegment, HashMark, Possession, STSubType, OutcomeLabel, PendingTry, PendingBlockedTD, GameState, LoggedPlay, UndoSnapshot } from '@/types/sideline'
 
 // ---------------------------------------------------------------------------
-// Types
+// Types (shared types imported from @/types/sideline, local-only types below)
 // ---------------------------------------------------------------------------
 
-type MainSegment = 'log' | 'plays' | 'drive'
 type LogMode = 'wristband' | 'fromPlays' | 'quick'
 type QuickPlayType = 'run' | 'pass' | 'special_teams'
-type STSubType = 'kickoff' | 'punt' | 'field_goal_pat'
-type HashMark = 'left' | 'middle' | 'right'
-type OutcomeLabel = 'TD' | 'Turnover' | 'Incomplete' | 'Complete' | 'Sack' | 'Penalty' | 'Return' | 'Fair Catch' | 'Touchback' | 'Punted' | 'Blocked' | 'Good' | 'No Good' | 'Safety'
 type TryType = 'pat' | '2pt'
-type PendingTry = { scoringTeam: Possession } | null
-type PendingBlockedTD = { blockingTeam: Possession } | null
-
-type Possession = 'us' | 'them'
-
-interface GameState {
-  down: number
-  distance: number
-  yardLine: number
-  hash: HashMark
-  quarter: number
-  clock: string
-  homeScore: number
-  oppScore: number
-  possession: Possession
-  // League settings (loaded from team record)
-  fieldLength: number
-  touchbackYardLine: number
-  kickoffYardLine: number
-}
-
-interface LoggedPlay {
-  id: string
-  playCode: string | null
-  playName: string | null
-  playType: string | null
-  formation: string | null
-  down: number
-  distance: number
-  yardLine: number
-  quarter: number
-  result: string | null
-  outcomeLabel: OutcomeLabel | null
-  stSubType: STSubType | null
-  possession: Possession
-  yardsGained: number
-  kickYards: number
-  driveNumber: number
-}
 
 interface GamePlanPlay {
   id: string
@@ -97,12 +56,6 @@ interface ScheduledGame {
 // ---------------------------------------------------------------------------
 // Reducer for game state
 // ---------------------------------------------------------------------------
-
-interface UndoSnapshot {
-  gameState: GameState
-  driveNumber: number
-  playsCount: number
-}
 
 type GameAction =
   | { type: 'SET_DOWN'; down: number }
@@ -3591,7 +3544,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 // ---------------------------------------------------------------------------
 
 export default function SidelinePage() {
-  const { teamId, setActiveGameId: setContextActiveGameId } = useMobile()
+  const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId } = useMobile()
 
   // Active game selection
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
@@ -3671,6 +3624,54 @@ export default function SidelinePage() {
       setFourthDownDecision(null)
     }
   }, [game.down])
+
+  // -------------------------------------------------------------------------
+  // Game state persistence — save on every critical change
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!activeGameId) return
+    saveGameState(activeGameId, {
+      activeGameId,
+      opponentName,
+      game,
+      loggedPlays,
+      driveNumber,
+      undoSnapshot,
+      clockHasBeenSet,
+      quarterLengthMinutes,
+      activeSegment,
+      pendingTry,
+      pendingBlockedTD,
+      savedAt: Date.now(),
+    })
+  }, [activeGameId, opponentName, game, loggedPlays, driveNumber,
+      undoSnapshot, clockHasBeenSet, quarterLengthMinutes, activeSegment,
+      pendingTry, pendingBlockedTD])
+
+  // Restore game state from localStorage on mount
+  useEffect(() => {
+    if (!contextActiveGameId || activeGameId) return
+
+    const saved = loadGameState(contextActiveGameId)
+    if (!saved) return
+
+    setActiveGameId(contextActiveGameId)
+    setOpponentName(saved.opponentName)
+    dispatchGame({ type: 'RESTORE', state: saved.game })
+    setLoggedPlays(saved.loggedPlays)
+    setDriveNumber(saved.driveNumber)
+    setUndoSnapshot(saved.undoSnapshot)
+    setClockHasBeenSet(saved.clockHasBeenSet)
+    setQuarterLengthMinutes(saved.quarterLengthMinutes)
+    setActiveSegment(saved.activeSegment)
+    setPendingTry(saved.pendingTry)
+    setPendingBlockedTD(saved.pendingBlockedTD)
+
+    // Restore SidelineIQ cache from localStorage
+    const cached = getCachedSuggestions(contextActiveGameId)
+    if (cached) setSidelineIQCache(cached)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Activate a game
@@ -3778,6 +3779,9 @@ export default function SidelinePage() {
         }
       }
     }
+
+    // Clear persisted game state before clearing component state
+    if (activeGameId) clearGameState(activeGameId)
 
     setActiveGameId(null)
     setContextActiveGameId(null)
