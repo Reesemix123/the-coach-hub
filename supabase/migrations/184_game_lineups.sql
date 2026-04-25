@@ -53,13 +53,13 @@ CREATE POLICY "Users can create game lineups for their teams"
 CREATE OR REPLACE FUNCTION latest_game_lineup(game_id_param UUID, team_id_param UUID)
 RETURNS TABLE (
   player_id UUID,
-  position TEXT,
+  "position" TEXT,
   depth INTEGER,
   recorded_at TIMESTAMPTZ
 ) AS $$
   SELECT DISTINCT ON (gl.player_id)
     gl.player_id,
-    gl.position,
+    gl."position",
     gl.depth,
     gl.recorded_at
   FROM game_lineups gl
