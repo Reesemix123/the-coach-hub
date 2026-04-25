@@ -334,23 +334,11 @@ export class DriveService {
    * Useful for importing legacy data
    */
   async autoCreateDrives(gameId: string, teamId: string, possessionType: 'offense' | 'defense' = 'offense'): Promise<Drive[]> {
-    // Get all play instances for this game/team, ordered by timestamp
-    const { data: videos } = await this.supabase
-      .from('videos')
-      .select('id')
-      .eq('game_id', gameId);
-
-    if (!videos || videos.length === 0) return [];
-
-    const videoIds = videos.map(v => v.id);
-
-    // Filter plays based on possession type
-    // offense = your team's plays (is_opponent_play = false)
-    // defense = opponent's plays (is_opponent_play = true)
+    // Query play_instances directly by game_id — works for both film and sideline sources
     const { data: plays, error } = await this.supabase
       .from('play_instances')
       .select('*')
-      .in('video_id', videoIds)
+      .eq('game_id', gameId)
       .eq('team_id', teamId)
       .eq('is_opponent_play', possessionType === 'defense')
       .order('timestamp_start', { ascending: true });

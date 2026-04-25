@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
 import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions, type SuggestedPlay } from '@/lib/football/sidelineiq'
+import { DriveService } from '@/lib/services/drive.service'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1231,6 +1232,7 @@ interface SegmentNavProps {
 const SEGMENTS: { key: MainSegment; label: string }[] = [
   { key: 'log', label: 'Log' },
   { key: 'plays', label: 'Playbook' },
+
   { key: 'drive', label: 'Drive' },
 ]
 
@@ -2083,12 +2085,30 @@ function LogView({
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
       suggested_play_code: suggestedPlayCode ?? null,
+      // Score at snap
+      team_score_at_snap: game.homeScore,
+      opponent_score_at_snap: game.oppScore,
+      score_differential: game.homeScore - game.oppScore,
+      // Derived fields
+      is_turnover: resolvedResult === 'fumble',
+      // best-effort; penalties with auto-first-down not detected
+      resulted_in_first_down: effectiveYards >= game.distance && game.down < 4 && resolvedResult !== 'fumble',
+      // Playbook attributes from selected play
+      ...(selectedPlayAttrs && game.possession === 'us' && selectedPlayAttrs.odk === 'offense' ? {
+        ...(selectedPlayAttrs.personnel ? { personnel: selectedPlayAttrs.personnel } : {}),
+        ...(selectedPlayAttrs.runConcept ? { run_concept: selectedPlayAttrs.runConcept } : {}),
+        ...(selectedPlayAttrs.passConcept ? { pass_concept: selectedPlayAttrs.passConcept } : {}),
+        ...(selectedPlayAttrs.direction ? { direction: selectedPlayAttrs.direction } : {}),
+      } : {}),
+      ...(selectedPlayAttrs && game.possession === 'them' && selectedPlayAttrs.odk === 'defense' ? {
+        play_concept: [selectedPlayAttrs.front, selectedPlayAttrs.coverage].filter(Boolean).join(' ') || undefined,
+      } : {}),
     }
 
-    // Add scoring_type for scoring plays
-    if (effectiveOutcome === 'TD') insertPayload.scoring_type = 'touchdown'
-    if (effectiveOutcome === 'Safety') insertPayload.scoring_type = 'safety'
-    if (effectiveOutcome === 'Good' && stSubType === 'field_goal_pat') insertPayload.scoring_type = 'field_goal'
+    // Add scoring_type and scoring_points for scoring plays
+    if (effectiveOutcome === 'TD') { insertPayload.scoring_type = 'touchdown'; insertPayload.scoring_points = 6 }
+    if (effectiveOutcome === 'Safety') { insertPayload.scoring_type = 'safety'; insertPayload.scoring_points = 2 }
+    if (effectiveOutcome === 'Good' && stSubType === 'field_goal_pat') { insertPayload.scoring_type = 'field_goal'; insertPayload.scoring_points = 3 }
 
     // Add kick distance and return yards for punt/kickoff plays
     if (isPuntOrKick && kickYards > 0) {
@@ -2155,23 +2175,7 @@ function LogView({
         setEnrichmentTotalSteps(totalSteps)
       }
 
-      // Write known attributes from From Plays selection to DB
-      if (selectedPlayAttrs && localId) {
-        const supabaseUpdate = createClient()
-        const enrichmentFields: Record<string, unknown> = {}
-        if (game.possession === 'us' && selectedPlayAttrs.odk === 'offense') {
-          if (selectedPlayAttrs.personnel) enrichmentFields.personnel = selectedPlayAttrs.personnel
-          if (selectedPlayAttrs.runConcept) enrichmentFields.run_concept = selectedPlayAttrs.runConcept
-          if (selectedPlayAttrs.passConcept) enrichmentFields.pass_concept = selectedPlayAttrs.passConcept
-          if (selectedPlayAttrs.direction) enrichmentFields.direction = selectedPlayAttrs.direction
-        } else if (game.possession === 'them' && selectedPlayAttrs.odk === 'defense') {
-          if (selectedPlayAttrs.front) enrichmentFields.play_concept = selectedPlayAttrs.front
-          if (selectedPlayAttrs.coverage) enrichmentFields.play_concept = (enrichmentFields.play_concept ? enrichmentFields.play_concept + ' ' : '') + selectedPlayAttrs.coverage
-        }
-        if (Object.keys(enrichmentFields).length > 0) {
-          supabaseUpdate.from('play_instances').update(enrichmentFields).eq('local_id', localId).then(() => {})
-        }
-      }
+      // Playbook attributes now written in initial insert payload (Change 1e)
     }
 
     // Flash success, reset form
@@ -3599,8 +3603,34 @@ export default function SidelinePage() {
     }
   }
 
-  function handleEndGame() {
+  async function handleEndGame() {
     setShowEndConfirm(false)
+
+    // Persist final score and game result before clearing state
+    if (activeGameId) {
+      const supabase = createClient()
+      const result: 'win' | 'loss' | 'tie' | null =
+        game.homeScore > game.oppScore ? 'win' :
+        game.homeScore < game.oppScore ? 'loss' :
+        game.homeScore === 0 && game.oppScore === 0 ? null : 'tie'
+
+      supabase.from('games').update({
+        team_score: game.homeScore,
+        opponent_score: game.oppScore,
+        game_result: result,
+      }).eq('id', activeGameId).then(() => {})
+
+      // Auto-create drives from sideline plays
+      if (teamId) {
+        try {
+          const driveService = new DriveService()
+          await driveService.autoCreateDrives(activeGameId, teamId)
+        } catch (e) {
+          console.error('[Sideline] Drive creation failed:', e)
+        }
+      }
+    }
+
     setActiveGameId(null)
     setOpponentName('')
     setClockHasBeenSet(false)
