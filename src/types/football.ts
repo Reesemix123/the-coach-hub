@@ -975,9 +975,15 @@ export type SnapQuality = 'good' | 'low' | 'high' | 'wide' | 'fumbled';
  */
 export interface PlayInstance {
   id: string;
-  video_id: string;
+  video_id: string | null;
   play_code?: string;
   team_id?: string;
+
+  // Source and sync (sideline tracker)
+  source?: 'film' | 'sideline';
+  game_id?: string;
+  local_id?: string;
+  sync_status?: string;
 
   // Timing
   timestamp_start: number;
@@ -990,7 +996,10 @@ export interface PlayInstance {
   hash_mark: 'left' | 'middle' | 'right';
   quarter?: number;
   time_remaining?: number;
+  clock_start?: string;
   score_differential?: number;
+  team_score_at_snap?: number;
+  opponent_score_at_snap?: number;
 
   // Outcome
   result?: string;

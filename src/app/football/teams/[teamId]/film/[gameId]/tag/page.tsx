@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
+import type { PlayInstance } from '@/types/football';
 import VirtualVideoPlayer from '@/components/VirtualVideoPlayer';
 import MarkerList from '@/components/film/MarkerList';
 import EditMarkerModal from '@/components/film/EditMarkerModal';
@@ -33,6 +34,7 @@ import { MarkerControls } from '@/components/film/panels/MarkerControls';
 import { CoverageOverlays } from '@/components/film/panels/CoverageOverlays';
 import { PlayTimelineBar } from '@/components/film/panels/PlayTimelineBar';
 import { PlayListPanel } from '@/components/film/panels/PlayListPanel';
+import { SidelinePlayListPanel } from '@/components/film/panels/SidelinePlayListPanel';
 import { TaggingCompleteModal } from '@/components/film/panels/TaggingCompleteModal';
 import { FilmPageHeader } from '@/components/film/panels/FilmPageHeader';
 import { StatusBar } from '@/components/film/panels/StatusBar';
@@ -72,6 +74,7 @@ function GameFilmPageInner() {
   const [markersCollapsed, setMarkersCollapsed] = useState(false);
   const [showScoreboard, setShowScoreboard] = useState(true);
   const [sharePlayInstance, setSharePlayInstance] = useState<any | null>(null);
+  const [sidelinePlays, setSidelinePlays] = useState<PlayInstance[]>([]);
 
 
   // ========== VIDEO ELEMENT CALLBACKS ==========
@@ -147,6 +150,13 @@ function GameFilmPageInner() {
       }
     }
   }, [timelinePlayback.timelineLanes]);
+
+  // Fetch sideline plays for this game
+  useEffect(() => {
+    if (gameId && teamId) {
+      dataFetching.fetchSidelinePlays().then(setSidelinePlays)
+    }
+  }, [gameId, teamId])
 
   // ========== VIDEO MANAGEMENT HOOK ==========
   const videoManagement = useVideoManagement({
@@ -762,18 +772,21 @@ function GameFilmPageInner() {
               )}
             </div>
 
-            {/* Tagged Plays List */}
-            <PlayListPanel
-              playInstances={playInstances}
-              drives={drives}
-              formatTime={formatTime}
-              getDownLabel={getDownLabel}
-              onEditInstance={playTagging.handleEditInstance}
-              onDeleteInstance={playTagging.deletePlayInstance}
-              onJumpToPlay={playTagging.jumpToPlay}
-              onSharePlay={(instance) => setSharePlayInstance(instance)}
-              videoRef={videoRef}
-            />
+            {/* Tagged Plays List + Sideline Plays */}
+            <div>
+              <PlayListPanel
+                playInstances={playInstances}
+                drives={drives}
+                formatTime={formatTime}
+                getDownLabel={getDownLabel}
+                onEditInstance={playTagging.handleEditInstance}
+                onDeleteInstance={playTagging.deletePlayInstance}
+                onJumpToPlay={playTagging.jumpToPlay}
+                onSharePlay={(instance) => setSharePlayInstance(instance)}
+                videoRef={videoRef}
+              />
+              <SidelinePlayListPanel sidelinePlays={sidelinePlays} />
+            </div>
           </div>
         </div>
       </div>

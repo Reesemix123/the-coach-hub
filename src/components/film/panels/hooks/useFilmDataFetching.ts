@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/client';
 import { DriveService } from '@/lib/services/drive.service';
 import { gameScoreService, type ScoreMismatchResult } from '@/lib/services/game-score.service';
 import { filmSessionService } from '@/lib/services/film-session.service';
-import type { TaggingTier, GameScoreBreakdown, FilmAnalysisStatus } from '@/types/football';
+import type { TaggingTier, GameScoreBreakdown, FilmAnalysisStatus, PlayInstance } from '@/types/football';
 import type { useFilmStateBridge } from '@/components/film/context';
 
 // ============================================
@@ -222,6 +222,23 @@ export function useFilmDataFetching({
     }
   }
 
+  async function fetchSidelinePlays(): Promise<PlayInstance[]> {
+    const { data, error } = await supabase
+      .from('play_instances')
+      .select('*')
+      .eq('game_id', gameId)
+      .eq('team_id', teamId)
+      .is('video_id', null)
+      .eq('source', 'sideline')
+      .order('quarter', { ascending: true })
+      .order('time_remaining', { ascending: false })
+
+    if (!error && data) {
+      return data as PlayInstance[]
+    }
+    return []
+  }
+
   async function loadQuarterScoresAndMismatch() {
     try {
       const [scores, mismatch] = await Promise.all([
@@ -268,6 +285,7 @@ export function useFilmDataFetching({
     fetchVideos,
     fetchDrives,
     fetchPlayInstances,
+    fetchSidelinePlays,
     loadQuarterScoresAndMismatch,
   };
 }
