@@ -2030,6 +2030,12 @@ function LogView({
     setSuggestedPlayCode(null) // Clear — this is a manual selection, not a suggestion
   }
 
+  // Attribution position sets
+  const ATTR_OFFENSE_POS = new Set(['QB','RB','FB','TE','X','Y','Z','LT','LG','C','RG','RT','SL','SR','SE','FL','TB','SB','WB'])
+  const ATTR_DEFENSE_POS = new Set(['DE','DT','DT1','DT2','NT','LB','MLB','SAM','WILL','OLB','ILB','WLB','SLB','CB','LCB','RCB','S','FS','SS','NB','DB'])
+  const ATTR_ST_POS = new Set(['K','P','LS','H','KR','PR'])
+  const ATTR_OL_MAP: Record<string, string> = { LT: 'ol_lt', LG: 'ol_lg', C: 'ol_c', RG: 'ol_rg', RT: 'ol_rt' }
+
   async function handleLogPlay() {
     const effectivePlayType = logMode === 'quick' ? quickPlayType : selectedPlayType
     const isPuntOrKick = stSubType === 'punt' || stSubType === 'kickoff'
@@ -2116,7 +2122,62 @@ function LogView({
       insertPayload.return_yards = yards
     }
 
-    const { error } = await supabase.from('play_instances').insert(insertPayload)
+    // --- Attribution: fetch game lineup and determine key players ---
+    let lineup: { player_id: string; position: string; depth: number }[] = []
+    const isSTPlay = effectivePlayType === 'special_teams' || stSubType != null
+    const activeUnit: 'offense' | 'defense' | 'special_teams' =
+      isSTPlay ? 'special_teams' :
+      game.possession === 'us' ? 'offense' : 'defense'
+
+    if (activeGameId && teamId) {
+      try {
+        const { data } = await supabase.rpc('latest_game_lineup', {
+          game_id_param: activeGameId,
+          team_id_param: teamId,
+        })
+        if (data) lineup = data
+      } catch {
+        // Silent — attribution is optional
+      }
+    }
+
+    // Get depth-1 starters for active unit
+    const starters = lineup.filter(e => {
+      if (e.depth !== 1) return false
+      const pos = e.position.toUpperCase()
+      if (activeUnit === 'offense') return ATTR_OFFENSE_POS.has(pos)
+      if (activeUnit === 'defense') return ATTR_DEFENSE_POS.has(pos)
+      return ATTR_ST_POS.has(pos)
+    })
+
+    // Layer 2: key player attribution on play_instances
+    if (starters.length > 0 && activeUnit === 'offense' && !isSTPlay) {
+      const qbStarter = starters.find(s => s.position.toUpperCase() === 'QB')
+      if (qbStarter) insertPayload.qb_id = qbStarter.player_id
+
+      const isRunPlay = ['run', 'draw'].includes((effectivePlayType ?? '').toLowerCase()) ||
+        ['run_gain', 'run_loss', 'run_no_gain'].includes(resolvedResult ?? '')
+      const isPassPlay = ['pass', 'screen', 'play action', 'rpo'].includes((effectivePlayType ?? '').toLowerCase()) ||
+        ['pass_complete', 'pass_incomplete', 'sack'].includes(resolvedResult ?? '')
+
+      if (isRunPlay) {
+        const rb = starters.find(s => ['RB', 'TB', 'SB', 'WB'].includes(s.position.toUpperCase()))
+          ?? starters.find(s => s.position.toUpperCase() === 'FB')
+        if (rb) insertPayload.ball_carrier_id = rb.player_id
+      }
+      if (isPassPlay) {
+        const target = starters.find(s => ['X', 'Y', 'Z', 'WR', 'SL', 'SR', 'SE', 'FL'].includes(s.position.toUpperCase()))
+          ?? starters.find(s => s.position.toUpperCase() === 'TE')
+        if (target) insertPayload.target_id = target.player_id
+      }
+    }
+
+    // --- Insert play ---
+    const { data: insertedPlay, error } = await supabase
+      .from('play_instances')
+      .insert(insertPayload)
+      .select('id')
+      .single()
 
     setIsSaving(false)
 
@@ -2125,6 +2186,93 @@ function LogView({
       console.error('[Sideline] Insert payload:', JSON.stringify(insertPayload, null, 2))
       setSaveError(process.env.NODE_ENV === 'development' ? `Save failed: ${error.message}` : 'Failed to save. Check your connection.')
       return
+    }
+
+    // --- Layer 1: batch insert player_participation rows ---
+    if (insertedPlay?.id && starters.length > 0) {
+      try {
+        const participationRows: Record<string, unknown>[] = []
+
+        for (const starter of starters) {
+          const pos = starter.position.toUpperCase()
+          const olType = ATTR_OL_MAP[pos]
+          participationRows.push({
+            play_instance_id: insertedPlay.id,
+            player_id: starter.player_id,
+            team_id: teamId,
+            participation_type: olType ?? 'on_field',
+            phase: activeUnit,
+            source: 'sideline',
+            yards_gained: effectiveYards,
+            is_touchdown: insertPayload.scoring_type === 'touchdown',
+            is_first_down: insertPayload.resulted_in_first_down ?? false,
+            is_turnover: resolvedResult === 'fumble',
+            metadata: { position: starter.position },
+          })
+        }
+
+        // Specific role rows for offensive key players
+        if (activeUnit === 'offense' && !isSTPlay) {
+          const isPassPlay = ['pass', 'screen', 'play action', 'rpo'].includes((effectivePlayType ?? '').toLowerCase()) ||
+            ['pass_complete', 'pass_incomplete', 'sack'].includes(resolvedResult ?? '')
+
+          if (insertPayload.qb_id && isPassPlay) {
+            participationRows.push({
+              play_instance_id: insertedPlay.id, player_id: insertPayload.qb_id, team_id: teamId,
+              participation_type: 'passer', phase: 'offense', source: 'sideline',
+              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
+            })
+          }
+          if (insertPayload.ball_carrier_id) {
+            participationRows.push({
+              play_instance_id: insertedPlay.id, player_id: insertPayload.ball_carrier_id, team_id: teamId,
+              participation_type: 'rusher', phase: 'offense', source: 'sideline',
+              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
+            })
+          }
+          if (insertPayload.target_id) {
+            participationRows.push({
+              play_instance_id: insertedPlay.id, player_id: insertPayload.target_id, team_id: teamId,
+              participation_type: 'receiver', phase: 'offense', source: 'sideline',
+              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
+            })
+          }
+        }
+
+        // Special teams key players
+        if (isSTPlay) {
+          const findST = (pos: string) => starters.find(s => s.position.toUpperCase() === pos)
+          const stBase = { play_instance_id: insertedPlay.id, team_id: teamId, phase: 'special_teams' as const, source: 'sideline' }
+
+          if (stSubType === 'kickoff' && findST('K')) {
+            participationRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
+          }
+          if (stSubType === 'punt' && findST('P')) {
+            participationRows.push({ ...stBase, player_id: findST('P')!.player_id, participation_type: 'punter' })
+          }
+          if (stSubType === 'field_goal_pat' && findST('K')) {
+            participationRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
+          }
+          if ((stSubType === 'punt' || stSubType === 'field_goal_pat') && findST('LS')) {
+            participationRows.push({ ...stBase, player_id: findST('LS')!.player_id, participation_type: 'long_snapper' })
+          }
+          if (stSubType === 'kickoff' && game.possession === 'them' && findST('KR')) {
+            participationRows.push({ ...stBase, player_id: findST('KR')!.player_id, participation_type: 'returner' })
+          }
+          if (stSubType === 'punt' && game.possession === 'them' && findST('PR')) {
+            participationRows.push({ ...stBase, player_id: findST('PR')!.player_id, participation_type: 'returner' })
+          }
+        }
+
+        if (participationRows.length > 0) {
+          await supabase.from('player_participation').insert(participationRows)
+        }
+      } catch (e) {
+        console.error('[Sideline] Attribution insert failed:', e)
+      }
     }
 
     // Notify parent to advance game state and add to drive log
@@ -2147,8 +2295,7 @@ function LogView({
       driveNumber,
     })
 
-    // Trigger enrichment for non-ST plays
-    const isSTPlay = effectivePlayType === 'special_teams' || stSubType != null
+    // Trigger enrichment for non-ST plays (isSTPlay already computed above)
     if (!isSTPlay) {
       const effectiveOdk = selectedPlayAttrs?.odk ?? null
       const effPlayType = effectivePlayType ?? quickPlayType
