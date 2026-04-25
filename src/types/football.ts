@@ -244,6 +244,20 @@ export interface Game {
 }
 
 /**
+ * Database table: game_lineups
+ * Append-only per-game roster snapshots.
+ */
+export interface GameLineup {
+  id: string;
+  game_id: string;
+  team_id: string;
+  player_id: string;
+  position: string;
+  depth: number;
+  recorded_at: string;
+}
+
+/**
  * Database table: team_events
  */
 export interface TeamEvent {
