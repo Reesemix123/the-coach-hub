@@ -29,6 +29,9 @@ interface MobileContextType {
   // Shared roster (fetched once, used by roster tab + sideline tracker)
   players: MobilePlayer[]
   playersLoading: boolean
+  // Lineup version counter — bumped by Roster tab on depth changes
+  lineupVersion: number
+  bumpLineupVersion: () => void
 }
 
 const MobileContext = createContext<MobileContextType>({
@@ -41,6 +44,8 @@ const MobileContext = createContext<MobileContextType>({
   setActiveGameId: () => {},
   players: [],
   playersLoading: false,
+  lineupVersion: 0,
+  bumpLineupVersion: () => {},
 })
 
 export type { TeamInfo, MobileContextType }

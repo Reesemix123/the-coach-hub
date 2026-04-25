@@ -1898,6 +1898,7 @@ interface LogViewProps {
   onInitialPlayConsumed?: () => void
   aiSuggestions?: { offense: SuggestedPlay[]; defense: SuggestedPlay[] } | null
   sidelineIQEnabled?: boolean
+  cachedLineup?: { player_id: string; position: string; depth: number }[]
 }
 
 function LogView({
@@ -1920,6 +1921,7 @@ function LogView({
   onInitialPlayConsumed,
   aiSuggestions,
   sidelineIQEnabled,
+  cachedLineup = [],
 }: LogViewProps) {
   const [logMode, setLogMode] = useState<LogMode>('wristband')
   const [selectedPlayCode, setSelectedPlayCode] = useState<string | null>(null)
@@ -2076,23 +2078,12 @@ function LogView({
     }
 
     // --- Attribution: fetch game lineup and determine key players ---
-    let lineup: { player_id: string; position: string; depth: number }[] = []
+    // Attribution: use cached lineup (no network call)
+    const lineup = cachedLineup
     const isSTPlay = effectivePlayType === 'special_teams' || stSubType != null
     const activeUnit: 'offense' | 'defense' | 'special_teams' =
       isSTPlay ? 'special_teams' :
       game.possession === 'us' ? 'offense' : 'defense'
-
-    if (activeGameId && teamId) {
-      try {
-        const { data } = await supabase.rpc('latest_game_lineup', {
-          game_id_param: activeGameId,
-          team_id_param: teamId,
-        })
-        if (data) lineup = data
-      } catch {
-        // Silent — attribution is optional
-      }
-    }
 
     // Get depth-1 starters for active unit
     const starters = lineup.filter(e => {
@@ -3544,7 +3535,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 // ---------------------------------------------------------------------------
 
 export default function SidelinePage() {
-  const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId } = useMobile()
+  const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId, players, lineupVersion } = useMobile()
 
   // Active game selection
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
@@ -3603,6 +3594,9 @@ export default function SidelinePage() {
   // SidelineIQ toggle
   const [sidelineIQEnabled, setSidelineIQEnabled] = useState(true)
 
+  // Cached lineup for attribution (loaded from localStorage/DB/auto-populate)
+  const [cachedLineup, setCachedLineup] = useState<{ player_id: string; position: string; depth: number }[]>([])
+
   // Initialize from localStorage
   useEffect(() => {
     if (teamId) {
@@ -3616,6 +3610,88 @@ export default function SidelinePage() {
     setSidelineIQEnabled(next)
     if (teamId) localStorage.setItem(`sidelineiq-enabled-${teamId}`, String(next))
   }
+
+  // Load/create lineup: localStorage → DB → auto-populate from depth chart
+  useEffect(() => {
+    if (!activeGameId || !teamId) {
+      setCachedLineup([])
+      return
+    }
+
+    let cancelled = false
+
+    async function loadOrCreateLineup() {
+      // Step 1: localStorage cache (instant)
+      try {
+        const cached = localStorage.getItem(`ych-lineup-${activeGameId}`)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (!cancelled) setCachedLineup(parsed)
+            return
+          }
+        }
+      } catch {}
+
+      // Step 2: DB via RPC
+      const supabase = createClient()
+      try {
+        const { data } = await supabase.rpc('latest_game_lineup', {
+          game_id_param: activeGameId,
+          team_id_param: teamId,
+        })
+        if (cancelled) return
+        if (data && data.length > 0) {
+          setCachedLineup(data)
+          try { localStorage.setItem(`ych-lineup-${activeGameId}`, JSON.stringify(data)) } catch {}
+          return
+        }
+      } catch {
+        if (cancelled) return
+      }
+
+      // Step 3: Auto-populate from team depth chart
+      const activePlayers = players.length > 0
+        ? players
+        : await (async () => {
+            const { data: fetched } = await supabase
+              .from('players')
+              .select('id, position_depths')
+              .eq('team_id', teamId!)
+              .eq('is_active', true)
+            return (fetched ?? []) as { id: string; position_depths: Record<string, number> }[]
+          })()
+
+      if (cancelled || activePlayers.length === 0) return
+
+      const rows: { game_id: string; team_id: string; player_id: string; position: string; depth: number }[] = []
+      for (const player of activePlayers) {
+        const depths = player.position_depths ?? {}
+        for (const [position, depth] of Object.entries(depths)) {
+          if (typeof depth === 'number' && depth >= 1 && depth <= 4) {
+            rows.push({ game_id: activeGameId!, team_id: teamId!, player_id: player.id, position, depth })
+          }
+        }
+      }
+
+      if (rows.length === 0) return
+
+      await supabase.from('game_lineups').insert(rows)
+
+      const { data: fresh } = await supabase.rpc('latest_game_lineup', {
+        game_id_param: activeGameId,
+        team_id_param: teamId,
+      })
+
+      if (!cancelled && fresh && fresh.length > 0) {
+        setCachedLineup(fresh)
+        try { localStorage.setItem(`ych-lineup-${activeGameId}`, JSON.stringify(fresh)) } catch {}
+      }
+    }
+
+    loadOrCreateLineup()
+    return () => { cancelled = true }
+  }, [activeGameId, teamId, lineupVersion, players])
 
   // Clear 4th down AI response when no longer on 4th down
   useEffect(() => {
@@ -3671,6 +3747,16 @@ export default function SidelinePage() {
     // Restore SidelineIQ cache from localStorage
     const cached = getCachedSuggestions(contextActiveGameId)
     if (cached) setSidelineIQCache(cached)
+
+    // Restore playbook data from localStorage cache (instant, network re-fetch overwrites if online)
+    try {
+      const cachedGamePlan = localStorage.getItem(`ych-gameplan-${contextActiveGameId}`)
+      if (cachedGamePlan) { setGamePlanPlays(JSON.parse(cachedGamePlan)); setGamePlanLoaded(true) }
+    } catch {}
+    try {
+      const cachedAllPlays = localStorage.getItem(`ych-playbook-${teamId}`)
+      if (cachedAllPlays) setAllPlays(JSON.parse(cachedAllPlays))
+    } catch {}
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
@@ -3781,7 +3867,14 @@ export default function SidelinePage() {
     }
 
     // Clear persisted game state before clearing component state
-    if (activeGameId) clearGameState(activeGameId)
+    // Clear persisted caches (preserve ych-playbook-{teamId} — team-level, valid across games)
+    if (activeGameId) {
+      clearGameState(activeGameId)
+      try {
+        localStorage.removeItem(`ych-lineup-${activeGameId}`)
+        localStorage.removeItem(`ych-gameplan-${activeGameId}`)
+      } catch {}
+    }
 
     setActiveGameId(null)
     setContextActiveGameId(null)
@@ -3965,6 +4058,7 @@ export default function SidelinePage() {
       })
       setGamePlanPlays(cleaned)
       setGamePlanLoaded(true)
+      try { localStorage.setItem(`ych-gameplan-${activeGameId}`, JSON.stringify(cleaned)) } catch {}
     } else {
       setGamePlanLoaded(false)
     }
@@ -3994,6 +4088,7 @@ export default function SidelinePage() {
 
     if (data) {
       setAllPlays(data as typeof allPlays)
+      try { localStorage.setItem(`ych-playbook-${teamId}`, JSON.stringify(data)) } catch {}
     }
 
     setIsLoadingPlays(false)
@@ -4441,6 +4536,7 @@ export default function SidelinePage() {
           }}
           aiSuggestions={aiSuggestions}
           sidelineIQEnabled={sidelineIQEnabled}
+          cachedLineup={cachedLineup}
         />
       )}
 

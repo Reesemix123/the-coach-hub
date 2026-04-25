@@ -239,11 +239,13 @@ function GameLineupView({
   teamId,
   players,
   playersLoading,
+  bumpLineupVersion,
 }: {
   activeGameId: string
   teamId: string
   players: MobilePlayer[]
   playersLoading: boolean
+  bumpLineupVersion: () => void
 }) {
   const [gameLineup, setGameLineup] = useState<LineupEntry[]>([])
   const [lineupLoading, setLineupLoading] = useState(true)
@@ -319,6 +321,7 @@ function GameLineupView({
               position: r.position,
               depth: r.depth,
             })))
+            bumpLineupVersion()
           }
         }
       }
@@ -369,7 +372,14 @@ function GameLineupView({
       })
     }
     await supabase.from('game_lineups').insert(inserts)
+    bumpLineupVersion()
   }
+
+  // Cache lineup to localStorage on every change
+  useEffect(() => {
+    if (!activeGameId || gameLineup.length === 0) return
+    try { localStorage.setItem(`ych-lineup-${activeGameId}`, JSON.stringify(gameLineup)) } catch {}
+  }, [activeGameId, gameLineup])
 
   function toggleSection(label: string) {
     setExpandedSections(prev => ({ ...prev, [label]: !prev[label] }))
@@ -522,7 +532,7 @@ function GameLineupView({
 // ---------------------------------------------------------------------------
 
 export default function MobileRosterPage() {
-  const { teamId, activeGameId, players, playersLoading } = useMobile()
+  const { teamId, activeGameId, players, playersLoading, bumpLineupVersion } = useMobile()
 
   return (
     <div className="min-h-screen bg-[#f2f2f7] pb-8">
@@ -532,6 +542,7 @@ export default function MobileRosterPage() {
           teamId={teamId}
           players={players}
           playersLoading={playersLoading}
+          bumpLineupVersion={bumpLineupVersion}
         />
       ) : (
         <NormalRosterView players={players} playersLoading={playersLoading} />

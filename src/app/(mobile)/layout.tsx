@@ -172,6 +172,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
   const [players, setPlayers] = useState<MobilePlayer[]>([])
   const [playersLoading, setPlayersLoading] = useState(false)
+  const [lineupVersion, setLineupVersion] = useState(0)
+  const bumpLineupVersion = useCallback(() => setLineupVersion(v => v + 1), [])
 
   // Track original styles so we can restore on unmount
   const originalNavDisplay = useRef<string>('')
@@ -332,7 +334,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, [teamId])
 
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}
