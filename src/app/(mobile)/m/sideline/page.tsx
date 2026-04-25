@@ -7,6 +7,8 @@ import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/f
 import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions, type SuggestedPlay } from '@/lib/football/sidelineiq'
 import { DriveService } from '@/lib/services/drive.service'
 import { saveGameState, loadGameState, clearGameState } from '@/lib/utils/gameStatePersistence'
+import { pushToQueue, getPendingCount, clearQueue, isOnline, isPlaySynced, type PlayInsertEntry, type PlayUpdateEntry } from '@/lib/utils/playQueue'
+import { processQueue } from '@/lib/utils/syncEngine'
 import type { MainSegment, HashMark, Possession, STSubType, OutcomeLabel, PendingTry, PendingBlockedTD, GameState, LoggedPlay, UndoSnapshot } from '@/types/sideline'
 
 // ---------------------------------------------------------------------------
@@ -1899,6 +1901,7 @@ interface LogViewProps {
   aiSuggestions?: { offense: SuggestedPlay[]; defense: SuggestedPlay[] } | null
   sidelineIQEnabled?: boolean
   cachedLineup?: { player_id: string; position: string; depth: number }[]
+  onTriggerSync?: () => void
 }
 
 function LogView({
@@ -1922,6 +1925,7 @@ function LogView({
   aiSuggestions,
   sidelineIQEnabled,
   cachedLineup = [],
+  onTriggerSync,
 }: LogViewProps) {
   const [logMode, setLogMode] = useState<LogMode>('wristband')
   const [selectedPlayCode, setSelectedPlayCode] = useState<string | null>(null)
@@ -1990,6 +1994,21 @@ function LogView({
   const ATTR_DEFENSE_POS = new Set(['DE','DT','DT1','DT2','NT','LB','MLB','SAM','WILL','OLB','ILB','WLB','SLB','CB','LCB','RCB','S','FS','SS','NB','DB'])
   const ATTR_ST_POS = new Set(['K','P','LS','H','KR','PR'])
   const ATTR_OL_MAP: Record<string, string> = { LT: 'ol_lt', LG: 'ol_lg', C: 'ol_c', RG: 'ol_rg', RT: 'ol_rt' }
+
+  // Queue-aware enrichment update — tries online, queues on failure/offline
+  function queueEnrichmentUpdate(playLocalId: string | null, field: string, value: unknown) {
+    if (!playLocalId || !activeGameId) return
+    if (isOnline()) {
+      const sb = createClient()
+      sb.from('play_instances').update({ [field]: value }).eq('local_id', playLocalId).then(({ error }) => {
+        if (error) {
+          pushToQueue(activeGameId!, { type: 'play_update', localId: playLocalId, field, value, status: 'pending', createdAt: Date.now() } as PlayUpdateEntry)
+        }
+      })
+    } else {
+      pushToQueue(activeGameId, { type: 'play_update', localId: playLocalId, field, value, status: 'pending', createdAt: Date.now() } as PlayUpdateEntry)
+    }
+  }
 
   async function handleLogPlay() {
     const effectivePlayType = logMode === 'quick' ? quickPlayType : selectedPlayType
@@ -2116,108 +2135,134 @@ function LogView({
       }
     }
 
-    // --- Insert play ---
-    const { data: insertedPlay, error } = await supabase
-      .from('play_instances')
-      .insert(insertPayload)
-      .select('id')
-      .single()
+    // --- Build attribution rows (without play_instance_id — added during sync) ---
+    const attributionRows: Record<string, unknown>[] = []
+    if (starters.length > 0) {
+      for (const starter of starters) {
+        const pos = starter.position.toUpperCase()
+        const olType = ATTR_OL_MAP[pos]
+        attributionRows.push({
+          player_id: starter.player_id,
+          team_id: teamId,
+          participation_type: olType ?? 'on_field',
+          phase: activeUnit,
+          source: 'sideline',
+          yards_gained: effectiveYards,
+          is_touchdown: insertPayload.scoring_type === 'touchdown',
+          is_first_down: insertPayload.resulted_in_first_down ?? false,
+          is_turnover: resolvedResult === 'fumble',
+          metadata: { position: starter.position },
+        })
+      }
 
-    setIsSaving(false)
+      if (activeUnit === 'offense' && !isSTPlay) {
+        const isPassPlay = ['pass', 'screen', 'play action', 'rpo'].includes((effectivePlayType ?? '').toLowerCase()) ||
+          ['pass_complete', 'pass_incomplete', 'sack'].includes(resolvedResult ?? '')
 
-    if (error) {
-      console.error('[Sideline] Insert error:', JSON.stringify(error, null, 2))
-      console.error('[Sideline] Insert payload:', JSON.stringify(insertPayload, null, 2))
-      setSaveError(process.env.NODE_ENV === 'development' ? `Save failed: ${error.message}` : 'Failed to save. Check your connection.')
-      return
-    }
-
-    // --- Layer 1: batch insert player_participation rows ---
-    if (insertedPlay?.id && starters.length > 0) {
-      try {
-        const participationRows: Record<string, unknown>[] = []
-
-        for (const starter of starters) {
-          const pos = starter.position.toUpperCase()
-          const olType = ATTR_OL_MAP[pos]
-          participationRows.push({
-            play_instance_id: insertedPlay.id,
-            player_id: starter.player_id,
-            team_id: teamId,
-            participation_type: olType ?? 'on_field',
-            phase: activeUnit,
-            source: 'sideline',
-            yards_gained: effectiveYards,
-            is_touchdown: insertPayload.scoring_type === 'touchdown',
-            is_first_down: insertPayload.resulted_in_first_down ?? false,
-            is_turnover: resolvedResult === 'fumble',
-            metadata: { position: starter.position },
+        if (insertPayload.qb_id && isPassPlay) {
+          attributionRows.push({
+            player_id: insertPayload.qb_id, team_id: teamId,
+            participation_type: 'passer', phase: 'offense', source: 'sideline',
+            yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+            is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
           })
         }
-
-        // Specific role rows for offensive key players
-        if (activeUnit === 'offense' && !isSTPlay) {
-          const isPassPlay = ['pass', 'screen', 'play action', 'rpo'].includes((effectivePlayType ?? '').toLowerCase()) ||
-            ['pass_complete', 'pass_incomplete', 'sack'].includes(resolvedResult ?? '')
-
-          if (insertPayload.qb_id && isPassPlay) {
-            participationRows.push({
-              play_instance_id: insertedPlay.id, player_id: insertPayload.qb_id, team_id: teamId,
-              participation_type: 'passer', phase: 'offense', source: 'sideline',
-              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
-              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
-            })
-          }
-          if (insertPayload.ball_carrier_id) {
-            participationRows.push({
-              play_instance_id: insertedPlay.id, player_id: insertPayload.ball_carrier_id, team_id: teamId,
-              participation_type: 'rusher', phase: 'offense', source: 'sideline',
-              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
-              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
-            })
-          }
-          if (insertPayload.target_id) {
-            participationRows.push({
-              play_instance_id: insertedPlay.id, player_id: insertPayload.target_id, team_id: teamId,
-              participation_type: 'receiver', phase: 'offense', source: 'sideline',
-              yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
-              is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
-            })
-          }
+        if (insertPayload.ball_carrier_id) {
+          attributionRows.push({
+            player_id: insertPayload.ball_carrier_id, team_id: teamId,
+            participation_type: 'rusher', phase: 'offense', source: 'sideline',
+            yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+            is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
+          })
         }
-
-        // Special teams key players
-        if (isSTPlay) {
-          const findST = (pos: string) => starters.find(s => s.position.toUpperCase() === pos)
-          const stBase = { play_instance_id: insertedPlay.id, team_id: teamId, phase: 'special_teams' as const, source: 'sideline' }
-
-          if (stSubType === 'kickoff' && findST('K')) {
-            participationRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
-          }
-          if (stSubType === 'punt' && findST('P')) {
-            participationRows.push({ ...stBase, player_id: findST('P')!.player_id, participation_type: 'punter' })
-          }
-          if (stSubType === 'field_goal_pat' && findST('K')) {
-            participationRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
-          }
-          if ((stSubType === 'punt' || stSubType === 'field_goal_pat') && findST('LS')) {
-            participationRows.push({ ...stBase, player_id: findST('LS')!.player_id, participation_type: 'long_snapper' })
-          }
-          if (stSubType === 'kickoff' && game.possession === 'them' && findST('KR')) {
-            participationRows.push({ ...stBase, player_id: findST('KR')!.player_id, participation_type: 'returner' })
-          }
-          if (stSubType === 'punt' && game.possession === 'them' && findST('PR')) {
-            participationRows.push({ ...stBase, player_id: findST('PR')!.player_id, participation_type: 'returner' })
-          }
+        if (insertPayload.target_id) {
+          attributionRows.push({
+            player_id: insertPayload.target_id, team_id: teamId,
+            participation_type: 'receiver', phase: 'offense', source: 'sideline',
+            yards_gained: effectiveYards, is_touchdown: insertPayload.scoring_type === 'touchdown',
+            is_first_down: insertPayload.resulted_in_first_down ?? false, is_turnover: resolvedResult === 'fumble',
+          })
         }
+      }
 
-        if (participationRows.length > 0) {
-          await supabase.from('player_participation').insert(participationRows)
-        }
-      } catch (e) {
-        console.error('[Sideline] Attribution insert failed:', e)
+      if (isSTPlay) {
+        const findST = (pos: string) => starters.find(s => s.position.toUpperCase() === pos)
+        const stBase = { team_id: teamId, phase: 'special_teams' as const, source: 'sideline' }
+
+        if (stSubType === 'kickoff' && findST('K')) attributionRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
+        if (stSubType === 'punt' && findST('P')) attributionRows.push({ ...stBase, player_id: findST('P')!.player_id, participation_type: 'punter' })
+        if (stSubType === 'field_goal_pat' && findST('K')) attributionRows.push({ ...stBase, player_id: findST('K')!.player_id, participation_type: 'kicker' })
+        if ((stSubType === 'punt' || stSubType === 'field_goal_pat') && findST('LS')) attributionRows.push({ ...stBase, player_id: findST('LS')!.player_id, participation_type: 'long_snapper' })
+        if (stSubType === 'kickoff' && game.possession === 'them' && findST('KR')) attributionRows.push({ ...stBase, player_id: findST('KR')!.player_id, participation_type: 'returner' })
+        if (stSubType === 'punt' && game.possession === 'them' && findST('PR')) attributionRows.push({ ...stBase, player_id: findST('PR')!.player_id, participation_type: 'returner' })
       }
     }
+
+    // --- Insert play (queue-first approach) ---
+    let insertSuccess = false
+
+    if (isOnline()) {
+      // Try online insert
+      const { data: insertedPlay, error } = await supabase
+        .from('play_instances')
+        .insert(insertPayload)
+        .select('id')
+        .single()
+
+      if (error) {
+        const msg = (error.message ?? '').toLowerCase()
+        const isNetwork = msg.includes('fetch') || msg.includes('network') || msg.includes('offline') || msg.includes('internet')
+
+        if (isNetwork) {
+          // Network error — queue for later, continue normally
+          if (activeGameId) {
+            pushToQueue(activeGameId, {
+              type: 'play_insert',
+              localId,
+              payload: insertPayload,
+              attributionRows,
+              status: 'pending',
+              createdAt: Date.now(),
+            } as PlayInsertEntry)
+            setTimeout(() => onTriggerSync?.(), 2000)
+          }
+          insertSuccess = true // Play is queued — treat as success for game flow
+        } else {
+          // Data/constraint error — show error, don't queue bad data
+          setIsSaving(false)
+          console.error('[Sideline] Insert error:', JSON.stringify(error, null, 2))
+          setSaveError(process.env.NODE_ENV === 'development' ? `Save failed: ${error.message}` : 'Failed to save. Check your connection.')
+          return
+        }
+      } else {
+        insertSuccess = true
+        // Insert attribution rows with the DB id
+        if (insertedPlay?.id && attributionRows.length > 0) {
+          try {
+            const rows = attributionRows.map(row => ({ ...row, play_instance_id: insertedPlay.id }))
+            await supabase.from('player_participation').insert(rows)
+          } catch (e) {
+            console.error('[Sideline] Attribution insert failed:', e)
+          }
+        }
+      }
+    } else {
+      // Offline — queue directly
+      if (activeGameId) {
+        pushToQueue(activeGameId, {
+          type: 'play_insert',
+          localId,
+          payload: insertPayload,
+          attributionRows,
+          status: 'pending',
+          createdAt: Date.now(),
+        } as PlayInsertEntry)
+      }
+      insertSuccess = true
+    }
+
+    setIsSaving(false)
+    if (!insertSuccess) return
 
     // Notify parent to advance game state and add to drive log
     onPlayLogged({
@@ -2532,7 +2577,7 @@ function LogView({
                     // Save coverage to DB
                     if (enrichmentContext.lastPlayId) {
                       const sb = createClient()
-                      sb.from('play_instances').update({ facing_blitz: opt.includes('Blitz') }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                      queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'facing_blitz', opt.includes('Blitz'))
                     }
                     setEnrichmentStep(0)
                     setEnrichmentContext(null)
@@ -2556,7 +2601,7 @@ function LogView({
                       onClick={() => {
                         if (enrichmentContext.lastPlayId) {
                           const sb = createClient()
-                          sb.from('play_instances').update({ direction: opt.toLowerCase() }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                          queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'direction', opt.toLowerCase())
                         }
                         if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
                         else { setEnrichmentStep(0); setEnrichmentContext(null) }
@@ -2573,7 +2618,7 @@ function LogView({
                       onClick={() => {
                         if (enrichmentContext.lastPlayId) {
                           const sb = createClient()
-                          sb.from('play_instances').update({ pass_location: opt.toLowerCase().split(' ')[0] }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                          queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'pass_location', opt.toLowerCase().split(' ')[0])
                         }
                         if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
                         else { setEnrichmentStep(0); setEnrichmentContext(null) }
@@ -2599,7 +2644,7 @@ function LogView({
                     onClick={() => {
                       if (enrichmentContext.lastPlayId) {
                         const sb = createClient()
-                        sb.from('play_instances').update({ play_concept: opt }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                        queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'play_concept', opt)
                       }
                     }}
                     className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
@@ -2617,7 +2662,7 @@ function LogView({
                     onClick={() => {
                       if (enrichmentContext.lastPlayId) {
                         const sb = createClient()
-                        sb.from('play_instances').update({ facing_blitz: opt.includes('Blitz') }).eq('local_id', enrichmentContext.lastPlayId).then(() => {})
+                        queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'facing_blitz', opt.includes('Blitz'))
                       }
                       setEnrichmentStep(0)
                       setEnrichmentContext(null)
@@ -3597,6 +3642,10 @@ export default function SidelinePage() {
   // Cached lineup for attribution (loaded from localStorage/DB/auto-populate)
   const [cachedLineup, setCachedLineup] = useState<{ player_id: string; position: string; depth: number }[]>([])
 
+  // Offline sync state
+  const syncInProgress = useRef(false)
+  const [syncStatus, setSyncStatus] = useState<{ synced: number; failed: number; remaining: number } | null>(null)
+
   // Initialize from localStorage
   useEffect(() => {
     if (teamId) {
@@ -3692,6 +3741,43 @@ export default function SidelinePage() {
     loadOrCreateLineup()
     return () => { cancelled = true }
   }, [activeGameId, teamId, lineupVersion, players])
+
+  // -------------------------------------------------------------------------
+  // Offline sync triggers
+  // -------------------------------------------------------------------------
+
+  const triggerSync = useCallback(async () => {
+    if (!activeGameId || !teamId) return
+    if (syncInProgress.current) return
+    syncInProgress.current = true
+    try {
+      const supabase = createClient()
+      const result = await processQueue(activeGameId, teamId, supabase)
+      setSyncStatus(result)
+    } finally {
+      syncInProgress.current = false
+    }
+  }, [activeGameId, teamId])
+
+  // Sync on connectivity restored
+  useEffect(() => {
+    const handleOnline = () => {
+      if (activeGameId && teamId) triggerSync()
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [activeGameId, teamId, triggerSync])
+
+  // Periodic sync check (every 30s)
+  useEffect(() => {
+    if (!activeGameId || !teamId) return
+    const interval = setInterval(() => {
+      if (isOnline() && getPendingCount(activeGameId) > 0) {
+        triggerSync()
+      }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [activeGameId, teamId, triggerSync])
 
   // Clear 4th down AI response when no longer on 4th down
   useEffect(() => {
@@ -3841,6 +3927,30 @@ export default function SidelinePage() {
   async function handleEndGame() {
     setShowEndConfirm(false)
 
+    // Flush offline play queue before game-end writes
+    if (activeGameId && teamId) {
+      const pendingCount = getPendingCount(activeGameId)
+      if (pendingCount > 0) {
+        if (!isOnline()) {
+          alert(`You have ${pendingCount} play${pendingCount !== 1 ? 's' : ''} that haven't synced yet. Please connect to the internet before ending the game.`)
+          return
+        }
+        try {
+          const flushSupabase = createClient()
+          await processQueue(activeGameId, teamId, flushSupabase)
+          const remaining = getPendingCount(activeGameId)
+          if (remaining > 0) {
+            alert(`${remaining} play${remaining !== 1 ? 's' : ''} failed to sync. Please try ending the game again.`)
+            return
+          }
+        } catch (e) {
+          console.error('[Sideline] Queue flush failed:', e)
+          alert('Failed to sync plays. Please try again.')
+          return
+        }
+      }
+    }
+
     // Persist final score and game result before clearing state
     if (activeGameId) {
       const supabase = createClient()
@@ -3870,6 +3980,7 @@ export default function SidelinePage() {
     // Clear persisted caches (preserve ych-playbook-{teamId} — team-level, valid across games)
     if (activeGameId) {
       clearGameState(activeGameId)
+      clearQueue(activeGameId)
       try {
         localStorage.removeItem(`ych-lineup-${activeGameId}`)
         localStorage.removeItem(`ych-gameplan-${activeGameId}`)
@@ -4537,6 +4648,7 @@ export default function SidelinePage() {
           aiSuggestions={aiSuggestions}
           sidelineIQEnabled={sidelineIQEnabled}
           cachedLineup={cachedLineup}
+          onTriggerSync={triggerSync}
         />
       )}
 
