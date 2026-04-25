@@ -1230,7 +1230,7 @@ interface SegmentNavProps {
 
 const SEGMENTS: { key: MainSegment; label: string }[] = [
   { key: 'log', label: 'Log' },
-  { key: 'plays', label: 'Next Play' },
+  { key: 'plays', label: 'Playbook' },
   { key: 'drive', label: 'Drive' },
 ]
 
@@ -1770,9 +1770,12 @@ interface FromPlaysModeProps {
   possession: Possession
   selectedPlayCode: string | null
   onSelect: (playCode: string, playName: string, playType: string, formation: string, attributes: PlayAttributes) => void
+  suggestions?: SuggestedPlay[]
+  sidelineIQEnabled?: boolean
+  onSelectSuggestion?: (playCode: string, playName: string, playType: string, formation: string) => void
 }
 
-function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelect }: FromPlaysModeProps) {
+function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelect, suggestions, sidelineIQEnabled, onSelectSuggestion }: FromPlaysModeProps) {
   const [filter, setFilter] = useState('all')
 
   // Reset filter when possession changes
@@ -1820,6 +1823,40 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
 
   return (
     <div className="mt-3">
+      {/* Pinned suggestions */}
+      {sidelineIQEnabled && suggestions && suggestions.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">Suggested</p>
+          {suggestions.slice(0, 3).map((s, i) => (
+            <button
+              key={`suggested-${s.playCode}-${i}`}
+              type="button"
+              onClick={() => onSelectSuggestion?.(
+                s.playCode,
+                s.playName,
+                s.playType,
+                '',
+              )}
+              className="w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px] bg-[#1e2a1e] border-l-2 border-l-[#6a8a30]"
+            >
+              <div className="flex-1 min-w-0 pr-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-white">{s.playName}</p>
+                  <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">Suggested</span>
+                </div>
+                {s.rationale && (
+                  <p className="text-xs text-gray-400 mt-0.5">{s.rationale}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end shrink-0 ml-3">
+                {s.callNumber != null && s.callNumber > 0 && (
+                  <span className="text-xs text-gray-500">#{s.callNumber}</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
       {/* Quick filter */}
       <div className="flex gap-1.5 px-4 mb-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {filterOptions.map(({ key, label }) => (
@@ -1898,6 +1935,14 @@ interface LogViewProps {
   driveNumber: number
   onPlayLogged: (play: LoggedPlay) => void
   onSTSubTypeChange: (st: STSubType | null) => void
+  initialPlayCode?: string | null
+  initialPlayName?: string | null
+  initialPlayType?: string | null
+  initialFormation?: string | null
+  initialSuggestedPlayCode?: string | null
+  onInitialPlayConsumed?: () => void
+  aiSuggestions?: { offense: SuggestedPlay[]; defense: SuggestedPlay[] } | null
+  sidelineIQEnabled?: boolean
 }
 
 function LogView({
@@ -1912,6 +1957,14 @@ function LogView({
   driveNumber,
   onPlayLogged,
   onSTSubTypeChange,
+  initialPlayCode,
+  initialPlayName,
+  initialPlayType,
+  initialFormation,
+  initialSuggestedPlayCode,
+  onInitialPlayConsumed,
+  aiSuggestions,
+  sidelineIQEnabled,
 }: LogViewProps) {
   const [logMode, setLogMode] = useState<LogMode>('wristband')
   const [selectedPlayCode, setSelectedPlayCode] = useState<string | null>(null)
@@ -1945,6 +1998,26 @@ function LogView({
   const [saveSuccess, setSaveSuccess] = useState(false)
 
   const [selectedPlayAttrs, setSelectedPlayAttrs] = useState<PlayAttributes | null>(null)
+  const [suggestedPlayCode, setSuggestedPlayCode] = useState<string | null>(null)
+
+  // Consume initial play selection from Playbook tab
+  useEffect(() => {
+    if (initialPlayCode) {
+      setSelectedPlayCode(initialPlayCode)
+      setSelectedPlayName(initialPlayName ?? null)
+      setSelectedPlayType(initialPlayType ?? null)
+      setSelectedFormation(initialFormation ?? null)
+      setSuggestedPlayCode(initialSuggestedPlayCode ?? null)
+      setLogMode('fromPlays')
+      onInitialPlayConsumed?.()
+    }
+  }, [initialPlayCode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fromPlaysSuggestions = useMemo(() => {
+    if (!sidelineIQEnabled || !aiSuggestions) return []
+    const side = game.possession === 'us' ? 'offense' : 'defense'
+    return side === 'offense' ? aiSuggestions.offense : aiSuggestions.defense
+  }, [aiSuggestions, sidelineIQEnabled, game.possession])
 
   function handlePlaySelected(playCode: string, playName: string, playType: string, formation: string, attributes?: PlayAttributes) {
     setSelectedPlayCode(playCode)
@@ -1952,6 +2025,7 @@ function LogView({
     setSelectedPlayType(playType)
     setSelectedFormation(formation)
     setSelectedPlayAttrs(attributes ?? null)
+    setSuggestedPlayCode(null) // Clear — this is a manual selection, not a suggestion
   }
 
   async function handleLogPlay() {
@@ -2008,6 +2082,7 @@ function LogView({
       yards_gained: effectiveYards,
       penalty_on_play: selectedOutcome === 'Penalty',
       notes: flagForReview ? 'FLAGGED FOR FILM REVIEW' : null,
+      suggested_play_code: suggestedPlayCode ?? null,
     }
 
     // Add scoring_type for scoring plays
@@ -2142,6 +2217,12 @@ function LogView({
           possession={game.possession}
           selectedPlayCode={selectedPlayCode}
           onSelect={handlePlaySelected}
+          suggestions={fromPlaysSuggestions}
+          sidelineIQEnabled={sidelineIQEnabled}
+          onSelectSuggestion={(playCode, playName, playType, formation) => {
+            handlePlaySelected(playCode, playName, playType, formation)
+            setSuggestedPlayCode(playCode)
+          }}
         />
       )}
 
@@ -2490,6 +2571,9 @@ interface PlaysViewProps {
   onAskAI4thDown: () => void
   fourthDownAIResponse: string | null
   fourthDownAILoading: boolean
+  sidelineIQEnabled: boolean
+  onToggleSidelineIQ: () => void
+  onLogSuggestedPlay: (playCode: string, playName: string, playType: string, formation: string) => void
 }
 
 
@@ -2577,6 +2661,9 @@ function PlaysView({
   onAskAI4thDown,
   fourthDownAIResponse,
   fourthDownAILoading,
+  sidelineIQEnabled,
+  onToggleSidelineIQ,
+  onLogSuggestedPlay,
 }: PlaysViewProps) {
   const [mode, setMode] = useState<'manual' | 'sidelineiq'>('sidelineiq')
 
@@ -2712,60 +2799,41 @@ function PlaysView({
 
   return (
     <div className="pb-8">
-      {/* Playbook fallback banner */}
-      {usingPlaybookFallback && (
-        <div className="bg-[#3a3a3c] rounded-xl mx-4 mt-3 px-3 py-2">
-          <p className="text-xs text-gray-400">Using full playbook — create a game plan for focused suggestions</p>
-        </div>
-      )}
-      {/* Mode toggle pill */}
-      <div className="flex items-center justify-center gap-1 mt-3 mx-4">
+      {/* SidelineIQ toggle + playbook fallback banner */}
+      <div className="flex items-center justify-between mx-4 mt-3">
+        {usingPlaybookFallback && sidelineIQEnabled ? (
+          <p className="text-xs text-gray-500 flex-1 mr-3">Using full playbook</p>
+        ) : (
+          <div className="flex-1" />
+        )}
         <button
           type="button"
-          onClick={() => setMode('manual')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-l-lg transition-colors ${
-            mode === 'manual'
-              ? 'bg-white text-[#1c1c1e]'
-              : 'bg-[#3a3a3c] text-gray-400'
-          }`}
+          onClick={onToggleSidelineIQ}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#2c2c2e] active:opacity-70 transition-opacity"
         >
-          Manual
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode('sidelineiq')}
-          className={`flex-1 py-2 text-sm font-semibold rounded-r-lg transition-colors flex items-center justify-center gap-1.5 ${
-            mode === 'sidelineiq'
-              ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-              : 'bg-[#3a3a3c] text-gray-400'
-          }`}
-        >
-          <SparkleIcon />
-          SidelineIQ
+          <span className="text-xs text-gray-400">AI Suggestions</span>
+          <div className={`w-8 h-[18px] rounded-full transition-colors relative ${sidelineIQEnabled ? 'bg-[#B8CA6E]' : 'bg-[#48484a]'}`}>
+            <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform ${sidelineIQEnabled ? 'left-[16px]' : 'left-[2px]'}`} />
+          </div>
         </button>
       </div>
 
-      {mode === 'sidelineiq' ? (
+      {sidelineIQEnabled ? (
         <>
           {/* Situation banner */}
           <div className="bg-[#B8CA6E]/10 border border-[#B8CA6E]/20 rounded-xl mx-4 mt-3 p-3">
             <div className="flex items-center gap-2 mb-1">
               <SparkleIcon />
               <p className="text-sm font-semibold text-[#B8CA6E]">
-                {sidelineIQCache ? 'AI Suggestions' : 'Situational Suggestions'}
+                {aiSuggestions ? 'AI Suggestions' : 'Situational Suggestions'}
               </p>
-              {sidelineIQLoading && (
+              {(sidelineIQLoading || aiLoading) && (
                 <span className="text-xs text-gray-500 animate-pulse">Analyzing...</span>
               )}
             </div>
             <p className="text-xs text-gray-400">
               {situationText} · {loggedPlays.length} play{loggedPlays.length !== 1 ? 's' : ''} logged
             </p>
-            {!sidelineIQCache && !sidelineIQLoading && (
-              <p className="text-xs text-gray-600 mt-1">
-                No pre-game analysis — using football situational logic
-              </p>
-            )}
           </div>
 
           {/* 4th Down Decision */}
@@ -2774,7 +2842,6 @@ function PlaysView({
               <p className="text-sm font-bold text-red-400">4th Down Decision</p>
               <p className="text-base font-semibold text-white mt-1 capitalize">{fourthDownDecision.decision.replace(/_/g, ' ')}</p>
               <p className="text-xs text-gray-400 mt-1">{fourthDownDecision.reasoning}</p>
-              {/* Ask AI escape hatch */}
               {!fourthDownAIResponse && (
                 <button
                   type="button"
@@ -2793,20 +2860,18 @@ function PlaysView({
             </div>
           )}
 
-          {/* AI loading indicator — subtle, never blocks */}
+          {/* AI loading indicator */}
           {aiLoading && (
             <p className="text-xs text-gray-600 text-center mt-2 animate-pulse">Updating suggestions...</p>
           )}
 
-          {/* Suggestion rows */}
+          {/* Suggestion cards with Log Play button */}
           <div className="mt-3">
             {displaySuggestions.length > 0 ? (
               displaySuggestions.map((s, i) => (
-                <button
+                <div
                   key={`${s.playCode}-${i}`}
-                  type="button"
-                  onClick={() => selectSuggestion(s)}
-                  className={`w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70 ${
+                  className={`px-4 py-3 border-b border-[#3a3a3c] ${
                     i === 0
                       ? 'bg-[#253515] border-l-4 border-[#B8CA6E]'
                       : i <= 2
@@ -2814,58 +2879,86 @@ function PlaysView({
                         : 'bg-[#2c2c2e] opacity-60'
                   }`}
                 >
-                  <div className="flex-1 min-w-0 pr-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-base font-medium text-white">{s.playName}</span>
-                      {i === 0 && (
-                        <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
-                      )}
-                      {(i === 1 || i === 2) && (
-                        <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
-                      )}
-                    </div>
-                    {s.rationale ? (
-                      <>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0 pr-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-base font-medium text-white">{s.playName}</span>
+                        {i === 0 && (
+                          <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
+                        )}
+                        {(i === 1 || i === 2) && (
+                          <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
+                        )}
+                      </div>
+                      {s.rationale ? (
                         <p className="text-xs text-gray-400 mt-0.5">{s.rationale}</p>
-                      </>
-                    ) : (
-                      <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-gray-600">
-                        {Math.round(s.confidence * 100)}% confidence
-                      </span>
-                      <span className="text-xs text-gray-600">·</span>
-                      <span className="text-xs text-gray-600 capitalize">{s.source}</span>
+                      ) : (
+                        <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-gray-600">
+                          {Math.round(s.confidence * 100)}% confidence
+                        </span>
+                        <span className="text-xs text-gray-600">·</span>
+                        <span className="text-xs text-gray-600 capitalize">{s.source}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0">
+                      {s.playType === 'run' ? (
+                        <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
+                      ) : s.playType === 'pass' ? (
+                        <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
+                      ) : s.playType === 'defense' ? (
+                        <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Defense</span>
+                      ) : (
+                        <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">{s.playType}</span>
+                      )}
+                      {s.callNumber != null && (
+                        <span className="text-xs text-gray-500 mt-1">Play #{s.callNumber}</span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end shrink-0">
-                    {s.playType === 'run' ? (
-                      <span className="bg-green-900/40 text-green-400 rounded-full px-2 py-0.5 text-xs">Run</span>
-                    ) : s.playType === 'pass' ? (
-                      <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
-                    ) : s.playType === 'defense' ? (
-                      <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Defense</span>
-                    ) : (
-                      <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">{s.playType}</span>
+                  {/* Log Play button */}
+                  <button
+                    type="button"
+                    onClick={() => onLogSuggestedPlay(
+                      s.playCode,
+                      s.playName,
+                      s.playType,
+                      effectivePlays.find((g) => g.play_code === s.playCode)?.playbook_plays.attributes.formation ?? '',
                     )}
-                    {s.callNumber != null && (
-                      <span className="text-xs text-gray-500 mt-1">Play #{s.callNumber}</span>
-                    )}
-                  </div>
-                </button>
+                    className="mt-2 px-4 py-1.5 bg-[#B8CA6E] text-[#1c1c1e] rounded-lg text-xs font-semibold active:opacity-70 transition-opacity"
+                  >
+                    Log Play
+                  </button>
+                </div>
               ))
             ) : (
               <div className="text-center py-8">
                 <p className="text-sm text-gray-500">No suggestions for this situation</p>
-                <p className="text-xs text-gray-600 mt-1">Switch to Manual to browse all plays</p>
+                <p className="text-xs text-gray-600 mt-1">Browse plays below</p>
               </div>
             )}
+          </div>
+
+          {/* All plays below suggestions */}
+          <div className="mt-4">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
+              All {game.possession === 'us' ? 'Offensive' : 'Defensive'} Plays
+            </p>
+            {manualPlays.map((gpp) => (
+              <PlayRow
+                key={gpp.id}
+                gpp={gpp}
+                game={game}
+                onSelect={() => selectPlay(gpp)}
+              />
+            ))}
           </div>
         </>
       ) : (
         <>
-          {/* Manual mode header */}
+          {/* SidelineIQ off — flat play list */}
           <div className="bg-[#2c2c2e] rounded-xl mx-4 mt-3 p-3">
             <p className="text-sm font-semibold text-white">
               {game.possession === 'us' ? 'Offensive' : 'Defensive'} Plays
@@ -2875,7 +2968,6 @@ function PlaysView({
             </p>
           </div>
 
-          {/* Manual play list */}
           <div className="mt-3">
             {manualPlays.map((gpp) => (
               <PlayRow
@@ -3402,6 +3494,24 @@ export default function SidelinePage() {
   const [pendingPlayName, setPendingPlayName] = useState<string | null>(null)
   const [pendingPlayType, setPendingPlayType] = useState<string | null>(null)
   const [pendingFormation, setPendingFormation] = useState<string | null>(null)
+  const [pendingSuggestedPlayCode, setPendingSuggestedPlayCode] = useState<string | null>(null)
+
+  // SidelineIQ toggle
+  const [sidelineIQEnabled, setSidelineIQEnabled] = useState(true)
+
+  // Initialize from localStorage
+  useEffect(() => {
+    if (teamId) {
+      const stored = localStorage.getItem(`sidelineiq-enabled-${teamId}`)
+      if (stored !== null) setSidelineIQEnabled(stored === 'true')
+    }
+  }, [teamId])
+
+  function toggleSidelineIQ() {
+    const next = !sidelineIQEnabled
+    setSidelineIQEnabled(next)
+    if (teamId) localStorage.setItem(`sidelineiq-enabled-${teamId}`, String(next))
+  }
 
   // Clear 4th down AI response when no longer on 4th down
   useEffect(() => {
@@ -3880,6 +3990,20 @@ export default function SidelinePage() {
     setActiveSegment('log')
   }
 
+  function handleLogSuggestedPlay(
+    playCode: string,
+    playName: string,
+    playType: string,
+    formation: string,
+  ) {
+    setPendingPlayCode(playCode)
+    setPendingPlayName(playName)
+    setPendingPlayType(playType)
+    setPendingFormation(formation)
+    setPendingSuggestedPlayCode(playCode)
+    setActiveSegment('log')
+  }
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -4120,6 +4244,20 @@ export default function SidelinePage() {
           driveNumber={driveNumber}
           onPlayLogged={handlePlayLogged}
           onSTSubTypeChange={setActiveSTSubType}
+          initialPlayCode={pendingPlayCode}
+          initialPlayName={pendingPlayName}
+          initialPlayType={pendingPlayType}
+          initialFormation={pendingFormation}
+          initialSuggestedPlayCode={pendingSuggestedPlayCode}
+          onInitialPlayConsumed={() => {
+            setPendingPlayCode(null)
+            setPendingPlayName(null)
+            setPendingPlayType(null)
+            setPendingFormation(null)
+            setPendingSuggestedPlayCode(null)
+          }}
+          aiSuggestions={aiSuggestions}
+          sidelineIQEnabled={sidelineIQEnabled}
         />
       )}
 
@@ -4142,6 +4280,9 @@ export default function SidelinePage() {
           fourthDownAIResponse={fourthDownAIResponse}
           fourthDownAILoading={fourthDownAILoading}
           onSelectPlay={handleSelectPlayFromPlays}
+          sidelineIQEnabled={sidelineIQEnabled}
+          onToggleSidelineIQ={toggleSidelineIQ}
+          onLogSuggestedPlay={handleLogSuggestedPlay}
         />
       )}
 
