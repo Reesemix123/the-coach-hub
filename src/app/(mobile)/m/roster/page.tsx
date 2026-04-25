@@ -1,17 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
-import { useMobile } from '@/app/(mobile)/MobileContext'
-
-interface RosterPlayer {
-  id: string
-  jersey_number: string
-  first_name: string
-  last_name: string
-  position_depths: Record<string, number>
-  grade_level?: string | null
-}
+import { useMobile, type MobilePlayer } from '@/app/(mobile)/MobileContext'
 
 type PositionGroup = 'Offense' | 'Defense' | 'Special Teams'
 
@@ -69,34 +58,10 @@ function UsersEmptyIcon() {
 }
 
 export default function MobileRosterPage() {
-  const { teamId } = useMobile()
-  const [players, setPlayers] = useState<RosterPlayer[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    if (!teamId) {
-      setIsLoading(false)
-      return
-    }
-
-    const supabase = createClient()
-
-    supabase
-      .from('players')
-      .select('id, jersey_number, first_name, last_name, position_depths, grade_level')
-      .eq('team_id', teamId)
-      .eq('is_active', true)
-      .order('jersey_number')
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setPlayers(data as RosterPlayer[])
-        }
-        setIsLoading(false)
-      })
-  }, [teamId])
+  const { players, playersLoading } = useMobile()
 
   // Group players by position group
-  const grouped: Record<PositionGroup, RosterPlayer[]> = {
+  const grouped: Record<PositionGroup, MobilePlayer[]> = {
     Offense: [],
     Defense: [],
     'Special Teams': [],
@@ -116,7 +81,7 @@ export default function MobileRosterPage() {
       </div>
 
       {/* Loading */}
-      {isLoading && (
+      {playersLoading && (
         <div>
           {[...Array(8)].map((_, i) => (
             <SkeletonRow key={i} />
@@ -125,7 +90,7 @@ export default function MobileRosterPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && players.length === 0 && (
+      {!playersLoading && players.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <UsersEmptyIcon />
           <p className="text-sm text-gray-500">No players on roster</p>
@@ -133,7 +98,7 @@ export default function MobileRosterPage() {
       )}
 
       {/* Player list grouped by position group */}
-      {!isLoading && players.length > 0 && (
+      {!playersLoading && players.length > 0 && (
         <div>
           {GROUP_ORDER.map(group => {
             const groupPlayers = grouped[group]

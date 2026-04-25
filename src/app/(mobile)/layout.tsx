@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
-import { MobileProvider, type TeamInfo } from './MobileContext'
+import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
 
 const STORAGE_KEY = 'ych-mobile-active-team'
 
@@ -169,6 +169,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [teamId, setTeamId] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamInfo[]>([])
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [activeGameId, setActiveGameId] = useState<string | null>(null)
+  const [players, setPlayers] = useState<MobilePlayer[]>([])
+  const [playersLoading, setPlayersLoading] = useState(false)
 
   // Track original styles so we can restore on unmount
   const originalNavDisplay = useRef<string>('')
@@ -305,8 +308,31 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     setSheetOpen(false)
   }, [])
 
+  // Fetch players for active team (async, non-blocking)
+  useEffect(() => {
+    if (!teamId) {
+      setPlayers([])
+      setPlayersLoading(false)
+      return
+    }
+    setPlayersLoading(true)
+    const supabase = createClient()
+    supabase
+      .from('players')
+      .select('id, jersey_number, first_name, last_name, position_depths, grade_level')
+      .eq('team_id', teamId)
+      .eq('is_active', true)
+      .order('jersey_number')
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setPlayers(data as MobilePlayer[])
+        }
+        setPlayersLoading(false)
+      })
+  }, [teamId])
+
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}

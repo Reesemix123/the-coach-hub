@@ -253,6 +253,41 @@ export function playsSpecialTeams(player: PlayerRecord): boolean {
 }
 
 /**
+ * Normalize a roster position code to the canonical attribution code.
+ * Roster coaches may use DT, OLB, WLB, ILB, CB, DB, WR, etc.
+ * The playbook/attribution system uses DT1/DT2, SAM, WILL, LCB/RCB, etc.
+ * This maps loosely-entered codes to canonical ones for consistent attribution.
+ */
+const POSITION_NORMALIZATION: Record<string, string> = {
+  // Defensive line
+  DT: 'DT1',        // Generic DT → DT1 (can be refined per-player)
+  // Linebackers
+  OLB: 'SAM',       // Outside LB → SAM (can be refined)
+  WLB: 'WILL',
+  SLB: 'SAM',
+  ILB: 'MLB',
+  // Secondary
+  CB: 'LCB',        // Generic CB → LCB (can be refined)
+  DB: 'S',           // Generic DB → Safety
+  NB: 'S',           // Nickelback → Safety group
+  // Receivers (letter-based)
+  WR: 'X',           // Generic WR → X receiver
+  SE: 'X',           // Split end
+  FL: 'Z',           // Flanker
+  SL: 'X',           // Slot left
+  SR: 'Z',           // Slot right
+  // Backs
+  TB: 'RB',          // Tailback → RB
+  SB: 'RB',          // Slotback → RB
+  WB: 'RB',          // Wingback → RB
+}
+
+export function normalizePositionCode(position: string): string {
+  const upper = position.toUpperCase()
+  return POSITION_NORMALIZATION[upper] ?? upper
+}
+
+/**
  * Validate position_depths object
  */
 export function validatePositionDepths(depths: PositionDepthMap): {

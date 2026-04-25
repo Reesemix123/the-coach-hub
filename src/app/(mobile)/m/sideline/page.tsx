@@ -3444,7 +3444,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 // ---------------------------------------------------------------------------
 
 export default function SidelinePage() {
-  const { teamId } = useMobile()
+  const { teamId, setActiveGameId: setContextActiveGameId } = useMobile()
 
   // Active game selection
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
@@ -3531,6 +3531,7 @@ export default function SidelinePage() {
 
   async function handleSelectGame(gameId: string, opponent: string) {
     setActiveGameId(gameId)
+    setContextActiveGameId(gameId)
     setOpponentName(opponent)
 
     // Fetch team league settings
@@ -3632,6 +3633,7 @@ export default function SidelinePage() {
     }
 
     setActiveGameId(null)
+    setContextActiveGameId(null)
     setOpponentName('')
     setClockHasBeenSet(false)
     setGamePlanPlays([])
