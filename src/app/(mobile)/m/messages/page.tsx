@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { CommHubProvider, type Announcement } from './CommHubContext'
+import { useState } from 'react'
+import { CommHubProvider, type Announcement, type ParentWithChildren } from './CommHubContext'
 import AnnouncementList from './announcements/AnnouncementList'
 import ComposeAnnouncement from './announcements/ComposeAnnouncement'
 import AnnouncementDetail from './announcements/AnnouncementDetail'
@@ -9,6 +9,9 @@ import { useCommHub } from './CommHubContext'
 import CalendarList, { type TeamEvent } from './calendar/CalendarList'
 import NewEventSheet from './calendar/NewEventSheet'
 import EventDetail from './calendar/EventDetail'
+import ParentList from './parents/ParentList'
+import InviteParentSheet from './parents/InviteParentSheet'
+import ParentDetail from './parents/ParentDetail'
 
 // ---------------------------------------------------------------------------
 // Sub-nav sections
@@ -23,20 +26,6 @@ const SECTIONS: { key: Section; label: string }[] = [
 ]
 
 // ---------------------------------------------------------------------------
-// Placeholder for future sections
-// ---------------------------------------------------------------------------
-
-function PlaceholderSection({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 gap-3">
-      {icon}
-      <p className="text-sm font-medium text-gray-500">{title}</p>
-      <p className="text-xs text-gray-400">{subtitle}</p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Messages Page Content (inside CommHubProvider)
 // ---------------------------------------------------------------------------
 
@@ -48,7 +37,9 @@ function MessagesPageContent() {
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null)
   const [editingEvent, setEditingEvent] = useState<TeamEvent | null>(null)
   const [calendarKey, setCalendarKey] = useState(0)
-  const { refreshAnnouncements } = useCommHub()
+  const [selectedParent, setSelectedParent] = useState<ParentWithChildren | null>(null)
+  const [showInviteParent, setShowInviteParent] = useState(false)
+  const { refreshAnnouncements, refreshParents } = useCommHub()
 
   // If viewing announcement detail, render that instead of the list
   if (selectedAnnouncement) {
@@ -56,6 +47,17 @@ function MessagesPageContent() {
       <AnnouncementDetail
         announcement={selectedAnnouncement}
         onBack={() => setSelectedAnnouncement(null)}
+      />
+    )
+  }
+
+  // If viewing parent detail, render that instead of the parent list
+  if (selectedParent && section === 'parents') {
+    return (
+      <ParentDetail
+        parent={selectedParent}
+        onBack={() => setSelectedParent(null)}
+        onChanged={() => { setSelectedParent(null); refreshParents() }}
       />
     )
   }
@@ -128,11 +130,19 @@ function MessagesPageContent() {
       )}
 
       {section === 'parents' && (
-        <PlaceholderSection
-          icon={<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300"><path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" /><circle cx="10" cy="7" r="4" /></svg>}
-          title="Parent roster coming soon"
-          subtitle="Manage parent invitations and contacts"
-        />
+        <>
+          <ParentList
+            onSelectParent={setSelectedParent}
+            onSelectInvite={() => {}} // TODO: invite detail view
+            onInvite={() => setShowInviteParent(true)}
+          />
+          {showInviteParent && (
+            <InviteParentSheet
+              onClose={() => setShowInviteParent(false)}
+              onSent={() => { setShowInviteParent(false); refreshParents() }}
+            />
+          )}
+        </>
       )}
 
       {/* Compose sheet */}

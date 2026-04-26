@@ -23,14 +23,64 @@ export interface Announcement {
   updated_at: string
 }
 
+export interface ParentChild {
+  player_id: string
+  player_name: string
+  jersey_number: string | null
+  relationship: string
+  is_primary_contact: boolean
+}
+
+export interface ParentProfile {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string | null
+  notification_preference: string
+  is_champion: boolean
+  created_at: string
+}
+
+export interface ParentWithChildren {
+  parent: ParentProfile
+  children: ParentChild[]
+}
+
+export interface PendingInvite {
+  id: string
+  team_id: string
+  player_id: string
+  parent_email: string
+  status: string
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+
+const PARENT_LIMITS: Record<string, number | null> = {
+  sideline: 20,
+  rookie: 20,
+  varsity: 40,
+  all_conference: 60,
+  all_state: null, // unlimited
+}
+
 interface CommHubContextType {
   planTier: string | null
   isPaid: boolean
   planLoading: boolean
   parentCount: number
+  parentLimit: number | null
   announcements: Announcement[]
   announcementsLoading: boolean
   refreshAnnouncements: () => void
+  parents: ParentWithChildren[]
+  pendingInvites: PendingInvite[]
+  parentsLoading: boolean
+  refreshParents: () => void
   teamId: string | null
 }
 
@@ -39,9 +89,14 @@ const CommHubContext = createContext<CommHubContextType>({
   isPaid: false,
   planLoading: true,
   parentCount: 0,
+  parentLimit: 20,
   announcements: [],
   announcementsLoading: true,
   refreshAnnouncements: () => {},
+  parents: [],
+  pendingInvites: [],
+  parentsLoading: true,
+  refreshParents: () => {},
   teamId: null,
 })
 
@@ -61,6 +116,9 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
   const [parentCount, setParentCount] = useState(0)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [announcementsLoading, setAnnouncementsLoading] = useState(true)
+  const [parents, setParents] = useState<ParentWithChildren[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
+  const [parentsLoading, setParentsLoading] = useState(true)
 
   // Fetch plan status
   useEffect(() => {
@@ -93,7 +151,28 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refreshAnnouncements() }, [refreshAnnouncements])
 
+  // Fetch parents + pending invitations
+  const refreshParents = useCallback(() => {
+    if (!teamId) return
+    setParentsLoading(true)
+    Promise.all([
+      fetch(`/api/communication/parents?teamId=${teamId}`).then(r => r.json()),
+      fetch(`/api/communication/parents/invite?teamId=${teamId}`).then(r => r.json()),
+    ])
+      .then(([parentsData, invitesData]) => {
+        if (parentsData.parents) setParents(parentsData.parents)
+        if (invitesData.invitations) setPendingInvites(invitesData.invitations)
+        // Update parent count from actual data
+        setParentCount((parentsData.parents?.length ?? 0) + (invitesData.invitations?.length ?? 0))
+        setParentsLoading(false)
+      })
+      .catch(() => setParentsLoading(false))
+  }, [teamId])
+
+  useEffect(() => { refreshParents() }, [refreshParents])
+
   const isPaid = PAID_TIERS.has(planTier ?? '')
+  const parentLimit = PARENT_LIMITS[planTier ?? 'rookie'] ?? null
 
   return (
     <CommHubContext.Provider value={{
@@ -101,9 +180,14 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
       isPaid,
       planLoading,
       parentCount,
+      parentLimit,
       announcements,
       announcementsLoading,
       refreshAnnouncements,
+      parents,
+      pendingInvites,
+      parentsLoading,
+      refreshParents,
       teamId,
     }}>
       {children}
