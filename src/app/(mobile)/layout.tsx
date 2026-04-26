@@ -338,6 +338,19 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
   useEffect(() => { fetchPlayers() }, [fetchPlayers])
 
+  // Refresh players on app focus (visibility change) — debounced to 30s
+  const lastRefreshRef = useRef(Date.now())
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastRefreshRef.current < 30000) return
+      lastRefreshRef.current = Date.now()
+      fetchPlayers()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [fetchPlayers])
+
   // Orphan auto-sync: scan for unsynced queues from previous sessions
   useEffect(() => {
     const orphaned = getAllQueuedGameIds()
