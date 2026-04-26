@@ -6,16 +6,18 @@ import AnnouncementList from './announcements/AnnouncementList'
 import ComposeAnnouncement from './announcements/ComposeAnnouncement'
 import AnnouncementDetail from './announcements/AnnouncementDetail'
 import { useCommHub } from './CommHubContext'
+import CalendarList, { type TeamEvent } from './calendar/CalendarList'
+import NewEventSheet from './calendar/NewEventSheet'
+import EventDetail from './calendar/EventDetail'
 
 // ---------------------------------------------------------------------------
 // Sub-nav sections
 // ---------------------------------------------------------------------------
 
-type Section = 'announcements' | 'chat' | 'calendar' | 'parents'
+type Section = 'messages' | 'calendar' | 'parents'
 
 const SECTIONS: { key: Section; label: string }[] = [
-  { key: 'announcements', label: 'Announcements' },
-  { key: 'chat', label: 'Chat' },
+  { key: 'messages', label: 'Messages' },
   { key: 'calendar', label: 'Calendar' },
   { key: 'parents', label: 'Parents' },
 ]
@@ -39,9 +41,13 @@ function PlaceholderSection({ icon, title, subtitle }: { icon: ReactNode; title:
 // ---------------------------------------------------------------------------
 
 function MessagesPageContent() {
-  const [section, setSection] = useState<Section>('announcements')
+  const [section, setSection] = useState<Section>('messages')
   const [showCompose, setShowCompose] = useState(false)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
+  const [showNewEvent, setShowNewEvent] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null)
+  const [editingEvent, setEditingEvent] = useState<TeamEvent | null>(null)
+  const [calendarKey, setCalendarKey] = useState(0)
   const { refreshAnnouncements } = useCommHub()
 
   // If viewing announcement detail, render that instead of the list
@@ -51,6 +57,27 @@ function MessagesPageContent() {
         announcement={selectedAnnouncement}
         onBack={() => setSelectedAnnouncement(null)}
       />
+    )
+  }
+
+  // If viewing event detail, render that instead of the calendar list
+  if (selectedEvent && section === 'calendar') {
+    return (
+      <>
+        <EventDetail
+          event={selectedEvent}
+          onBack={() => setSelectedEvent(null)}
+          onEdit={() => { setEditingEvent(selectedEvent); setSelectedEvent(null) }}
+          onDeleted={() => { setSelectedEvent(null); setCalendarKey(k => k + 1) }}
+        />
+        {editingEvent && (
+          <NewEventSheet
+            editingEvent={editingEvent}
+            onClose={() => setEditingEvent(null)}
+            onSaved={() => { setEditingEvent(null); setCalendarKey(k => k + 1) }}
+          />
+        )}
+      </>
     )
   }
 
@@ -77,27 +104,27 @@ function MessagesPageContent() {
       </div>
 
       {/* Section content */}
-      {section === 'announcements' && (
+      {section === 'messages' && (
         <AnnouncementList
           onSelectAnnouncement={setSelectedAnnouncement}
           onCompose={() => setShowCompose(true)}
         />
       )}
 
-      {section === 'chat' && (
-        <PlaceholderSection
-          icon={<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>}
-          title="Direct messaging coming soon"
-          subtitle="Chat with individual parents"
-        />
-      )}
-
       {section === 'calendar' && (
-        <PlaceholderSection
-          icon={<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>}
-          title="Team calendar coming soon"
-          subtitle="Schedule events and track RSVPs"
-        />
+        <>
+          <CalendarList
+            key={calendarKey}
+            onSelectEvent={setSelectedEvent}
+            onNewEvent={() => setShowNewEvent(true)}
+          />
+          {showNewEvent && (
+            <NewEventSheet
+              onClose={() => setShowNewEvent(false)}
+              onSaved={() => { setShowNewEvent(false); setCalendarKey(k => k + 1) }}
+            />
+          )}
+        </>
       )}
 
       {section === 'parents' && (
