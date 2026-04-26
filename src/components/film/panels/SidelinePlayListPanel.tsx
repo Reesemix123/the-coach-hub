@@ -1,6 +1,6 @@
 'use client'
 
-import React, { memo, useMemo } from 'react'
+import React, { memo, useMemo, useState } from 'react'
 import type { PlayInstance } from '@/types/football'
 
 // ============================================
@@ -9,6 +9,9 @@ import type { PlayInstance } from '@/types/football'
 
 interface SidelinePlayListPanelProps {
   sidelinePlays: PlayInstance[]
+  gameId?: string
+  gameCreatedAt?: string
+  gameHasLineup?: boolean // game_lineups rows exist — evidence of sideline tracking
 }
 
 // ============================================
@@ -51,7 +54,15 @@ function getQuarterLabel(quarter?: number): string {
 
 export const SidelinePlayListPanel = memo(function SidelinePlayListPanel({
   sidelinePlays,
+  gameId,
+  gameCreatedAt,
+  gameHasLineup,
 }: SidelinePlayListPanelProps) {
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    if (!gameId) return false
+    try { return sessionStorage.getItem(`sideline-banner-dismissed-${gameId}`) === '1' } catch { return false }
+  })
+
   // Group plays by quarter
   const groupedByQuarter = useMemo(() => {
     const groups = new Map<number, PlayInstance[]>()
@@ -63,7 +74,42 @@ export const SidelinePlayListPanel = memo(function SidelinePlayListPanel({
     return Array.from(groups.entries()).sort(([a], [b]) => a - b)
   }, [sidelinePlays])
 
-  if (sidelinePlays.length === 0) return null
+  if (sidelinePlays.length === 0) {
+    // Show "not synced yet" banner if evidence of sideline tracking exists
+    if (!gameHasLineup || bannerDismissed) return null
+
+    // Only show for games created within last 7 days
+    if (gameCreatedAt) {
+      const age = Date.now() - new Date(gameCreatedAt).getTime()
+      if (age > 7 * 24 * 60 * 60 * 1000) return null
+    }
+
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg mt-4 p-3 flex items-start gap-2.5">
+        <svg className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <p className="text-xs text-gray-600 flex-1">
+          Sideline plays haven&apos;t synced yet. Open Youth Coach Hub on your phone to sync your game data.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setBannerDismissed(true)
+            try { sessionStorage.setItem(`sideline-banner-dismissed-${gameId}`, '1') } catch {}
+          }}
+          className="text-gray-400 hover:text-gray-600 shrink-0"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 mt-4">

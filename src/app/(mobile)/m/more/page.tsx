@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
+import { getQueue, getPendingCount, getAllQueuedGameIds, isOnline } from '@/lib/utils/playQueue'
+import { processQueue } from '@/lib/utils/syncEngine'
 
 // ---------------------------------------------------------------------------
 // Segmented Pill
@@ -200,6 +202,116 @@ function NavRow({ label, href, subtitle }: { label: string; href?: string; subti
 }
 
 // ---------------------------------------------------------------------------
+// Game Data Section
+// ---------------------------------------------------------------------------
+
+function GameDataSection() {
+  const { teamId, activeGameId, setConsecutiveSyncFailures } = useMobile()
+  const [saving, setSaving] = useState(false)
+  const [saveResult, setSaveResult] = useState<string | null>(null)
+
+  // Check for any queued items (active game or orphaned)
+  const orphaned = getAllQueuedGameIds()
+  const activeQueueId = activeGameId ?? orphaned[0]?.gameId ?? null
+  const activeQueueTeamId = activeGameId ? teamId : orphaned[0]?.teamId ?? null
+  const pendingCount = activeQueueId ? getPendingCount(activeQueueId) : 0
+  const hasOrphaned = !activeGameId && orphaned.length > 0
+
+  // Check for items older than 24h (for download button)
+  const hasOldItems = (() => {
+    if (!activeQueueId) return false
+    const queue = getQueue(activeQueueId)
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000
+    return queue.some(e => (e.status === 'pending' || e.status === 'failed') && e.createdAt < dayAgo)
+  })()
+
+  // Don't show section if no active game and no orphaned items
+  if (!activeGameId && orphaned.length === 0) return null
+
+  async function handleSaveNow() {
+    if (!activeQueueId || !activeQueueTeamId || saving) return
+    setSaving(true)
+    setSaveResult(null)
+    try {
+      const supabase = createClient()
+      const result = await processQueue(activeQueueId, activeQueueTeamId, supabase)
+      if (result.synced > 0) {
+        setConsecutiveSyncFailures(0)
+        setSaveResult(`${result.synced} play${result.synced !== 1 ? 's' : ''} saved`)
+      } else if (result.remaining > 0) {
+        setSaveResult(`${result.remaining} still waiting`)
+      } else {
+        setSaveResult('All saved')
+      }
+    } catch {
+      setSaveResult('Save failed — try again')
+    }
+    setSaving(false)
+    setTimeout(() => setSaveResult(null), 3000)
+  }
+
+  function handleDownloadBackup() {
+    if (!activeQueueId) return
+    const queue = getQueue(activeQueueId)
+    const blob = new Blob([JSON.stringify(queue, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ych-game-backup-${activeQueueId}-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="mt-6">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Game Data</p>
+      <div className="bg-[#2c2c2e] rounded-xl mx-4 p-4">
+        {/* Status */}
+        <p className="text-sm text-white font-medium">
+          {pendingCount === 0
+            ? 'All game data saved ✓'
+            : hasOrphaned
+              ? `${pendingCount} play${pendingCount !== 1 ? 's' : ''} from your last game waiting to save`
+              : `${pendingCount} play${pendingCount !== 1 ? 's' : ''} waiting to save`
+          }
+        </p>
+
+        {saveResult && (
+          <p className="text-xs text-[#B8CA6E] mt-1">{saveResult}</p>
+        )}
+
+        {/* Buttons */}
+        {pendingCount > 0 && (
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={handleSaveNow}
+              disabled={saving || !isOnline()}
+              className={[
+                'flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors min-h-[40px]',
+                saving ? 'bg-[#3a3a3c] text-gray-500' : 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]',
+              ].join(' ')}
+            >
+              {saving ? 'Saving...' : 'Save Now'}
+            </button>
+
+            {hasOldItems && (
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
+                className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-2.5 text-sm font-semibold min-h-[40px] active:bg-[#48484a] transition-colors"
+              >
+                Download Backup
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // More Page
 // ---------------------------------------------------------------------------
 
@@ -215,6 +327,9 @@ export default function MobileMorePage() {
           <LeagueRulesSection teamId={teamId} />
         </div>
       </div>
+
+      {/* Game Data */}
+      <GameDataSection />
 
       {/* Team Settings */}
       <div className="mt-6">

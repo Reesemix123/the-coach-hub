@@ -3580,7 +3580,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 // ---------------------------------------------------------------------------
 
 export default function SidelinePage() {
-  const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId, players, lineupVersion } = useMobile()
+  const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId, players, lineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures } = useMobile()
 
   // Active game selection
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
@@ -3645,6 +3645,7 @@ export default function SidelinePage() {
   // Offline sync state
   const syncInProgress = useRef(false)
   const [syncStatus, setSyncStatus] = useState<{ synced: number; failed: number; remaining: number } | null>(null)
+  const [savingOverlay, setSavingOverlay] = useState<'saving' | 'saved_locally' | null>(null)
 
   // Initialize from localStorage
   useEffect(() => {
@@ -3754,10 +3755,16 @@ export default function SidelinePage() {
       const supabase = createClient()
       const result = await processQueue(activeGameId, teamId, supabase)
       setSyncStatus(result)
+      // Track consecutive failures for amber dot
+      if (result.failed > 0 && result.synced === 0) {
+        setConsecutiveSyncFailures(consecutiveSyncFailures + 1)
+      } else if (result.synced > 0) {
+        setConsecutiveSyncFailures(0)
+      }
     } finally {
       syncInProgress.current = false
     }
-  }, [activeGameId, teamId])
+  }, [activeGameId, teamId, consecutiveSyncFailures, setConsecutiveSyncFailures])
 
   // Sync on connectivity restored
   useEffect(() => {
@@ -3927,31 +3934,52 @@ export default function SidelinePage() {
   async function handleEndGame() {
     setShowEndConfirm(false)
 
-    // Flush offline play queue before game-end writes
-    if (activeGameId && teamId) {
-      const pendingCount = getPendingCount(activeGameId)
-      if (pendingCount > 0) {
-        if (!isOnline()) {
-          alert(`You have ${pendingCount} play${pendingCount !== 1 ? 's' : ''} that haven't synced yet. Please connect to the internet before ending the game.`)
-          return
-        }
+    // Check queue depth
+    const pendingCount = activeGameId ? getPendingCount(activeGameId) : 0
+
+    if (pendingCount > 0) {
+      // Show saving overlay and attempt flush
+      setSavingOverlay('saving')
+
+      let flushed = false
+      const timeout = setTimeout(() => {
+        if (!flushed) setSavingOverlay('saved_locally')
+      }, 30000)
+
+      if (activeGameId && teamId) {
         try {
-          const flushSupabase = createClient()
-          await processQueue(activeGameId, teamId, flushSupabase)
+          const supabase = createClient()
+          await processQueue(activeGameId, teamId, supabase)
           const remaining = getPendingCount(activeGameId)
-          if (remaining > 0) {
-            alert(`${remaining} play${remaining !== 1 ? 's' : ''} failed to sync. Please try ending the game again.`)
-            return
+          if (remaining === 0) {
+            flushed = true
+            clearTimeout(timeout)
           }
-        } catch (e) {
-          console.error('[Sideline] Queue flush failed:', e)
-          alert('Failed to sync plays. Please try again.')
-          return
+        } catch {
+          // Flush failed — timeout will handle transition
         }
       }
+
+      if (flushed) {
+        // All synced — proceed immediately
+        await completeGameEnd()
+        setSavingOverlay(null)
+      }
+      // If not flushed, overlay stays — coach taps Done via saved_locally state
+      return
     }
 
-    // Persist final score and game result before clearing state
+    // No pending items — proceed directly
+    await completeGameEnd()
+  }
+
+  async function handleSavingOverlayDone() {
+    await completeGameEnd()
+    setSavingOverlay(null)
+  }
+
+  async function completeGameEnd() {
+    // Persist final score and game result
     if (activeGameId) {
       const supabase = createClient()
       const result: 'win' | 'loss' | 'tie' | null =
@@ -3976,8 +4004,7 @@ export default function SidelinePage() {
       }
     }
 
-    // Clear persisted game state before clearing component state
-    // Clear persisted caches (preserve ych-playbook-{teamId} — team-level, valid across games)
+    // Clear all persisted caches
     if (activeGameId) {
       clearGameState(activeGameId)
       clearQueue(activeGameId)
@@ -4415,6 +4442,39 @@ export default function SidelinePage() {
         activeSTSubType={activeSTSubType}
         quarterLengthMinutes={quarterLengthMinutes}
       />
+
+      {/* Saving overlay */}
+      {savingOverlay && (
+        <div className="fixed inset-0 z-[70] bg-white flex flex-col items-center justify-center px-8">
+          <div className="pt-[env(safe-area-inset-top)]" />
+          {savingOverlay === 'saving' ? (
+            <>
+              <img src="/logo-darkmode.png" alt="" className="h-16 w-auto opacity-80 mb-8" />
+              <p className="text-lg font-semibold text-gray-900 mb-4">Saving game data…</p>
+              <svg className="animate-spin h-8 w-8 text-gray-300" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <svg className="h-16 w-16 text-green-500 mb-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <p className="text-lg font-semibold text-gray-900 mb-2">Game data saved to your device</p>
+              <p className="text-sm text-gray-500 text-center mb-8">It will sync when connection is restored.</p>
+              <button
+                type="button"
+                onClick={handleSavingOverlayDone}
+                className="bg-black text-white rounded-xl px-8 py-3 text-sm font-semibold active:bg-gray-800 transition-colors"
+              >
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* End Game Confirmation */}
       {showEndConfirm && (

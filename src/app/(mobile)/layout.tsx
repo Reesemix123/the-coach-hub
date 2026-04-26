@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
+import { getAllQueuedGameIds } from '@/lib/utils/playQueue'
+import { processQueue } from '@/lib/utils/syncEngine'
 
 const STORAGE_KEY = 'ych-mobile-active-team'
 
@@ -174,6 +176,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [playersLoading, setPlayersLoading] = useState(false)
   const [lineupVersion, setLineupVersion] = useState(0)
   const bumpLineupVersion = useCallback(() => setLineupVersion(v => v + 1), [])
+  const [consecutiveSyncFailures, setConsecutiveSyncFailures] = useState(0)
 
   // Track original styles so we can restore on unmount
   const originalNavDisplay = useRef<string>('')
@@ -333,8 +336,27 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       })
   }, [teamId])
 
+  // Orphan auto-sync: scan for unsynced queues from previous sessions
+  useEffect(() => {
+    const orphaned = getAllQueuedGameIds()
+    if (orphaned.length === 0) return
+    setConsecutiveSyncFailures(5) // Show amber dot immediately
+    const supabase = createClient()
+    Promise.all(
+      orphaned.map(async ({ gameId, teamId: tid }) => {
+        if (!tid) return
+        try {
+          const result = await processQueue(gameId, tid, supabase)
+          if (result.synced > 0 && result.remaining === 0) {
+            setConsecutiveSyncFailures(0)
+          }
+        } catch {}
+      })
+    )
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}
@@ -398,12 +420,15 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
                   key={href}
                   href={href}
                   className={[
-                    'flex flex-col items-center justify-center flex-1 min-h-[49px] gap-0.5 transition-colors',
+                    'relative flex flex-col items-center justify-center flex-1 min-h-[49px] gap-0.5 transition-colors',
                     isActive ? 'text-[#B8CA6E]' : 'text-gray-400',
                   ].join(' ')}
                 >
                   <Icon />
                   <span className="text-[10px] font-medium leading-none">{label}</span>
+                  {label === 'More' && consecutiveSyncFailures >= 5 && (
+                    <span className="absolute top-1.5 right-[calc(50%-4px)] w-2 h-2 bg-amber-500 rounded-full" />
+                  )}
                 </Link>
               )
             })}

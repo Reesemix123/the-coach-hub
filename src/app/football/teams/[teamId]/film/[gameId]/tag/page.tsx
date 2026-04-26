@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from 'next/dynamic';
 import AuthGuard from '@/components/AuthGuard';
 import type { PlayInstance } from '@/types/football';
+import { createClient } from '@/utils/supabase/client';
 import VirtualVideoPlayer from '@/components/VirtualVideoPlayer';
 import MarkerList from '@/components/film/MarkerList';
 import EditMarkerModal from '@/components/film/EditMarkerModal';
@@ -75,6 +76,7 @@ function GameFilmPageInner() {
   const [showScoreboard, setShowScoreboard] = useState(true);
   const [sharePlayInstance, setSharePlayInstance] = useState<any | null>(null);
   const [sidelinePlays, setSidelinePlays] = useState<PlayInstance[]>([]);
+  const [gameHasLineup, setGameHasLineup] = useState(false);
 
 
   // ========== VIDEO ELEMENT CALLBACKS ==========
@@ -151,10 +153,14 @@ function GameFilmPageInner() {
     }
   }, [timelinePlayback.timelineLanes]);
 
-  // Fetch sideline plays for this game
+  // Fetch sideline plays and check for lineup evidence
   useEffect(() => {
     if (gameId && teamId) {
       dataFetching.fetchSidelinePlays().then(setSidelinePlays)
+      // Check if game_lineups exist — evidence of sideline tracking
+      const supabase = createClient()
+      supabase.from('game_lineups').select('id').eq('game_id', gameId).eq('team_id', teamId).limit(1)
+        .then(({ data }) => { if (data && data.length > 0) setGameHasLineup(true) })
     }
   }, [gameId, teamId])
 
@@ -785,7 +791,12 @@ function GameFilmPageInner() {
                 onSharePlay={(instance) => setSharePlayInstance(instance)}
                 videoRef={videoRef}
               />
-              <SidelinePlayListPanel sidelinePlays={sidelinePlays} />
+              <SidelinePlayListPanel
+                sidelinePlays={sidelinePlays}
+                gameId={gameId}
+                gameCreatedAt={game?.created_at}
+                gameHasLineup={gameHasLineup}
+              />
             </div>
           </div>
         </div>

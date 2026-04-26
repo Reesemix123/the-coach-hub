@@ -32,6 +32,8 @@ interface MobileContextType {
   // Lineup version counter — bumped by Roster tab on depth changes
   lineupVersion: number
   bumpLineupVersion: () => void
+  consecutiveSyncFailures: number
+  setConsecutiveSyncFailures: (n: number) => void
 }
 
 const MobileContext = createContext<MobileContextType>({
@@ -46,6 +48,8 @@ const MobileContext = createContext<MobileContextType>({
   playersLoading: false,
   lineupVersion: 0,
   bumpLineupVersion: () => {},
+  consecutiveSyncFailures: 0,
+  setConsecutiveSyncFailures: () => {},
 })
 
 export type { TeamInfo, MobileContextType }

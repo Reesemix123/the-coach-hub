@@ -102,6 +102,44 @@ export function isPlaySynced(gameId: string, localId: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Scan for orphaned queues across all games
+// ---------------------------------------------------------------------------
+
+export function getAllQueuedGameIds(): { gameId: string; teamId: string | null; pendingCount: number }[] {
+  const results: { gameId: string; teamId: string | null; pendingCount: number }[] = []
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key?.startsWith(KEY_PREFIX)) continue
+      const gameId = key.replace(KEY_PREFIX, '')
+      const queue = getQueue(gameId)
+      const pending = queue.filter(e => e.status === 'pending' || e.status === 'failed')
+      if (pending.length === 0) continue
+
+      // Extract teamId: try play_insert first, then play_update payload
+      let teamId: string | null = null
+      const insertEntry = queue.find(e => e.type === 'play_insert') as PlayInsertEntry | undefined
+      if (insertEntry?.payload?.team_id) {
+        teamId = insertEntry.payload.team_id as string
+      } else {
+        // Fallback: check play_update entries — updates don't have team_id directly,
+        // but if any play_insert was synced, its payload may still be in the queue
+        // Actually play_updates don't carry team_id. Try to find it from any entry's payload.
+        for (const entry of queue) {
+          if (entry.type === 'play_insert' && (entry as PlayInsertEntry).payload?.team_id) {
+            teamId = (entry as PlayInsertEntry).payload.team_id as string
+            break
+          }
+        }
+      }
+
+      results.push({ gameId, teamId, pendingCount: pending.length })
+    }
+  } catch {}
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // Connectivity check
 // ---------------------------------------------------------------------------
 
