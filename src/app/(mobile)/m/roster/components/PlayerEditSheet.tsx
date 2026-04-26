@@ -229,7 +229,7 @@ export default function PlayerEditSheet({
             </label>
             {POSITION_OPTIONS.map(({ group, positions: posCodes }) => (
               <div key={group} className="mb-3">
-                <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5">{group}</p>
+                <p className="text-[10px] font-bold text-[var(--text-section-header)] uppercase tracking-wider mb-1.5">{group}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {posCodes.map(pos => {
                     const isActive = positions[pos] !== undefined

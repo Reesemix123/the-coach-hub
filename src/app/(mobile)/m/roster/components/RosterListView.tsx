@@ -54,7 +54,7 @@ export default function RosterListView({
         return (
           <div key={group}>
             <div className="sticky top-0 z-10 px-4 py-2 bg-[var(--bg-primary)]">
-              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{group}</span>
+              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">{group}</span>
             </div>
             <div>
               {groupPlayers.map(player => {

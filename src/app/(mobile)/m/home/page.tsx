@@ -194,7 +194,7 @@ export default function MobileHomePage() {
 
       {/* Quick Access Grid */}
       <div className="px-4">
-        <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-3">
           Quick Access
         </h2>
         {isLoading ? (

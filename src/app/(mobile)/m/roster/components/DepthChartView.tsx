@@ -80,7 +80,7 @@ export default function DepthChartView({
               onClick={() => setExpandedSections(prev => ({ ...prev, [unitLabel]: !prev[unitLabel] }))}
               className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
-              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{unitLabel}</span>
+              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">{unitLabel}</span>
               <ChevronIcon expanded={expanded} />
             </button>
 
@@ -101,7 +101,7 @@ export default function DepthChartView({
                 <div key={posLabel}>
                   {/* Position header — no + button */}
                   <div className="px-4 pt-3 pb-1 flex items-center">
-                    <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase">{posLabel}</span>
+                    <span className="text-xs font-bold text-[var(--text-section-header)] uppercase">{posLabel}</span>
                   </div>
 
                   {posPlayers.length === 0 ? (

@@ -109,7 +109,7 @@ export default function AnnouncementDetail({ announcement, onBack }: Announcemen
 
       {/* Read receipts */}
       <div className="px-4 mt-4">
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Read Receipts</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">Read Receipts</p>
 
         {statsLoading ? (
           <div className="bg-[var(--bg-card)] rounded-xl p-4 animate-pulse shadow-sm">

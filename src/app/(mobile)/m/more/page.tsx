@@ -210,7 +210,7 @@ function GameDataSection() {
 
   return (
     <div className="mt-5">
-      <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Data</p>
+      <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider px-4 mb-2">Data</p>
       <div className="bg-[var(--bg-card)] rounded-xl mx-4 p-4">
         <p className="text-sm text-[var(--text-primary)] font-medium">
           {pendingCount === 0
@@ -326,7 +326,7 @@ export default function MobileMorePage() {
 
       {/* TEAM */}
       <div>
-        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Team</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider px-4 mb-2">Team</p>
         <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden">
           <NavRow label="Roster & Depth Chart" subtitle={`${players.length} player${players.length !== 1 ? 's' : ''}`} href="/m/roster" />
           {/* // TODO: Mobile-specific team settings page */}
@@ -336,7 +336,7 @@ export default function MobileMorePage() {
 
       {/* GAME RULES (collapsible) */}
       <div className="mt-5">
-        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Game Rules</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider px-4 mb-2">Game Rules</p>
         <CollapsibleSection
           title="Field & Quarter Settings"
           summary={rulesSummary}
@@ -356,7 +356,7 @@ export default function MobileMorePage() {
 
       {/* ACCOUNT */}
       <div className="mt-5">
-        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Account</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider px-4 mb-2">Account</p>
         <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden">
           <NavRow label="Appearance" subtitle={THEME_LABELS[themePreference]} onTap={() => setShowThemeSheet(true)} />
           <NavRow label="Profile" subtitle="Name, email, avatar" onTap={() => handleComingSoon('Profile settings')} disabled />

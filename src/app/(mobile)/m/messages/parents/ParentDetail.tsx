@@ -129,7 +129,7 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
 
       {/* Contact */}
       <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Contact</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">Contact</p>
         <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
           <a
             href={`mailto:${profile.email}`}
@@ -164,7 +164,7 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
       {/* Linked athletes */}
       {children.length > 0 && (
         <div className="px-4 mb-4">
-          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">
             Athletes ({children.length})
           </p>
           <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
@@ -201,7 +201,7 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
 
       {/* Status */}
       <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Status</p>
+        <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">Status</p>
         <div className="bg-[var(--bg-card)] rounded-xl px-4 py-3 shadow-sm">
           <p className="text-sm text-[var(--text-secondary)]">Active since {formatDate(profile.created_at)}</p>
         </div>

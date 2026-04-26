@@ -259,7 +259,7 @@ function FilterChip({
 function SectionHeader({ label }: { label: string }) {
   return (
     <div className="sticky top-0 z-10 bg-[var(--bg-primary)] px-4 py-2">
-      <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+      <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">
         {label}
       </span>
     </div>

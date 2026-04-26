@@ -217,7 +217,7 @@ export default function GameLineupView({
               onClick={() => toggleSection(unitLabel)}
               className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
-              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">
                 {unitLabel}
               </span>
               <ChevronIcon expanded={expanded} />

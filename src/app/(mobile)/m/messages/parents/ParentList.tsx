@@ -217,7 +217,7 @@ export default function ParentList({ onSelectParent, onSelectInvite, onInvite }:
       {/* Active parents */}
       {sortedParents.length > 0 && (
         <div className="px-4 mt-3">
-          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">
             Active ({sortedParents.length})
           </p>
           <div className="space-y-2">
@@ -235,7 +235,7 @@ export default function ParentList({ onSelectParent, onSelectInvite, onInvite }:
       {/* Pending invitations */}
       {pendingInvites.length > 0 && (
         <div className="px-4 mt-4">
-          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">
             Pending Invitations ({pendingInvites.length})
           </p>
           <div className="space-y-2">
