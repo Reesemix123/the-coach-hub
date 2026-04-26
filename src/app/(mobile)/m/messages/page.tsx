@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { CommHubProvider, type Announcement, type ParentWithChildren } from './CommHubContext'
-import AnnouncementList from './announcements/AnnouncementList'
-import ComposeAnnouncement from './announcements/ComposeAnnouncement'
+import { type ConversationSummary } from './CommHubContext'
 import AnnouncementDetail from './announcements/AnnouncementDetail'
 import { useCommHub } from './CommHubContext'
 import CalendarList, { type TeamEvent } from './calendar/CalendarList'
@@ -12,6 +11,9 @@ import EventDetail from './calendar/EventDetail'
 import ParentList from './parents/ParentList'
 import InviteParentSheet from './parents/InviteParentSheet'
 import ParentDetail from './parents/ParentDetail'
+import MessageInbox from './messaging/MessageInbox'
+import ComposeSheet from './messaging/ComposeSheet'
+import ThreadView from './messaging/ThreadView'
 
 // ---------------------------------------------------------------------------
 // Sub-nav sections
@@ -33,20 +35,31 @@ function MessagesPageContent() {
   const [section, setSection] = useState<Section>('messages')
   const [showCompose, setShowCompose] = useState(false)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
+  const [selectedThread, setSelectedThread] = useState<ConversationSummary | null>(null)
   const [showNewEvent, setShowNewEvent] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<TeamEvent | null>(null)
   const [editingEvent, setEditingEvent] = useState<TeamEvent | null>(null)
   const [calendarKey, setCalendarKey] = useState(0)
   const [selectedParent, setSelectedParent] = useState<ParentWithChildren | null>(null)
   const [showInviteParent, setShowInviteParent] = useState(false)
-  const { refreshAnnouncements, refreshParents } = useCommHub()
+  const { refreshAnnouncements, refreshParents, refreshConversations } = useCommHub()
 
-  // If viewing announcement detail, render that instead of the list
+  // If viewing announcement detail, render that instead of the inbox
   if (selectedAnnouncement) {
     return (
       <AnnouncementDetail
         announcement={selectedAnnouncement}
         onBack={() => setSelectedAnnouncement(null)}
+      />
+    )
+  }
+
+  // If viewing a direct message thread, render that instead of the inbox
+  if (selectedThread && section === 'messages') {
+    return (
+      <ThreadView
+        conversation={selectedThread}
+        onBack={() => setSelectedThread(null)}
       />
     )
   }
@@ -107,10 +120,24 @@ function MessagesPageContent() {
 
       {/* Section content */}
       {section === 'messages' && (
-        <AnnouncementList
-          onSelectAnnouncement={setSelectedAnnouncement}
-          onCompose={() => setShowCompose(true)}
-        />
+        <>
+          <MessageInbox
+            onSelectAnnouncement={setSelectedAnnouncement}
+            onSelectThread={setSelectedThread}
+            onCompose={() => setShowCompose(true)}
+            isActive={section === 'messages'}
+          />
+          {showCompose && (
+            <ComposeSheet
+              onClose={() => setShowCompose(false)}
+              onSent={() => {
+                setShowCompose(false)
+                refreshAnnouncements()
+                refreshConversations()
+              }}
+            />
+          )}
+        </>
       )}
 
       {section === 'calendar' && (
@@ -143,17 +170,6 @@ function MessagesPageContent() {
             />
           )}
         </>
-      )}
-
-      {/* Compose sheet */}
-      {showCompose && (
-        <ComposeAnnouncement
-          onClose={() => setShowCompose(false)}
-          onSent={() => {
-            setShowCompose(false)
-            refreshAnnouncements()
-          }}
-        />
       )}
     </>
   )

@@ -68,6 +68,15 @@ const PARENT_LIMITS: Record<string, number | null> = {
   all_state: null, // unlimited
 }
 
+export interface ConversationSummary {
+  participantId: string
+  participantName: string
+  participantType: 'coach' | 'parent'
+  lastMessage: string
+  lastMessageAt: string
+  unreadCount: number
+}
+
 interface CommHubContextType {
   planTier: string | null
   isPaid: boolean
@@ -81,6 +90,11 @@ interface CommHubContextType {
   pendingInvites: PendingInvite[]
   parentsLoading: boolean
   refreshParents: () => void
+  conversations: ConversationSummary[]
+  conversationsLoading: boolean
+  refreshConversations: () => void
+  totalUnread: number
+  markConversationRead: (participantId: string) => void
   teamId: string | null
 }
 
@@ -97,6 +111,11 @@ const CommHubContext = createContext<CommHubContextType>({
   pendingInvites: [],
   parentsLoading: true,
   refreshParents: () => {},
+  conversations: [],
+  conversationsLoading: true,
+  refreshConversations: () => {},
+  totalUnread: 0,
+  markConversationRead: () => {},
   teamId: null,
 })
 
@@ -109,7 +128,7 @@ export const useCommHub = () => useContext(CommHubContext)
 const PAID_TIERS = new Set(['varsity', 'all_conference', 'all_state'])
 
 export function CommHubProvider({ children }: { children: ReactNode }) {
-  const { teamId } = useMobile()
+  const { teamId, setMessagesUnreadCount } = useMobile()
 
   const [planTier, setPlanTier] = useState<string | null>(null)
   const [planLoading, setPlanLoading] = useState(true)
@@ -119,6 +138,8 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
   const [parents, setParents] = useState<ParentWithChildren[]>([])
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [parentsLoading, setParentsLoading] = useState(true)
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [conversationsLoading, setConversationsLoading] = useState(true)
 
   // Fetch plan status
   useEffect(() => {
@@ -171,8 +192,40 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { refreshParents() }, [refreshParents])
 
+  // Fetch conversations (coach inbox)
+  const refreshConversations = useCallback(() => {
+    if (!teamId) return
+    setConversationsLoading(true)
+    fetch(`/api/communication/messages?teamId=${teamId}&view=inbox`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.conversations) {
+          setConversations(data.conversations)
+          const total = data.conversations.reduce((sum: number, c: ConversationSummary) => sum + c.unreadCount, 0)
+          setMessagesUnreadCount(total)
+        }
+        setConversationsLoading(false)
+      })
+      .catch(() => setConversationsLoading(false))
+  }, [teamId, setMessagesUnreadCount])
+
+  useEffect(() => { refreshConversations() }, [refreshConversations])
+
+  // Optimistic mark-as-read: immediately zero out a conversation's unread count
+  const markConversationRead = useCallback((participantId: string) => {
+    setConversations(prev => {
+      const updated = prev.map(c =>
+        c.participantId === participantId ? { ...c, unreadCount: 0 } : c
+      )
+      const total = updated.reduce((sum, c) => sum + c.unreadCount, 0)
+      setMessagesUnreadCount(total)
+      return updated
+    })
+  }, [setMessagesUnreadCount])
+
   const isPaid = PAID_TIERS.has(planTier ?? '')
   const parentLimit = PARENT_LIMITS[planTier ?? 'rookie'] ?? null
+  const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
 
   return (
     <CommHubContext.Provider value={{
@@ -188,6 +241,11 @@ export function CommHubProvider({ children }: { children: ReactNode }) {
       pendingInvites,
       parentsLoading,
       refreshParents,
+      conversations,
+      conversationsLoading,
+      refreshConversations,
+      totalUnread,
+      markConversationRead,
       teamId,
     }}>
       {children}
