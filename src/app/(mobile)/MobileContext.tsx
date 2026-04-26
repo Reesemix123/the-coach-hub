@@ -35,6 +35,8 @@ interface MobileContextType {
   consecutiveSyncFailures: number
   setConsecutiveSyncFailures: (n: number) => void
   refreshPlayers: () => void
+  messagesUnreadCount: number
+  setMessagesUnreadCount: (n: number) => void
 }
 
 const MobileContext = createContext<MobileContextType>({
@@ -52,6 +54,8 @@ const MobileContext = createContext<MobileContextType>({
   consecutiveSyncFailures: 0,
   setConsecutiveSyncFailures: () => {},
   refreshPlayers: () => {},
+  messagesUnreadCount: 0,
+  setMessagesUnreadCount: () => {},
 })
 
 export type { TeamInfo, MobileContextType }

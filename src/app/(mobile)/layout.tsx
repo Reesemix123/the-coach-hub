@@ -176,6 +176,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [lineupVersion, setLineupVersion] = useState(0)
   const bumpLineupVersion = useCallback(() => setLineupVersion(v => v + 1), [])
   const [consecutiveSyncFailures, setConsecutiveSyncFailures] = useState(0)
+  const [messagesUnreadCount, setMessagesUnreadCount] = useState(0)
 
   // Track original styles so we can restore on unmount
   const originalNavDisplay = useRef<string>('')
@@ -370,7 +371,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}
@@ -442,6 +443,11 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
                   <span className="text-[10px] font-medium leading-none">{label}</span>
                   {label === 'More' && consecutiveSyncFailures >= 5 && (
                     <span className="absolute top-1.5 right-[calc(50%-4px)] w-2 h-2 bg-amber-500 rounded-full" />
+                  )}
+                  {label === 'Messages' && messagesUnreadCount > 0 && (
+                    <span className="absolute top-1 right-[calc(50%-8px)] min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center px-1">
+                      <span className="text-[10px] font-bold text-white leading-none">{messagesUnreadCount > 9 ? '9+' : messagesUnreadCount}</span>
+                    </span>
                   )}
                 </Link>
               )
