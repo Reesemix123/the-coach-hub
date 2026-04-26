@@ -1532,6 +1532,23 @@ export interface PracticePlanWithDetails extends PracticePlan {
 }
 
 /**
+ * Database table: live_practice_sessions
+ * Real-time multi-coach timer sync for live practices
+ */
+export interface LivePracticeSession {
+  id: string;
+  practice_plan_id: string;
+  team_id: string;
+  current_period_index: number;
+  timer_started_at: string | null;
+  pause_remaining_seconds: number | null;
+  status: 'running' | 'paused' | 'completed';
+  started_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Helper type for creating new practice plans
  */
 export type NewPracticePlan = Omit<PracticePlan, 'id' | 'created_at' | 'updated_at'>;

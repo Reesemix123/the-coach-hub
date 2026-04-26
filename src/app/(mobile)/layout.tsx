@@ -14,20 +14,11 @@ const STORAGE_KEY = 'ych-mobile-active-team'
 // SVG Icon Components
 // ---------------------------------------------------------------------------
 
-function HomeIcon({ className }: { className?: string }) {
+function PracticeIcon({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" />
-      <path d="M9 21V12h6v9" />
-    </svg>
-  )
-}
-
-function PlaybookIcon({ className }: { className?: string }) {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M16 3H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2z" />
-      <path d="M10 3V1m4 2V1m-4 8h4m-4 4h2" />
+      <path d="M16 4H8a1 1 0 00-1 1v14a1 1 0 001 1h8a1 1 0 001-1V5a1 1 0 00-1-1z" />
+      <path d="M12 2v2M9 9h6M9 12h6M9 15h3" />
     </svg>
   )
 }
@@ -41,7 +32,15 @@ function SidelineIcon({ className }: { className?: string }) {
   )
 }
 
-function RosterIcon({ className }: { className?: string }) {
+function MessagesIcon({ className }: { className?: string }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+    </svg>
+  )
+}
+
+function TeamIcon({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
@@ -72,10 +71,10 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { label: 'Home',     href: '/m/home',     Icon: HomeIcon },
-  { label: 'Playbook', href: '/m/playbook', Icon: PlaybookIcon },
+  { label: 'Practice', href: '/m/practice', Icon: PracticeIcon },
   { label: 'Sideline', href: '/m/sideline', Icon: SidelineIcon },
-  { label: 'Roster',   href: '/m/roster',   Icon: RosterIcon },
+  { label: 'Messages', href: '/m/messages', Icon: MessagesIcon },
+  { label: 'Team',     href: '/m/team',     Icon: TeamIcon },
   { label: 'More',     href: '/m/more',     Icon: MoreIcon },
 ]
 
