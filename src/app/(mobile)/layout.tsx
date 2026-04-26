@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
 import { ThemeProvider } from './ThemeContext'
+import { SubscriptionProvider } from './SubscriptionContext'
 import './theme.css'
 import { getAllQueuedGameIds } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
@@ -377,6 +378,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   return (
     <ThemeProvider>
     <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
+    <SubscriptionProvider>
       {/* FOWT prevention: inline script sets data-theme before first paint */}
       <script dangerouslySetInnerHTML={{ __html: `
         (function(){
@@ -485,6 +487,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         )}
 
       </div>
+    </SubscriptionProvider>
     </MobileProvider>
     </ThemeProvider>
   )
