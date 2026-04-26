@@ -278,7 +278,7 @@ const THEME_LABELS: Record<string, string> = { light: 'Light', dark: 'Dark', sys
 
 export default function MobileMorePage() {
   const { teamId, players } = useMobile()
-  const { themePreference, setThemePreference } = useTheme()
+  const { theme, themePreference, setThemePreference } = useTheme()
   const [rulesSummary, setRulesSummary] = useState('Loading...')
   const [rulesCollapsed, setRulesCollapsed] = useState(false)
   const [comingSoonMsg, setComingSoonMsg] = useState<string | null>(null)
@@ -293,8 +293,28 @@ export default function MobileMorePage() {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       {/* Header */}
-      <div className="px-4 pt-12 pb-4">
+      <div className="px-4 pt-12 pb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">More</h1>
+        <div className="flex bg-[var(--bg-pill-inactive)] rounded-full p-0.5">
+          <button
+            type="button"
+            onClick={() => setThemePreference('light')}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              theme === 'light' ? 'bg-[var(--bg-pill-active)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-tertiary)]'
+            }`}
+          >
+            Light
+          </button>
+          <button
+            type="button"
+            onClick={() => setThemePreference('dark')}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+              theme === 'dark' ? 'bg-[var(--bg-pill-active)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-tertiary)]'
+            }`}
+          >
+            Dark
+          </button>
+        </div>
       </div>
 
       {/* Coming soon toast */}
