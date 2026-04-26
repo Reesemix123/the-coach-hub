@@ -67,8 +67,8 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/', '/about', '/contact', '/pricing']
   const isPublicRoute = publicRoutes.includes(url.pathname)
 
-  // Auth routes - allow access for everyone
-  const isAuthRoute = url.pathname.startsWith('/auth')
+  // Auth routes - allow access for everyone (desktop /auth/* and mobile /m/auth/*)
+  const isAuthRoute = url.pathname.startsWith('/auth') || url.pathname.startsWith('/m/auth')
 
   // API routes - allow access
   const isApiRoute = url.pathname.startsWith('/api')
@@ -81,7 +81,9 @@ export async function middleware(request: NextRequest) {
   // Protected routes require authentication
   if (!user && !isPublicRoute) {
     const redirectUrl = url.clone()
-    redirectUrl.pathname = '/auth/login'
+    // Mobile paths redirect to mobile auth page
+    const isMobilePath = url.pathname.startsWith('/m/') || url.pathname.startsWith('/p/')
+    redirectUrl.pathname = isMobilePath ? '/m/auth' : '/auth/login'
     redirectUrl.searchParams.set('redirectedFrom', url.pathname)
     return NextResponse.redirect(redirectUrl)
   }

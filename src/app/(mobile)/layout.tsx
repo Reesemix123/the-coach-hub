@@ -7,6 +7,8 @@ import { createClient } from '@/utils/supabase/client'
 import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
 import { ThemeProvider } from './ThemeContext'
 import { SubscriptionProvider } from './SubscriptionContext'
+import { RoleProvider } from './RoleContext'
+import { MobileAuthGuard } from './MobileAuthGuard'
 import './theme.css'
 import { getAllQueuedGameIds } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
@@ -377,6 +379,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
   return (
     <ThemeProvider>
+    <RoleProvider>
+    <MobileAuthGuard>
     <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
     <SubscriptionProvider>
       {/* FOWT prevention: inline script sets data-theme before first paint */}
@@ -394,8 +398,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
 
         {/* ------------------------------------------------------------------ */}
-        {/* Header                                                               */}
+        {/* Header (hidden on auth pages)                                        */}
         {/* ------------------------------------------------------------------ */}
+        {!pathname.startsWith('/m/auth') && !pathname.startsWith('/p') && (
         <header className="bg-[var(--bg-nav)] border-b border-[var(--border-primary)] shrink-0">
           {/* Safe-area top padding for iOS notch */}
           <div className="pt-[env(safe-area-inset-top)]" />
@@ -432,6 +437,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
           </div>
         </header>
+        )}
 
         {/* ------------------------------------------------------------------ */}
         {/* Content area                                                         */}
@@ -441,8 +447,9 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         </main>
 
         {/* ------------------------------------------------------------------ */}
-        {/* Bottom Tab Bar                                                       */}
+        {/* Bottom Tab Bar (hidden on auth pages)                                */}
         {/* ------------------------------------------------------------------ */}
+        {!pathname.startsWith('/m/auth') && !pathname.startsWith('/p') && (
         <nav className="bg-[var(--bg-nav)] border-t border-[var(--border-primary)] shrink-0">
           <div className="flex items-stretch">
             {TABS.map(({ label, href, Icon }) => {
@@ -473,6 +480,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           {/* Safe-area bottom padding for iOS home indicator */}
           <div className="pb-[env(safe-area-inset-bottom)]" />
         </nav>
+        )}
 
         {/* ------------------------------------------------------------------ */}
         {/* Team Switcher Bottom Sheet                                           */}
@@ -489,6 +497,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       </div>
     </SubscriptionProvider>
     </MobileProvider>
+    </MobileAuthGuard>
+    </RoleProvider>
     </ThemeProvider>
   )
 }

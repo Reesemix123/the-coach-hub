@@ -2,10 +2,11 @@
  * API: GET /api/mobile/subscription
  *
  * Consolidated endpoint for mobile SubscriptionContext.
- * Returns role, coach subscription, comm hub plan, and parent access in one call.
+ * Returns coach subscription, comm hub plan, and parent access in one call.
+ * Role detection is handled separately by /api/mobile/role + RoleContext.
  *
  * Query params:
- *   - teamId (required for coaches)
+ *   - teamId (required for coach subscription + comm plan)
  *   - athleteId (optional, for parent access check)
  */
 
@@ -38,21 +39,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const teamId = searchParams.get('teamId')
 
-  // --- Role detection ---
-  const { data: parentProfile } = await supabase
-    .from('parent_profiles')
-    .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  const role: 'coach' | 'parent' = parentProfile ? 'parent' : 'coach'
-
   // --- Coach subscription ---
   let coachTier: SubscriptionTier | null = null
   let coachStatus: SubscriptionStatus | null = null
   let billingWaived = false
 
-  if (role === 'coach' && teamId) {
+  if (teamId) {
     const { data: sub } = await supabase
       .from('subscriptions')
       .select('tier, status, billing_waived')
@@ -92,10 +84,15 @@ export async function GET(request: NextRequest) {
   let parentHasAccess = false
   let parentAccessSource: 'comm_hub' | 'self_subscribed' | 'none' | null = null
 
-  if (role === 'parent' && parentProfile) {
-    const athleteId = searchParams.get('athleteId')
+  const athleteId = searchParams.get('athleteId')
+  if (athleteId) {
+    const { data: parentProfile } = await supabase
+      .from('parent_profiles')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-    if (athleteId) {
+    if (parentProfile) {
       const serviceClient = createServiceClient()
 
       // Check self-subscribed first
@@ -134,13 +131,10 @@ export async function GET(request: NextRequest) {
           parentAccessSource = 'none'
         }
       }
-    } else {
-      parentAccessSource = null
     }
   }
 
   return NextResponse.json({
-    role,
     coachTier,
     coachStatus,
     billingWaived,

@@ -6,16 +6,13 @@ import type { PlanTier } from '@/types/communication'
 import type { Feature } from '@/lib/feature-access'
 import { canAccessFeature } from '@/lib/feature-access'
 import { useMobile } from './MobileContext'
+import { useRole } from './RoleContext'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 interface SubscriptionContextValue {
-  // Role
-  role: 'coach' | 'parent' | null
-  roleLoading: boolean
-
   // Coach subscription
   coachTier: SubscriptionTier | null
   coachStatus: SubscriptionStatus | null
@@ -35,8 +32,6 @@ interface SubscriptionContextValue {
 }
 
 const defaults: SubscriptionContextValue = {
-  role: null,
-  roleLoading: true,
   coachTier: null,
   coachStatus: null,
   billingWaived: false,
@@ -61,8 +56,8 @@ interface SubscriptionProviderProps {
 
 export function SubscriptionProvider({ children, athleteId }: SubscriptionProviderProps) {
   const { teamId } = useMobile()
+  const { activeRole } = useRole()
 
-  const [role, setRole] = useState<'coach' | 'parent' | null>(null)
   const [coachTier, setCoachTier] = useState<SubscriptionTier | null>(null)
   const [coachStatus, setCoachStatus] = useState<SubscriptionStatus | null>(null)
   const [billingWaived, setBillingWaived] = useState(false)
@@ -82,7 +77,6 @@ export function SubscriptionProvider({ children, athleteId }: SubscriptionProvid
       if (!res.ok) throw new Error('Failed to fetch subscription')
 
       const data = await res.json()
-      setRole(data.role)
       setCoachTier(data.coachTier)
       setCoachStatus(data.coachStatus)
       setBillingWaived(data.billingWaived)
@@ -96,7 +90,8 @@ export function SubscriptionProvider({ children, athleteId }: SubscriptionProvid
     }
   }, [teamId, athleteId])
 
-  useEffect(() => { fetchSubscription() }, [fetchSubscription])
+  // Re-fetch when teamId or activeRole changes
+  useEffect(() => { fetchSubscription() }, [fetchSubscription, activeRole])
 
   const canAccessFn = useCallback(
     (feature: Feature): boolean => {
@@ -113,8 +108,6 @@ export function SubscriptionProvider({ children, athleteId }: SubscriptionProvid
   return (
     <SubscriptionContext.Provider
       value={{
-        role,
-        roleLoading: loading,
         coachTier,
         coachStatus,
         billingWaived,

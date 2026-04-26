@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
+import { useRole } from '@/app/(mobile)/RoleContext'
 import { getQueue, getPendingCount, getAllQueuedGameIds, isOnline } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
 import CollapsibleSection from './components/CollapsibleSection'
@@ -278,6 +279,7 @@ const THEME_LABELS: Record<string, string> = { light: 'Light', dark: 'Dark', sys
 
 export default function MobileMorePage() {
   const { teamId, players } = useMobile()
+  const { isDualRole, setActiveRole, parentAthletes } = useRole()
   const { theme, themePreference, setThemePreference } = useTheme()
   const [rulesSummary, setRulesSummary] = useState('Loading...')
   const [rulesCollapsed, setRulesCollapsed] = useState(false)
@@ -333,6 +335,36 @@ export default function MobileMorePage() {
           <NavRow label="Team Settings" subtitle="Name, level, colors" href={teamId ? `/football/teams/${teamId}/settings` : undefined} />
         </div>
       </div>
+
+      {/* PERSONA SWITCHER (dual-role only) */}
+      {isDualRole && (
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => { setActiveRole('parent'); window.location.href = '/p' }}
+            className="w-full bg-[var(--bg-card)] rounded-xl mx-4 p-4 active:bg-[var(--bg-card-alt)] transition-colors text-left flex items-center gap-3"
+            style={{ width: 'calc(100% - 2rem)' }}
+          >
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-pill-inactive)] flex items-center justify-center flex-shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)]">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Switch to Parent View</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate">
+                {parentAthletes.length > 0
+                  ? parentAthletes.map(a => `${a.name} · ${a.teamName}`).join(', ')
+                  : 'View your athlete\'s team'}
+              </p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] flex-shrink-0">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* GAME RULES (collapsible) */}
       <div className="mt-5">
