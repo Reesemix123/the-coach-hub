@@ -8,11 +8,12 @@ import { useSearchParams } from 'next/navigation'
 // ---------------------------------------------------------------------------
 
 interface ParentTeam { id: string; name: string }
-interface ParentAthlete { id: string; name: string; teamId: string; teamName: string }
+interface ParentAthlete { id: string; name: string; teamId: string; teamName: string; athleteProfileId: string | null }
 
 interface ParentContextValue {
   currentTeamId: string | null
   currentAthleteId: string | null
+  currentAthleteProfileId: string | null
   setCurrentTeamId: (id: string) => void
   setCurrentAthleteId: (id: string) => void
   teams: ParentTeam[]
@@ -28,7 +29,7 @@ const TEAM_KEY = 'ych-parent-team'
 const ATHLETE_KEY = 'ych-parent-athlete'
 
 const defaults: ParentContextValue = {
-  currentTeamId: null, currentAthleteId: null,
+  currentTeamId: null, currentAthleteId: null, currentAthleteProfileId: null,
   setCurrentTeamId: () => {}, setCurrentAthleteId: () => {},
   teams: [], athletes: [],
   currentTeam: null, currentAthlete: null,
@@ -87,6 +88,7 @@ export function ParentProvider({ children }: { children: ReactNode }) {
         // Deep-link priority: URL params → localStorage → defaults
         const urlTeam = searchParams.get('teamId')
         const urlAthlete = searchParams.get('athleteId')
+        const urlAthleteProfile = searchParams.get('athleteProfileId')
         const storedTeam = localStorage.getItem(TEAM_KEY)
         const storedAthlete = localStorage.getItem(ATHLETE_KEY)
 
@@ -104,14 +106,19 @@ export function ParentProvider({ children }: { children: ReactNode }) {
           try { localStorage.setItem(TEAM_KEY, teamId) } catch {}
         }
 
-        // Resolve athleteId
+        // Resolve athleteId — explicit athleteId wins, then athleteProfileId alias, then stored, then first
         let athleteId: string | null = null
         const teamAthletes = data.athletes.filter((a: ParentAthlete) => a.teamId === teamId)
         if (urlAthlete && teamAthletes.some((a: ParentAthlete) => a.id === urlAthlete)) {
           athleteId = urlAthlete
-        } else if (storedAthlete && teamAthletes.some((a: ParentAthlete) => a.id === storedAthlete)) {
+        } else if (urlAthleteProfile) {
+          const match = teamAthletes.find((a: ParentAthlete) => a.athleteProfileId === urlAthleteProfile)
+          if (match) athleteId = match.id
+        }
+        if (!athleteId && storedAthlete && teamAthletes.some((a: ParentAthlete) => a.id === storedAthlete)) {
           athleteId = storedAthlete
-        } else if (teamAthletes.length > 0) {
+        }
+        if (!athleteId && teamAthletes.length > 0) {
           athleteId = teamAthletes[0].id
         }
         if (athleteId) {
@@ -146,10 +153,11 @@ export function ParentProvider({ children }: { children: ReactNode }) {
 
   const currentTeam = teams.find(t => t.id === currentTeamId) ?? null
   const currentAthlete = athletes.find(a => a.id === currentAthleteId) ?? null
+  const currentAthleteProfileId = currentAthlete?.athleteProfileId ?? null
 
   return (
     <ParentContext.Provider value={{
-      currentTeamId, currentAthleteId,
+      currentTeamId, currentAthleteId, currentAthleteProfileId,
       setCurrentTeamId, setCurrentAthleteId,
       teams, athletes, currentTeam, currentAthlete,
       parentName, loading, unreadCount,

@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, createServiceClient } from '@/utils/supabase/server'
 
 export async function GET() {
   const supabase = await createClient()
@@ -50,7 +50,7 @@ export async function GET() {
     .select('player_id, players(id, first_name, last_name, team_id, teams(id, name))')
     .eq('parent_id', parentProfile.id)
 
-  const athletes: { id: string; name: string; teamId: string; teamName: string }[] = []
+  const athletes: { id: string; name: string; teamId: string; teamName: string; athleteProfileId: string | null }[] = []
   if (links) {
     for (const link of links) {
       const p = link.players as unknown as {
@@ -66,8 +66,33 @@ export async function GET() {
           name: `${p.first_name} ${p.last_name}`.trim(),
           teamId: p.team_id,
           teamName: p.teams?.name ?? '',
+          athleteProfileId: null,
         })
       }
+    }
+  }
+
+  // Resolve athleteProfileId for each roster player via athlete_seasons.
+  // Uses service client because athlete_seasons RLS is coach/owner-scoped;
+  // the parent has already proven access via player_parent_links above.
+  if (athletes.length > 0) {
+    const rosterIds = athletes.map((a) => a.id)
+    const serviceClient = createServiceClient()
+    const { data: seasons } = await serviceClient
+      .from('athlete_seasons')
+      .select('roster_id, athlete_profile_id, season_year')
+      .in('roster_id', rosterIds)
+      .order('season_year', { ascending: false })
+
+    const profileByRosterId = new Map<string, string>()
+    for (const s of seasons ?? []) {
+      if (!profileByRosterId.has(s.roster_id)) {
+        profileByRosterId.set(s.roster_id, s.athlete_profile_id)
+      }
+    }
+
+    for (const a of athletes) {
+      a.athleteProfileId = profileByRosterId.get(a.id) ?? null
     }
   }
 
