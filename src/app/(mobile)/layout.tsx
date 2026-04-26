@@ -314,7 +314,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, [])
 
   // Fetch players for active team (async, non-blocking)
-  useEffect(() => {
+  const fetchPlayers = useCallback(() => {
     if (!teamId) {
       setPlayers([])
       setPlayersLoading(false)
@@ -336,6 +336,8 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
       })
   }, [teamId])
 
+  useEffect(() => { fetchPlayers() }, [fetchPlayers])
+
   // Orphan auto-sync: scan for unsynced queues from previous sessions
   useEffect(() => {
     const orphaned = getAllQueuedGameIds()
@@ -356,7 +358,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers }}>
       <div className="flex flex-col h-screen bg-[#f2f2f7]">
 
         {/* ------------------------------------------------------------------ */}

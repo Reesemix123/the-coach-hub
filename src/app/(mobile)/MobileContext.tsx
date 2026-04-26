@@ -34,6 +34,7 @@ interface MobileContextType {
   bumpLineupVersion: () => void
   consecutiveSyncFailures: number
   setConsecutiveSyncFailures: (n: number) => void
+  refreshPlayers: () => void
 }
 
 const MobileContext = createContext<MobileContextType>({
@@ -50,6 +51,7 @@ const MobileContext = createContext<MobileContextType>({
   bumpLineupVersion: () => {},
   consecutiveSyncFailures: 0,
   setConsecutiveSyncFailures: () => {},
+  refreshPlayers: () => {},
 })
 
 export type { TeamInfo, MobileContextType }
