@@ -93,14 +93,14 @@ function MessageBubble({ message, isCoach }: { message: DirectMessage; isCoach: 
             className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
               isCoach
                 ? 'bg-gray-900 text-white rounded-br-sm'
-                : 'bg-white text-gray-900 shadow-sm rounded-bl-sm'
+                : 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm rounded-bl-sm'
             }`}
           >
             {message.body}
           </div>
         )}
         <p
-          className={`text-[10px] text-gray-400 mt-1 ${
+          className={`text-[10px] text-[var(--text-tertiary)] mt-1 ${
             isCoach ? 'text-right' : 'text-left'
           }`}
         >
@@ -206,13 +206,13 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="flex flex-col h-screen bg-[#f2f2f7]">
+    <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 flex items-center gap-3">
+      <div className="bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 pt-[calc(env(safe-area-inset-top)+12px)] pb-3 flex items-center gap-3">
         <button
           type="button"
           onClick={onBack}
-          className="text-gray-500 active:text-gray-700 transition-colors -ml-1"
+          className="text-[var(--text-secondary)] active:text-[var(--text-primary)] transition-colors -ml-1"
           aria-label="Back"
         >
           <svg
@@ -229,8 +229,8 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
 
         {/* Avatar + name */}
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-            <span className="text-xs font-semibold text-gray-600">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
+            <span className="text-xs font-semibold text-[var(--text-secondary)]">
               {conversation.participantName
                 .split(' ')
                 .map(w => w[0])
@@ -240,10 +240,10 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
             </span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">
+            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
               {conversation.participantName}
             </p>
-            <p className="text-[10px] text-gray-400">Parent</p>
+            <p className="text-[10px] text-[var(--text-tertiary)]">Parent</p>
           </div>
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
                 className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className="h-10 bg-gray-200 rounded-2xl animate-pulse"
+                  className="h-10 bg-[var(--bg-pill-inactive)] rounded-2xl animate-pulse"
                   style={{ width: `${40 + (i * 17) % 40}%` }}
                 />
               </div>
@@ -274,11 +274,11 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
               fill="none"
               stroke="currentColor"
               strokeWidth="1.5"
-              className="text-gray-300"
+              className="text-[var(--text-tertiary)]"
             >
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
-            <p className="text-sm text-gray-400">No messages yet. Send the first one.</p>
+            <p className="text-sm text-[var(--text-tertiary)]">No messages yet. Send the first one.</p>
           </div>
         ) : (
           messages.map((msg, idx) => {
@@ -289,7 +289,7 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
             return (
               <div key={msg.id}>
                 {showTimestamp && (
-                  <p className="text-[10px] text-gray-400 text-center my-2">
+                  <p className="text-[10px] text-[var(--text-tertiary)] text-center my-2">
                     {formatGroupTimestamp(msg.created_at)}
                   </p>
                 )}
@@ -301,7 +301,7 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
       </div>
 
       {/* Reply input */}
-      <div className="bg-white border-t border-gray-100 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+      <div className="bg-[var(--bg-card)] border-t border-[var(--border-primary)] px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         {sendError && (
           <p className="text-[11px] text-red-500 mb-2">{sendError}</p>
         )}
@@ -313,14 +313,14 @@ export default function ThreadView({ conversation, onBack }: ThreadViewProps) {
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Message..."
-            className="flex-1 bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none resize-none max-h-28 leading-relaxed"
+            className="flex-1 bg-[var(--bg-card-alt)] rounded-2xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-gray-400 focus:outline-none resize-none max-h-28 leading-relaxed"
             style={{ overflowY: reply.includes('\n') ? 'auto' : 'hidden' }}
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={!reply.trim() || sending}
-            className="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center shrink-0 disabled:bg-gray-200 active:bg-gray-700 transition-colors"
+            className="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center shrink-0 disabled:bg-[var(--bg-pill-inactive)] active:bg-gray-700 transition-colors"
             aria-label="Send message"
           >
             <svg

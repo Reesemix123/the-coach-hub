@@ -187,20 +187,20 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[92vh] overflow-y-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[92vh] overflow-y-auto">
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
 
         <div className="px-5 pb-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">New Message</h3>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">New Message</h3>
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 active:text-gray-600"
+              className="text-[var(--text-tertiary)] active:text-[var(--text-secondary)]"
               aria-label="Close"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -211,19 +211,19 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
 
           {/* To: targeting */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">To</label>
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">To</label>
 
             {/* If individual selected: show chip with X */}
             {isDM && selectedParent ? (
               <div className="mt-1.5 flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-gray-100 rounded-full px-3 py-1.5">
-                  <span className="text-sm font-medium text-gray-900">
+                <div className="flex items-center gap-2 bg-[var(--bg-card-alt)] rounded-full px-3 py-1.5">
+                  <span className="text-sm font-medium text-[var(--text-primary)]">
                     {selectedParent.parent.first_name} {selectedParent.parent.last_name}
                   </span>
                   <button
                     type="button"
                     onClick={clearIndividual}
-                    className="text-gray-400 active:text-gray-600"
+                    className="text-[var(--text-tertiary)] active:text-[var(--text-secondary)]"
                     aria-label="Remove recipient"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -241,7 +241,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                     recipientMode === 'all'
                       ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                      : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                   }`}
                 >
                   All Parents
@@ -256,7 +256,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       recipientMode === 'group' && positionGroup === g.value
                         ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                        : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                     }`}
                   >
                     {g.label}
@@ -267,7 +267,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                 <button
                   type="button"
                   onClick={() => setShowParentPicker(prev => !prev)}
-                  className="rounded-full px-3 py-1.5 text-xs font-semibold bg-gray-100 text-gray-600 active:bg-gray-200 transition-colors"
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)] transition-colors"
                 >
                   Choose Parent
                 </button>
@@ -276,7 +276,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
 
             {/* Inline parent picker */}
             {showParentPicker && !isDM && (
-              <div className="mt-3 border border-gray-200 rounded-xl overflow-hidden">
+              <div className="mt-3 border border-[var(--border-primary)] rounded-xl overflow-hidden">
                 <ParentSelector
                   mode="single"
                   selected={selectedParentIds}
@@ -291,24 +291,24 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
             <>
               {/* Title */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Title
                 </label>
                 <input
                   type="text"
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                   placeholder="Announcement title"
                 />
               </div>
 
               {/* Priority */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Priority
                 </label>
-                <div className="flex bg-gray-100 rounded-lg p-0.5 mt-1">
+                <div className="flex bg-[var(--bg-card-alt)] rounded-lg p-0.5 mt-1">
                   {PRIORITIES.map(p => (
                     <button
                       key={p}
@@ -316,8 +316,8 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                       onClick={() => setPriority(p)}
                       className={`flex-1 py-2 text-xs font-semibold rounded-md capitalize transition-colors ${
                         priority === p
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500'
+                          ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
+                          : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {p}
@@ -328,7 +328,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
 
               {/* Channel */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
                   Send via
                 </label>
                 <div className="flex flex-wrap gap-2 mt-1">
@@ -344,20 +344,20 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                           channel === ch.value
                             ? 'bg-gray-900 text-white'
                             : disabled
-                              ? 'bg-gray-100 text-gray-300'
-                              : 'bg-gray-100 text-gray-600 active:bg-gray-200'
+                              ? 'bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]'
+                              : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                         }`}
                       >
                         {ch.label}
                         {disabled && (
-                          <span className="ml-1 text-[10px] text-gray-400">Upgrade</span>
+                          <span className="ml-1 text-[10px] text-[var(--text-tertiary)]">Upgrade</span>
                         )}
                       </button>
                     )
                   })}
                 </div>
                 {(channel === 'sms' || channel === 'email_sms') && (
-                  <p className="text-[10px] text-gray-400 mt-1">
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
                     SMS requires parent consent. Only consented parents will receive.
                   </p>
                 )}
@@ -367,14 +367,14 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
 
           {/* Message body */}
           <div className="mb-6">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
               {isDM ? 'Message' : 'Body'}
             </label>
             <textarea
               value={body}
               onChange={e => setBody(e.target.value)}
               rows={4}
-              className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+              className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
               placeholder={
                 isDM
                   ? 'Write a message...'
@@ -390,7 +390,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
             type="button"
             onClick={handleSend}
             disabled={!canSend}
-            className="w-full bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-sm font-bold active:bg-[#a8b85e] transition-colors disabled:bg-gray-200 disabled:text-gray-400"
+            className="w-full bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-sm font-bold active:bg-[#a8b85e] transition-colors disabled:bg-[var(--bg-pill-inactive)] disabled:text-[var(--text-tertiary)]"
           >
             {sending
               ? 'Sending...'

@@ -174,34 +174,34 @@ export default function PlayerEditSheet({
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
         <div className="px-5 pb-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">
             {isEdit ? 'Edit Player' : 'Add Player'}
           </h3>
 
           {/* Name */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">First Name</label>
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">First Name</label>
               <input
                 type="text"
                 value={firstName}
                 onChange={e => setFirstName(e.target.value)}
-                className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                 placeholder="First"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Last Name</label>
+              <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Last Name</label>
               <input
                 type="text"
                 value={lastName}
                 onChange={e => setLastName(e.target.value)}
-                className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                 placeholder="Last"
               />
             </div>
@@ -209,12 +209,12 @@ export default function PlayerEditSheet({
 
           {/* Jersey */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Jersey Number</label>
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Jersey Number</label>
             <input
               type="text"
               value={jersey}
               onChange={e => setJersey(e.target.value.replace(/\D/g, '').slice(0, 3))}
-              className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               placeholder="#"
               inputMode="numeric"
               maxLength={3}
@@ -224,12 +224,12 @@ export default function PlayerEditSheet({
           {/* Position Chip Grid */}
           {/* // TODO: MULTI-SPORT — other sports have different position sets */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
               Positions
             </label>
             {POSITION_OPTIONS.map(({ group, positions: posCodes }) => (
               <div key={group} className="mb-3">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{group}</p>
+                <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5">{group}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {posCodes.map(pos => {
                     const isActive = positions[pos] !== undefined
@@ -247,7 +247,7 @@ export default function PlayerEditSheet({
                         className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
                           isActive
                             ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                            : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+                            : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                         } ${isHighlighted ? 'ring-2 ring-gray-900' : ''}`}
                       >
                         {pos}{isActive ? ` ${getDepthLabel(depth)}` : ''}
@@ -258,8 +258,8 @@ export default function PlayerEditSheet({
 
                 {/* Inline controls for active chip in this group */}
                 {activeChip && posCodes.includes(activeChip) && positions[activeChip] !== undefined && (
-                  <div className="mt-2 bg-gray-50 rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-gray-500">Depth:</span>
+                  <div className="mt-2 bg-[var(--bg-card-alt)] rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-[var(--text-secondary)]">Depth:</span>
                     {[1, 2, 3, 4].map(d => (
                       <button
                         key={d}
@@ -268,7 +268,7 @@ export default function PlayerEditSheet({
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold min-w-[40px] transition-colors ${
                           positions[activeChip] === d
                             ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                            : 'bg-white border border-gray-200 text-gray-600 active:bg-gray-100'
+                            : 'bg-[var(--bg-card)] border border-[var(--border-primary)] text-[var(--text-secondary)] active:bg-[var(--bg-card-alt)]'
                         }`}
                       >
                         {getDepthLabel(d)}
@@ -303,7 +303,7 @@ export default function PlayerEditSheet({
                       <button
                         type="button"
                         onClick={() => { setConflict(null); setPendingSwap(null) }}
-                        className="bg-white border border-gray-200 text-gray-600 rounded-lg px-3 py-1 text-xs font-semibold"
+                        className="bg-[var(--bg-card)] border border-[var(--border-primary)] text-[var(--text-secondary)] rounded-lg px-3 py-1 text-xs font-semibold"
                       >
                         Cancel
                       </button>
@@ -320,11 +320,11 @@ export default function PlayerEditSheet({
 
           {/* Grade */}
           <div className="mb-6">
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Grade / Year</label>
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Grade / Year</label>
             <select
               value={gradeLevel ?? ''}
               onChange={e => setGradeLevel(e.target.value)}
-              className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+              className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-[var(--bg-card)]"
             >
               <option value="">Optional</option>
               {['5th', '6th', '7th', '8th', 'Freshman', 'Sophomore', 'Junior', 'Senior'].map(g => (
@@ -367,7 +367,7 @@ export default function PlayerEditSheet({
                 <button
                   type="button"
                   onClick={() => setShowRemoveConfirm(false)}
-                  className="flex-1 bg-white border border-gray-200 rounded-xl py-2 text-sm font-medium text-gray-700"
+                  className="flex-1 bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-xl py-2 text-sm font-medium text-[var(--text-primary)]"
                 >
                   Cancel
                 </button>

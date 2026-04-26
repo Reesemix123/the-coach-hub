@@ -6,11 +6,11 @@
 
 export function SkeletonRow() {
   return (
-    <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 animate-pulse min-h-[56px]">
-      <div className="w-10 h-10 rounded-full bg-gray-100 flex-shrink-0" />
+    <div className="bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 py-3 flex items-center gap-3 animate-pulse min-h-[56px]">
+      <div className="w-10 h-10 rounded-full bg-[var(--bg-card-alt)] flex-shrink-0" />
       <div className="flex-1">
-        <div className="h-4 bg-gray-100 rounded w-32 mb-2" />
-        <div className="h-3 bg-gray-100 rounded w-16" />
+        <div className="h-4 bg-[var(--bg-card-alt)] rounded w-32 mb-2" />
+        <div className="h-3 bg-[var(--bg-card-alt)] rounded w-16" />
       </div>
     </div>
   )
@@ -21,7 +21,7 @@ export function UsersEmptyIcon() {
     <svg
       width="40" height="40" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
-      strokeLinejoin="round" className="text-gray-300"
+      strokeLinejoin="round" className="text-[var(--text-tertiary)]"
     >
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
       <circle cx="9" cy="7" r="4" />
@@ -36,7 +36,7 @@ export function ChevronIcon({ expanded }: { expanded: boolean }) {
       width="16" height="16" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2" strokeLinecap="round"
       strokeLinejoin="round"
-      className={`text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+      className={`text-[var(--text-tertiary)] transition-transform ${expanded ? 'rotate-180' : ''}`}
     >
       <polyline points="6 9 12 15 18 9" />
     </svg>

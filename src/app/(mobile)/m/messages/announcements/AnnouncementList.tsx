@@ -49,7 +49,7 @@ function AnnouncementCard({
     <button
       type="button"
       onClick={onTap}
-      className="w-full bg-white rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
+      className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
     >
       <div className="flex items-start gap-2">
         {/* Priority dot */}
@@ -61,26 +61,26 @@ function AnnouncementCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">{announcement.title}</p>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{announcement.body}</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{announcement.title}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-2">{announcement.body}</p>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] text-gray-400">{relativeTime(announcement.created_at)}</span>
+            <span className="text-[10px] text-[var(--text-tertiary)]">{relativeTime(announcement.created_at)}</span>
             {ch && (
               <>
-                <span className="text-gray-300 text-[10px]">·</span>
-                <span className="text-[10px] text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{ch}</span>
+                <span className="text-[var(--text-tertiary)] text-[10px]">·</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-card-alt)] rounded-full px-1.5 py-0.5">{ch}</span>
               </>
             )}
             {announcement.target_position_group && (
               <>
-                <span className="text-gray-300 text-[10px]">·</span>
-                <span className="text-[10px] text-gray-400 capitalize">{announcement.target_position_group}</span>
+                <span className="text-[var(--text-tertiary)] text-[10px]">·</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] capitalize">{announcement.target_position_group}</span>
               </>
             )}
           </div>
         </div>
 
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300 shrink-0 mt-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] shrink-0 mt-1">
           <path d="M9 18l6-6-6-6" />
         </svg>
       </div>
@@ -104,10 +104,10 @@ export default function AnnouncementList({ onSelectAnnouncement, onCompose }: An
     return (
       <div className="px-4 space-y-3 mt-3">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white rounded-xl px-4 py-4 animate-pulse shadow-sm">
-            <div className="h-4 bg-gray-100 rounded w-2/3 mb-2" />
-            <div className="h-3 bg-gray-100 rounded w-full mb-1" />
-            <div className="h-3 bg-gray-100 rounded w-1/2" />
+          <div key={i} className="bg-[var(--bg-card)] rounded-xl px-4 py-4 animate-pulse shadow-sm">
+            <div className="h-4 bg-[var(--bg-card-alt)] rounded w-2/3 mb-2" />
+            <div className="h-3 bg-[var(--bg-card-alt)] rounded w-full mb-1" />
+            <div className="h-3 bg-[var(--bg-card-alt)] rounded w-1/2" />
           </div>
         ))}
       </div>
@@ -118,13 +118,13 @@ export default function AnnouncementList({ onSelectAnnouncement, onCompose }: An
   if (parentCount === 0 && announcements.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 gap-3">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
           <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
           <circle cx="10" cy="7" r="4" />
           <path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
         </svg>
-        <p className="text-sm font-medium text-gray-500 text-center">Invite parents to start communicating</p>
-        <p className="text-xs text-gray-400 text-center">Parents can be invited from the desktop app</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)] text-center">Invite parents to start communicating</p>
+        <p className="text-xs text-[var(--text-tertiary)] text-center">Parents can be invited from the desktop app</p>
       </div>
     )
   }
@@ -133,11 +133,11 @@ export default function AnnouncementList({ onSelectAnnouncement, onCompose }: An
   if (announcements.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 gap-3">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
         </svg>
-        <p className="text-sm font-medium text-gray-500 text-center">No announcements yet</p>
-        <p className="text-xs text-gray-400 text-center">Send your first one to connect with parents</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No announcements yet</p>
+        <p className="text-xs text-[var(--text-tertiary)] text-center">Send your first one to connect with parents</p>
         <button
           type="button"
           onClick={onCompose}

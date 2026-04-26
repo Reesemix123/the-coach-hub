@@ -102,14 +102,14 @@ function TeamSheet({ teams, activeTeamId, onSelect, onClose }: TeamSheetProps) {
         onClick={onClose}
       />
       {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
         </div>
 
         {/* Title */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-5 pb-2">
+        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-5 pb-2">
           Switch Team
         </p>
 
@@ -122,13 +122,13 @@ function TeamSheet({ teams, activeTeamId, onSelect, onClose }: TeamSheetProps) {
                 key={team.id}
                 type="button"
                 onClick={() => onSelect(team.id)}
-                className="w-full flex items-center justify-between px-5 py-3.5 min-h-[56px] active:bg-gray-50 transition-colors"
+                className="w-full flex items-center justify-between px-5 py-3.5 min-h-[56px] active:bg-[var(--bg-card-alt)] transition-colors"
               >
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-base font-medium text-gray-900 truncate">
+                  <p className="text-base font-medium text-[var(--text-primary)] truncate">
                     {team.name}
                   </p>
-                  <span className="inline-block mt-0.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                  <span className="inline-block mt-0.5 rounded-full bg-[var(--bg-card-alt)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
                     {team.level}
                   </span>
                 </div>
@@ -143,17 +143,17 @@ function TeamSheet({ teams, activeTeamId, onSelect, onClose }: TeamSheetProps) {
         </div>
 
         {/* Divider + Account Settings */}
-        <div className="border-t border-gray-200 mx-5" />
+        <div className="border-t border-[var(--border-primary)] mx-5" />
         <Link
           href="/m/more"
           onClick={onClose}
-          className="flex items-center gap-3 px-5 py-4 min-h-[56px] active:bg-gray-50 transition-colors"
+          className="flex items-center gap-3 px-5 py-4 min-h-[56px] active:bg-[var(--bg-card-alt)] transition-colors"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
           </svg>
-          <span className="text-base font-medium text-gray-700">Account Settings</span>
+          <span className="text-base font-medium text-[var(--text-primary)]">Account Settings</span>
         </Link>
       </div>
     </>
@@ -401,7 +401,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
           <div className="flex items-center justify-between px-4 h-14">
 
             {/* Left: Logo / AI Assistant button */}
-            <button className="relative w-9 h-9 bg-[#1c1c1e] rounded-full flex items-center justify-center flex-shrink-0">
+            <button className="relative w-9 h-9 bg-[var(--bg-primary)] rounded-full flex items-center justify-center flex-shrink-0">
               <img src="/logo-darkmode.png" className="w-5 h-5 object-contain" alt="AI Assistant" />
               <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#B8CA6E] rounded-full flex items-center justify-center">
                 <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#1c1c1e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>
@@ -453,7 +453,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
                   href={href}
                   className={[
                     'relative flex flex-col items-center justify-center flex-1 min-h-[49px] gap-0.5 transition-colors',
-                    isActive ? 'text-[#B8CA6E]' : 'text-gray-400',
+                    isActive ? 'text-[#B8CA6E]' : 'text-[var(--text-tertiary)]',
                   ].join(' ')}
                 >
                   <Icon />

@@ -52,7 +52,7 @@ export default function MobileRosterPage() {
   // Active game → GameLineupView
   if (activeGameId && teamId) {
     return (
-      <div className="min-h-screen bg-[#f2f2f7] pb-8">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
         <GameLineupView
           activeGameId={activeGameId}
           teamId={teamId}
@@ -65,14 +65,14 @@ export default function MobileRosterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       {/* Header */}
       <div className="px-4 pt-12 pb-2 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Roster</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Roster</h1>
         <button
           type="button"
           onClick={() => handleAddPlayer()}
-          className="flex items-center gap-1 text-sm font-semibold text-gray-900 active:text-gray-500 transition-colors"
+          className="flex items-center gap-1 text-sm font-semibold text-[var(--text-primary)] active:text-[var(--text-secondary)] transition-colors"
         >
           <svg
             width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -87,14 +87,14 @@ export default function MobileRosterPage() {
 
       {/* Segmented Control */}
       <div className="px-4 pb-3">
-        <div className="flex bg-gray-200 rounded-lg p-0.5">
+        <div className="flex bg-[var(--bg-pill-inactive)] rounded-lg p-0.5">
           {(['roster', 'depth'] as const).map(mode => (
             <button
               key={mode}
               type="button"
               onClick={() => handleViewModeChange(mode)}
               className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${
-                viewMode === mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                viewMode === mode ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)]'
               }`}
             >
               {mode === 'roster' ? 'Roster' : 'Depth Chart'}

@@ -49,14 +49,14 @@ function ParentRow({
     <button
       type="button"
       onClick={onToggle}
-      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-gray-50 ${
+      className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-[var(--bg-card-alt)] ${
         isSelected ? 'bg-[#B8CA6E]/5' : ''
       }`}
     >
       {/* Selection indicator */}
       {mode === 'multi' ? (
         <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-colors ${
-          isSelected ? 'bg-gray-900 border-gray-900' : 'border-gray-300 bg-white'
+          isSelected ? 'bg-gray-900 border-gray-900' : 'border-[var(--border-secondary)] bg-[var(--bg-card)]'
         }`}>
           {isSelected && (
             <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2">
@@ -66,7 +66,7 @@ function ParentRow({
         </div>
       ) : (
         <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-colors ${
-          isSelected ? 'border-gray-900' : 'border-gray-300'
+          isSelected ? 'border-gray-900' : 'border-[var(--border-secondary)]'
         }`}>
           {isSelected && (
             <div className="w-3 h-3 rounded-full bg-gray-900" />
@@ -75,8 +75,8 @@ function ParentRow({
       )}
 
       {/* Avatar */}
-      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-        <span className="text-xs font-semibold text-gray-600">
+      <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
+        <span className="text-xs font-semibold text-[var(--text-secondary)]">
           {parent.first_name[0]}{parent.last_name[0]}
         </span>
       </div>
@@ -84,13 +84,13 @@ function ParentRow({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
-          <p className="text-sm font-medium text-gray-900 truncate">{fullName}</p>
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{fullName}</p>
           {parent.is_champion && (
             <span className="text-amber-500 text-xs" title="Team Champion">★</span>
           )}
         </div>
         {athleteNames && (
-          <p className="text-xs text-gray-400 truncate">{athleteNames}</p>
+          <p className="text-xs text-[var(--text-tertiary)] truncate">{athleteNames}</p>
         )}
       </div>
     </button>
@@ -170,7 +170,7 @@ export default function ParentSelector({
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]"
           >
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" />
@@ -180,7 +180,7 @@ export default function ParentSelector({
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search by parent or athlete name"
-            className="w-full pl-9 pr-3 py-2 bg-gray-100 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900"
+            className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card-alt)] rounded-xl text-sm text-[var(--text-primary)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900"
           />
         </div>
       </div>
@@ -195,7 +195,7 @@ export default function ParentSelector({
             className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
               positionGroup === f.value
                 ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+                : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
             }`}
           >
             {f.label}
@@ -204,18 +204,18 @@ export default function ParentSelector({
       </div>
 
       {/* Parent list */}
-      <div className="bg-white rounded-xl overflow-hidden divide-y divide-gray-100 mx-4 shadow-sm">
+      <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden divide-y divide-gray-100 mx-4 shadow-sm">
         {/* All option */}
         {showAllOption && mode === 'multi' && (
           <button
             type="button"
             onClick={handleSelectAll}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-gray-50 ${
+            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors active:bg-[var(--bg-card-alt)] ${
               allSelected ? 'bg-[#B8CA6E]/5' : ''
             }`}
           >
             <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border transition-colors ${
-              allSelected ? 'bg-gray-900 border-gray-900' : 'border-gray-300 bg-white'
+              allSelected ? 'bg-gray-900 border-gray-900' : 'border-[var(--border-secondary)] bg-[var(--bg-card)]'
             }`}>
               {allSelected && (
                 <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2">
@@ -223,13 +223,13 @@ export default function ParentSelector({
                 </svg>
               )}
             </div>
-            <p className="text-sm font-semibold text-gray-900">All Parents</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">All Parents</p>
           </button>
         )}
 
         {filtered.length === 0 ? (
           <div className="px-4 py-6 text-center">
-            <p className="text-sm text-gray-400">No parents found</p>
+            <p className="text-sm text-[var(--text-tertiary)]">No parents found</p>
           </div>
         ) : (
           filtered.map(item => (

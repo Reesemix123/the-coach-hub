@@ -64,7 +64,7 @@ function PlanCard({ plan, isToday }: { plan: PracticePlan; isToday: boolean }) {
   return (
     <Link
       href={`/m/practice/${plan.id}`}
-      className={`block bg-white rounded-xl overflow-hidden active:opacity-70 transition-opacity ${
+      className={`block bg-[var(--bg-card)] rounded-xl overflow-hidden active:opacity-70 transition-opacity ${
         isToday ? 'ring-2 ring-[#B8CA6E]' : ''
       }`}
     >
@@ -77,22 +77,22 @@ function PlanCard({ plan, isToday }: { plan: PracticePlan; isToday: boolean }) {
                   TODAY
                 </span>
               )}
-              <p className="text-sm font-semibold text-gray-900 truncate">{plan.title}</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{plan.title}</p>
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {plan.date && (
-                <span className="text-xs text-gray-500">{formatPracticeDate(plan.date)}</span>
+                <span className="text-xs text-[var(--text-secondary)]">{formatPracticeDate(plan.date)}</span>
               )}
               {plan.location && (
                 <>
-                  <span className="text-gray-300 text-xs">·</span>
-                  <span className="text-xs text-gray-500 truncate">{plan.location}</span>
+                  <span className="text-[var(--text-tertiary)] text-xs">·</span>
+                  <span className="text-xs text-[var(--text-secondary)] truncate">{plan.location}</span>
                 </>
               )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <span className="text-xs font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+            <span className="text-xs font-medium text-[var(--text-secondary)] bg-[var(--bg-card-alt)] rounded-full px-2 py-0.5">
               {plan.duration_minutes} min
             </span>
           </div>
@@ -106,14 +106,14 @@ function NextGameCard({ game }: { game: UpcomingGame }) {
   const daysUntil = getDaysUntilGame(game.date)
 
   return (
-    <div className="bg-white rounded-xl px-4 py-3.5">
-      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Next Game</p>
+    <div className="bg-[var(--bg-card)] rounded-xl px-4 py-3.5">
+      <p className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-1.5">Next Game</p>
       <div className="flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">vs. {game.opponent}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{formatGameDate(game.date, game.start_time)}</p>
+          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">vs. {game.opponent}</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">{formatGameDate(game.date, game.start_time)}</p>
           {game.location && (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">{game.location}</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">{game.location}</p>
           )}
         </div>
         <div className="shrink-0">
@@ -134,9 +134,9 @@ function NextGameCard({ game }: { game: UpcomingGame }) {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl px-4 py-3.5 animate-pulse">
-      <div className="h-4 bg-gray-100 rounded w-2/3 mb-2" />
-      <div className="h-3 bg-gray-100 rounded w-1/3" />
+    <div className="bg-[var(--bg-card)] rounded-xl px-4 py-3.5 animate-pulse">
+      <div className="h-4 bg-[var(--bg-card-alt)] rounded w-2/3 mb-2" />
+      <div className="h-3 bg-[var(--bg-card-alt)] rounded w-1/3" />
     </div>
   )
 }
@@ -224,9 +224,9 @@ export default function MobilePracticePage() {
 
   if (loading && plans.length === 0) {
     return (
-      <div className="min-h-screen bg-[#f2f2f7] pb-8">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
         <div className="px-4 pt-12 pb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Practice</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Practice</h1>
         </div>
         <div className="px-4 space-y-3">
           <SkeletonCard />
@@ -239,9 +239,9 @@ export default function MobilePracticePage() {
 
   if (!loading && plans.length === 0) {
     return (
-      <div className="min-h-screen bg-[#f2f2f7] pb-8">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
         <div className="px-4 pt-12 pb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Practice</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Practice</h1>
         </div>
         {showNextGame && nextGame && (
           <div className="px-4 mb-4">
@@ -258,23 +258,23 @@ export default function MobilePracticePage() {
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-gray-300"
+            className="text-[var(--text-tertiary)]"
           >
             <path d="M16 4H8a1 1 0 00-1 1v14a1 1 0 001 1h8a1 1 0 001-1V5a1 1 0 00-1-1z" />
             <path d="M12 2v2M9 9h6M9 12h6M9 15h3" />
           </svg>
-          <p className="text-sm font-medium text-gray-500 text-center">No practice plans yet.</p>
-          <p className="text-xs text-gray-400 text-center">Create one on the desktop app.</p>
+          <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No practice plans yet.</p>
+          <p className="text-xs text-[var(--text-tertiary)] text-center">Create one on the desktop app.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       {/* Header */}
       <div className="px-4 pt-12 pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Practice</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Practice</h1>
       </div>
 
       <div className="px-4 space-y-3">
@@ -291,7 +291,7 @@ export default function MobilePracticePage() {
         {/* Upcoming */}
         {upcomingPlans.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">
+            <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-1 mb-2">
               Upcoming
             </p>
             <div className="space-y-2">
@@ -310,7 +310,7 @@ export default function MobilePracticePage() {
               onClick={() => setPastCollapsed(prev => !prev)}
               className="flex items-center gap-2 px-1 mb-2 active:opacity-60"
             >
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                 Past ({pastPlans.length})
               </p>
               <svg
@@ -320,7 +320,7 @@ export default function MobilePracticePage() {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
-                className={`text-gray-400 transition-transform ${pastCollapsed ? '' : 'rotate-180'}`}
+                className={`text-[var(--text-tertiary)] transition-transform ${pastCollapsed ? '' : 'rotate-180'}`}
               >
                 <polyline points="6 9 12 15 18 9" />
               </svg>

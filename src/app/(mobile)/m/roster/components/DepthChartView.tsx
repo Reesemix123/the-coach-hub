@@ -78,9 +78,9 @@ export default function DepthChartView({
             <button
               type="button"
               onClick={() => setExpandedSections(prev => ({ ...prev, [unitLabel]: !prev[unitLabel] }))}
-              className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-gray-200 transition-colors"
+              className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{unitLabel}</span>
+              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">{unitLabel}</span>
               <ChevronIcon expanded={expanded} />
             </button>
 
@@ -101,16 +101,16 @@ export default function DepthChartView({
                 <div key={posLabel}>
                   {/* Position header — no + button */}
                   <div className="px-4 pt-3 pb-1 flex items-center">
-                    <span className="text-xs font-bold text-gray-400 uppercase">{posLabel}</span>
+                    <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase">{posLabel}</span>
                   </div>
 
                   {posPlayers.length === 0 ? (
                     <button
                       type="button"
                       onClick={() => onPickPlayer(codes[0])}
-                      className="w-full px-4 py-3 border-b border-gray-100 text-left"
+                      className="w-full px-4 py-3 border-b border-[var(--border-primary)] text-left"
                     >
-                      <p className="text-xs text-gray-400 italic">Tap to add player</p>
+                      <p className="text-xs text-[var(--text-tertiary)] italic">Tap to add player</p>
                     </button>
                   ) : (
                     posPlayers.map(({ player, position, depth }, index) => {
@@ -121,7 +121,7 @@ export default function DepthChartView({
                       return (
                         <div
                           key={`${player.id}-${position}`}
-                          className="bg-white border-b border-gray-100 px-4 flex items-center gap-3 min-h-[56px]"
+                          className="bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 flex items-center gap-3 min-h-[56px]"
                         >
                           {/* Tap area — opens edit sheet with position context */}
                           <button
@@ -129,11 +129,11 @@ export default function DepthChartView({
                             onClick={() => onEditPlayer(player, position)}
                             className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70 transition-opacity text-left"
                           >
-                            <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-900 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] font-bold text-sm flex items-center justify-center flex-shrink-0">
                               {player.jersey_number}
                             </div>
                             <div className="flex-1 min-w-0 py-3">
-                              <p className="text-base font-medium text-gray-900 truncate">
+                              <p className="text-base font-medium text-[var(--text-primary)] truncate">
                                 {player.first_name} {player.last_name}
                               </p>
                             </div>
@@ -141,7 +141,7 @@ export default function DepthChartView({
                               className={`text-xs font-semibold rounded-full px-2.5 py-1 flex-shrink-0 ${
                                 isStarter
                                   ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                                  : 'bg-gray-200 text-gray-600'
+                                  : 'bg-[var(--bg-pill-inactive)] text-[var(--text-secondary)]'
                               }`}
                             >
                               {getDepthLabel(depth)}
@@ -154,7 +154,7 @@ export default function DepthChartView({
                               type="button"
                               onClick={() => !isFirst && handleSwapDepth(player.id, position, depth, posPlayers[index - 1].depth)}
                               disabled={isFirst}
-                              className={`p-2 rounded ${isFirst ? 'text-gray-200' : 'text-gray-400 active:text-gray-700'}`}
+                              className={`p-2 rounded ${isFirst ? 'text-gray-200' : 'text-[var(--text-tertiary)] active:text-[var(--text-primary)]'}`}
                             >
                               <ArrowUpIcon />
                             </button>
@@ -162,7 +162,7 @@ export default function DepthChartView({
                               type="button"
                               onClick={() => !isLast && handleSwapDepth(player.id, position, depth, posPlayers[index + 1].depth)}
                               disabled={isLast}
-                              className={`p-2 rounded ${isLast ? 'text-gray-200' : 'text-gray-400 active:text-gray-700'}`}
+                              className={`p-2 rounded ${isLast ? 'text-gray-200' : 'text-[var(--text-tertiary)] active:text-[var(--text-primary)]'}`}
                             >
                               <ArrowDownIcon />
                             </button>

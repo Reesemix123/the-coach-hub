@@ -89,40 +89,40 @@ export default function EventDetail({ event, onBack, onEdit, onDeleted }: EventD
     <div className="pb-8">
       {/* Back + Actions */}
       <div className="px-4 pt-3 mb-2 flex items-center justify-between">
-        <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 active:text-gray-700">
+        <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm text-[var(--text-secondary)] active:text-[var(--text-primary)]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 18l-6-6 6-6" /></svg>
           Calendar
         </button>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={onEdit} className="text-sm text-gray-500 font-medium active:text-gray-700">Edit</button>
+          <button type="button" onClick={onEdit} className="text-sm text-[var(--text-secondary)] font-medium active:text-[var(--text-primary)]">Edit</button>
           <button type="button" onClick={() => setShowDeleteConfirm(true)} className="text-sm text-red-500 font-medium active:text-red-700">Delete</button>
         </div>
       </div>
 
       {/* Event info card */}
       <div className="px-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5">
+            <span className="text-xs font-semibold bg-[var(--bg-card-alt)] text-[var(--text-secondary)] rounded-full px-2.5 py-0.5">
               {TYPE_LABELS[event.event_type] ?? event.event_type}
             </span>
           </div>
-          <h2 className="text-lg font-bold text-gray-900">{event.title}</h2>
-          <p className="text-sm text-gray-600 mt-1">{formatFullDate(event.date)}</p>
-          {timeStr && <p className="text-sm text-gray-500">{timeStr}</p>}
-          {event.location && <p className="text-sm text-gray-500 mt-1">📍 {event.location}</p>}
-          {event.description && <p className="text-sm text-gray-600 mt-3 whitespace-pre-wrap">{event.description}</p>}
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">{event.title}</h2>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">{formatFullDate(event.date)}</p>
+          {timeStr && <p className="text-sm text-[var(--text-secondary)]">{timeStr}</p>}
+          {event.location && <p className="text-sm text-[var(--text-secondary)] mt-1">📍 {event.location}</p>}
+          {event.description && <p className="text-sm text-[var(--text-secondary)] mt-3 whitespace-pre-wrap">{event.description}</p>}
         </div>
       </div>
 
       {/* Weather */}
       {weather && (
         <div className="px-4 mt-3">
-          <div className="bg-white rounded-xl p-4 shadow-sm flex items-center gap-4">
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm flex items-center gap-4">
             <span className="text-3xl">{weather.icon}</span>
             <div>
-              <p className="text-sm font-semibold text-gray-900">{weather.condition}</p>
-              <p className="text-xs text-gray-500">High {weather.tempHigh}° · Low {weather.tempLow}°</p>
+              <p className="text-sm font-semibold text-[var(--text-primary)]">{weather.condition}</p>
+              <p className="text-xs text-[var(--text-secondary)]">High {weather.tempHigh}° · Low {weather.tempLow}°</p>
             </div>
           </div>
         </div>
@@ -131,36 +131,36 @@ export default function EventDetail({ event, onBack, onEdit, onDeleted }: EventD
       {/* RSVP */}
       {event.rsvp_enabled && (
         <div className="px-4 mt-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">RSVPs</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">RSVPs</p>
           {rsvpLoading ? (
-            <div className="bg-white rounded-xl p-4 animate-pulse shadow-sm">
-              <div className="h-4 bg-gray-100 rounded w-32 mb-2" />
-              <div className="h-3 bg-gray-100 rounded w-48" />
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 animate-pulse shadow-sm">
+              <div className="h-4 bg-[var(--bg-card-alt)] rounded w-32 mb-2" />
+              <div className="h-3 bg-[var(--bg-card-alt)] rounded w-48" />
             </div>
           ) : rsvpData ? (
-            <div className="bg-white rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
+            <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
               {[
                 { label: 'Going', items: rsvpData.attending, color: 'text-green-600' },
                 { label: 'Not Going', items: rsvpData.not_attending, color: 'text-red-500' },
                 { label: 'Maybe', items: rsvpData.maybe, color: 'text-amber-600' },
-                { label: 'No Response', items: rsvpData.no_response, color: 'text-gray-400' },
+                { label: 'No Response', items: rsvpData.no_response, color: 'text-[var(--text-tertiary)]' },
               ].filter(g => g.items.length > 0).map(group => (
                 <div key={group.label} className="px-4 py-2.5">
                   <p className={`text-xs font-semibold ${group.color} mb-1`}>{group.label} ({group.items.length})</p>
                   {group.items.map((p, i) => (
-                    <p key={i} className="text-sm text-gray-700 py-0.5">{p.parent_name}</p>
+                    <p key={i} className="text-sm text-[var(--text-primary)] py-0.5">{p.parent_name}</p>
                   ))}
                 </div>
               ))}
               {rsvpData.attending.length === 0 && rsvpData.not_attending.length === 0 && rsvpData.maybe.length === 0 && (
                 <div className="px-4 py-3">
-                  <p className="text-xs text-gray-400">No responses yet</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">No responses yet</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-white rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-gray-400">Unable to load RSVPs</p>
+            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm">
+              <p className="text-xs text-[var(--text-tertiary)]">Unable to load RSVPs</p>
             </div>
           )}
         </div>
@@ -170,13 +170,13 @@ export default function EventDetail({ event, onBack, onEdit, onDeleted }: EventD
       {showDeleteConfirm && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
-            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" /></div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-gray-900">Delete Event?</h3>
-              <p className="text-sm text-gray-500 mt-1">This cannot be undone.</p>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Delete Event?</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">This cannot be undone.</p>
               <div className="flex gap-3 mt-5">
-                <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold">Cancel</button>
+                <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold">Cancel</button>
                 <button type="button" onClick={handleDelete} disabled={deleting} className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold">
                   {deleting ? 'Deleting...' : 'Delete'}
                 </button>

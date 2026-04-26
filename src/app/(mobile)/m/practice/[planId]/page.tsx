@@ -52,7 +52,7 @@ const PERIOD_COLORS: Record<string, { bg: string; text: string; banner: string }
   team: { bg: 'bg-purple-100', text: 'text-purple-800', banner: 'bg-purple-50' },
   special_teams: { bg: 'bg-green-100', text: 'text-green-800', banner: 'bg-green-50' },
   conditioning: { bg: 'bg-red-100', text: 'text-red-800', banner: 'bg-red-50' },
-  other: { bg: 'bg-gray-100', text: 'text-gray-800', banner: 'bg-gray-50' },
+  other: { bg: 'bg-[var(--bg-card-alt)]', text: 'text-gray-800', banner: 'bg-[var(--bg-card-alt)]' },
 }
 
 function getPeriodColors(periodType: string) {
@@ -66,9 +66,9 @@ function getPeriodColors(periodType: string) {
 function DrillRow({ drill }: { drill: PracticeDrill }) {
   return (
     <div className="py-2.5 border-b border-gray-50 last:border-b-0">
-      <p className="text-sm font-medium text-gray-900">{drill.drill_name}</p>
+      <p className="text-sm font-medium text-[var(--text-primary)]">{drill.drill_name}</p>
       {drill.description && (
-        <p className="text-xs text-gray-500 mt-0.5">{drill.description}</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-0.5">{drill.description}</p>
       )}
       <div className="flex gap-1.5 mt-1.5 flex-wrap">
         {drill.position_group && drill.position_group !== 'All' && (
@@ -77,7 +77,7 @@ function DrillRow({ drill }: { drill: PracticeDrill }) {
           </span>
         )}
         {drill.equipment_needed && (
-          <span className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+          <span className="text-[10px] bg-[var(--bg-card-alt)] text-[var(--text-secondary)] rounded-full px-2 py-0.5">
             {drill.equipment_needed}
           </span>
         )}
@@ -113,14 +113,14 @@ function PeriodCard({ period, isActive, activePeriodRef }: PeriodCardProps) {
   return (
     <div
       ref={isActive ? activePeriodRef : undefined}
-      className={`bg-white rounded-xl overflow-hidden transition-all ${
+      className={`bg-[var(--bg-card)] rounded-xl overflow-hidden transition-all ${
         isActive ? 'ring-2 ring-[#B8CA6E] shadow-md' : ''
       }`}
     >
       <button
         type="button"
         onClick={() => setExpanded(prev => !prev)}
-        className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50"
+        className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-[var(--bg-card-alt)]"
       >
         <span
           className={`text-xs font-semibold rounded-full px-2 py-0.5 shrink-0 ${colors.bg} ${colors.text}`}
@@ -128,9 +128,9 @@ function PeriodCard({ period, isActive, activePeriodRef }: PeriodCardProps) {
           {period.period_type.replace('_', ' ')}
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{period.name}</p>
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">{period.name}</p>
         </div>
-        <span className="text-xs text-gray-500 shrink-0">{period.duration_minutes}m</span>
+        <span className="text-xs text-[var(--text-secondary)] shrink-0">{period.duration_minutes}m</span>
         <svg
           width="16"
           height="16"
@@ -138,21 +138,21 @@ function PeriodCard({ period, isActive, activePeriodRef }: PeriodCardProps) {
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
-          className={`text-gray-400 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`text-[var(--text-tertiary)] shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-3 border-t border-gray-100">
+        <div className="px-4 pb-3 border-t border-[var(--border-primary)]">
           {period.notes && (
-            <p className="text-xs text-gray-500 py-2 border-b border-gray-50">{period.notes}</p>
+            <p className="text-xs text-[var(--text-secondary)] py-2 border-b border-gray-50">{period.notes}</p>
           )}
           {period.drills.length > 0 ? (
             period.drills.map(drill => <DrillRow key={drill.id} drill={drill} />)
           ) : (
-            <p className="text-xs text-gray-400 py-2 italic">No drills listed for this period</p>
+            <p className="text-xs text-[var(--text-tertiary)] py-2 italic">No drills listed for this period</p>
           )}
         </div>
       )}
@@ -191,7 +191,7 @@ function TimerBanner({
   const colors = getPeriodColors(currentPeriod.period_type)
 
   return (
-    <div className={`sticky top-0 z-30 ${colors.banner} border-b border-gray-200 transition-all`}>
+    <div className={`sticky top-0 z-30 ${colors.banner} border-b border-[var(--border-primary)] transition-all`}>
       {/* Compact row — tap to expand */}
       <button
         type="button"
@@ -203,16 +203,16 @@ function TimerBanner({
         >
           {currentPeriod.period_type.replace('_', ' ')}
         </span>
-        <span className="text-sm font-medium text-gray-900 flex-1 text-left truncate">
+        <span className="text-sm font-medium text-[var(--text-primary)] flex-1 text-left truncate">
           {showUpNext ? `Up Next: ${upNextName}` : currentPeriod.name}
         </span>
         <span
-          className={`text-2xl font-bold tabular-nums text-gray-900 ${timerPulse ? 'animate-pulse' : ''}`}
+          className={`text-2xl font-bold tabular-nums text-[var(--text-primary)] ${timerPulse ? 'animate-pulse' : ''}`}
         >
           {timerDisplay}
         </span>
         {session.status === 'paused' && (
-          <span className="text-xs text-gray-500 font-medium">PAUSED</span>
+          <span className="text-xs text-[var(--text-secondary)] font-medium">PAUSED</span>
         )}
       </button>
 
@@ -221,14 +221,14 @@ function TimerBanner({
         <button
           type="button"
           onClick={onTogglePause}
-          className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 active:bg-gray-50"
+          className="bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] active:bg-[var(--bg-card-alt)]"
         >
           {session.status === 'paused' ? '▶ Resume' : '⏸ Pause'}
         </button>
         <button
           type="button"
           onClick={onNextPeriod}
-          className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 active:bg-gray-50"
+          className="bg-[var(--bg-card)] border border-[var(--border-primary)] rounded-lg px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] active:bg-[var(--bg-card-alt)]"
         >
           Next ⏭
         </button>
@@ -244,21 +244,21 @@ function TimerBanner({
 
       {/* Expanded — drill list for current period */}
       {expanded && (
-        <div className="px-4 pb-3 border-t border-gray-200/50">
+        <div className="px-4 pb-3 border-t border-[var(--border-primary)]/50">
           {currentPeriod.drills.map(drill => (
-            <div key={drill.id} className="py-2 border-b border-gray-100 last:border-b-0">
-              <p className="text-sm font-medium text-gray-900">{drill.drill_name}</p>
+            <div key={drill.id} className="py-2 border-b border-[var(--border-primary)] last:border-b-0">
+              <p className="text-sm font-medium text-[var(--text-primary)]">{drill.drill_name}</p>
               {drill.description && (
-                <p className="text-xs text-gray-500 mt-0.5">{drill.description}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{drill.description}</p>
               )}
               <div className="flex gap-1.5 mt-1">
                 {drill.position_group && (
-                  <span className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+                  <span className="text-[10px] bg-[var(--bg-card-alt)] text-[var(--text-secondary)] rounded-full px-2 py-0.5">
                     {drill.position_group}
                   </span>
                 )}
                 {drill.equipment_needed && (
-                  <span className="text-[10px] bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+                  <span className="text-[10px] bg-[var(--bg-card-alt)] text-[var(--text-secondary)] rounded-full px-2 py-0.5">
                     {drill.equipment_needed}
                   </span>
                 )}
@@ -266,7 +266,7 @@ function TimerBanner({
             </div>
           ))}
           {currentPeriod.drills.length === 0 && (
-            <p className="text-xs text-gray-400 py-2 italic">No drills listed</p>
+            <p className="text-xs text-[var(--text-tertiary)] py-2 italic">No drills listed</p>
           )}
         </div>
       )}
@@ -287,18 +287,18 @@ function EndConfirmSheet({ onCancel, onConfirm }: EndConfirmSheetProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onCancel} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
         <div className="px-5 pb-6 text-center">
-          <h3 className="text-lg font-bold text-gray-900">End Practice?</h3>
-          <p className="text-sm text-gray-500 mt-1">This will stop the timer for all coaches.</p>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">End Practice?</h3>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">This will stop the timer for all coaches.</p>
           <div className="flex gap-3 mt-5">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold"
+              className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold"
             >
               Continue
             </button>
@@ -736,15 +736,15 @@ export default function PracticePlanViewerPage() {
 
   if (loading && !plan) {
     return (
-      <div className="min-h-screen bg-[#f2f2f7] pb-8">
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
         <div className="px-4 pt-12 pb-4">
-          <div className="h-8 w-48 bg-gray-200 rounded animate-pulse mb-2" />
-          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+          <div className="h-8 w-48 bg-[var(--bg-pill-inactive)] rounded animate-pulse mb-2" />
+          <div className="h-4 w-32 bg-[var(--bg-pill-inactive)] rounded animate-pulse" />
         </div>
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="mx-4 mb-3 bg-white rounded-xl p-4 animate-pulse">
-            <div className="h-5 w-40 bg-gray-100 rounded mb-2" />
-            <div className="h-4 w-24 bg-gray-100 rounded" />
+          <div key={i} className="mx-4 mb-3 bg-[var(--bg-card)] rounded-xl p-4 animate-pulse">
+            <div className="h-5 w-40 bg-[var(--bg-card-alt)] rounded mb-2" />
+            <div className="h-4 w-24 bg-[var(--bg-card-alt)] rounded" />
           </div>
         ))}
       </div>
@@ -757,8 +757,8 @@ export default function PracticePlanViewerPage() {
 
   if (!plan) {
     return (
-      <div className="min-h-screen bg-[#f2f2f7] flex items-center justify-center">
-        <p className="text-sm text-gray-500">Practice plan not found</p>
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <p className="text-sm text-[var(--text-secondary)]">Practice plan not found</p>
       </div>
     )
   }
@@ -768,7 +768,7 @@ export default function PracticePlanViewerPage() {
   // ------------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-24">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-24">
       {/* Live Timer Banner (sticky, only when session is active) */}
       {session && session.status !== 'completed' && currentPeriod && (
         <TimerBanner
@@ -798,7 +798,7 @@ export default function PracticePlanViewerPage() {
               setSession(null)
               router.push('/m/practice')
             }}
-            className="mt-3 bg-[#1c1c1e] text-white rounded-xl px-6 py-2 text-sm font-semibold"
+            className="mt-3 bg-[var(--bg-primary)] text-white rounded-xl px-6 py-2 text-sm font-semibold"
           >
             Done
           </button>
@@ -810,7 +810,7 @@ export default function PracticePlanViewerPage() {
         <button
           type="button"
           onClick={() => router.push('/m/practice')}
-          className="text-sm text-gray-500 mb-2 flex items-center gap-1 active:text-gray-700"
+          className="text-sm text-[var(--text-secondary)] mb-2 flex items-center gap-1 active:text-[var(--text-primary)]"
         >
           <svg
             width="16"
@@ -824,10 +824,10 @@ export default function PracticePlanViewerPage() {
           </svg>
           Practice Plans
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">{plan.title}</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{plan.title}</h1>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           {plan.date && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[var(--text-secondary)]">
               {new Date(plan.date + 'T00:00:00').toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
@@ -835,8 +835,8 @@ export default function PracticePlanViewerPage() {
               })}
             </span>
           )}
-          <span className="text-sm text-gray-500">{plan.duration_minutes} min</span>
-          {plan.location && <span className="text-sm text-gray-500">{plan.location}</span>}
+          <span className="text-sm text-[var(--text-secondary)]">{plan.duration_minutes} min</span>
+          {plan.location && <span className="text-sm text-[var(--text-secondary)]">{plan.location}</span>}
         </div>
       </div>
 
@@ -863,11 +863,11 @@ export default function PracticePlanViewerPage() {
       {/* Notes */}
       {plan.notes && (
         <div className="px-4 mt-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Notes
           </p>
-          <div className="bg-white rounded-xl p-4">
-            <p className="text-sm text-gray-700">{plan.notes}</p>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4">
+            <p className="text-sm text-[var(--text-primary)]">{plan.notes}</p>
           </div>
         </div>
       )}

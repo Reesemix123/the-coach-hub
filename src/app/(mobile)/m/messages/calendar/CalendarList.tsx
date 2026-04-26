@@ -61,18 +61,18 @@ const TYPE_COLORS: Record<string, string> = {
   film_session: 'bg-indigo-500',
   parent_meeting: 'bg-teal-500',
   fundraiser: 'bg-amber-500',
-  other: 'bg-gray-500',
+  other: 'bg-[var(--bg-card-alt)]0',
 }
 
 function EventCard({ event, weather, onTap }: { event: TeamEvent; weather: WeatherData | null; onTap: () => void }) {
   const timeStr = event.start_time ? formatTime(event.start_time) + (event.end_time ? ` – ${formatTime(event.end_time)}` : '') : ''
 
   return (
-    <button type="button" onClick={onTap} className="w-full flex items-center gap-4 px-4 py-3.5 bg-white active:bg-gray-50 transition-colors text-left">
+    <button type="button" onClick={onTap} className="w-full flex items-center gap-4 px-4 py-3.5 bg-[var(--bg-card)] active:bg-[var(--bg-card-alt)] transition-colors text-left">
       {/* Date column */}
       <div className="w-12 text-center shrink-0">
-        <p className="text-[10px] font-bold text-gray-400 uppercase">{formatMonth(event.date)}</p>
-        <p className="text-2xl font-bold text-gray-900 leading-tight">{formatDay(event.date)}</p>
+        <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase">{formatMonth(event.date)}</p>
+        <p className="text-2xl font-bold text-[var(--text-primary)] leading-tight">{formatDay(event.date)}</p>
       </div>
 
       {/* Type dot */}
@@ -80,12 +80,12 @@ function EventCard({ event, weather, onTap }: { event: TeamEvent; weather: Weath
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 truncate">{getEventTitle(event)}</p>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{getEventTitle(event)}</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
           {formatDayOfWeek(event.date)}{timeStr ? ` · ${timeStr}` : ''}
         </p>
         {event.location && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">@ {event.location}</p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">@ {event.location}</p>
         )}
       </div>
 
@@ -93,11 +93,11 @@ function EventCard({ event, weather, onTap }: { event: TeamEvent; weather: Weath
       {weather && (
         <div className="text-center shrink-0 mr-1">
           <span className="text-lg">{weather.icon}</span>
-          <p className="text-[10px] text-gray-500 font-medium">{weather.tempHigh}°</p>
+          <p className="text-[10px] text-[var(--text-secondary)] font-medium">{weather.tempHigh}°</p>
         </div>
       )}
 
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300 shrink-0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] shrink-0">
         <path d="M9 18l6-6-6-6" />
       </svg>
     </button>
@@ -156,12 +156,12 @@ export default function CalendarList({ onSelectEvent, onNewEvent }: CalendarList
     return (
       <div className="px-4 mt-3 space-y-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-white rounded-xl px-4 py-4 animate-pulse">
+          <div key={i} className="bg-[var(--bg-card)] rounded-xl px-4 py-4 animate-pulse">
             <div className="flex gap-4">
-              <div className="w-12 h-12 bg-gray-100 rounded" />
+              <div className="w-12 h-12 bg-[var(--bg-card-alt)] rounded" />
               <div className="flex-1">
-                <div className="h-4 bg-gray-100 rounded w-2/3 mb-2" />
-                <div className="h-3 bg-gray-100 rounded w-1/2" />
+                <div className="h-4 bg-[var(--bg-card-alt)] rounded w-2/3 mb-2" />
+                <div className="h-3 bg-[var(--bg-card-alt)] rounded w-1/2" />
               </div>
             </div>
           </div>
@@ -173,11 +173,11 @@ export default function CalendarList({ onSelectEvent, onNewEvent }: CalendarList
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 gap-3">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
           <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
-        <p className="text-sm font-medium text-gray-500 text-center">No events scheduled</p>
-        <p className="text-xs text-gray-400 text-center">Add your first practice or game</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No events scheduled</p>
+        <p className="text-xs text-[var(--text-tertiary)] text-center">Add your first practice or game</p>
         <button type="button" onClick={onNewEvent} className="mt-2 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl px-5 py-2.5 text-sm font-semibold active:bg-[#a8b85e]">
           New Event
         </button>
@@ -198,9 +198,9 @@ export default function CalendarList({ onSelectEvent, onNewEvent }: CalendarList
       {Object.entries(groupedByMonth).map(([month, monthEvents]) => (
         <div key={month}>
           <div className="px-4 py-2">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{month}</p>
+            <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-widest">{month}</p>
           </div>
-          <div className="bg-white rounded-xl mx-4 overflow-hidden divide-y divide-gray-100 mb-3">
+          <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden divide-y divide-gray-100 mb-3">
             {monthEvents.map(event => (
               <EventCard
                 key={event.id}

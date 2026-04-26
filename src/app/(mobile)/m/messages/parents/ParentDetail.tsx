@@ -92,7 +92,7 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1 text-sm text-gray-500 active:text-gray-700"
+          className="flex items-center gap-1 text-sm text-[var(--text-secondary)] active:text-[var(--text-primary)]"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M15 18l-6-6 6-6" />
@@ -103,16 +103,16 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
 
       {/* Name + champion */}
       <div className="px-4 mb-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-              <span className="text-base font-semibold text-gray-600">
+            <div className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
+              <span className="text-base font-semibold text-[var(--text-secondary)]">
                 {profile.first_name[0]}{profile.last_name[0]}
               </span>
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">
                   {profile.first_name} {profile.last_name}
                 </h2>
                 {profile.is_champion && (
@@ -129,17 +129,17 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
 
       {/* Contact */}
       <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Contact</p>
-        <div className="bg-white rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
+        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Contact</p>
+        <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
           <a
             href={`mailto:${profile.email}`}
-            className="flex items-center gap-3 px-4 py-3 active:bg-gray-50"
+            className="flex items-center gap-3 px-4 py-3 active:bg-[var(--bg-card-alt)]"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400 shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] shrink-0">
               <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Email</p>
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Email</p>
               <p className="text-sm text-blue-600 truncate">{profile.email}</p>
             </div>
           </a>
@@ -147,13 +147,13 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
           {profile.phone && (
             <a
               href={`tel:${profile.phone}`}
-              className="flex items-center gap-3 px-4 py-3 active:bg-gray-50"
+              className="flex items-center gap-3 px-4 py-3 active:bg-[var(--bg-card-alt)]"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400 shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] shrink-0">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 8.63 19.79 19.79 0 01.08 2a2 2 0 012-2.18h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L7.06 7.06a16 16 0 006.88 6.88l1.41-1.41a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
               </svg>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">Phone</p>
+                <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Phone</p>
                 <p className="text-sm text-blue-600">{profile.phone}</p>
               </div>
             </a>
@@ -164,30 +164,30 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
       {/* Linked athletes */}
       {children.length > 0 && (
         <div className="px-4 mb-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Athletes ({children.length})
           </p>
-          <div className="bg-white rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
+          <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-sm divide-y divide-gray-100">
             {children.map(child => (
               <div key={child.player_id} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-500">
+                <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-secondary)]">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-gray-900 truncate">{child.player_name}</p>
+                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{child.player_name}</p>
                     {child.jersey_number && (
-                      <span className="text-[10px] text-gray-400">#{child.jersey_number}</span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">#{child.jersey_number}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-gray-500">{child.relationship}</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{child.relationship}</span>
                     {child.is_primary_contact && (
                       <>
-                        <span className="text-gray-300 text-xs">·</span>
+                        <span className="text-[var(--text-tertiary)] text-xs">·</span>
                         <span className="text-[10px] font-semibold text-[#B8CA6E] bg-[#B8CA6E]/10 rounded-full px-1.5 py-0.5">Primary Contact</span>
                       </>
                     )}
@@ -201,9 +201,9 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
 
       {/* Status */}
       <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</p>
-        <div className="bg-white rounded-xl px-4 py-3 shadow-sm">
-          <p className="text-sm text-gray-600">Active since {formatDate(profile.created_at)}</p>
+        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Status</p>
+        <div className="bg-[var(--bg-card)] rounded-xl px-4 py-3 shadow-sm">
+          <p className="text-sm text-[var(--text-secondary)]">Active since {formatDate(profile.created_at)}</p>
         </div>
       </div>
 
@@ -224,7 +224,7 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
           className={`w-full rounded-xl py-3 text-sm font-semibold transition-colors disabled:opacity-50 ${
             profile.is_champion
               ? 'bg-amber-50 text-amber-700 active:bg-amber-100'
-              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+              : 'bg-[var(--bg-card-alt)] text-[var(--text-primary)] active:bg-[var(--bg-pill-inactive)]'
           }`}
         >
           {championLoading
@@ -247,20 +247,20 @@ export default function ParentDetail({ parent, onBack, onChanged }: ParentDetail
       {showRemoveConfirm && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowRemoveConfirm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
             </div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-gray-900">Remove Parent?</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Remove Parent?</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
                 {profile.first_name} {profile.last_name} will lose access to team communications.
               </p>
               <div className="flex gap-3 mt-5">
                 <button
                   type="button"
                   onClick={() => setShowRemoveConfirm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold active:bg-gray-200"
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold active:bg-[var(--bg-pill-inactive)]"
                 >
                   Cancel
                 </button>

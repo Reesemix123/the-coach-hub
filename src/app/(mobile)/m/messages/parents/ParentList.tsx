@@ -31,7 +31,7 @@ function TierLimitBar({ count, limit }: { count: number; limit: number | null })
   return (
     <div className="px-4 pt-3 pb-2">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-medium text-gray-500">
+        <span className="text-xs font-medium text-[var(--text-secondary)]">
           {limit !== null ? `${count} / ${limit} parents` : `${count} parents`}
         </span>
         {nearLimit && limit !== null && (
@@ -44,7 +44,7 @@ function TierLimitBar({ count, limit }: { count: number; limit: number | null })
         )}
       </div>
       {limit !== null && (
-        <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-1 bg-[var(--bg-pill-inactive)] rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
               count >= limit ? 'bg-red-400' : nearLimit ? 'bg-amber-400' : 'bg-[#B8CA6E]'
@@ -76,30 +76,30 @@ function ParentCard({
     <button
       type="button"
       onClick={onTap}
-      className="w-full bg-white rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
+      className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
     >
       <div className="flex items-center gap-3">
         {/* Avatar initials */}
-        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-          <span className="text-xs font-semibold text-gray-600">
+        <div className="w-9 h-9 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
+          <span className="text-xs font-semibold text-[var(--text-secondary)]">
             {parent.first_name[0]}{parent.last_name[0]}
           </span>
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-semibold text-gray-900 truncate">{fullName}</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{fullName}</p>
             {parent.is_champion && (
               <span title="Team Champion" className="text-amber-500 text-xs">★</span>
             )}
           </div>
           {athleteNames && (
-            <p className="text-xs text-gray-500 truncate mt-0.5">{athleteNames}</p>
+            <p className="text-xs text-[var(--text-secondary)] truncate mt-0.5">{athleteNames}</p>
           )}
-          <p className="text-xs text-gray-400 truncate mt-0.5">{parent.email}</p>
+          <p className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">{parent.email}</p>
         </div>
 
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300 shrink-0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)] shrink-0">
           <path d="M9 18l6-6-6-6" />
         </svg>
       </div>
@@ -122,7 +122,7 @@ function InviteRow({
     <button
       type="button"
       onClick={onTap}
-      className="w-full bg-white rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
+      className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
     >
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
@@ -132,10 +132,10 @@ function InviteRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-700 truncate">{invite.parent_email}</p>
+          <p className="text-sm text-[var(--text-primary)] truncate">{invite.parent_email}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5">Invited</span>
-            <span className="text-[10px] text-gray-400">{relativeTime(invite.created_at)}</span>
+            <span className="text-[10px] text-[var(--text-tertiary)]">{relativeTime(invite.created_at)}</span>
           </div>
         </div>
       </div>
@@ -150,13 +150,13 @@ function InviteRow({
 function EmptyState({ onInvite }: { onInvite: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 gap-3">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
         <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
         <circle cx="10" cy="7" r="4" />
         <path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
       </svg>
-      <p className="text-sm font-medium text-gray-500 text-center">No parents yet</p>
-      <p className="text-xs text-gray-400 text-center">Invite parents to keep them in the loop</p>
+      <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No parents yet</p>
+      <p className="text-xs text-[var(--text-tertiary)] text-center">Invite parents to keep them in the loop</p>
       <button
         type="button"
         onClick={onInvite}
@@ -185,12 +185,12 @@ export default function ParentList({ onSelectParent, onSelectInvite, onInvite }:
     return (
       <div className="px-4 space-y-3 mt-3">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white rounded-xl px-4 py-4 animate-pulse shadow-sm">
+          <div key={i} className="bg-[var(--bg-card)] rounded-xl px-4 py-4 animate-pulse shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gray-100" />
+              <div className="w-9 h-9 rounded-full bg-[var(--bg-card-alt)]" />
               <div className="flex-1">
-                <div className="h-3.5 bg-gray-100 rounded w-1/2 mb-1.5" />
-                <div className="h-3 bg-gray-100 rounded w-2/3" />
+                <div className="h-3.5 bg-[var(--bg-card-alt)] rounded w-1/2 mb-1.5" />
+                <div className="h-3 bg-[var(--bg-card-alt)] rounded w-2/3" />
               </div>
             </div>
           </div>
@@ -217,7 +217,7 @@ export default function ParentList({ onSelectParent, onSelectInvite, onInvite }:
       {/* Active parents */}
       {sortedParents.length > 0 && (
         <div className="px-4 mt-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Active ({sortedParents.length})
           </p>
           <div className="space-y-2">
@@ -235,7 +235,7 @@ export default function ParentList({ onSelectParent, onSelectInvite, onInvite }:
       {/* Pending invitations */}
       {pendingInvites.length > 0 && (
         <div className="px-4 mt-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Pending Invitations ({pendingInvites.length})
           </p>
           <div className="space-y-2">

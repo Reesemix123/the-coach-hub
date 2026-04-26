@@ -109,7 +109,7 @@ function MessagesPageContent() {
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                 section === key
                   ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+                  : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
               }`}
             >
               {label}
@@ -181,9 +181,9 @@ function MessagesPageContent() {
 
 export default function MobileMessagesPage() {
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       <div className="px-4 pt-12 pb-2">
-        <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Messages</h1>
       </div>
 
       <CommHubProvider>

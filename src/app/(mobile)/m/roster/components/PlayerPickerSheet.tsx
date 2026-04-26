@@ -66,23 +66,23 @@ export default function PlayerPickerSheet({
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[70vh] overflow-hidden flex flex-col">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[70vh] overflow-hidden flex flex-col">
         <div className="flex justify-center pt-3 pb-2 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
         <div className="px-5 pb-2 shrink-0">
-          <h3 className="text-lg font-bold text-gray-900">Add Player to {position}</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Player to {position}</h3>
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full mt-2 px-3 py-2 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            className="w-full mt-2 px-3 py-2 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             placeholder="Search by name or number"
           />
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-4">
           {available.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No available players</p>
+            <p className="text-sm text-[var(--text-tertiary)] text-center py-8">No available players</p>
           ) : (
             available.map(player => (
               <button
@@ -90,19 +90,19 @@ export default function PlayerPickerSheet({
                 type="button"
                 onClick={() => handleSelect(player)}
                 disabled={adding === player.id}
-                className="w-full flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0 active:bg-gray-50 text-left"
+                className="w-full flex items-center gap-3 py-3 border-b border-[var(--border-primary)] last:border-b-0 active:bg-[var(--bg-card-alt)] text-left"
               >
-                <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-900 font-bold text-sm flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] font-bold text-sm flex items-center justify-center shrink-0">
                   {player.jersey_number}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {player.first_name} {player.last_name}
                   </p>
-                  <p className="text-xs text-gray-500 truncate">{formatPositions(player)}</p>
+                  <p className="text-xs text-[var(--text-secondary)] truncate">{formatPositions(player)}</p>
                 </div>
                 {adding === player.id && (
-                  <span className="text-xs text-gray-400">Adding...</span>
+                  <span className="text-xs text-[var(--text-tertiary)]">Adding...</span>
                 )}
               </button>
             ))

@@ -190,8 +190,8 @@ export default function GameLineupView({
     return (
       <>
         <div className="px-4 pt-12 pb-4">
-          <h1 className="text-2xl font-bold text-gray-900">Game Lineup</h1>
-          <p className="text-sm text-gray-500 mt-1">Loading lineup...</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Game Lineup</h1>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Loading lineup...</p>
         </div>
         <div>
           {[...Array(10)].map((_, i) => <SkeletonRow key={i} />)}
@@ -203,8 +203,8 @@ export default function GameLineupView({
   return (
     <>
       <div className="px-4 pt-12 pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">Game Lineup</h1>
-        <p className="text-sm text-gray-500 mt-1">Tap a player to change depth</p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Game Lineup</h1>
+        <p className="text-sm text-[var(--text-secondary)] mt-1">Tap a player to change depth</p>
       </div>
 
       {UNIT_SECTIONS.map(({ label: unitLabel, positions }) => {
@@ -215,9 +215,9 @@ export default function GameLineupView({
             <button
               type="button"
               onClick={() => toggleSection(unitLabel)}
-              className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-gray-200 transition-colors"
+              className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
                 {unitLabel}
               </span>
               <ChevronIcon expanded={expanded} />
@@ -237,12 +237,12 @@ export default function GameLineupView({
               return (
                 <div key={posLabel}>
                   <div className="px-4 pt-3 pb-1">
-                    <span className="text-xs font-bold text-gray-400 uppercase">{posLabel}</span>
+                    <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase">{posLabel}</span>
                   </div>
 
                   {posPlayers.length === 0 ? (
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-xs text-gray-400 italic">No player assigned</p>
+                    <div className="px-4 py-3 border-b border-[var(--border-primary)]">
+                      <p className="text-xs text-[var(--text-tertiary)] italic">No player assigned</p>
                     </div>
                   ) : (
                     posPlayers.map(({ entry, player }) => {
@@ -266,24 +266,24 @@ export default function GameLineupView({
                                     }
                               )
                             }
-                            className={`w-full bg-white border-b border-gray-100 px-4 flex items-center gap-3 min-h-[56px] active:bg-gray-50 transition-colors text-left ${
-                              isActive ? 'bg-gray-50' : ''
+                            className={`w-full bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 flex items-center gap-3 min-h-[56px] active:bg-[var(--bg-card-alt)] transition-colors text-left ${
+                              isActive ? 'bg-[var(--bg-card-alt)]' : ''
                             }`}
                           >
-                            <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-900 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] font-bold text-sm flex items-center justify-center flex-shrink-0">
                               {player.jersey_number}
                             </div>
                             <div className="flex-1 min-w-0 py-3">
-                              <p className="text-base font-medium text-gray-900 truncate">
+                              <p className="text-base font-medium text-[var(--text-primary)] truncate">
                                 {player.first_name} {player.last_name}
                               </p>
-                              <p className="text-sm text-gray-500">{entry.position}</p>
+                              <p className="text-sm text-[var(--text-secondary)]">{entry.position}</p>
                             </div>
                             <span
                               className={`text-xs font-semibold rounded-full px-2.5 py-1 flex-shrink-0 ${
                                 isStarter
                                   ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                                  : 'bg-gray-200 text-gray-600'
+                                  : 'bg-[var(--bg-pill-inactive)] text-[var(--text-secondary)]'
                               }`}
                             >
                               {getDepthLabel(entry.depth)}
@@ -291,8 +291,8 @@ export default function GameLineupView({
                           </button>
 
                           {isActive && (
-                            <div className="bg-gray-50 border-b border-gray-100 px-4 py-2.5 flex items-center gap-2">
-                              <span className="text-xs text-gray-500 mr-1">Depth:</span>
+                            <div className="bg-[var(--bg-card-alt)] border-b border-[var(--border-primary)] px-4 py-2.5 flex items-center gap-2">
+                              <span className="text-xs text-[var(--text-secondary)] mr-1">Depth:</span>
                               {[1, 2, 3, 4].map(d => (
                                 <button
                                   key={d}
@@ -301,7 +301,7 @@ export default function GameLineupView({
                                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors min-w-[44px] ${
                                     d === entry.depth
                                       ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                                      : 'bg-white border border-gray-200 text-gray-600 active:bg-gray-100'
+                                      : 'bg-[var(--bg-card)] border border-[var(--border-primary)] text-[var(--text-secondary)] active:bg-[var(--bg-card-alt)]'
                                   }`}
                                 >
                                   {getDepthLabel(d)}

@@ -72,14 +72,14 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto">
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
 
         <div className="px-5 pb-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Invite Parent</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Invite Parent</h3>
 
           {/* Limit gate */}
           {atLimit ? (
@@ -100,11 +100,11 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
             <>
               {/* Player select */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Player</label>
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Player</label>
                 <select
                   value={playerId}
                   onChange={e => setPlayerId(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                  className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-[var(--bg-card)]"
                 >
                   <option value="">Select a player</option>
                   {players.map(p => (
@@ -118,23 +118,23 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
               {/* Name row */}
               <div className="flex gap-3 mb-4">
                 <div className="flex-1">
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">First Name</label>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">First Name</label>
                   <input
                     type="text"
                     value={firstName}
                     onChange={e => setFirstName(e.target.value)}
-                    className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                     placeholder="First"
                     autoComplete="given-name"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Last Name</label>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Last Name</label>
                   <input
                     type="text"
                     value={lastName}
                     onChange={e => setLastName(e.target.value)}
-                    className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                     placeholder="Last"
                     autoComplete="family-name"
                   />
@@ -143,12 +143,12 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
 
               {/* Email */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</label>
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                   placeholder="parent@email.com"
                   autoComplete="email"
                   inputMode="email"
@@ -157,14 +157,14 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
 
               {/* Phone */}
               <div className="mb-4">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phone <span className="normal-case text-gray-400 font-normal">(optional)</span>
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+                  Phone <span className="normal-case text-[var(--text-tertiary)] font-normal">(optional)</span>
                 </label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
-                  className="w-full mt-1 px-3 py-2.5 border border-gray-200 rounded-xl text-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                   placeholder="(555) 000-0000"
                   autoComplete="tel"
                   inputMode="tel"
@@ -173,15 +173,15 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
 
               {/* Relationship */}
               <div className="mb-6">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Relationship</label>
-                <div className="flex bg-gray-100 rounded-lg p-0.5 mt-1">
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Relationship</label>
+                <div className="flex bg-[var(--bg-card-alt)] rounded-lg p-0.5 mt-1">
                   {RELATIONSHIPS.map(r => (
                     <button
                       key={r}
                       type="button"
                       onClick={() => setRelationship(r)}
                       className={`flex-1 py-2 text-xs font-semibold rounded-md transition-colors ${
-                        relationship === r ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                        relationship === r ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)]'
                       }`}
                     >
                       {r}
@@ -198,7 +198,7 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
                 type="button"
                 onClick={handleSend}
                 disabled={sending || !canSubmit}
-                className="w-full bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-sm font-bold active:bg-[#a8b85e] transition-colors disabled:bg-gray-200 disabled:text-gray-400"
+                className="w-full bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-sm font-bold active:bg-[#a8b85e] transition-colors disabled:bg-[var(--bg-pill-inactive)] disabled:text-[var(--text-tertiary)]"
               >
                 {sending ? 'Sending...' : 'Send Invitation'}
               </button>

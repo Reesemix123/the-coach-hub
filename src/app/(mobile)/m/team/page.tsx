@@ -21,10 +21,10 @@ export default function MobileTeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7]">
+    <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Segmented control overlay */}
-      <div className="bg-[#f2f2f7] px-4 pt-12 pb-3 sticky top-0 z-20">
-        <div className="flex bg-gray-200 rounded-lg p-0.5">
+      <div className="bg-[var(--bg-primary)] px-4 pt-12 pb-3 sticky top-0 z-20">
+        <div className="flex bg-[var(--bg-pill-inactive)] rounded-lg p-0.5">
           {(['playbook', 'roster'] as const).map(s => (
             <button
               key={s}
@@ -32,8 +32,8 @@ export default function MobileTeamPage() {
               onClick={() => handleSegmentChange(s)}
               className={`flex-1 py-2 text-sm font-semibold rounded-md transition-colors ${
                 segment === s
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500'
+                  ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
+                  : 'text-[var(--text-secondary)]'
               }`}
             >
               {s === 'playbook' ? 'Playbook' : 'Roster'}

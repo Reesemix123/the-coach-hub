@@ -52,19 +52,19 @@ function DaysUntilLabel({ days }: { days: number }) {
 
 function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={`rounded-2xl bg-white p-4 animate-pulse ${className ?? ''}`}>
-      <div className="h-3 bg-gray-100 rounded w-1/3 mb-3" />
-      <div className="h-5 bg-gray-100 rounded w-2/3 mb-2" />
-      <div className="h-4 bg-gray-100 rounded w-1/2" />
+    <div className={`rounded-2xl bg-[var(--bg-card)] p-4 animate-pulse ${className ?? ''}`}>
+      <div className="h-3 bg-[var(--bg-card-alt)] rounded w-1/3 mb-3" />
+      <div className="h-5 bg-[var(--bg-card-alt)] rounded w-2/3 mb-2" />
+      <div className="h-4 bg-[var(--bg-card-alt)] rounded w-1/2" />
     </div>
   )
 }
 
 function SkeletonGridCard() {
   return (
-    <div className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 animate-pulse">
-      <div className="w-6 h-6 bg-gray-100 rounded" />
-      <div className="h-3 bg-gray-100 rounded w-14" />
+    <div className="rounded-2xl bg-[var(--bg-card)] p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 animate-pulse">
+      <div className="w-6 h-6 bg-[var(--bg-card-alt)] rounded" />
+      <div className="h-3 bg-[var(--bg-card-alt)] rounded w-14" />
     </div>
   )
 }
@@ -73,7 +73,7 @@ function SkeletonGridCard() {
 
 function ClipboardIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
       <rect x="9" y="3" width="6" height="4" rx="1" />
       <path d="M9 12h6M9 16h4" />
@@ -83,7 +83,7 @@ function ClipboardIcon() {
 
 function UsersIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
@@ -93,7 +93,7 @@ function UsersIcon() {
 
 function PracticeIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
       <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
       <rect x="9" y="3" width="6" height="4" rx="1" />
       <path d="M9 12h6" />
@@ -104,7 +104,7 @@ function PracticeIcon() {
 
 function ChatIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-600">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]">
       <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
     </svg>
   )
@@ -112,7 +112,7 @@ function ChatIcon() {
 
 function CalendarIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-tertiary)]">
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4M8 2v4M3 10h18" />
     </svg>
@@ -155,13 +155,13 @@ export default function MobileHomePage() {
   }, [teamId])
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       {/* Greeting */}
       <div className="px-4 pt-12 pb-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">
           {getGreeting()}, {firstName}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Here&apos;s your team overview</p>
+        <p className="text-sm text-[var(--text-secondary)] mt-1">Here&apos;s your team overview</p>
       </div>
 
       {/* Next Game Card */}
@@ -169,24 +169,24 @@ export default function MobileHomePage() {
         {isLoading ? (
           <SkeletonCard />
         ) : noGame || !game ? (
-          <div className="rounded-2xl bg-white p-6 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="rounded-2xl bg-[var(--bg-card)] p-6 flex flex-col items-center justify-center gap-3 text-center">
             <CalendarIcon />
-            <p className="text-sm text-gray-500">No upcoming games scheduled</p>
+            <p className="text-sm text-[var(--text-secondary)]">No upcoming games scheduled</p>
           </div>
         ) : (
-          <div className="relative rounded-2xl bg-white p-4 border-l-4 border-[#B8CA6E]">
+          <div className="relative rounded-2xl bg-[var(--bg-card)] p-4 border-l-4 border-[#B8CA6E]">
             <div className="absolute top-4 right-4">
               <DaysUntilLabel days={getDaysUntil(game.date)} />
             </div>
             <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider mb-2">
               Next Game
             </p>
-            <p className="text-lg font-semibold text-gray-900 pr-24">{game.opponent}</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-lg font-semibold text-[var(--text-primary)] pr-24">{game.opponent}</p>
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
               {formatGameDate(game.date, game.start_time)}
             </p>
             {game.location && (
-              <p className="text-sm text-gray-500">{game.location}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{game.location}</p>
             )}
           </div>
         )}
@@ -194,7 +194,7 @@ export default function MobileHomePage() {
 
       {/* Quick Access Grid */}
       <div className="px-4">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        <h2 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
           Quick Access
         </h2>
         {isLoading ? (
@@ -208,34 +208,34 @@ export default function MobileHomePage() {
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/m/playbook"
-              className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="rounded-2xl bg-[var(--bg-card)] p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <ClipboardIcon />
-              <span className="text-sm font-medium text-gray-900">Playbook</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">Playbook</span>
             </Link>
 
             <Link
               href="/m/roster"
-              className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="rounded-2xl bg-[var(--bg-card)] p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <UsersIcon />
-              <span className="text-sm font-medium text-gray-900">Roster</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">Roster</span>
             </Link>
 
             <Link
               href="/m/practice"
-              className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="rounded-2xl bg-[var(--bg-card)] p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <PracticeIcon />
-              <span className="text-sm font-medium text-gray-900">Practice</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">Practice</span>
             </Link>
 
             <Link
               href="/m/messages"
-              className="rounded-2xl bg-white p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              className="rounded-2xl bg-[var(--bg-card)] p-4 min-h-[100px] flex flex-col items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <ChatIcon />
-              <span className="text-sm font-medium text-gray-900">Messages</span>
+              <span className="text-sm font-medium text-[var(--text-primary)]">Messages</span>
             </Link>
           </div>
         )}

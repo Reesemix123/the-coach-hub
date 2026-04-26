@@ -135,14 +135,14 @@ function ClipboardIcon({ className }: { className?: string }) {
 
 function SkeletonRow() {
   return (
-    <div className="bg-white border-b border-gray-100 px-4 py-3 min-h-[56px] flex items-center justify-between animate-pulse">
+    <div className="bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 py-3 min-h-[56px] flex items-center justify-between animate-pulse">
       <div className="flex flex-col gap-2">
-        <div className="h-4 w-36 bg-gray-200 rounded" />
-        <div className="h-3 w-24 bg-gray-100 rounded" />
+        <div className="h-4 w-36 bg-[var(--bg-pill-inactive)] rounded" />
+        <div className="h-3 w-24 bg-[var(--bg-card-alt)] rounded" />
       </div>
       <div className="flex flex-col items-end gap-2">
-        <div className="h-5 w-14 bg-gray-200 rounded-full" />
-        <div className="h-3 w-10 bg-gray-100 rounded" />
+        <div className="h-5 w-14 bg-[var(--bg-pill-inactive)] rounded-full" />
+        <div className="h-3 w-10 bg-[var(--bg-card-alt)] rounded" />
       </div>
     </div>
   )
@@ -165,9 +165,9 @@ function LoadingState() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
-      <ClipboardIcon className="text-gray-300 mb-4" />
-      <h3 className="text-base font-semibold text-gray-900 mb-1">No plays in your playbook</h3>
-      <p className="text-sm text-gray-500">
+      <ClipboardIcon className="text-[var(--text-tertiary)] mb-4" />
+      <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No plays in your playbook</h3>
+      <p className="text-sm text-[var(--text-secondary)]">
         Add plays from the desktop playbook to get started.
       </p>
     </div>
@@ -211,13 +211,13 @@ function PlayTypeBadge({ odk, playType }: { odk: string; playType?: string }) {
   if (playType) {
     const label = playType.charAt(0).toUpperCase() + playType.slice(1)
     return (
-      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+      <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-[var(--bg-card-alt)] text-[var(--text-secondary)]">
         {label}
       </span>
     )
   }
   return (
-    <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+    <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-[var(--bg-card-alt)] text-[var(--text-secondary)]">
       Offense
     </span>
   )
@@ -244,7 +244,7 @@ function FilterChip({
         'rounded-full px-4 py-2 text-sm min-w-fit whitespace-nowrap transition-colors min-h-[36px]',
         active
           ? 'bg-[#B8CA6E] text-[#1c1c1e] font-semibold'
-          : 'bg-white text-gray-600 font-normal',
+          : 'bg-[var(--bg-card)] text-[var(--text-secondary)] font-normal',
       ].join(' ')}
     >
       {label}
@@ -258,8 +258,8 @@ function FilterChip({
 
 function SectionHeader({ label }: { label: string }) {
   return (
-    <div className="sticky top-0 z-10 bg-[#f2f2f7] px-4 py-2">
-      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+    <div className="sticky top-0 z-10 bg-[var(--bg-primary)] px-4 py-2">
+      <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
         {label}
       </span>
     </div>
@@ -343,7 +343,7 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -353,7 +353,7 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
           {/* Header row */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-xl font-bold text-gray-900">{play.play_name}</h3>
+              <h3 className="text-xl font-bold text-[var(--text-primary)]">{play.play_name}</h3>
               {play.call_number != null && (
                 <p className="text-base font-bold text-[#B8CA6E] mt-0.5">
                   Play #{play.call_number}
@@ -363,7 +363,7 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
             <button
               type="button"
               onClick={onClose}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1 text-gray-400"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1 text-[var(--text-tertiary)]"
               aria-label="Close"
             >
               <CloseIcon />
@@ -372,11 +372,11 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
 
           {/* Diagram */}
           {diagramLoading ? (
-            <div className="mt-4 flex items-center justify-center rounded-xl bg-gray-50 h-[220px]">
-              <div className="w-6 h-6 border-2 border-gray-300 border-t-[#B8CA6E] rounded-full animate-spin" />
+            <div className="mt-4 flex items-center justify-center rounded-xl bg-[var(--bg-card-alt)] h-[220px]">
+              <div className="w-6 h-6 border-2 border-[var(--border-secondary)] border-t-[#B8CA6E] rounded-full animate-spin" />
             </div>
           ) : diagram ? (
-            <div className="mt-4 flex justify-center rounded-xl bg-gray-50 overflow-hidden">
+            <div className="mt-4 flex justify-center rounded-xl bg-[var(--bg-card-alt)] overflow-hidden">
               <MiniPlayDiagram
                 diagram={diagram}
                 attributes={play.attributes as unknown as FullPlayAttributes}
@@ -389,15 +389,15 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
 
           {/* Formation info card */}
           {(formationMeta || displayPersonnel) && (
-            <div className="mt-4 rounded-xl bg-gray-50 p-3">
+            <div className="mt-4 rounded-xl bg-[var(--bg-card-alt)] p-3">
               {formation && (
-                <p className="text-sm font-semibold text-gray-900">{formation}</p>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{formation}</p>
               )}
               {formationMeta?.usage && (
-                <p className="text-xs text-gray-500 mt-0.5">{formationMeta.usage}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{formationMeta.usage}</p>
               )}
               {displayPersonnel && (
-                <p className="text-xs text-gray-500 mt-1">{displayPersonnel}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{displayPersonnel}</p>
               )}
               {formationMeta && formationMeta.runPercent != null && formationMeta.passPercent != null && (
                 <div className="flex gap-2 mt-2">
@@ -426,33 +426,33 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
           <div className="mt-4 grid grid-cols-2 gap-3">
             {direction && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Direction</p>
-                <p className="text-sm text-gray-900 mt-0.5 capitalize">{direction}</p>
+                <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Direction</p>
+                <p className="text-sm text-[var(--text-primary)] mt-0.5 capitalize">{direction}</p>
               </div>
             )}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Type</p>
               <div className="mt-1">
                 <PlayTypeBadge odk={odk} playType={playType} />
               </div>
             </div>
             {runConcept && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Run Concept</p>
-                <p className="text-sm text-gray-900 mt-0.5">{runConcept}</p>
+                <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Run Concept</p>
+                <p className="text-sm text-[var(--text-primary)] mt-0.5">{runConcept}</p>
               </div>
             )}
             {passConcept && (
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pass Concept</p>
-                <p className="text-sm text-gray-900 mt-0.5">{passConcept}</p>
+                <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Pass Concept</p>
+                <p className="text-sm text-[var(--text-primary)] mt-0.5">{passConcept}</p>
               </div>
             )}
           </div>
 
           {/* Coach Notes — inline editable */}
           <div className="mt-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Coach Notes</p>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Coach Notes</p>
             <textarea
               value={coachNotes}
               onChange={(e) => {
@@ -462,11 +462,11 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
               }}
               placeholder="Add notes about this play..."
               rows={2}
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#B8CA6E] focus:border-transparent resize-none"
+              className="mt-1 w-full rounded-lg border border-[var(--border-primary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#B8CA6E] focus:border-transparent resize-none"
               style={{ minHeight: '60px' }}
             />
             <div className="flex items-center justify-between mt-1">
-              <span className="text-xs text-gray-400">{coachNotes.length}/{NOTES_MAX}</span>
+              <span className="text-xs text-[var(--text-tertiary)]">{coachNotes.length}/{NOTES_MAX}</span>
               <div className="flex items-center gap-2">
                 {notesSaved && (
                   <span className="text-xs text-green-600 font-medium">Saved</span>
@@ -488,12 +488,12 @@ function PlayDetailSheet({ play, onClose }: PlayDetailSheetProps) {
           {/* Import/extraction notes (read-only, if present) */}
           {comments && (
             <div className="mt-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</p>
-              <p className="text-sm text-gray-500 mt-1">{comments}</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Notes</p>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">{comments}</p>
             </div>
           )}
 
-          <p className="text-xs text-gray-400 mt-4">{play.play_code}</p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-4">{play.play_code}</p>
         </div>
       </div>
     </>
@@ -518,7 +518,7 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
   const subtitle = [formation, direction].filter(Boolean).join(' · ')
 
   const rowBase =
-    'bg-white border-b border-gray-100 px-4 py-3 min-h-[56px] flex items-center justify-between transition-opacity active:bg-gray-50 cursor-pointer'
+    'bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 py-3 min-h-[56px] flex items-center justify-between transition-opacity active:bg-[var(--bg-card-alt)] cursor-pointer'
 
   let rowClass = rowBase
   if (aiMode) {
@@ -536,7 +536,7 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
       {/* Left: name + subtitle */}
       <div className="flex flex-col gap-0.5 flex-1 min-w-0 pr-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-medium text-gray-900 leading-snug">
+          <span className="text-base font-medium text-[var(--text-primary)] leading-snug">
             {play.play_name}
           </span>
           {aiMode && isTopPick && (
@@ -546,7 +546,7 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
           )}
         </div>
         {subtitle ? (
-          <span className="text-sm text-gray-500 truncate">{subtitle}</span>
+          <span className="text-sm text-[var(--text-secondary)] truncate">{subtitle}</span>
         ) : null}
         {aiMode && (isTopPick || isSuggested) && (
           <span className="text-xs text-[#B8CA6E] mt-0.5">
@@ -559,7 +559,7 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
       <div className="flex flex-col items-end shrink-0">
         <PlayTypeBadge odk={odk} playType={playType} />
         {play.call_number != null && (
-          <span className="text-xs text-gray-400 mt-1">Play #{play.call_number}</span>
+          <span className="text-xs text-[var(--text-tertiary)] mt-1">Play #{play.call_number}</span>
         )}
       </div>
     </button>
@@ -727,21 +727,21 @@ export default function MobilePlaybookPage() {
   // -------------------------------------------------------------------------
 
   return (
-    <div className="min-h-full bg-[#f2f2f7] pb-4">
+    <div className="min-h-full bg-[var(--bg-primary)] pb-4">
 
       {/* ------------------------------------------------------------------ */}
       {/* Search bar + AI button row                                           */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex items-center gap-2 px-4 mt-4">
         {/* Search input */}
-        <div className="flex-1 flex items-center gap-2 rounded-xl bg-white px-4 py-3">
-          <SearchIcon className="text-gray-400 shrink-0" />
+        <div className="flex-1 flex items-center gap-2 rounded-xl bg-[var(--bg-card)] px-4 py-3">
+          <SearchIcon className="text-[var(--text-tertiary)] shrink-0" />
           <input
             type="search"
             placeholder="Search plays..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 text-base focus:outline-none min-w-0"
+            className="flex-1 bg-transparent text-[var(--text-primary)] placeholder-gray-400 text-base focus:outline-none min-w-0"
           />
         </div>
 
@@ -752,10 +752,10 @@ export default function MobilePlaybookPage() {
           aria-label="AI suggestions"
           className={[
             'rounded-full p-3 min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors shrink-0',
-            aiMode ? 'bg-[#B8CA6E]' : 'bg-white',
+            aiMode ? 'bg-[#B8CA6E]' : 'bg-[var(--bg-card)]',
           ].join(' ')}
         >
-          <SparkleIcon className={aiMode ? 'text-[#1c1c1e]' : 'text-gray-400'} />
+          <SparkleIcon className={aiMode ? 'text-[#1c1c1e]' : 'text-[var(--text-tertiary)]'} />
         </button>
       </div>
 
@@ -768,13 +768,13 @@ export default function MobilePlaybookPage() {
             <p className="text-sm font-semibold text-[#B8CA6E] leading-none mb-1">
               AI Suggestions
             </p>
-            <p className="text-xs text-gray-500">Based on your playbook tendencies</p>
+            <p className="text-xs text-[var(--text-secondary)]">Based on your playbook tendencies</p>
           </div>
           <button
             type="button"
             onClick={() => setAiMode(false)}
             aria-label="Dismiss AI suggestions"
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1 text-gray-400"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2 -mt-1 text-[var(--text-tertiary)]"
           >
             <CloseIcon />
           </button>
@@ -844,9 +844,9 @@ export default function MobilePlaybookPage() {
       {/* AI insight bar (fixed above tab bar when AI mode active)            */}
       {/* ------------------------------------------------------------------ */}
       {aiMode && (
-        <div className="fixed bottom-[calc(49px+env(safe-area-inset-bottom))] left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 flex items-center gap-3 z-20">
+        <div className="fixed bottom-[calc(49px+env(safe-area-inset-bottom))] left-0 right-0 bg-[var(--bg-card)] border-t border-[var(--border-primary)] px-4 py-3 flex items-center gap-3 z-20">
           <LightbulbIcon className="text-[#B8CA6E] shrink-0" />
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-[var(--text-secondary)]">
             Opponent tends to blitz on 3rd &amp; long
           </p>
         </div>

@@ -54,13 +54,13 @@ function truncate(text: string, maxLen: number): string {
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl px-4 py-3.5 animate-pulse shadow-sm">
+    <div className="bg-[var(--bg-card)] rounded-xl px-4 py-3.5 animate-pulse shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
+        <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="h-4 bg-gray-100 rounded w-1/2 mb-2" />
-          <div className="h-3 bg-gray-100 rounded w-4/5 mb-1" />
-          <div className="h-3 bg-gray-100 rounded w-1/4" />
+          <div className="h-4 bg-[var(--bg-card-alt)] rounded w-1/2 mb-2" />
+          <div className="h-3 bg-[var(--bg-card-alt)] rounded w-4/5 mb-1" />
+          <div className="h-3 bg-[var(--bg-card-alt)] rounded w-1/4" />
         </div>
       </div>
     </div>
@@ -82,11 +82,11 @@ function AnnouncementRow({
     <button
       type="button"
       onClick={onTap}
-      className="w-full bg-white rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
+      className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
     >
       <div className="flex items-start gap-3">
         {/* Broadcast icon */}
-        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center shrink-0">
           <svg
             width="15"
             height="15"
@@ -94,7 +94,7 @@ function AnnouncementRow({
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
-            className="text-gray-500"
+            className="text-[var(--text-secondary)]"
           >
             <path d="M22 8.5a9.5 9.5 0 01-9.5 9.5M22 8.5A9.5 9.5 0 0012.5 18m9.5-9.5H3m0 0a9.5 9.5 0 019.5-9.5M3 8.5a9.5 9.5 0 009.5 9.5m0-19v19" />
           </svg>
@@ -102,12 +102,12 @@ function AnnouncementRow({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-gray-900 truncate">{announcement.title}</p>
-            <span className="text-[10px] text-gray-400 shrink-0">
+            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{announcement.title}</p>
+            <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">
               {relativeTime(announcement.created_at)}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-1">
             {truncate(announcement.body, 100)}
           </p>
           {/* Priority badge */}
@@ -151,13 +151,13 @@ function ThreadRow({
     <button
       type="button"
       onClick={onTap}
-      className="w-full bg-white rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
+      className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-3.5 text-left active:opacity-70 transition-opacity shadow-sm"
     >
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div className="relative shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-            <span className="text-xs font-semibold text-gray-600">{initials}</span>
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] flex items-center justify-center">
+            <span className="text-xs font-semibold text-[var(--text-secondary)]">{initials}</span>
           </div>
           {hasUnread && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-blue-500 rounded-full border border-[#f2f2f7]" />
@@ -168,18 +168,18 @@ function ThreadRow({
           <div className="flex items-center justify-between gap-2">
             <p
               className={`text-sm truncate ${
-                hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-600'
+                hasUnread ? 'font-bold text-[var(--text-primary)]' : 'font-medium text-[var(--text-secondary)]'
               }`}
             >
               {conversation.participantName}
             </p>
-            <span className="text-[10px] text-gray-400 shrink-0">
+            <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">
               {relativeTime(conversation.lastMessageAt)}
             </span>
           </div>
           <p
             className={`text-xs mt-0.5 truncate ${
-              hasUnread ? 'text-gray-700' : 'text-gray-400'
+              hasUnread ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'
             }`}
           >
             {truncate(conversation.lastMessage, 80)}
@@ -289,7 +289,7 @@ export default function MessageInbox({
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                 filter === key
                   ? 'bg-gray-900 text-white'
-                  : 'bg-gray-100 text-gray-500 active:bg-gray-200'
+                  : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
               }`}
             >
               {label}
@@ -335,12 +335,12 @@ export default function MessageInbox({
               fill="none"
               stroke="currentColor"
               strokeWidth="1.5"
-              className="text-gray-300"
+              className="text-[var(--text-tertiary)]"
             >
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
-            <p className="text-sm font-medium text-gray-500 text-center">No messages yet</p>
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No messages yet</p>
+            <p className="text-xs text-[var(--text-tertiary)] text-center">
               Send an announcement or message a parent directly.
             </p>
           </div>
