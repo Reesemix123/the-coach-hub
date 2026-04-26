@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRole } from '@/app/(mobile)/RoleContext'
+import { FeatureGateModal } from '@/app/(mobile)/components/FeatureGateModal'
 
 const LEVELS = [
   { value: 'Youth', label: 'Youth' },
@@ -21,6 +22,8 @@ export default function CreateTeamPage() {
   const [sport] = useState('football')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showTeamLimitGate, setShowTeamLimitGate] = useState(false)
+  const [teamLimitMax, setTeamLimitMax] = useState(1)
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -47,7 +50,8 @@ export default function CreateTeamPage() {
 
       if (!res.ok) {
         if (data.code === 'TEAM_LIMIT_REACHED') {
-          setError(`You've reached your team limit (${data.max_teams}). Upgrade your plan to add more teams.`)
+          setTeamLimitMax(data.max_teams ?? 1)
+          setShowTeamLimitGate(true)
         } else {
           setError(data.error || 'Failed to create team')
         }
@@ -153,6 +157,16 @@ export default function CreateTeamPage() {
       <p className="text-xs text-[var(--text-tertiary)] mt-8 text-center max-w-[260px]">
         Your team starts on the free Basic plan. You can upgrade anytime.
       </p>
+
+      {/* Team limit gate modal */}
+      <FeatureGateModal
+        open={showTeamLimitGate}
+        onClose={() => setShowTeamLimitGate(false)}
+        title="Team limit reached"
+        description={`You've reached your limit of ${teamLimitMax} team${teamLimitMax !== 1 ? 's' : ''} on your current plan. Upgrade for more teams.`}
+        actionLabel="View Plans"
+        actionHref="/dashboard"
+      />
     </div>
   )
 }

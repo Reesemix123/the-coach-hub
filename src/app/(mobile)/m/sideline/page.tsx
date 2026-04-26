@@ -9,6 +9,7 @@ import { DriveService } from '@/lib/services/drive.service'
 import { saveGameState, loadGameState, clearGameState } from '@/lib/utils/gameStatePersistence'
 import { pushToQueue, getPendingCount, clearQueue, isOnline, isPlaySynced, type PlayInsertEntry, type PlayUpdateEntry } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
+import { FeatureGateModal } from '@/app/(mobile)/components/FeatureGateModal'
 import type { MainSegment, HashMark, Possession, STSubType, OutcomeLabel, PendingTry, PendingBlockedTD, GameState, LoggedPlay, UndoSnapshot } from '@/types/sideline'
 
 // ---------------------------------------------------------------------------
@@ -458,6 +459,8 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
   const [quickOpponent, setQuickOpponent] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [showGameLimitGate, setShowGameLimitGate] = useState(false)
+  const [gameLimitInfo, setGameLimitInfo] = useState<{ current: number; max: number } | null>(null)
 
   useEffect(() => {
     if (!teamId) {
@@ -486,10 +489,37 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
+  // Check active game limits before creating/selecting a game
+  async function checkGameLimit(): Promise<boolean> {
+    if (!teamId) return true
+    try {
+      const res = await fetch(`/api/enforcement?teamId=${teamId}`)
+      if (!res.ok) return true // Allow on error — server will enforce
+      const data = await res.json()
+      const max = data.limits?.max_active_games ?? null
+      const current = data.active_game_count ?? 0
+      if (max !== null && current >= max) {
+        setGameLimitInfo({ current, max })
+        setShowGameLimitGate(true)
+        return false
+      }
+    } catch {
+      // Allow on network error — server-side enforcement is the safety net
+    }
+    return true
+  }
+
   async function handleCreateQuickGame() {
     if (!teamId || !quickOpponent.trim()) return
     setIsCreating(true)
     setCreateError(null)
+
+    // Check game limit before creating
+    const allowed = await checkGameLimit()
+    if (!allowed) {
+      setIsCreating(false)
+      return
+    }
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -624,6 +654,16 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
           </div>
         </>
       )}
+
+      {/* Game limit gate modal */}
+      <FeatureGateModal
+        open={showGameLimitGate}
+        onClose={() => setShowGameLimitGate(false)}
+        title="Active game limit reached"
+        description={`You've used ${gameLimitInfo?.current ?? 0} of ${gameLimitInfo?.max ?? 0} active games on your Basic plan. Upgrade for unlimited games.`}
+        actionLabel="View Plans"
+        actionHref={teamId ? `/football/teams/${teamId}/settings` : undefined}
+      />
     </div>
   )
 }

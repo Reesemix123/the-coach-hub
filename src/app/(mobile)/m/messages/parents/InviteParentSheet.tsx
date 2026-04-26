@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import { useCommHub } from '../CommHubContext'
+import { FeatureGateModal } from '@/app/(mobile)/components/FeatureGateModal'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -83,19 +84,16 @@ export default function InviteParentSheet({ onClose, onSent }: InviteParentSheet
 
           {/* Limit gate */}
           {atLimit ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
-              <p className="text-sm font-semibold text-amber-800 mb-1">Parent limit reached</p>
-              <p className="text-xs text-amber-600">
-                {"You've reached your parent limit ({parentLimit}). Upgrade to invite more.".replace('{parentLimit}', String(parentLimit))}
-              </p>
-              <button
-                type="button"
-                onClick={onClose}
-                className="mt-3 text-sm font-semibold text-amber-700 underline"
-              >
-                Close
-              </button>
-            </div>
+            <>
+              <FeatureGateModal
+                open={true}
+                onClose={onClose}
+                title="Parent limit reached"
+                description={`You've invited ${parentCount} of ${parentLimit} parents on your current Comm Hub plan. Upgrade to invite more families.`}
+                actionLabel="Upgrade Comm Hub"
+                actionHref={teamId ? `/football/teams/${teamId}/communication/plan` : undefined}
+              />
+            </>
           ) : (
             <>
               {/* Player select */}
