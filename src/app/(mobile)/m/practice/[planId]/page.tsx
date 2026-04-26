@@ -798,7 +798,7 @@ export default function PracticePlanViewerPage() {
               setSession(null)
               router.push('/m/practice')
             }}
-            className="mt-3 bg-[var(--bg-primary)] text-white rounded-xl px-6 py-2 text-sm font-semibold"
+            className="mt-3 bg-[var(--bg-primary)] text-[var(--text-primary)] rounded-xl px-6 py-2 text-sm font-semibold"
           >
             Done
           </button>

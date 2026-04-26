@@ -147,7 +147,7 @@ export default function NewEventSheet({ editingEvent, onClose, onSaved }: NewEve
               {EVENT_TYPES.map(t => (
                 <button key={t.value} type="button" onClick={() => setEventType(t.value)}
                   className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                    eventType === t.value ? 'bg-gray-900 text-white' : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
+                    eventType === t.value ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]' : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                   }`}>
                   {t.label}
                 </button>
@@ -222,7 +222,7 @@ export default function NewEventSheet({ editingEvent, onClose, onSaved }: NewEve
                   return (
                     <button key={ch.value} type="button" onClick={() => !disabled && setChannel(ch.value)} disabled={disabled}
                       className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-                        channel === ch.value ? 'bg-gray-900 text-white'
+                        channel === ch.value ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                           : disabled ? 'bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]' : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                       }`}>
                       {ch.label}

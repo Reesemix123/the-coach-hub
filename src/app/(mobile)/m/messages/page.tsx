@@ -108,7 +108,7 @@ function MessagesPageContent() {
               onClick={() => setSection(key)}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                 section === key
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                   : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
               }`}
             >

@@ -92,7 +92,7 @@ function MessageBubble({ message, isCoach }: { message: DirectMessage; isCoach: 
           <div
             className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
               isCoach
-                ? 'bg-gray-900 text-white rounded-br-sm'
+                ? 'bg-[var(--text-primary)] text-[var(--text-inverse)] rounded-br-sm'
                 : 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm rounded-bl-sm'
             }`}
           >

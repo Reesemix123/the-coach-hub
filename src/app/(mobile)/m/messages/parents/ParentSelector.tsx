@@ -194,7 +194,7 @@ export default function ParentSelector({
             onClick={() => setPositionGroup(f.value)}
             className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${
               positionGroup === f.value
-                ? 'bg-gray-900 text-white'
+                ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                 : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
             }`}
           >

@@ -524,12 +524,12 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
   }
 
   return (
-    <div className="min-h-screen bg-[#1c1c1e] flex flex-col items-center px-4 pt-12 pb-8">
+    <div data-theme="dark" className="min-h-screen bg-[var(--bg-primary)] flex flex-col items-center px-4 pt-12 pb-8">
       {/* Logo */}
       <img src="/logo-darkmode.png" alt="Youth Coach Hub" className="h-12 w-auto mb-6 opacity-60" />
 
-      <h2 className="text-2xl font-bold text-white">Ready to Track?</h2>
-      <p className="text-sm text-gray-500 mt-1 mb-8">Select a game to begin</p>
+      <h2 className="text-2xl font-bold text-[var(--text-primary)]">Ready to Track?</h2>
+      <p className="text-sm text-[var(--text-secondary)] mt-1 mb-8">Select a game to begin</p>
 
       {/* Upcoming games */}
       <div className="w-full max-w-md">
@@ -544,20 +544,20 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
                 key={g.id}
                 type="button"
                 onClick={() => onSelectGame(g.id, g.opponent ?? 'Opponent')}
-                className="w-full bg-[#2c2c2e] rounded-xl px-4 py-4 flex items-center justify-between min-h-[64px] active:bg-[#3a3a3c] transition-colors text-left"
+                className="w-full bg-[var(--bg-card)] rounded-xl px-4 py-4 flex items-center justify-between min-h-[64px] active:bg-[var(--bg-card-alt)] transition-colors text-left"
               >
                 <div className="min-w-0">
-                  <p className="text-base font-semibold text-white truncate">
+                  <p className="text-base font-semibold text-[var(--text-primary)] truncate">
                     vs {g.opponent ?? 'TBD'}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs text-gray-500">{formatGameDate(g.date)}</span>
+                    <span className="text-xs text-[var(--text-secondary)]">{formatGameDate(g.date)}</span>
                     {g.location && (
-                      <span className="text-xs text-gray-600">{g.location}</span>
+                      <span className="text-xs text-[var(--text-secondary)]">{g.location}</span>
                     )}
                   </div>
                 </div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)] shrink-0">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               </button>
@@ -565,7 +565,7 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
           </div>
         ) : (
           <div className="text-center py-8">
-            <p className="text-sm text-gray-600">No upcoming games scheduled</p>
+            <p className="text-sm text-[var(--text-secondary)]">No upcoming games scheduled</p>
           </div>
         )}
 
@@ -577,7 +577,7 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
         >
           Quick Game
         </button>
-        <p className="text-xs text-gray-600 text-center mt-2">
+        <p className="text-xs text-[var(--text-secondary)] text-center mt-2">
           Start tracking without a scheduled game
         </p>
       </div>
@@ -586,13 +586,13 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
       {showQuickGame && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowQuickGame(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6">
-              <h3 className="text-lg font-bold text-white">Quick Game</h3>
-              <p className="text-xs text-gray-500 mt-0.5 mb-4">Enter opponent name to start</p>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Quick Game</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5 mb-4">Enter opponent name to start</p>
 
               <input
                 type="text"
@@ -600,7 +600,7 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
                 onChange={(e) => setQuickOpponent(e.target.value)}
                 placeholder="Opponent name"
                 autoFocus
-                className="w-full bg-[#3a3a3c] text-white placeholder-gray-500 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#B8CA6E]"
+                className="w-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] placeholder-gray-500 rounded-xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#B8CA6E]"
               />
 
               {createError && (
@@ -615,7 +615,7 @@ function GameSelectionScreen({ teamId, onSelectGame }: GameSelectionScreenProps)
                   'w-full mt-4 rounded-xl py-4 text-base font-bold text-center min-h-[56px] transition-colors',
                   quickOpponent.trim() && !isCreating
                     ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
-                    : 'bg-[#3a3a3c] text-gray-500',
+                    : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)]',
                 ].join(' ')}
               >
                 {isCreating ? 'Creating...' : 'Start Game'}
@@ -701,20 +701,20 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
         </div>
         <div className="px-5 pb-6">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Game Clock</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Game Clock</p>
 
           {/* Mode toggle pill */}
-          <div className="flex bg-[#3a3a3c] rounded-full p-1 w-fit mx-auto">
+          <div className="flex bg-[var(--bg-card-alt)] rounded-full p-1 w-fit mx-auto">
             <button
               type="button"
               onClick={() => switchToStepper()}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                mode === 'stepper' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'
+                mode === 'stepper' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]'
               }`}
             >
               Steppers
@@ -723,7 +723,7 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
               type="button"
               onClick={() => switchToKeypad()}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
-                mode === 'keypad' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'
+                mode === 'keypad' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]'
               }`}
             >
               Keypad
@@ -731,7 +731,7 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
           </div>
 
           {/* Large time display */}
-          <p className="text-5xl font-bold text-white text-center py-4 tabular-nums">
+          <p className="text-5xl font-bold text-[var(--text-primary)] text-center py-4 tabular-nums">
             {mode === 'keypad' ? keypadDisplay : formatClockFromMinsSecs(mins, secs)}
           </p>
 
@@ -741,20 +741,20 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
             <div className="flex flex-col gap-8">
               {/* Minutes */}
               <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">MIN</span>
+                <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider w-12">MIN</span>
                 <div className="flex items-center gap-5">
                   <button
                     type="button"
                     onClick={() => setMins((m) => Math.max(0, m - 1))}
-                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                    className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
                   >
                     <MinusIcon />
                   </button>
-                  <span className="text-2xl font-bold text-white w-10 text-center tabular-nums">{mins}</span>
+                  <span className="text-2xl font-bold text-[var(--text-primary)] w-10 text-center tabular-nums">{mins}</span>
                   <button
                     type="button"
                     onClick={() => setMins((m) => Math.min(maxMinutes, m + 1))}
-                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                    className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
                   >
                     <PlusIcon />
                   </button>
@@ -763,20 +763,20 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
 
               {/* Seconds */}
               <div className="flex items-center justify-between py-2">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider w-12">SEC</span>
+                <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider w-12">SEC</span>
                 <div className="flex items-center gap-5">
                   <button
                     type="button"
                     onClick={() => setSecs((s) => (s <= 0 ? 55 : s - 5))}
-                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                    className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
                   >
                     <MinusIcon />
                   </button>
-                  <span className="text-2xl font-bold text-white w-10 text-center tabular-nums">{String(secs).padStart(2, '0')}</span>
+                  <span className="text-2xl font-bold text-[var(--text-primary)] w-10 text-center tabular-nums">{String(secs).padStart(2, '0')}</span>
                   <button
                     type="button"
                     onClick={() => setSecs((s) => (s >= 55 ? 0 : s + 5))}
-                    className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                    className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
                   >
                     <PlusIcon />
                   </button>
@@ -791,7 +791,7 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
                   key={key}
                   type="button"
                   onClick={() => handleKey(key)}
-                  className="bg-[#3a3a3c] rounded-xl text-white text-2xl font-semibold h-14 flex items-center justify-center active:opacity-70 transition-opacity"
+                  className="bg-[var(--bg-card-alt)] rounded-xl text-[var(--text-primary)] text-2xl font-semibold h-14 flex items-center justify-center active:opacity-70 transition-opacity"
                 >
                   {key === 'clear' ? <span className="text-sm text-red-400">Clear</span> : key === 'back' ? <BackspaceIcon /> : key}
                 </button>
@@ -805,7 +805,7 @@ function ClockSheet({ currentClock, maxMinutes = 15, onDone, onClose }: ClockShe
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 text-sm font-semibold text-gray-500 min-h-[48px] active:text-gray-300 transition-colors"
+              className="flex-1 text-sm font-semibold text-[var(--text-secondary)] min-h-[48px] active:text-[var(--text-tertiary)] transition-colors"
             >
               Skip
             </button>
@@ -842,29 +842,29 @@ function ScoreSheet({ homeScore, oppScore, opponentName, onDone, onClose }: Scor
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
         <div className="flex justify-center pt-3 pb-2">
-          <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+          <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
         </div>
         <div className="px-5 pb-6">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Score</p>
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Score</p>
 
           {/* Our score */}
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-white">Us</span>
+            <span className="text-sm font-semibold text-[var(--text-primary)]">Us</span>
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setHome(Math.max(0, home - 1))}
-                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
               >
                 <MinusIcon />
               </button>
-              <span className="text-3xl font-bold text-white w-14 text-center tabular-nums">{home}</span>
+              <span className="text-3xl font-bold text-[var(--text-primary)] w-14 text-center tabular-nums">{home}</span>
               <button
                 type="button"
                 onClick={() => setHome(home + 1)}
-                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
               >
                 <PlusIcon />
               </button>
@@ -873,20 +873,20 @@ function ScoreSheet({ homeScore, oppScore, opponentName, onDone, onClose }: Scor
 
           {/* Opponent score */}
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-white truncate max-w-[80px]">{opponentName}</span>
+            <span className="text-sm font-semibold text-[var(--text-primary)] truncate max-w-[80px]">{opponentName}</span>
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setOpp(Math.max(0, opp - 1))}
-                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
               >
                 <MinusIcon />
               </button>
-              <span className="text-3xl font-bold text-white w-14 text-center tabular-nums">{opp}</span>
+              <span className="text-3xl font-bold text-[var(--text-primary)] w-14 text-center tabular-nums">{opp}</span>
               <button
                 type="button"
                 onClick={() => setOpp(opp + 1)}
-                className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+                className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
               >
                 <PlusIcon />
               </button>
@@ -962,7 +962,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
 
   return (
     <>
-      <div className="bg-[#2c2c2e] rounded-2xl mx-4 mt-3 p-4">
+      <div className="bg-[var(--bg-card)] rounded-2xl mx-4 mt-3 p-4">
         {/* Row 0: Opponent + Menu */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs font-semibold text-[#B8CA6E] uppercase tracking-wider">
@@ -971,7 +971,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
           <button
             type="button"
             onClick={onMenuOpen}
-            className="text-gray-500 bg-[#3a3a3c] rounded-lg px-2 py-1 min-h-[28px] active:bg-[#48484a] transition-colors"
+            className="text-[var(--text-secondary)] bg-[var(--bg-card-alt)] rounded-lg px-2 py-1 min-h-[28px] active:bg-[var(--bg-card-alt)] transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
@@ -981,13 +981,13 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
 
         {/* Row 1: Down & Distance + Adjust */}
         <div className="flex items-center gap-2">
-          <p className="text-3xl font-bold text-white leading-tight">
+          <p className="text-3xl font-bold text-[var(--text-primary)] leading-tight">
             {ordinalDown(down)} &amp; {distance}
           </p>
           <button
             type="button"
             onClick={openAdjust}
-            className="text-[10px] text-gray-500 bg-[#3a3a3c] rounded-full px-2 py-0.5 min-h-[22px] active:bg-[#48484a] transition-colors"
+            className="text-[10px] text-[var(--text-secondary)] bg-[var(--bg-card-alt)] rounded-full px-2 py-0.5 min-h-[22px] active:bg-[var(--bg-card-alt)] transition-colors"
           >
             Adjust
           </button>
@@ -995,16 +995,16 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
 
         {/* Row 2: Field position + possession */}
         <div className="flex items-center gap-2 mt-1">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-[var(--text-tertiary)]">
             {activeSTSubType === 'kickoff' ? formatYardLine(game.kickoffYardLine, possession) : formatYardLine(yardLine, possession)} &middot; {formatHash(hash)}
           </p>
-          <div className="flex bg-[#3a3a3c] rounded-full p-0.5">
+          <div className="flex bg-[var(--bg-card-alt)] rounded-full p-0.5">
             <button
               type="button"
               onClick={() => dispatch({ type: 'SET_POSSESSION', possession: 'us' })}
               className={[
                 'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[22px]',
-                possession === 'us' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500',
+                possession === 'us' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-secondary)]',
               ].join(' ')}
             >
               Our Ball
@@ -1014,7 +1014,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
               onClick={() => dispatch({ type: 'SET_POSSESSION', possession: 'them' })}
               className={[
                 'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors min-h-[22px]',
-                possession === 'them' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500',
+                possession === 'them' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-secondary)]',
               ].join(' ')}
             >
               Their Ball
@@ -1030,30 +1030,30 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
             onClick={() => setShowScore(true)}
             className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
           >
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Score</p>
-            <p className="text-lg font-semibold text-white">
+            <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-0.5">Score</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">
               {homeScore} - {oppScore}
             </p>
           </button>
-          <div className="w-px h-8 bg-[#3a3a3c]" />
+          <div className="w-px h-8 bg-[var(--bg-card-alt)]" />
           {/* Quarter — tap to cycle */}
           <button
             type="button"
             onClick={() => dispatch({ type: 'SET_QUARTER', quarter: nextQuarter(quarter) })}
             className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
           >
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Quarter</p>
-            <p className="text-lg font-semibold text-white">{formatQuarterLabel(quarter)}</p>
+            <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-0.5">Quarter</p>
+            <p className="text-lg font-semibold text-[var(--text-primary)]">{formatQuarterLabel(quarter)}</p>
           </button>
-          <div className="w-px h-8 bg-[#3a3a3c]" />
+          <div className="w-px h-8 bg-[var(--bg-card-alt)]" />
           {/* Clock — tappable */}
           <button
             type="button"
             onClick={() => setShowClock(true)}
             className="flex-1 text-center min-h-[44px] active:opacity-70 transition-opacity"
           >
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Clock</p>
-            <p className={`text-lg font-semibold tabular-nums ${clockHasBeenSet ? 'text-[#B8CA6E]' : 'text-gray-500'}`}>{clock}</p>
+            <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-0.5">Clock</p>
+            <p className={`text-lg font-semibold tabular-nums ${clockHasBeenSet ? 'text-[#B8CA6E]' : 'text-[var(--text-secondary)]'}`}>{clock}</p>
           </button>
         </div>
       </div>
@@ -1091,16 +1091,16 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
       {showAdjust && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowAdjust(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up max-h-[85vh] overflow-y-auto">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Adjust Game State</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Adjust Game State</p>
 
               {/* Down */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Down</p>
-              <div className="flex bg-[#3a3a3c] rounded-full p-1 mb-4">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Down</p>
+              <div className="flex bg-[var(--bg-card-alt)] rounded-full p-1 mb-4">
                 {[1, 2, 3, 4].map((d) => (
                   <button
                     key={d}
@@ -1108,7 +1108,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
                     onClick={() => setAdjDown(d)}
                     className={[
                       'flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px]',
-                      adjDown === d ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400',
+                      adjDown === d ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]',
                     ].join(' ')}
                   >
                     {ordinalDown(d)}
@@ -1117,36 +1117,36 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
               </div>
 
               {/* Distance */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Distance</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Distance</p>
               <div className="flex items-center justify-center gap-5 mb-4">
-                <button type="button" onClick={() => setAdjDistance(Math.max(1, adjDistance - 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><MinusIcon /></button>
+                <button type="button" onClick={() => setAdjDistance(Math.max(1, adjDistance - 1))} className="w-11 h-11 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70"><MinusIcon /></button>
                 <TappableNumber value={adjDistance} onChange={(v) => setAdjDistance(Math.max(1, Math.min(99, v)))} />
-                <button type="button" onClick={() => setAdjDistance(Math.min(99, adjDistance + 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><PlusIcon /></button>
+                <button type="button" onClick={() => setAdjDistance(Math.min(99, adjDistance + 1))} className="w-11 h-11 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70"><PlusIcon /></button>
               </div>
 
               {/* Yard Line */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Yard Line</p>
-              <div className="flex bg-[#3a3a3c] rounded-full p-1 w-fit mx-auto mb-2">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Yard Line</p>
+              <div className="flex bg-[var(--bg-card-alt)] rounded-full p-1 w-fit mx-auto mb-2">
                 <button
                   type="button"
                   onClick={() => setAdjOwnOpp('own')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'own' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'}`}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'own' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]'}`}
                 >OWN</button>
                 <button
                   type="button"
                   onClick={() => setAdjOwnOpp('opp')}
-                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'opp' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400'}`}
+                  className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${adjOwnOpp === 'opp' ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]'}`}
                 >OPP</button>
               </div>
               <div className="flex items-center justify-center gap-5 mb-4">
-                <button type="button" onClick={() => setAdjYardLine(Math.max(1, adjYardLine - 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><MinusIcon /></button>
+                <button type="button" onClick={() => setAdjYardLine(Math.max(1, adjYardLine - 1))} className="w-11 h-11 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70"><MinusIcon /></button>
                 <TappableNumber value={adjYardLine} onChange={(v) => setAdjYardLine(Math.max(1, Math.min(50, v)))} />
-                <button type="button" onClick={() => setAdjYardLine(Math.min(50, adjYardLine + 1))} className="w-11 h-11 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70"><PlusIcon /></button>
+                <button type="button" onClick={() => setAdjYardLine(Math.min(50, adjYardLine + 1))} className="w-11 h-11 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70"><PlusIcon /></button>
               </div>
 
               {/* Hash */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Hash</p>
-              <div className="flex bg-[#3a3a3c] rounded-full p-1 mb-5">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Hash</p>
+              <div className="flex bg-[var(--bg-card-alt)] rounded-full p-1 mb-5">
                 {(['left', 'middle', 'right'] as HashMark[]).map((h) => (
                   <button
                     key={h}
@@ -1154,7 +1154,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
                     onClick={() => setAdjHash(h)}
                     className={[
                       'flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px] capitalize',
-                      adjHash === h ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400',
+                      adjHash === h ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-tertiary)]',
                     ].join(' ')}
                   >
                     {h}
@@ -1164,7 +1164,7 @@ function GameStateBar({ game, opponentName, onMenuOpen, dispatch, clockHasBeenSe
 
               {/* Buttons */}
               <div className="flex gap-3">
-                <button type="button" onClick={() => setShowAdjust(false)} className="flex-1 text-sm font-semibold text-gray-500 min-h-[48px] active:text-gray-300 transition-colors">Cancel</button>
+                <button type="button" onClick={() => setShowAdjust(false)} className="flex-1 text-sm font-semibold text-[var(--text-secondary)] min-h-[48px] active:text-[var(--text-tertiary)] transition-colors">Cancel</button>
                 <button type="button" onClick={confirmAdjust} className="flex-1 bg-[#B8CA6E] text-[#1c1c1e] rounded-xl py-3 text-base font-bold min-h-[48px] active:bg-[#a8b85e] transition-colors">Set</button>
               </div>
             </div>
@@ -1193,7 +1193,7 @@ const SEGMENTS: { key: MainSegment; label: string }[] = [
 
 function SegmentNav({ active, onChange }: SegmentNavProps) {
   return (
-    <div className="flex bg-[#2c2c2e] rounded-xl mx-4 mt-3 p-1">
+    <div className="flex bg-[var(--bg-card)] rounded-xl mx-4 mt-3 p-1">
       {SEGMENTS.map(({ key, label }) => (
         <button
           key={key}
@@ -1203,7 +1203,7 @@ function SegmentNav({ active, onChange }: SegmentNavProps) {
             'flex-1 py-2 text-center text-sm rounded-lg transition-colors min-h-[44px]',
             active === key
               ? 'bg-[#B8CA6E] text-[#1c1c1e] font-semibold'
-              : 'text-gray-400',
+              : 'text-[var(--text-tertiary)]',
           ].join(' ')}
         >
           {label}
@@ -1230,7 +1230,7 @@ const LOG_MODES: { key: LogMode; label: string }[] = [
 
 function LogModeToggle({ active, onChange }: LogModeToggleProps) {
   return (
-    <div className="flex bg-[#3a3a3c] rounded-lg mx-4 mt-3 p-1">
+    <div className="flex bg-[var(--bg-card-alt)] rounded-lg mx-4 mt-3 p-1">
       {LOG_MODES.map(({ key, label }) => (
         <button
           key={key}
@@ -1239,8 +1239,8 @@ function LogModeToggle({ active, onChange }: LogModeToggleProps) {
           className={[
             'flex-1 py-2 text-center text-xs rounded-md transition-colors min-h-[36px]',
             active === key
-              ? 'bg-[#48484a] text-white font-medium'
-              : 'text-gray-500',
+              ? 'bg-[var(--bg-card-alt)] text-[var(--text-primary)] font-medium'
+              : 'text-[var(--text-secondary)]',
           ].join(' ')}
         >
           {label}
@@ -1283,7 +1283,7 @@ function Numpad({ value, onChange }: NumpadProps) {
           type="button"
           onClick={() => handleKey(key)}
           className={[
-            'bg-[#3a3a3c] rounded-xl text-white text-2xl font-semibold h-14 flex items-center justify-center active:opacity-70 transition-opacity',
+            'bg-[var(--bg-card-alt)] rounded-xl text-[var(--text-primary)] text-2xl font-semibold h-14 flex items-center justify-center active:opacity-70 transition-opacity',
           ].join(' ')}
         >
           {key === 'clear' && <span className="text-sm text-red-400">Clear</span>}
@@ -1328,7 +1328,7 @@ function TappableNumber({ value, onChange }: { value: number; onChange: (v: numb
         onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
         min={-99}
         max={99}
-        className="text-3xl font-bold text-white w-16 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="text-3xl font-bold text-[var(--text-primary)] w-16 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
     )
   }
@@ -1337,7 +1337,7 @@ function TappableNumber({ value, onChange }: { value: number; onChange: (v: numb
     <button
       type="button"
       onClick={handleStartEdit}
-      className="text-3xl font-bold text-white w-16 text-center tabular-nums min-h-[48px]"
+      className="text-3xl font-bold text-[var(--text-primary)] w-16 text-center tabular-nums min-h-[48px]"
     >
       {value}
     </button>
@@ -1363,37 +1363,37 @@ const RUN_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
   { label: 'TD',       className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
   { label: 'Turnover', className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
   { label: 'Safety',   className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
-  { label: 'Penalty',  className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Penalty',  className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
 ]
 
 const PASS_OUTCOMES: { label: OutcomeLabel; className: string }[] = [
   { label: 'TD',         className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
   { label: 'Turnover',   className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
-  { label: 'Complete',   className: 'bg-[#3a3a3c] text-white' },
-  { label: 'Incomplete', className: 'bg-[#3a3a3c] text-white' },
-  { label: 'Sack',       className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Complete',   className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
+  { label: 'Incomplete', className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
+  { label: 'Sack',       className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
   { label: 'Safety',     className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
-  { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
+  { label: 'Penalty',    className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
 ]
 
 const ST_OUTCOMES: Record<STSubType, { label: OutcomeLabel; className: string; autoYards?: number }[]> = {
   kickoff: [
-    { label: 'Touchback', className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'Touchback', className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]', autoYards: 0 },
     { label: 'TD',        className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
-    { label: 'Penalty',   className: 'bg-[#3a3a3c] text-white' },
+    { label: 'Penalty',   className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
   ],
   punt: [
-    { label: 'Fair Catch',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
-    { label: 'Touchback',  className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'Fair Catch',  className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]', autoYards: 0 },
+    { label: 'Touchback',  className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]', autoYards: 0 },
     { label: 'Blocked',    className: 'bg-[#3a1a1a] text-[#ff6b6b]' },
     { label: 'TD',         className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
-    { label: 'Penalty',    className: 'bg-[#3a3a3c] text-white' },
+    { label: 'Penalty',    className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
   ],
   field_goal_pat: [
     { label: 'Good',    className: 'bg-[#2a3a2a] text-[#B8CA6E]' },
-    { label: 'No Good', className: 'bg-[#3a3a3c] text-white', autoYards: 0 },
+    { label: 'No Good', className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]', autoYards: 0 },
     { label: 'Blocked', className: 'bg-[#3a1a1a] text-[#ff6b6b]', autoYards: 0 },
-    { label: 'Penalty', className: 'bg-[#3a3a3c] text-white' },
+    { label: 'Penalty', className: 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]' },
   ],
 }
 
@@ -1407,8 +1407,8 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
   if (!playType) {
     return (
       <div className="px-4 mt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</p>
-        <p className="text-xs text-gray-600 mt-2">Select a play type above</p>
+        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Result</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-2">Select a play type above</p>
       </div>
     )
   }
@@ -1418,7 +1418,7 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
     return (
       <div>
         {/* ST Type selector */}
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+        <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
           Special Teams Type
         </p>
         <div className="grid grid-cols-3 gap-2 px-4 mt-2">
@@ -1435,7 +1435,7 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
                 onClick={() => onSTSubTypeChange(key)}
                 className={[
                   'rounded-xl py-3 text-sm font-semibold text-center min-h-[44px] transition-colors',
-                  stSubType === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-white',
+                  stSubType === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]',
                 ].join(' ')}
               >
                 {displayLabel}
@@ -1447,7 +1447,7 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
         {/* ST Result buttons */}
         {stSubType ? (
           <>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
               Result
             </p>
             <div className="grid grid-cols-2 gap-2 px-4 mt-2">
@@ -1473,8 +1473,8 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
           </>
         ) : (
           <div className="px-4 mt-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Result</p>
-            <p className="text-xs text-gray-600 mt-2">Select play type above</p>
+            <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Result</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-2">Select play type above</p>
           </div>
         )}
       </div>
@@ -1486,7 +1486,7 @@ function OutcomeGrid({ selected, onSelect, playType, stSubType, onSTSubTypeChang
 
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+      <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
         Result
       </p>
       <div className="grid grid-cols-2 gap-2 px-4 mt-2">
@@ -1540,14 +1540,14 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
 
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+      <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
         Yards
       </p>
       <div className="flex items-center justify-center gap-6 mt-2">
         <button
           type="button"
           onClick={() => onChange(Math.max(-99, value - 1))}
-          className="w-14 h-14 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+          className="w-14 h-14 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
         >
           <MinusIcon />
         </button>
@@ -1562,13 +1562,13 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
             onKeyDown={(e) => { if (e.key === 'Enter') handleCommit() }}
             min={-99}
             max={99}
-            className="text-4xl font-bold text-white w-20 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="text-4xl font-bold text-[var(--text-primary)] w-20 text-center tabular-nums bg-transparent border-none outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           />
         ) : (
           <button
             type="button"
             onClick={handleStartEdit}
-            className="text-4xl font-bold text-white w-20 text-center tabular-nums min-h-[56px]"
+            className="text-4xl font-bold text-[var(--text-primary)] w-20 text-center tabular-nums min-h-[56px]"
           >
             {value}
           </button>
@@ -1576,7 +1576,7 @@ function YardsStepper({ value, onChange }: YardsStepperProps) {
         <button
           type="button"
           onClick={() => onChange(Math.min(99, value + 1))}
-          className="w-14 h-14 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity"
+          className="w-14 h-14 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity"
         >
           <PlusIcon />
         </button>
@@ -1597,7 +1597,7 @@ interface FilmFlagProps {
 function FilmFlagToggle({ value, onChange }: FilmFlagProps) {
   return (
     <div className="flex items-center justify-between px-4 mt-4">
-      <span className="text-sm text-gray-400">Flag for film review</span>
+      <span className="text-sm text-[var(--text-tertiary)]">Flag for film review</span>
       <button
         type="button"
         role="switch"
@@ -1605,12 +1605,12 @@ function FilmFlagToggle({ value, onChange }: FilmFlagProps) {
         onClick={() => onChange(!value)}
         className={[
           'relative w-12 h-7 rounded-full transition-colors shrink-0',
-          value ? 'bg-[#B8CA6E]' : 'bg-[#3a3a3c]',
+          value ? 'bg-[#B8CA6E]' : 'bg-[var(--bg-card-alt)]',
         ].join(' ')}
       >
         <span
           className={[
-            'absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform',
+            'absolute top-1 w-5 h-5 rounded-full bg-[var(--bg-card)] shadow transition-transform',
             value ? 'translate-x-6' : 'translate-x-1',
           ].join(' ')}
         />
@@ -1660,7 +1660,7 @@ function WristbandMode({
   if (isLoadingGamePlan) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading game plan...</p>
+        <p className="text-sm text-[var(--text-secondary)]">Loading game plan...</p>
       </div>
     )
   }
@@ -1669,8 +1669,8 @@ function WristbandMode({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <ClipboardIcon />
-        <p className="text-sm text-gray-500 mt-3">No game plan loaded</p>
-        <p className="text-xs text-gray-600 mt-1">Set up a game plan on the desktop to use wristband mode</p>
+        <p className="text-sm text-[var(--text-secondary)] mt-3">No game plan loaded</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-1">Set up a game plan on the desktop to use wristband mode</p>
       </div>
     )
   }
@@ -1679,11 +1679,11 @@ function WristbandMode({
     <div>
       {/* Number display */}
       <div className="text-center py-6">
-        <p className="text-6xl font-bold text-white min-h-[72px]">{numInput || '\u00A0'}</p>
+        <p className="text-6xl font-bold text-[var(--text-primary)] min-h-[72px]">{numInput || '\u00A0'}</p>
         {matchedPlay ? (
           <>
             <p className="text-lg text-[#B8CA6E] mt-1">{matchedPlay.playbook_plays.play_name}</p>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
               {matchedPlay.playbook_plays.attributes.playType ?? ''}
               {matchedPlay.playbook_plays.attributes.formation
                 ? ` · ${matchedPlay.playbook_plays.attributes.formation}`
@@ -1691,9 +1691,9 @@ function WristbandMode({
             </p>
           </>
         ) : numInput ? (
-          <p className="text-sm text-gray-500 mt-1">No play for #{numInput}</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">No play for #{numInput}</p>
         ) : (
-          <p className="text-sm text-gray-600 mt-1">Enter wristband number</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Enter wristband number</p>
         )}
       </div>
 
@@ -1760,7 +1760,7 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading plays...</p>
+        <p className="text-sm text-[var(--text-secondary)]">Loading plays...</p>
       </div>
     )
   }
@@ -1769,7 +1769,7 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <ClipboardIcon />
-        <p className="text-sm text-gray-500 mt-3">No plays in playbook</p>
+        <p className="text-sm text-[var(--text-secondary)] mt-3">No plays in playbook</p>
       </div>
     )
   }
@@ -1783,7 +1783,7 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
       {/* Pinned suggestions */}
       {sidelineIQEnabled && suggestions && suggestions.length > 0 && (
         <div className="mb-3">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">Suggested</p>
+          <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest px-4 pb-1.5">Suggested</p>
           {suggestions.slice(0, 3).map((s, i) => (
             <button
               key={`suggested-${s.playCode}-${i}`}
@@ -1794,20 +1794,20 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
                 s.playType,
                 '',
               )}
-              className="w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px] bg-[#1e2a1e] border-l-2 border-l-[#6a8a30]"
+              className="w-full flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] active:bg-[var(--bg-card)] transition-colors text-left min-h-[56px] bg-[#1e2a1e] border-l-2 border-l-[#6a8a30]"
             >
               <div className="flex-1 min-w-0 pr-3">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-white">{s.playName}</p>
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{s.playName}</p>
                   <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">Suggested</span>
                 </div>
                 {s.rationale && (
-                  <p className="text-xs text-gray-400 mt-0.5">{s.rationale}</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{s.rationale}</p>
                 )}
               </div>
               <div className="flex flex-col items-end shrink-0 ml-3">
                 {s.callNumber != null && s.callNumber > 0 && (
-                  <span className="text-xs text-gray-500">#{s.callNumber}</span>
+                  <span className="text-xs text-[var(--text-secondary)]">#{s.callNumber}</span>
                 )}
               </div>
             </button>
@@ -1823,13 +1823,13 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
             onClick={() => setFilter(key)}
             className={[
               'rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors min-h-[30px]',
-              filter === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[#3a3a3c] text-gray-400',
+              filter === key ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]',
             ].join(' ')}
           >
             {label}
           </button>
         ))}
-        <span className="text-[10px] text-gray-600 self-center ml-1 whitespace-nowrap">{filteredPlays.length} plays</span>
+        <span className="text-[10px] text-[var(--text-secondary)] self-center ml-1 whitespace-nowrap">{filteredPlays.length} plays</span>
       </div>
       {filteredPlays.map((play) => {
         const isSelected = play.play_code === selectedPlayCode
@@ -1847,13 +1847,13 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
             )
           }
           className={[
-            'w-full flex items-center justify-between px-4 py-3 border-b border-[#3a3a3c] active:bg-[#2c2c2e] transition-colors text-left min-h-[56px]',
+            'w-full flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] active:bg-[var(--bg-card)] transition-colors text-left min-h-[56px]',
             isSelected ? 'border-l-[3px] border-l-[#B8CA6E] bg-[#B8CA6E]/5' : '',
           ].join(' ')}
         >
           <div>
-            <p className="text-sm font-medium text-white">{play.play_name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-sm font-medium text-[var(--text-primary)]">{play.play_name}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
               {[play.attributes.formation, play.attributes.playType].filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -1863,11 +1863,11 @@ function FromPlaysMode({ plays, isLoading, possession, selectedPlayCode, onSelec
             ) : play.attributes.playType === 'pass' ? (
               <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
             ) : (
-              <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">
+              <span className="bg-gray-700/40 text-[var(--text-tertiary)] rounded-full px-2 py-0.5 text-xs capitalize">
                 {play.attributes.playType || play.attributes.odk}
               </span>
             )}
-            <span className="text-xs text-gray-600 mt-1">{play.play_code}</span>
+            <span className="text-xs text-[var(--text-secondary)] mt-1">{play.play_code}</span>
           </div>
         </button>
         )
@@ -2368,7 +2368,7 @@ function LogView({
 
       {logMode === 'quick' && (
         <div className="px-4 mt-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
             Play Type
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -2391,7 +2391,7 @@ function LogView({
                     'rounded-xl py-4 text-sm font-semibold text-center min-h-[56px] transition-colors',
                     quickPlayType === key
                       ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                      : 'bg-[#3a3a3c] text-white',
+                      : 'bg-[var(--bg-card-alt)] text-[var(--text-primary)]',
                   ].join(' ')}
                 >
                   {label}
@@ -2404,10 +2404,10 @@ function LogView({
 
       {/* Selected play indicator (shown in wristband/fromPlays when play selected) */}
       {logMode !== 'quick' && selectedPlayCode && (
-        <div className="mx-4 mt-3 bg-[#2c2c2e] rounded-xl px-4 py-3 flex items-center justify-between">
+        <div className="mx-4 mt-3 bg-[var(--bg-card)] rounded-xl px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-white">{selectedPlayName}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{selectedPlayCode}</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{selectedPlayName}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{selectedPlayCode}</p>
           </div>
           <button
             type="button"
@@ -2417,7 +2417,7 @@ function LogView({
               setSelectedPlayType(null)
               setSelectedFormation(null)
             }}
-            className="text-xs text-gray-500 min-h-[44px] min-w-[44px] flex items-center justify-end"
+            className="text-xs text-[var(--text-secondary)] min-h-[44px] min-w-[44px] flex items-center justify-end"
           >
             Clear
           </button>
@@ -2449,35 +2449,35 @@ function LogView({
               {/* Kickoff: show fixed starting position, punt: show kick distance stepper */}
               {stSubType === 'kickoff' ? (
                 <div className="px-4 mt-4">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Kickoff From</p>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Kickoff From</p>
                   <p className="text-sm text-[#B8CA6E] font-semibold mt-1">{formatYardLine(game.kickoffYardLine, game.possession)}</p>
                 </div>
               ) : null}
 
               {/* Kick/Punt distance */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
                 {stSubType === 'kickoff' ? 'Kick Distance' : 'Punt Distance'}
               </p>
               <div className="flex items-center justify-center gap-6 mt-2">
-                <button type="button" onClick={() => setKickYards(Math.max(0, kickYards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                <button type="button" onClick={() => setKickYards(Math.max(0, kickYards - 1))} className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity">
                   <MinusIcon />
                 </button>
                 <TappableNumber value={kickYards} onChange={setKickYards} />
-                <button type="button" onClick={() => setKickYards(Math.min(99, kickYards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                <button type="button" onClick={() => setKickYards(Math.min(99, kickYards + 1))} className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity">
                   <PlusIcon />
                 </button>
               </div>
 
               {/* Return yards */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mt-4">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider px-4 mt-4">
                 Return Yards
               </p>
               <div className="flex items-center justify-center gap-6 mt-2">
-                <button type="button" onClick={() => setYards(Math.max(0, yards - 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                <button type="button" onClick={() => setYards(Math.max(0, yards - 1))} className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity">
                   <MinusIcon />
                 </button>
                 <TappableNumber value={yards} onChange={setYards} />
-                <button type="button" onClick={() => setYards(Math.min(99, yards + 1))} className="w-12 h-12 rounded-full bg-[#3a3a3c] text-white flex items-center justify-center active:opacity-70 transition-opacity">
+                <button type="button" onClick={() => setYards(Math.min(99, yards + 1))} className="w-12 h-12 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] flex items-center justify-center active:opacity-70 transition-opacity">
                   <PlusIcon />
                 </button>
               </div>
@@ -2530,7 +2530,7 @@ function LogView({
                   return !!selectedOutcome || yards !== 0
                 })()
               ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
-              : 'bg-[#3a3a3c] text-gray-500',
+              : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)]',
           ].join(' ')}
         >
           {isSaving ? 'Saving...' : saveSuccess ? 'Logged' : 'LOG PLAY'}
@@ -2539,9 +2539,9 @@ function LogView({
 
       {/* Enrichment shelf — persistent non-blocking panel */}
       {enrichmentStep > 0 && enrichmentContext && (
-        <div className="mx-4 mt-3 mb-2 bg-[#2c2c2e] rounded-xl p-3">
+        <div className="mx-4 mt-3 mb-2 bg-[var(--bg-card)] rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+            <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
               {(() => {
                 if (enrichmentContext.possession === 'us') return 'Their Defense'
                 if (enrichmentContext.possession === 'them' && enrichmentStep === 1) return 'Their Offense'
@@ -2560,7 +2560,7 @@ function LogView({
                   setEnrichmentContext(null)
                 }
               }}
-              className="text-xs text-gray-500 min-h-[32px] min-w-[32px] flex items-center justify-center active:text-gray-300"
+              className="text-xs text-[var(--text-secondary)] min-h-[32px] min-w-[32px] flex items-center justify-center active:text-[var(--text-tertiary)]"
             >
               Skip
             </button>
@@ -2582,7 +2582,7 @@ function LogView({
                     setEnrichmentStep(0)
                     setEnrichmentContext(null)
                   }}
-                  className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                  className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[var(--bg-card-alt)] transition-colors"
                 >
                   {opt}
                 </button>
@@ -2606,7 +2606,7 @@ function LogView({
                         if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
                         else { setEnrichmentStep(0); setEnrichmentContext(null) }
                       }}
-                      className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                      className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[var(--bg-card-alt)] transition-colors"
                     >
                       {opt}
                     </button>
@@ -2623,7 +2623,7 @@ function LogView({
                         if (enrichmentStep < enrichmentTotalSteps) setEnrichmentStep(2)
                         else { setEnrichmentStep(0); setEnrichmentContext(null) }
                       }}
-                      className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                      className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[var(--bg-card-alt)] transition-colors"
                     >
                       {opt}
                     </button>
@@ -2635,7 +2635,7 @@ function LogView({
           {/* Step 2: THEIR BALL + Quick — Our defensive response */}
           {enrichmentContext.possession === 'them' && enrichmentStep === 2 && (
             <div>
-              <p className="text-[10px] text-gray-600 mb-1.5">Front</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mb-1.5">Front</p>
               <div className="flex gap-2 flex-wrap mb-2">
                 {['4-3', '3-4', 'Nickel', 'Dime'].map((opt) => (
                   <button
@@ -2647,13 +2647,13 @@ function LogView({
                         queueEnrichmentUpdate(enrichmentContext.lastPlayId, 'play_concept', opt)
                       }
                     }}
-                    className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                    className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[var(--bg-card-alt)] transition-colors"
                   >
                     {opt}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-gray-600 mb-1.5">Coverage</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mb-1.5">Coverage</p>
               <div className="flex gap-2 flex-wrap">
                 {['Man', 'Zone', 'Blitz', 'Zone Blitz'].map((opt) => (
                   <button
@@ -2667,7 +2667,7 @@ function LogView({
                       setEnrichmentStep(0)
                       setEnrichmentContext(null)
                     }}
-                    className="bg-[#3a3a3c] text-white rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[#48484a] transition-colors"
+                    className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-xs font-semibold min-h-[36px] active:bg-[var(--bg-card-alt)] transition-colors"
                   >
                     {opt}
                   </button>
@@ -2737,7 +2737,7 @@ function PlayRow({
   const { play_name, attributes } = gpp.playbook_plays
   const pt = attributes.playType?.toLowerCase()
 
-  let rowClass = 'w-full text-left px-4 py-3 border-b border-[#3a3a3c] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70'
+  let rowClass = 'w-full text-left px-4 py-3 border-b border-[var(--border-primary)] flex items-center justify-between min-h-[56px] transition-opacity active:opacity-70'
   if (isSituationPlay) {
     rowClass += ' bg-[#1a2a3a] border-l-4 border-[#B8CA6E]'
   } else if (isTopPick) {
@@ -2745,14 +2745,14 @@ function PlayRow({
   } else if (isSuggested) {
     rowClass += ' bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
   } else {
-    rowClass += ' bg-[#2c2c2e] opacity-50'
+    rowClass += ' bg-[var(--bg-card)] opacity-50'
   }
 
   return (
     <button type="button" onClick={onSelect} className={rowClass}>
       <div className="flex-1 min-w-0 pr-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base font-medium text-white">{play_name}</span>
+          <span className="text-base font-medium text-[var(--text-primary)]">{play_name}</span>
           {isTopPick && (
             <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
           )}
@@ -2760,7 +2760,7 @@ function PlayRow({
             <span className="bg-[#6a8a30]/30 text-[#a8c060] rounded-full px-2 py-0.5 text-xs font-medium">SUGGESTED</span>
           )}
         </div>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <p className="text-sm text-[var(--text-secondary)] mt-0.5">
           {[attributes.formation, attributes.playType].filter(Boolean).join(' · ')}
         </p>
         {hint && <p className="text-xs text-[#B8CA6E] mt-0.5">{hint}</p>}
@@ -2771,12 +2771,12 @@ function PlayRow({
         ) : pt === 'pass' ? (
           <span className="bg-blue-900/40 text-blue-400 rounded-full px-2 py-0.5 text-xs">Pass</span>
         ) : (
-          <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">
+          <span className="bg-gray-700/40 text-[var(--text-tertiary)] rounded-full px-2 py-0.5 text-xs capitalize">
             {attributes.playType || attributes.odk}
           </span>
         )}
         {gpp.call_number != null && gpp.call_number > 0 && (
-          <span className="text-xs text-gray-500 mt-1">Play #{gpp.call_number}</span>
+          <span className="text-xs text-[var(--text-secondary)] mt-1">Play #{gpp.call_number}</span>
         )}
       </div>
     </button>
@@ -2902,7 +2902,7 @@ function PlaysView({
   if (isLoadingGamePlan || isLoadingPlays) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-500">Loading plays...</p>
+        <p className="text-sm text-[var(--text-secondary)]">Loading plays...</p>
       </div>
     )
   }
@@ -2911,8 +2911,8 @@ function PlaysView({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <ClipboardIcon />
-        <p className="text-sm text-gray-500 mt-3">No plays in playbook</p>
-        <p className="text-xs text-gray-600 mt-1">Add plays on desktop to get started</p>
+        <p className="text-sm text-[var(--text-secondary)] mt-3">No plays in playbook</p>
+        <p className="text-xs text-[var(--text-secondary)] mt-1">Add plays on desktop to get started</p>
       </div>
     )
   }
@@ -2942,18 +2942,18 @@ function PlaysView({
       {/* SidelineIQ toggle + playbook fallback banner */}
       <div className="flex items-center justify-between mx-4 mt-3">
         {usingPlaybookFallback && sidelineIQEnabled ? (
-          <p className="text-xs text-gray-500 flex-1 mr-3">Using full playbook</p>
+          <p className="text-xs text-[var(--text-secondary)] flex-1 mr-3">Using full playbook</p>
         ) : (
           <div className="flex-1" />
         )}
         <button
           type="button"
           onClick={onToggleSidelineIQ}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#2c2c2e] active:opacity-70 transition-opacity"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--bg-card)] active:opacity-70 transition-opacity"
         >
-          <span className="text-xs text-gray-400">AI Suggestions</span>
-          <div className={`w-8 h-[18px] rounded-full transition-colors relative ${sidelineIQEnabled ? 'bg-[#B8CA6E]' : 'bg-[#48484a]'}`}>
-            <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform ${sidelineIQEnabled ? 'left-[16px]' : 'left-[2px]'}`} />
+          <span className="text-xs text-[var(--text-tertiary)]">AI Suggestions</span>
+          <div className={`w-8 h-[18px] rounded-full transition-colors relative ${sidelineIQEnabled ? 'bg-[#B8CA6E]' : 'bg-[var(--bg-card-alt)]'}`}>
+            <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-[var(--bg-card)] transition-transform ${sidelineIQEnabled ? 'left-[16px]' : 'left-[2px]'}`} />
           </div>
         </button>
       </div>
@@ -2968,10 +2968,10 @@ function PlaysView({
                 {aiSuggestions ? 'AI Suggestions' : 'Situational Suggestions'}
               </p>
               {(sidelineIQLoading || aiLoading) && (
-                <span className="text-xs text-gray-500 animate-pulse">Analyzing...</span>
+                <span className="text-xs text-[var(--text-secondary)] animate-pulse">Analyzing...</span>
               )}
             </div>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-[var(--text-tertiary)]">
               {situationText} · {loggedPlays.length} play{loggedPlays.length !== 1 ? 's' : ''} logged
             </p>
           </div>
@@ -2980,8 +2980,8 @@ function PlaysView({
           {game.down === 4 && fourthDownDecision && (
             <div className="bg-[#2a1a1a] border border-red-900/40 rounded-xl mx-4 mt-3 p-3">
               <p className="text-sm font-bold text-red-400">4th Down Decision</p>
-              <p className="text-base font-semibold text-white mt-1 capitalize">{fourthDownDecision.decision.replace(/_/g, ' ')}</p>
-              <p className="text-xs text-gray-400 mt-1">{fourthDownDecision.reasoning}</p>
+              <p className="text-base font-semibold text-[var(--text-primary)] mt-1 capitalize">{fourthDownDecision.decision.replace(/_/g, ' ')}</p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">{fourthDownDecision.reasoning}</p>
               {!fourthDownAIResponse && (
                 <button
                   type="button"
@@ -2993,8 +2993,8 @@ function PlaysView({
                 </button>
               )}
               {fourthDownAIResponse && (
-                <div className="mt-2 bg-[#1c1c1e] rounded-lg p-2.5">
-                  <p className="text-xs text-gray-300 leading-relaxed">{fourthDownAIResponse}</p>
+                <div className="mt-2 bg-[var(--bg-primary)] rounded-lg p-2.5">
+                  <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">{fourthDownAIResponse}</p>
                 </div>
               )}
             </div>
@@ -3002,7 +3002,7 @@ function PlaysView({
 
           {/* AI loading indicator */}
           {aiLoading && (
-            <p className="text-xs text-gray-600 text-center mt-2 animate-pulse">Updating suggestions...</p>
+            <p className="text-xs text-[var(--text-secondary)] text-center mt-2 animate-pulse">Updating suggestions...</p>
           )}
 
           {/* Suggestion cards with Log Play button */}
@@ -3011,18 +3011,18 @@ function PlaysView({
               displaySuggestions.map((s, i) => (
                 <div
                   key={`${s.playCode}-${i}`}
-                  className={`px-4 py-3 border-b border-[#3a3a3c] ${
+                  className={`px-4 py-3 border-b border-[var(--border-primary)] ${
                     i === 0
                       ? 'bg-[#253515] border-l-4 border-[#B8CA6E]'
                       : i <= 2
                         ? 'bg-[#1e2a1e] border-l-2 border-[#6a8a30]'
-                        : 'bg-[#2c2c2e] opacity-60'
+                        : 'bg-[var(--bg-card)] opacity-60'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0 pr-3">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base font-medium text-white">{s.playName}</span>
+                        <span className="text-base font-medium text-[var(--text-primary)]">{s.playName}</span>
                         {i === 0 && (
                           <span className="bg-[#B8CA6E] text-[#1c1c1e] rounded-full px-2 py-0.5 text-xs font-bold">TOP PICK</span>
                         )}
@@ -3031,16 +3031,16 @@ function PlaysView({
                         )}
                       </div>
                       {s.rationale ? (
-                        <p className="text-xs text-gray-400 mt-0.5">{s.rationale}</p>
+                        <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{s.rationale}</p>
                       ) : (
                         <p className="text-xs text-[#B8CA6E] mt-0.5">{s.reason}</p>
                       )}
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-gray-600">
+                        <span className="text-xs text-[var(--text-secondary)]">
                           {Math.round(s.confidence * 100)}% confidence
                         </span>
-                        <span className="text-xs text-gray-600">·</span>
-                        <span className="text-xs text-gray-600 capitalize">{s.source}</span>
+                        <span className="text-xs text-[var(--text-secondary)]">·</span>
+                        <span className="text-xs text-[var(--text-secondary)] capitalize">{s.source}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end shrink-0">
@@ -3051,10 +3051,10 @@ function PlaysView({
                       ) : s.playType === 'defense' ? (
                         <span className="bg-purple-900/40 text-purple-400 rounded-full px-2 py-0.5 text-xs">Defense</span>
                       ) : (
-                        <span className="bg-gray-700/40 text-gray-400 rounded-full px-2 py-0.5 text-xs capitalize">{s.playType}</span>
+                        <span className="bg-gray-700/40 text-[var(--text-tertiary)] rounded-full px-2 py-0.5 text-xs capitalize">{s.playType}</span>
                       )}
                       {s.callNumber != null && (
-                        <span className="text-xs text-gray-500 mt-1">Play #{s.callNumber}</span>
+                        <span className="text-xs text-[var(--text-secondary)] mt-1">Play #{s.callNumber}</span>
                       )}
                     </div>
                   </div>
@@ -3075,15 +3075,15 @@ function PlaysView({
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-500">No suggestions for this situation</p>
-                <p className="text-xs text-gray-600 mt-1">Browse plays below</p>
+                <p className="text-sm text-[var(--text-secondary)]">No suggestions for this situation</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Browse plays below</p>
               </div>
             )}
           </div>
 
           {/* All plays below suggestions */}
           <div className="mt-4">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4 pb-1.5">
+            <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest px-4 pb-1.5">
               All {game.possession === 'us' ? 'Offensive' : 'Defensive'} Plays
             </p>
             {manualPlays.map((gpp) => (
@@ -3099,11 +3099,11 @@ function PlaysView({
       ) : (
         <>
           {/* SidelineIQ off — flat play list */}
-          <div className="bg-[#2c2c2e] rounded-xl mx-4 mt-3 p-3">
-            <p className="text-sm font-semibold text-white">
+          <div className="bg-[var(--bg-card)] rounded-xl mx-4 mt-3 p-3">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
               {game.possession === 'us' ? 'Offensive' : 'Defensive'} Plays
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
               {situationText} · {manualPlays.length} plays
             </p>
           </div>
@@ -3185,23 +3185,23 @@ function SwipeablePlayRow({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ transform: `translateX(${offsetX}px)`, transition: swiping ? 'none' : 'transform 0.2s ease-out' }}
-        className="relative bg-[#1c1c1e] flex items-center gap-3 px-4 py-3 border-b border-[#3a3a3c]"
+        className="relative bg-[var(--bg-primary)] flex items-center gap-3 px-4 py-3 border-b border-[var(--border-primary)]"
       >
         {/* Play number circle */}
-        <div className="w-8 h-8 rounded-full bg-[#3a3a3c] text-white text-sm flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] text-sm flex items-center justify-center shrink-0">
           {index + 1}
         </div>
 
         {/* Play details */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">
             {play.playName ?? 'Quick Play'}
           </p>
-          {(() => { const rl = formatPlayResult(play); return rl ? <p className="text-[10px] text-gray-500">{rl}</p> : null })()}
-          <p className="text-xs text-gray-500 mt-0.5">
+          {(() => { const rl = formatPlayResult(play); return rl ? <p className="text-[10px] text-[var(--text-secondary)]">{rl}</p> : null })()}
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             {ordinalDown(play.down)} &amp; {play.distance} &middot; {formatYardLine(play.yardLine, play.possession)}
           </p>
-          <p className="text-[10px] text-gray-600 mt-0.5">
+          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
             {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, Math.max(1, play.yardLine + play.yardsGained)), play.possession)}
           </p>
         </div>
@@ -3214,7 +3214,7 @@ function SwipeablePlayRow({
               ? 'text-green-400'
               : play.yardsGained < 0
               ? 'text-red-400'
-              : 'text-gray-400',
+              : 'text-[var(--text-tertiary)]',
           ].join(' ')}
         >
           {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
@@ -3285,7 +3285,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
   }, [loggedPlays])
 
   function driveBadgeClass(result: string | null): string {
-    if (!result) return 'bg-gray-700/30 text-gray-400'
+    if (!result) return 'bg-gray-700/30 text-[var(--text-tertiary)]'
     if (result.toLowerCase().includes('td') || result.toLowerCase().includes('touchdown')) {
       return 'bg-[#B8CA6E]/20 text-[#B8CA6E]'
     }
@@ -3293,7 +3293,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
       return 'bg-blue-900/30 text-blue-400'
     }
     if (result.toLowerCase().includes('punt')) {
-      return 'bg-gray-700/30 text-gray-400'
+      return 'bg-gray-700/30 text-[var(--text-tertiary)]'
     }
     if (result.toLowerCase().includes('safety')) {
       return 'bg-red-900/30 text-red-400'
@@ -3301,25 +3301,25 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
     if (result.toLowerCase().includes('turnover') || result.toLowerCase().includes('fumble') || result.toLowerCase().includes('interception')) {
       return 'bg-red-900/30 text-red-400'
     }
-    return 'bg-gray-700/30 text-gray-400'
+    return 'bg-gray-700/30 text-[var(--text-tertiary)]'
   }
 
   return (
     <div className="pb-8">
       {/* Current Drive */}
-      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-4 mt-3">
+      <p className="text-sm font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mt-3">
         Current Drive
       </p>
 
-      <div className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
-        <p className="text-sm font-semibold text-white">
+      <div className="bg-[var(--bg-card)] rounded-xl mx-4 mt-2 p-3">
+        <p className="text-sm font-semibold text-[var(--text-primary)]">
           Drive #{driveNumber} &middot; Q{game.quarter}
         </p>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
           {currentDrivePlays.length} plays &middot; {currentDriveYards} yards
         </p>
         {currentDrivePlays.length > 0 && (
-          <p className="text-xs text-gray-600 mt-0.5">
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             {formatYardLine(currentDrivePlays[0].yardLine, currentDrivePlays[0].possession)} &rarr; {formatYardLine(game.yardLine, game.possession)}
           </p>
         )}
@@ -3328,7 +3328,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
       {/* Play list for current drive */}
       {currentDrivePlays.length === 0 ? (
         <div className="text-center py-6">
-          <p className="text-sm text-gray-600">No plays logged this drive</p>
+          <p className="text-sm text-[var(--text-secondary)]">No plays logged this drive</p>
         </div>
       ) : (
         <div className="mt-2">
@@ -3345,7 +3345,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                   <button
                     type="button"
                     onClick={onUndo}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-gray-500 active:text-white transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-[var(--text-secondary)] active:text-[var(--text-primary)] transition-colors"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M3 7v6h6" /><path d="M3 13a9 9 0 103-7.7L3 7" />
@@ -3363,17 +3363,17 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
       {deleteConfirmId && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setDeleteConfirmId(null)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6 text-center">
-              <p className="text-sm text-white font-semibold">Remove this play from the drive?</p>
+              <p className="text-sm text-[var(--text-primary)] font-semibold">Remove this play from the drive?</p>
               <div className="flex gap-3 mt-4">
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
                 >
                   Cancel
                 </button>
@@ -3402,7 +3402,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
       </div>
 
       {/* Previous Drives */}
-      <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider px-4 mt-6">
+      <p className="text-sm font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mt-6">
         Previous Drives
       </p>
 
@@ -3418,7 +3418,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
         if (!hasLocalDrives && !hasDbDrives) {
           return (
             <div className="text-center py-8 px-4">
-              <p className="text-sm text-gray-600">No drives yet — log your first play to start</p>
+              <p className="text-sm text-[var(--text-secondary)]">No drives yet — log your first play to start</p>
             </div>
           )
         }
@@ -3438,11 +3438,11 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                   <button
                     type="button"
                     onClick={() => setExpandedDrive(isExpanded ? null : dn)}
-                    className="w-full bg-[#2c2c2e] rounded-xl p-3 text-left active:bg-[#3a3a3c] transition-colors"
+                    className="w-full bg-[var(--bg-card)] rounded-xl p-3 text-left active:bg-[var(--bg-card-alt)] transition-colors"
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-white">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
                           Drive #{dn} &middot; Q{drivePlays[0]?.quarter ?? game.quarter}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
@@ -3451,42 +3451,42 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                               {driveResult}
                             </span>
                           )}
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-[var(--text-secondary)]">
                             {drivePlays.length} plays &middot; {totalYards} yards
                           </span>
                         </div>
                       </div>
                       <svg
                         width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        className={`text-gray-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        className={`text-[var(--text-secondary)] shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                       >
                         <path d="M6 9l6 6 6-6" />
                       </svg>
                     </div>
                   </button>
                   {isExpanded && (
-                    <div className="bg-[#252527] rounded-b-xl mx-1 -mt-1 pt-2 pb-1">
+                    <div className="bg-[var(--bg-card)] rounded-b-xl mx-1 -mt-1 pt-2 pb-1">
                       {drivePlays.map((play, idx) => {
                         const resultLabel = formatPlayResult(play)
                         return (
-                        <div key={play.id} className="flex items-center gap-3 px-3 py-2 border-b border-[#3a3a3c] last:border-b-0">
-                          <div className="w-6 h-6 rounded-full bg-[#3a3a3c] text-white text-[10px] flex items-center justify-center shrink-0">
+                        <div key={play.id} className="flex items-center gap-3 px-3 py-2 border-b border-[var(--border-primary)] last:border-b-0">
+                          <div className="w-6 h-6 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] text-[10px] flex items-center justify-center shrink-0">
                             {idx + 1}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-white truncate">
+                            <p className="text-xs font-medium text-[var(--text-primary)] truncate">
                               {play.playName ?? 'Quick Play'}
                             </p>
                             {resultLabel && (
-                              <p className="text-[10px] text-gray-500">{resultLabel}</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">{resultLabel}</p>
                             )}
-                            <p className="text-[10px] text-gray-600">
+                            <p className="text-[10px] text-[var(--text-secondary)]">
                               {formatYardLine(play.yardLine, play.possession)} &rarr; {formatYardLine(Math.min(99, Math.max(1, play.yardLine + play.yardsGained)), play.possession)}
                             </p>
                           </div>
                           <span className={[
                             'text-xs font-semibold shrink-0',
-                            play.yardsGained > 0 ? 'text-green-400' : play.yardsGained < 0 ? 'text-red-400' : 'text-gray-400',
+                            play.yardsGained > 0 ? 'text-green-400' : play.yardsGained < 0 ? 'text-red-400' : 'text-[var(--text-tertiary)]',
                           ].join(' ')}>
                             {play.yardsGained > 0 ? '+' : ''}{play.yardsGained}
                           </span>
@@ -3500,8 +3500,8 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
             })}
             {/* DB previous drives (from prior sessions) */}
             {dbDrives.map((drive) => (
-              <div key={drive.id} className="bg-[#2c2c2e] rounded-xl mx-4 mt-2 p-3">
-                <p className="text-sm font-semibold text-white">
+              <div key={drive.id} className="bg-[var(--bg-card)] rounded-xl mx-4 mt-2 p-3">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
                   Drive #{drive.drive_number} &middot; Q{drive.quarter}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
@@ -3510,7 +3510,7 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
                       {drive.result}
                     </span>
                   )}
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-[var(--text-secondary)]">
                     {drive.plays_count} plays &middot; {drive.yards_gained} yards
                   </span>
                 </div>
@@ -3521,51 +3521,51 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
       })()}
 
       {/* Game Stats Summary */}
-      <div className="mx-4 mt-6 border-t border-[#3a3a3c] pt-4">
-        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-3">Game Stats</p>
+      <div className="mx-4 mt-6 border-t border-[var(--border-primary)] pt-4">
+        <p className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Game Stats</p>
         <div className="grid grid-cols-2 gap-3">
           {/* Offense */}
-          <div className="bg-[#2c2c2e] rounded-xl p-3">
+          <div className="bg-[var(--bg-card)] rounded-xl p-3">
             <p className="text-[10px] font-semibold text-[#B8CA6E] uppercase tracking-wider mb-2">Offense</p>
             <div className="space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">Rush Yds</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Rush Yds</span>
                 <span className="text-xs font-semibold text-[#B8CA6E]">{gameStats.offRush}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">Pass Yds</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Pass Yds</span>
                 <span className="text-xs font-semibold text-[#B8CA6E]">{gameStats.offPass}</span>
               </div>
-              <div className="flex justify-between border-t border-[#3a3a3c] pt-1.5">
-                <span className="text-[10px] text-gray-500">Total Yds</span>
+              <div className="flex justify-between border-t border-[var(--border-primary)] pt-1.5">
+                <span className="text-[10px] text-[var(--text-secondary)]">Total Yds</span>
                 <span className="text-xs font-bold text-[#B8CA6E]">{gameStats.offTotal}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">TO Lost</span>
-                <span className={`text-xs font-semibold ${gameStats.offTurnovers > 0 ? 'text-red-400' : 'text-gray-400'}`}>{gameStats.offTurnovers}</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">TO Lost</span>
+                <span className={`text-xs font-semibold ${gameStats.offTurnovers > 0 ? 'text-red-400' : 'text-[var(--text-tertiary)]'}`}>{gameStats.offTurnovers}</span>
               </div>
             </div>
           </div>
 
           {/* Defense */}
-          <div className="bg-[#2c2c2e] rounded-xl p-3">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Defense</p>
+          <div className="bg-[var(--bg-card)] rounded-xl p-3">
+            <p className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Defense</p>
             <div className="space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">Rush Allowed</span>
-                <span className="text-xs font-semibold text-white">{gameStats.defRush}</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Rush Allowed</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">{gameStats.defRush}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">Pass Allowed</span>
-                <span className="text-xs font-semibold text-white">{gameStats.defPass}</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Pass Allowed</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">{gameStats.defPass}</span>
               </div>
-              <div className="flex justify-between border-t border-[#3a3a3c] pt-1.5">
-                <span className="text-[10px] text-gray-500">Total Allowed</span>
-                <span className="text-xs font-bold text-white">{gameStats.defTotal}</span>
+              <div className="flex justify-between border-t border-[var(--border-primary)] pt-1.5">
+                <span className="text-[10px] text-[var(--text-secondary)]">Total Allowed</span>
+                <span className="text-xs font-bold text-[var(--text-primary)]">{gameStats.defTotal}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[10px] text-gray-500">TO Forced</span>
-                <span className={`text-xs font-semibold ${gameStats.defTurnovers > 0 ? 'text-[#B8CA6E]' : 'text-gray-400'}`}>{gameStats.defTurnovers}</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">TO Forced</span>
+                <span className={`text-xs font-semibold ${gameStats.defTurnovers > 0 ? 'text-[#B8CA6E]' : 'text-[var(--text-tertiary)]'}`}>{gameStats.defTurnovers}</span>
               </div>
             </div>
           </div>
@@ -4430,7 +4430,7 @@ export default function SidelinePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1c1c1e] pb-6">
+    <div data-theme="dark" className="min-h-screen bg-[var(--bg-primary)] pb-6">
       {/* Game State Bar */}
       <GameStateBar
         game={game}
@@ -4445,13 +4445,13 @@ export default function SidelinePage() {
 
       {/* Saving overlay */}
       {savingOverlay && (
-        <div className="fixed inset-0 z-[70] bg-white flex flex-col items-center justify-center px-8">
+        <div className="fixed inset-0 z-[70] bg-[var(--bg-card)] flex flex-col items-center justify-center px-8">
           <div className="pt-[env(safe-area-inset-top)]" />
           {savingOverlay === 'saving' ? (
             <>
               <img src="/logo-darkmode.png" alt="" className="h-16 w-auto opacity-80 mb-8" />
-              <p className="text-lg font-semibold text-gray-900 mb-4">Saving game data…</p>
-              <svg className="animate-spin h-8 w-8 text-gray-300" viewBox="0 0 24 24" fill="none">
+              <p className="text-lg font-semibold text-[var(--text-primary)] mb-4">Saving game data…</p>
+              <svg className="animate-spin h-8 w-8 text-[var(--text-tertiary)]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -4462,12 +4462,12 @@ export default function SidelinePage() {
                 <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <p className="text-lg font-semibold text-gray-900 mb-2">Game data saved to your device</p>
-              <p className="text-sm text-gray-500 text-center mb-8">It will sync when connection is restored.</p>
+              <p className="text-lg font-semibold text-[var(--text-primary)] mb-2">Game data saved to your device</p>
+              <p className="text-sm text-[var(--text-secondary)] text-center mb-8">It will sync when connection is restored.</p>
               <button
                 type="button"
                 onClick={handleSavingOverlayDone}
-                className="bg-black text-white rounded-xl px-8 py-3 text-sm font-semibold active:bg-gray-800 transition-colors"
+                className="bg-[var(--text-primary)] text-[var(--text-inverse)] rounded-xl px-8 py-3 text-sm font-semibold active:bg-[var(--bg-card-alt)] transition-colors"
               >
                 Done
               </button>
@@ -4480,20 +4480,20 @@ export default function SidelinePage() {
       {showEndConfirm && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowEndConfirm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-white">End Game?</h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">End Game?</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
                 {loggedPlays.length} play{loggedPlays.length !== 1 ? 's' : ''} logged vs {opponentName}
               </p>
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowEndConfirm(false)}
-                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
                 >
                   Continue
                 </button>
@@ -4514,29 +4514,29 @@ export default function SidelinePage() {
       {showGameMenu && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowGameMenu(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6">
               <button
                 type="button"
                 onClick={() => { setShowGameMenu(false); setShowEndConfirm(true) }}
-                className="w-full bg-[#3a3a3c] text-white rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[#48484a] transition-colors"
+                className="w-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
               >
                 End Game
               </button>
               <button
                 type="button"
                 onClick={() => { setShowGameMenu(false); setShowResetConfirm(true) }}
-                className="w-full mt-2 bg-[#3a3a3c] text-red-400 rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[#48484a] transition-colors"
+                className="w-full mt-2 bg-[var(--bg-card-alt)] text-red-400 rounded-xl py-3.5 text-sm font-semibold text-center min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
               >
                 Reset Game
               </button>
               <button
                 type="button"
                 onClick={() => setShowGameMenu(false)}
-                className="w-full mt-2 text-sm font-semibold text-gray-500 min-h-[44px] active:text-gray-300 transition-colors"
+                className="w-full mt-2 text-sm font-semibold text-[var(--text-secondary)] min-h-[44px] active:text-[var(--text-tertiary)] transition-colors"
               >
                 Cancel
               </button>
@@ -4549,20 +4549,20 @@ export default function SidelinePage() {
       {showResetConfirm && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowResetConfirm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-white">Reset Game?</h3>
-              <p className="text-sm text-gray-500 mt-2">
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Reset Game?</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-2">
                 This will clear all score, possession, and drive data for this session. Plays already synced cannot be undone.
               </p>
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
                 >
                   Cancel
                 </button>
@@ -4583,18 +4583,18 @@ export default function SidelinePage() {
       {pendingTry && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6">
-              <h3 className="text-lg font-bold text-white text-center">Extra Point</h3>
-              <p className="text-xs text-gray-500 text-center mt-1">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] text-center">Extra Point</h3>
+              <p className="text-xs text-[var(--text-secondary)] text-center mt-1">
                 {pendingTry.scoringTeam === 'us' ? 'Our' : 'Opponent'} touchdown
               </p>
 
               {/* PAT row */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">PAT (Kick)</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mt-4 mb-2">PAT (Kick)</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -4606,14 +4606,14 @@ export default function SidelinePage() {
                 <button
                   type="button"
                   onClick={() => handleTryResult('pat', false)}
-                  className="bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                  className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
                 >
                   No Good
                 </button>
               </div>
 
               {/* 2-pt row */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-2">2-Point Conversion</p>
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mt-4 mb-2">2-Point Conversion</p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -4625,7 +4625,7 @@ export default function SidelinePage() {
                 <button
                   type="button"
                   onClick={() => handleTryResult('2pt', false)}
-                  className="bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
+                  className="bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold text-center min-h-[48px] active:opacity-70"
                 >
                   No Good
                 </button>
@@ -4635,7 +4635,7 @@ export default function SidelinePage() {
               <button
                 type="button"
                 onClick={() => setPendingTry(null)}
-                className="w-full mt-4 text-sm font-semibold text-gray-500 min-h-[44px] active:text-gray-300 transition-colors"
+                className="w-full mt-4 text-sm font-semibold text-[var(--text-secondary)] min-h-[44px] active:text-[var(--text-tertiary)] transition-colors"
               >
                 Skip
               </button>
@@ -4648,18 +4648,18 @@ export default function SidelinePage() {
       {pendingBlockedTD && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#2c2c2e] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] animate-slide-up">
             <div className="flex justify-center pt-3 pb-2">
-              <div className="w-10 h-1 rounded-full bg-[#48484a]" />
+              <div className="w-10 h-1 rounded-full bg-[var(--bg-card-alt)]" />
             </div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-white">Blocked Kick</h3>
-              <p className="text-sm text-gray-500 mt-1">Was it returned for a touchdown?</p>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Blocked Kick</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">Was it returned for a touchdown?</p>
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={() => handleBlockedTDResult(false)}
-                  className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[#48484a] transition-colors"
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors"
                 >
                   No
                 </button>

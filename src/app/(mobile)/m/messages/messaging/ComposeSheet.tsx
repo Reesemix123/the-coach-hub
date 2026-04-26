@@ -240,7 +240,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                   onClick={selectAll}
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                     recipientMode === 'all'
-                      ? 'bg-gray-900 text-white'
+                      ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                       : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                   }`}
                 >
@@ -255,7 +255,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                     onClick={() => selectGroup(g.value)}
                     className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                       recipientMode === 'group' && positionGroup === g.value
-                        ? 'bg-gray-900 text-white'
+                        ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                         : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
                     }`}
                   >
@@ -342,7 +342,7 @@ export default function ComposeSheet({ initialRecipientId, onClose, onSent }: Co
                         disabled={disabled}
                         className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                           channel === ch.value
-                            ? 'bg-gray-900 text-white'
+                            ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
                             : disabled
                               ? 'bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]'
                               : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'

@@ -344,7 +344,7 @@ export default function PlayerEditSheet({
               !jersey.trim() ||
               Object.keys(positions).length === 0
             }
-            className="w-full bg-black text-white rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-gray-800 transition-colors disabled:bg-gray-300"
+            className="w-full bg-[var(--text-primary)] text-[var(--text-inverse)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors disabled:bg-[var(--bg-card-alt)]"
           >
             {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Player'}
           </button>
