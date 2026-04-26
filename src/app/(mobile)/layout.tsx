@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
+import { ThemeProvider } from './ThemeContext'
+import './theme.css'
 import { getAllQueuedGameIds } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
 
@@ -26,8 +28,9 @@ function PracticeIcon({ className }: { className?: string }) {
 function GameIcon({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <ellipse cx="12" cy="12" rx="10" ry="6" />
-      <path d="M12 6v12M7 8.5c1.5 1 3.5 1.5 5 1.5s3.5-.5 5-1.5M7 15.5c1.5-1 3.5-1.5 5-1.5s3.5.5 5 1.5" />
+      <ellipse cx="12" cy="12" rx="9" ry="5.5" />
+      <path d="M12 6.5v11" />
+      <path d="M9.5 9l5 0M9.5 12l5 0M9.5 15l5 0" />
     </svg>
   )
 }
@@ -372,13 +375,26 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
+    <ThemeProvider>
     <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
-      <div className="flex flex-col h-screen bg-[#f2f2f7]">
+      {/* FOWT prevention: inline script sets data-theme before first paint */}
+      <script dangerouslySetInnerHTML={{ __html: `
+        (function(){
+          try {
+            var p = localStorage.getItem('ych-theme-preference');
+            var t = 'light';
+            if (p === 'dark') t = 'dark';
+            else if (p === 'system' || !p) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+          } catch(e) {}
+        })();
+      ` }} />
+      <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
 
         {/* ------------------------------------------------------------------ */}
         {/* Header                                                               */}
         {/* ------------------------------------------------------------------ */}
-        <header className="bg-white border-b border-gray-200 shrink-0">
+        <header className="bg-[var(--bg-nav)] border-b border-[var(--border-primary)] shrink-0">
           {/* Safe-area top padding for iOS notch */}
           <div className="pt-[env(safe-area-inset-top)]" />
 
@@ -427,7 +443,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         {/* ------------------------------------------------------------------ */}
         {/* Bottom Tab Bar                                                       */}
         {/* ------------------------------------------------------------------ */}
-        <nav className="bg-white border-t border-gray-200 shrink-0">
+        <nav className="bg-[var(--bg-nav)] border-t border-[var(--border-primary)] shrink-0">
           <div className="flex items-stretch">
             {TABS.map(({ label, href, Icon }) => {
               const isActive = pathname.startsWith(href)
@@ -472,5 +488,6 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
 
       </div>
     </MobileProvider>
+    </ThemeProvider>
   )
 }

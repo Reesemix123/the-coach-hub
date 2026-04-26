@@ -37,23 +37,23 @@ export default function CollapsibleSection({
   }
 
   return (
-    <div className="bg-white rounded-xl mx-4 overflow-hidden">
+    <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden">
       <button
         type="button"
         onClick={toggle}
-        className="w-full flex items-center justify-between px-4 py-3.5 active:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[var(--bg-card-alt)] transition-colors"
       >
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-sm font-medium text-gray-900">{title}</p>
+          <p className="text-sm font-medium text-[var(--text-primary)]">{title}</p>
           {!expanded && summary && (
-            <p className="text-xs text-gray-500 mt-0.5 truncate">{summary}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5 truncate">{summary}</p>
           )}
         </div>
         <svg
           width="16" height="16" viewBox="0 0 24 24"
           fill="none" stroke="currentColor" strokeWidth="2"
           strokeLinecap="round" strokeLinejoin="round"
-          className={`text-gray-400 shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          className={`text-[var(--text-tertiary)] shrink-0 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>

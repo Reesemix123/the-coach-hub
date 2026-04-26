@@ -1,0 +1,70 @@
+/* Mobile Theme Variables — Light and Dark mode tokens */
+/* Applied via data-theme attribute on the html element */
+
+[data-theme="light"] {
+  --bg-primary: #f2f2f7;
+  --bg-card: #ffffff;
+  --bg-card-alt: #f9f9f9;
+  --bg-input: #ffffff;
+  --bg-nav: #ffffff;
+  --bg-sheet: #ffffff;
+  --bg-overlay: rgba(0,0,0,0.4);
+  --bg-pill-inactive: #f2f2f7;
+  --bg-pill-active: #ffffff;
+  --bg-skeleton: #e5e5ea;
+
+  --text-primary: #1c1c1e;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-inverse: #ffffff;
+
+  --border-primary: #e5e5ea;
+  --border-secondary: #d1d5db;
+
+  --accent: #B8CA6E;
+  --accent-text: #1c1c1e;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+
+  --bg-chat-coach: #1c1c1e;
+  --text-chat-coach: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #1c1c1e;
+  --bg-card: #2c2c2e;
+  --bg-card-alt: #3a3a3c;
+  --bg-input: #3a3a3c;
+  --bg-nav: #2c2c2e;
+  --bg-sheet: #2c2c2e;
+  --bg-overlay: rgba(0,0,0,0.6);
+  --bg-pill-inactive: #3a3a3c;
+  --bg-pill-active: #4a4a4c;
+  --bg-skeleton: #3a3a3c;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-tertiary: #71717a;
+  --text-inverse: #1c1c1e;
+
+  --border-primary: #3a3a3c;
+  --border-secondary: #4a4a4c;
+
+  --accent: #B8CA6E;
+  --accent-text: #1c1c1e;
+
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+
+  --status-success: #4ade80;
+  --status-warning: #fbbf24;
+  --status-error: #f87171;
+  --status-info: #60a5fa;
+
+  --bg-chat-coach: #4a4a4c;
+  --text-chat-coach: #ffffff;
+}

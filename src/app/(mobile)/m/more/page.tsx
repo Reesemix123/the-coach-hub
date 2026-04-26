@@ -6,6 +6,7 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 import { getQueue, getPendingCount, getAllQueuedGameIds, isOnline } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
 import CollapsibleSection from './components/CollapsibleSection'
+import { useTheme, type ThemePreference } from '@/app/(mobile)/ThemeContext'
 
 // ---------------------------------------------------------------------------
 // Segmented Pill (light theme)
@@ -17,14 +18,14 @@ function SegmentedPill<T extends string | number>({
   options: T[]; value: T; onChange: (v: T) => void; labels?: Record<string, string>
 }) {
   return (
-    <div className="flex bg-gray-200 rounded-full p-0.5">
+    <div className="flex bg-[var(--bg-pill-inactive)] rounded-full p-0.5">
       {options.map((opt) => (
         <button
           key={String(opt)}
           type="button"
           onClick={() => onChange(opt)}
           className={`flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px] ${
-            value === opt ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500'
+            value === opt ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-[var(--text-secondary)]'
           }`}
         >
           {labels?.[String(opt)] ?? String(opt)}
@@ -107,9 +108,9 @@ function LeagueRulesContent({
   if (loading) {
     return (
       <div className="space-y-3">
-        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
-        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
-        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
+        <div className="h-10 bg-[var(--bg-card-alt)] rounded-full animate-pulse" />
+        <div className="h-10 bg-[var(--bg-card-alt)] rounded-full animate-pulse" />
+        <div className="h-10 bg-[var(--bg-card-alt)] rounded-full animate-pulse" />
       </div>
     )
   }
@@ -117,29 +118,29 @@ function LeagueRulesContent({
   return (
     <div>
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">Field Length</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-2">Field Length</p>
         <SegmentedPill options={[50, 80, 100]} value={fieldLength} onChange={setFieldLength}
           labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }} />
       </div>
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">Touchback</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-2">Touchback</p>
         <SegmentedPill options={[20, 25, 30]} value={touchbackYardLine} onChange={setTouchbackYardLine}
           labels={{ '20': '20 yd', '25': '25 yd', '30': '30 yd' }} />
       </div>
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">Kickoff From</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-2">Kickoff From</p>
         <SegmentedPill options={[30, 35, 40]} value={kickoffYardLine} onChange={setKickoffYardLine}
           labels={{ '30': '30 yd', '35': '35 yd', '40': '40 yd' }} />
       </div>
       <div className="mb-4">
-        <p className="text-sm font-medium text-gray-700 mb-2">Quarter Length</p>
+        <p className="text-sm font-medium text-[var(--text-primary)] mb-2">Quarter Length</p>
         <SegmentedPill options={[8, 10, 12, 15]} value={quarterLength} onChange={setQuarterLength}
           labels={{ '8': '8 min', '10': '10 min', '12': '12 min', '15': '15 min' }} />
       </div>
       <div className="flex items-center gap-3">
         <button type="button" onClick={handleSave} disabled={!hasChanges || saving}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors min-h-[40px] ${
-            hasChanges && !saving ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]' : 'bg-gray-200 text-gray-400'
+            hasChanges && !saving ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]' : 'bg-[var(--bg-pill-inactive)] text-[var(--text-tertiary)]'
           }`}>
           {saving ? 'Saving...' : 'Save'}
         </button>
@@ -209,9 +210,9 @@ function GameDataSection() {
 
   return (
     <div className="mt-5">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Data</p>
-      <div className="bg-white rounded-xl mx-4 p-4">
-        <p className="text-sm text-gray-900 font-medium">
+      <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Data</p>
+      <div className="bg-[var(--bg-card)] rounded-xl mx-4 p-4">
+        <p className="text-sm text-[var(--text-primary)] font-medium">
           {pendingCount === 0
             ? 'All game data saved ✓'
             : hasOrphaned
@@ -224,13 +225,13 @@ function GameDataSection() {
           <div className="flex gap-2 mt-3">
             <button type="button" onClick={handleSaveNow} disabled={saving || !isOnline()}
               className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors min-h-[40px] ${
-                saving ? 'bg-gray-100 text-gray-400' : 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
+                saving ? 'bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]' : 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
               }`}>
               {saving ? 'Saving...' : 'Save Now'}
             </button>
             {hasOldItems && (
               <button type="button" onClick={handleDownloadBackup}
-                className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold min-h-[40px] active:bg-gray-200 transition-colors">
+                className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-2.5 text-sm font-semibold min-h-[40px] active:bg-[var(--bg-pill-inactive)] transition-colors">
                 Download Backup
               </button>
             )}
@@ -249,36 +250,40 @@ function NavRow({ label, href, subtitle, disabled, onTap }: {
   label: string; href?: string; subtitle?: string; disabled?: boolean; onTap?: () => void
 }) {
   const content = (
-    <div className={`flex items-center justify-between py-3.5 px-4 transition-colors ${disabled ? '' : 'active:bg-gray-50'}`}>
+    <div className={`flex items-center justify-between py-3.5 px-4 transition-colors ${disabled ? '' : 'active:bg-[var(--bg-card-alt)]'}`}>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>{label}</p>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+        <p className={`text-sm font-medium ${disabled ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`}>{label}</p>
+        {subtitle && <p className="text-xs text-[var(--text-secondary)] mt-0.5">{subtitle}</p>}
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`shrink-0 ${disabled ? 'text-gray-300' : 'text-gray-400'}`}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`shrink-0 ${disabled ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-tertiary)]'}`}>
         <path d="M9 18l6-6-6-6" />
       </svg>
     </div>
   )
 
   if (onTap) {
-    return <button type="button" onClick={onTap} className="w-full text-left border-b border-gray-100 last:border-b-0">{content}</button>
+    return <button type="button" onClick={onTap} className="w-full text-left border-b border-[var(--border-primary)] last:border-b-0">{content}</button>
   }
   if (href) {
-    return <a href={href} className="block border-b border-gray-100 last:border-b-0">{content}</a>
+    return <a href={href} className="block border-b border-[var(--border-primary)] last:border-b-0">{content}</a>
   }
-  return <div className="border-b border-gray-100 last:border-b-0">{content}</div>
+  return <div className="border-b border-[var(--border-primary)] last:border-b-0">{content}</div>
 }
 
 // ---------------------------------------------------------------------------
 // More Page
 // ---------------------------------------------------------------------------
 
+const THEME_LABELS: Record<string, string> = { light: 'Light', dark: 'Dark', system: 'System' }
+
 export default function MobileMorePage() {
   const { teamId, players } = useMobile()
+  const { themePreference, setThemePreference } = useTheme()
   const [rulesSummary, setRulesSummary] = useState('Loading...')
-  const [rulesCollapsed, setRulesCollapsed] = useState(false) // triggers auto-collapse after save
+  const [rulesCollapsed, setRulesCollapsed] = useState(false)
   const [comingSoonMsg, setComingSoonMsg] = useState<string | null>(null)
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+  const [showThemeSheet, setShowThemeSheet] = useState(false)
 
   function handleComingSoon(feature: string) {
     setComingSoonMsg(`${feature} coming soon`)
@@ -286,10 +291,10 @@ export default function MobileMorePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
       {/* Header */}
       <div className="px-4 pt-12 pb-4">
-        <h1 className="text-2xl font-bold text-gray-900">More</h1>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">More</h1>
       </div>
 
       {/* Coming soon toast */}
@@ -301,8 +306,8 @@ export default function MobileMorePage() {
 
       {/* TEAM */}
       <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Team</p>
-        <div className="bg-white rounded-xl mx-4 overflow-hidden">
+        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Team</p>
+        <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden">
           <NavRow label="Roster & Depth Chart" subtitle={`${players.length} player${players.length !== 1 ? 's' : ''}`} href="/m/roster" />
           {/* // TODO: Mobile-specific team settings page */}
           <NavRow label="Team Settings" subtitle="Name, level, colors" href={teamId ? `/football/teams/${teamId}/settings` : undefined} />
@@ -311,7 +316,7 @@ export default function MobileMorePage() {
 
       {/* GAME RULES (collapsible) */}
       <div className="mt-5">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Game Rules</p>
+        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Game Rules</p>
         <CollapsibleSection
           title="Field & Quarter Settings"
           summary={rulesSummary}
@@ -331,14 +336,15 @@ export default function MobileMorePage() {
 
       {/* ACCOUNT */}
       <div className="mt-5">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Account</p>
-        <div className="bg-white rounded-xl mx-4 overflow-hidden">
+        <p className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-4 mb-2">Account</p>
+        <div className="bg-[var(--bg-card)] rounded-xl mx-4 overflow-hidden">
+          <NavRow label="Appearance" subtitle={THEME_LABELS[themePreference]} onTap={() => setShowThemeSheet(true)} />
           <NavRow label="Profile" subtitle="Name, email, avatar" onTap={() => handleComingSoon('Profile settings')} disabled />
           <NavRow label="Notifications" subtitle="Push and email preferences" onTap={() => handleComingSoon('Notification settings')} disabled />
           <button
             type="button"
             onClick={() => setShowSignOutConfirm(true)}
-            className="w-full text-left px-4 py-3.5 active:bg-gray-50 transition-colors"
+            className="w-full text-left px-4 py-3.5 active:bg-[var(--bg-card-alt)] transition-colors"
           >
             <p className="text-sm font-medium text-red-500">Sign Out</p>
           </button>
@@ -347,22 +353,50 @@ export default function MobileMorePage() {
 
       {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-xs text-gray-400">Youth Coach Hub</p>
-        <p className="text-[10px] text-gray-400 mt-0.5">v0.1.0</p>
+        <p className="text-xs text-[var(--text-tertiary)]">Youth Coach Hub</p>
+        <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">v0.1.0</p>
       </div>
+
+      {/* Theme Selector Sheet */}
+      {showThemeSheet && (
+        <>
+          <div className="fixed inset-0 bg-[var(--bg-overlay)] z-50" onClick={() => setShowThemeSheet(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-sheet)] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" /></div>
+            <div className="px-5 pb-6">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Appearance</h3>
+              {(['light', 'dark', 'system'] as ThemePreference[]).map(pref => (
+                <button
+                  key={pref}
+                  type="button"
+                  onClick={() => { setThemePreference(pref); setShowThemeSheet(false) }}
+                  className="w-full flex items-center justify-between py-3.5 border-b border-[var(--border-primary)] last:border-b-0 active:opacity-70"
+                >
+                  <span className="text-sm font-medium text-[var(--text-primary)]">{THEME_LABELS[pref]}</span>
+                  {themePreference === pref && (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B8CA6E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Sign Out Confirmation */}
       {showSignOutConfirm && (
         <>
           <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowSignOutConfirm(false)} />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
-            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-card)] rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" /></div>
             <div className="px-5 pb-6 text-center">
-              <h3 className="text-lg font-bold text-gray-900">Sign Out?</h3>
-              <p className="text-sm text-gray-500 mt-1">You&apos;ll need to sign in again to access your team.</p>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Sign Out?</h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">You&apos;ll need to sign in again to access your team.</p>
               <div className="flex gap-3 mt-5">
                 <button type="button" onClick={() => setShowSignOutConfirm(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold active:bg-gray-200">
+                  className="flex-1 bg-[var(--bg-card-alt)] text-[var(--text-primary)] rounded-xl py-3 text-sm font-semibold active:bg-[var(--bg-pill-inactive)]">
                   Cancel
                 </button>
                 <a href="/auth/signout"
