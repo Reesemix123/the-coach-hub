@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParent } from '../ParentContext'
+import { useSubscription } from '@/app/(mobile)/SubscriptionContext'
 import { EmptyState } from '@/app/(mobile)/components/EmptyState'
+import { FeatureGateModal } from '@/app/(mobile)/components/FeatureGateModal'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +50,32 @@ interface ReportsResponse {
   reports: ReportItem[]
   locked: boolean
 }
+
+interface ClipItem {
+  id: string
+  seasonId: string
+  gameId: string
+  opponent: string
+  gameDate: string | null
+  playResult: string | null
+  playType: string | null
+  coachNote: string | null
+  isFeatured: boolean
+  tags: string[] | null
+  clipStatus: string
+  playbackUrl: string | null
+  locked: boolean
+  createdAt: string
+}
+
+interface ClipsResponse {
+  clips: ClipItem[]
+  locked?: boolean
+  upgrade_required?: boolean
+  message?: string
+}
+
+type ClipFilter = 'all' | 'offense' | 'defense' | 'special_teams'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -466,6 +494,303 @@ function ReportsList({ reports }: { reports: ReportItem[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Clips
+// ---------------------------------------------------------------------------
+
+const CLIP_FILTERS: { key: ClipFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'offense', label: 'Offense' },
+  { key: 'defense', label: 'Defense' },
+  { key: 'special_teams', label: 'Special Teams' },
+]
+
+function clipMatchesFilter(clip: ClipItem, filter: ClipFilter): boolean {
+  if (filter === 'all') return true
+  const text = `${clip.playType ?? ''} ${clip.playResult ?? ''}`.toLowerCase()
+  if (filter === 'offense')
+    return /(run|pass|rush|screen|rpo|reception|carry)/.test(text)
+  if (filter === 'defense')
+    return /(tackle|sack|interception|pressure|coverage|forced|recovery|breakup)/.test(text)
+  if (filter === 'special_teams')
+    return /(kick|punt|return|fg|pat|onside)/.test(text)
+  return true
+}
+
+function ClipCard({ clip, onTap }: { clip: ClipItem; onTap: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      className="w-full text-left bg-[var(--bg-card)] rounded-xl overflow-hidden shadow-[var(--shadow)] active:opacity-80 transition-opacity"
+    >
+      {/* Thumbnail block — no real thumbnail available; show play icon over gradient */}
+      <div className="relative aspect-video bg-gradient-to-br from-[var(--bg-card-alt)] to-[var(--bg-pill-inactive)] flex items-center justify-center">
+        {clip.locked ? (
+          <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+          </div>
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-black/40 flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="none">
+              <polygon points="6 4 20 12 6 20 6 4" />
+            </svg>
+          </div>
+        )}
+        {clip.isFeatured && !clip.locked && (
+          <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--accent)] text-[var(--accent-text)]">
+            FEATURED
+          </span>
+        )}
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+          vs {clip.opponent}
+        </p>
+        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
+          {[fmtDate(clip.gameDate), clip.playResult]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </div>
+    </button>
+  )
+}
+
+function ClipsSectionUI({
+  clips,
+  filter,
+  onFilterChange,
+  loading,
+  upgradeRequired,
+  onClipTap,
+}: {
+  clips: ClipItem[]
+  filter: ClipFilter
+  onFilterChange: (f: ClipFilter) => void
+  loading: boolean
+  upgradeRequired: boolean
+  onClipTap: (c: ClipItem) => void
+}) {
+  const filtered = useMemo(
+    () => clips.filter((c) => clipMatchesFilter(c, filter)),
+    [clips, filter],
+  )
+
+  return (
+    <div className="px-4 mb-5">
+      <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-2">
+        Clips
+      </p>
+
+      {loading ? (
+        <div className="grid grid-cols-2 gap-2">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="aspect-video rounded-xl bg-[var(--bg-card)] animate-pulse"
+            />
+          ))}
+        </div>
+      ) : upgradeRequired ? (
+        <div className="bg-[var(--bg-card)] rounded-xl p-5 text-center shadow-[var(--shadow)]">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Video clips become available once the team activates a paid Communication Hub plan.
+          </p>
+        </div>
+      ) : clips.length === 0 ? (
+        <div className="bg-[var(--bg-card)] rounded-xl p-5 text-center shadow-[var(--shadow)]">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Highlight clips will appear here as your coach approves them.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Filter pills */}
+          <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-2 mb-2 [&::-webkit-scrollbar]:hidden">
+            {CLIP_FILTERS.map(({ key, label }) => {
+              const active = filter === key
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onFilterChange(key)}
+                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    active
+                      ? 'bg-[var(--text-primary)] text-[var(--bg-primary)]'
+                      : 'bg-[var(--bg-pill-inactive)] text-[var(--text-secondary)] active:opacity-70'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {filtered.length === 0 ? (
+            <p className="text-sm text-[var(--text-tertiary)] text-center py-4">
+              No clips match this filter.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {filtered.map((clip) => (
+                <ClipCard key={clip.id} clip={clip} onTap={() => onClipTap(clip)} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Clip player — bottom-sheet HLS playback
+// ---------------------------------------------------------------------------
+
+function ClipPlayerSheet({ clip, onClose }: { clip: ClipItem; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  // HLS attach
+  useEffect(() => {
+    if (!clip.playbackUrl || !videoRef.current) return
+    const el = videoRef.current
+    const url = clip.playbackUrl
+
+    if (el.canPlayType('application/vnd.apple.mpegurl')) {
+      el.src = url
+    } else {
+      import('hls.js')
+        .then(({ default: Hls }) => {
+          if (Hls.isSupported()) {
+            const hls = new Hls({ maxBufferLength: 30 })
+            hls.loadSource(url)
+            hls.attachMedia(el)
+          } else {
+            el.src = url
+          }
+        })
+        .catch(() => {
+          el.src = url
+        })
+    }
+  }, [clip.playbackUrl])
+
+  // Body-scroll lock
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  // Esc to close
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-[var(--bg-overlay)] z-50"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div className="fixed bottom-0 left-0 right-0 z-50 animate-slide-up">
+        <div className="bg-[var(--bg-sheet)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-[var(--border-secondary)]" />
+          </div>
+          <div className="px-4 pb-5">
+            <div className="rounded-xl overflow-hidden bg-black aspect-video">
+              {clip.playbackUrl ? (
+                <video
+                  ref={videoRef}
+                  controls
+                  playsInline
+                  autoPlay
+                  className="w-full h-full"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-sm text-white/60">Clip not available</p>
+                </div>
+              )}
+            </div>
+            <div className="mt-3">
+              <p className="text-base font-bold text-[var(--text-primary)]">
+                vs {clip.opponent}
+              </p>
+              <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                {[fmtDate(clip.gameDate), clip.playType, clip.playResult]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              {clip.coachNote && (
+                <div className="bg-[var(--bg-card)] rounded-xl p-3 mt-3 shadow-[var(--shadow)]">
+                  <p className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider mb-1">
+                    Coach&apos;s Note
+                  </p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">
+                    {clip.coachNote}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inline upsell — for parents on a team comm-hub plan whose access is borrowed
+// ---------------------------------------------------------------------------
+
+function UpsellCard({
+  firstName,
+  athleteProfileId,
+}: {
+  firstName: string
+  athleteProfileId: string
+}) {
+  function handleSubscribe() {
+    // Apple IAP compliance: open in system browser
+    window.open(
+      `/api/parent-subscriptions/create-checkout?athleteId=${athleteProfileId}`,
+      '_blank',
+      'noopener',
+    )
+  }
+  return (
+    <div className="px-4 mb-5">
+      <div className="bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-card-alt)] rounded-2xl p-5 shadow-[var(--shadow)] border border-[var(--border-primary)]">
+        <p className="text-base font-bold text-[var(--text-primary)]">
+          Keep {firstName}&apos;s highlights forever
+        </p>
+        <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
+          Save every clip and report — even after the season ends and the team plan expires.
+        </p>
+        <button
+          type="button"
+          onClick={handleSubscribe}
+          className="mt-3 px-4 py-2 rounded-xl bg-[var(--accent)] text-[var(--accent-text)] text-sm font-semibold active:opacity-80 transition-opacity"
+        >
+          Subscribe — $19.99/year
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Skeletons
 // ---------------------------------------------------------------------------
 
@@ -489,6 +814,7 @@ function HeroSkeleton() {
 
 export default function ParentPlayerPage() {
   const { currentAthleteProfileId, loading: parentLoading } = useParent()
+  const { parentAccessSource } = useSubscription()
 
   const [profile, setProfile] = useState<AthleteProfile | null>(null)
   const [seasons, setSeasons] = useState<AthleteSeason[]>([])
@@ -498,6 +824,13 @@ export default function ParentPlayerPage() {
 
   const [reports, setReports] = useState<ReportItem[]>([])
   const [reportsLoading, setReportsLoading] = useState(false)
+
+  const [clips, setClips] = useState<ClipItem[]>([])
+  const [clipsLoading, setClipsLoading] = useState(false)
+  const [clipsUpgradeRequired, setClipsUpgradeRequired] = useState(false)
+  const [clipFilter, setClipFilter] = useState<ClipFilter>('all')
+  const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null)
+  const [gateOpen, setGateOpen] = useState(false)
 
   // Fetch profile + seasons when athlete changes
   useEffect(() => {
@@ -557,6 +890,37 @@ export default function ParentPlayerPage() {
     }
   }, [currentAthleteProfileId, selectedSeasonId])
 
+  // Fetch clips when selected season changes
+  useEffect(() => {
+    if (!currentAthleteProfileId || !selectedSeasonId) {
+      setClips([])
+      setClipsUpgradeRequired(false)
+      return
+    }
+    let cancelled = false
+    setClipsLoading(true)
+    setClipFilter('all')
+    fetch(
+      `/api/parent/athletes/${currentAthleteProfileId}/clips?seasonId=${selectedSeasonId}`,
+    )
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
+      .then((data: ClipsResponse) => {
+        if (cancelled) return
+        setClips(data.clips ?? [])
+        setClipsUpgradeRequired(Boolean(data.upgrade_required))
+        setClipsLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setClips([])
+        setClipsUpgradeRequired(false)
+        setClipsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentAthleteProfileId, selectedSeasonId])
+
   const selectedSeason = useMemo(
     () => seasons.find((s) => s.id === selectedSeasonId) ?? null,
     [seasons, selectedSeasonId],
@@ -607,6 +971,16 @@ export default function ParentPlayerPage() {
     )
   }
 
+  const showUpsell = parentAccessSource === 'comm_hub'
+
+  function handleClipTap(clip: ClipItem) {
+    if (clip.locked || !clip.playbackUrl) {
+      setGateOpen(true)
+      return
+    }
+    setSelectedClip(clip)
+  }
+
   return (
     <div className="min-h-full bg-[var(--bg-primary)] pb-6">
       <Hero profile={profile} selectedSeason={selectedSeason} />
@@ -623,8 +997,39 @@ export default function ParentPlayerPage() {
         <>
           <StatGrid stats={stats} />
           <ReportsList reports={reports} />
+          {showUpsell && (
+            <UpsellCard firstName={profile.firstName} athleteProfileId={profile.id} />
+          )}
+          <ClipsSectionUI
+            clips={clips}
+            filter={clipFilter}
+            onFilterChange={setClipFilter}
+            loading={clipsLoading}
+            upgradeRequired={clipsUpgradeRequired}
+            onClipTap={handleClipTap}
+          />
         </>
       )}
+
+      {selectedClip && (
+        <ClipPlayerSheet clip={selectedClip} onClose={() => setSelectedClip(null)} />
+      )}
+
+      <FeatureGateModal
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        title={`Subscribe to watch ${profile.firstName}'s clips`}
+        description={`Keep ${profile.firstName}'s game film forever for $19.99/year — even after the season ends and the team plan expires.`}
+        actionLabel="Subscribe"
+        actionHref={`/api/parent-subscriptions/create-checkout?athleteId=${profile.id}`}
+        secondaryLabel="Not Now"
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+        }
+      />
     </div>
   )
 }
