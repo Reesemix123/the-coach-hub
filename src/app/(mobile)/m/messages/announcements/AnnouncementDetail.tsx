@@ -14,11 +14,13 @@ interface ReadReceipt {
 }
 
 interface StatsResponse {
-  total_targeted: number
-  read_count: number
-  unread_count: number
-  read_parents: ReadReceipt[]
-  unread_parents: ReadReceipt[]
+  total_targeted?: number
+  read_count?: number
+  unread_count?: number
+  read_parents?: ReadReceipt[]
+  unread_parents?: ReadReceipt[]
+  // API may return different field names — handle defensively
+  [key: string]: unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -120,25 +122,25 @@ export default function AnnouncementDetail({ announcement, onBack }: Announcemen
             {/* Summary */}
             <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
               <span className="text-sm font-semibold text-gray-900">
-                {stats.read_count} of {stats.total_targeted} read
+                {stats.read_count ?? 0} of {stats.total_targeted ?? 0} read
               </span>
-              {stats.total_targeted > 0 && (
+              {(stats.total_targeted ?? 0) > 0 && (
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[#B8CA6E] rounded-full transition-all"
-                    style={{ width: `${Math.round((stats.read_count / stats.total_targeted) * 100)}%` }}
+                    style={{ width: `${Math.round(((stats.read_count ?? 0) / (stats.total_targeted ?? 1)) * 100)}%` }}
                   />
                 </div>
               )}
             </div>
 
             {/* Read list */}
-            {stats.read_parents.length > 0 && (
+            {(stats.read_parents ?? []).length > 0 && (
               <div className="px-4 py-2">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Read ({stats.read_count})
+                  Read ({stats.read_count ?? 0})
                 </p>
-                {stats.read_parents.map(p => (
+                {(stats.read_parents ?? []).map((p: ReadReceipt) => (
                   <div key={p.parent_id} className="flex items-center justify-between py-1.5">
                     <span className="text-sm text-gray-700">{p.parent_name}</span>
                     {p.read_at && (
@@ -150,12 +152,12 @@ export default function AnnouncementDetail({ announcement, onBack }: Announcemen
             )}
 
             {/* Unread list */}
-            {stats.unread_parents.length > 0 && (
+            {(stats.unread_parents ?? []).length > 0 && (
               <div className="px-4 py-2 border-t border-gray-100">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Not yet read ({stats.unread_count})
+                  Not yet read ({stats.unread_count ?? 0})
                 </p>
-                {stats.unread_parents.map(p => (
+                {(stats.unread_parents ?? []).map((p: ReadReceipt) => (
                   <div key={p.parent_id} className="py-1.5">
                     <span className="text-sm text-gray-500">{p.parent_name}</span>
                   </div>
@@ -163,7 +165,7 @@ export default function AnnouncementDetail({ announcement, onBack }: Announcemen
               </div>
             )}
 
-            {stats.total_targeted === 0 && (
+            {(stats.total_targeted ?? 0) === 0 && (
               <div className="px-4 py-3">
                 <p className="text-xs text-gray-400">No parents targeted for this announcement</p>
               </div>

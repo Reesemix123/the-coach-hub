@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CommHubProvider, type Announcement } from './CommHubContext'
 import AnnouncementList from './announcements/AnnouncementList'
 import ComposeAnnouncement from './announcements/ComposeAnnouncement'
@@ -24,7 +24,7 @@ const SECTIONS: { key: Section; label: string }[] = [
 // Placeholder for future sections
 // ---------------------------------------------------------------------------
 
-function PlaceholderSection({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+function PlaceholderSection({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3">
       {icon}
