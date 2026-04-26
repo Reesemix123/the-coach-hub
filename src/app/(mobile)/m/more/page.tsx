@@ -316,10 +316,18 @@ function GameDataSection() {
 // ---------------------------------------------------------------------------
 
 export default function MobileMorePage() {
-  const { teamId } = useMobile()
+  const { teamId, players } = useMobile()
 
   return (
     <div className="min-h-screen bg-[#1c1c1e] pb-8">
+      {/* Roster */}
+      <div className="mt-6">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Roster</p>
+        <div className="bg-[#2c2c2e] rounded-xl mx-4 overflow-hidden">
+          <NavRow label="Roster & Depth Chart" subtitle={`${players.length} player${players.length !== 1 ? 's' : ''}`} href="/m/roster" />
+        </div>
+      </div>
+
       {/* League Rules */}
       <div className="px-4 pt-6">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">League Rules</p>
@@ -336,7 +344,6 @@ export default function MobileMorePage() {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Team</p>
         <div className="bg-[#2c2c2e] rounded-xl mx-4 overflow-hidden">
           <NavRow label="Team Settings" subtitle="Name, level, colors" href={teamId ? `/football/teams/${teamId}/settings` : undefined} />
-          <NavRow label="Roster" subtitle="Players and depth chart" href="/m/roster" />
           <NavRow label="Schedule" subtitle="Games and events" />
         </div>
       </div>

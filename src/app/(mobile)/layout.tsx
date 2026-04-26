@@ -23,11 +23,11 @@ function PracticeIcon({ className }: { className?: string }) {
   )
 }
 
-function SidelineIcon({ className }: { className?: string }) {
+function GameIcon({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="13" r="8" />
-      <path d="M12 9v4l2.5 2.5M10 1h4M12 1v3" />
+      <ellipse cx="12" cy="12" rx="10" ry="6" />
+      <path d="M12 6v12M7 8.5c1.5 1 3.5 1.5 5 1.5s3.5-.5 5-1.5M7 15.5c1.5-1 3.5-1.5 5-1.5s3.5.5 5 1.5" />
     </svg>
   )
 }
@@ -40,12 +40,13 @@ function MessagesIcon({ className }: { className?: string }) {
   )
 }
 
-function TeamIcon({ className }: { className?: string }) {
+function PlaybookIcon({ className }: { className?: string }) {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2" />
-      <circle cx="10" cy="7" r="4" />
-      <path d="M21 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+      <path d="M16 3H8a2 2 0 00-2 2v14a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2z" />
+      <circle cx="10" cy="10" r="1.5" />
+      <circle cx="14" cy="14" r="1.5" />
+      <path d="M10 10l4 4" />
     </svg>
   )
 }
@@ -72,9 +73,9 @@ interface TabConfig {
 
 const TABS: TabConfig[] = [
   { label: 'Practice', href: '/m/practice', Icon: PracticeIcon },
-  { label: 'Sideline', href: '/m/sideline', Icon: SidelineIcon },
+  { label: 'Game',     href: '/m/sideline', Icon: GameIcon },
   { label: 'Messages', href: '/m/messages', Icon: MessagesIcon },
-  { label: 'Team',     href: '/m/team',     Icon: TeamIcon },
+  { label: 'Playbook', href: '/m/playbook', Icon: PlaybookIcon },
   { label: 'More',     href: '/m/more',     Icon: MoreIcon },
 ]
 
