@@ -1,37 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import { getQueue, getPendingCount, getAllQueuedGameIds, isOnline } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
+import CollapsibleSection from './components/CollapsibleSection'
 
 // ---------------------------------------------------------------------------
-// Segmented Pill
+// Segmented Pill (light theme)
 // ---------------------------------------------------------------------------
 
 function SegmentedPill<T extends string | number>({
-  options,
-  value,
-  onChange,
-  labels,
+  options, value, onChange, labels,
 }: {
-  options: T[]
-  value: T
-  onChange: (v: T) => void
-  labels?: Record<string, string>
+  options: T[]; value: T; onChange: (v: T) => void; labels?: Record<string, string>
 }) {
   return (
-    <div className="flex bg-[#3a3a3c] rounded-full p-1">
+    <div className="flex bg-gray-200 rounded-full p-0.5">
       {options.map((opt) => (
         <button
           key={String(opt)}
           type="button"
           onClick={() => onChange(opt)}
-          className={[
-            'flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px]',
-            value === opt ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-400',
-          ].join(' ')}
+          className={`flex-1 py-2 rounded-full text-sm font-semibold text-center transition-colors min-h-[36px] ${
+            value === opt ? 'bg-[#B8CA6E] text-[#1c1c1e]' : 'text-gray-500'
+          }`}
         >
           {labels?.[String(opt)] ?? String(opt)}
         </button>
@@ -41,10 +35,18 @@ function SegmentedPill<T extends string | number>({
 }
 
 // ---------------------------------------------------------------------------
-// League Rules Section
+// League Rules (used inside CollapsibleSection)
 // ---------------------------------------------------------------------------
 
-function LeagueRulesSection({ teamId }: { teamId: string | null }) {
+function LeagueRulesContent({
+  teamId,
+  onSaved,
+  onValuesLoaded,
+}: {
+  teamId: string | null
+  onSaved: () => void
+  onValuesLoaded: (summary: string) => void
+}) {
   const [fieldLength, setFieldLength] = useState(100)
   const [touchbackYardLine, setTouchbackYardLine] = useState(20)
   const [kickoffYardLine, setKickoffYardLine] = useState(40)
@@ -57,29 +59,31 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
   const [showSaved, setShowSaved] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  const buildSummary = useCallback((fl: number, tb: number, ko: number, ql: number) => {
+    return `${fl} yd · ${tb} yd touchback · ${ko} yd kickoff · ${ql} min quarters`
+  }, [])
+
   useEffect(() => {
-    console.log('[LeagueRules] teamId:', teamId)
-    if (!teamId) {
-      setLoading(false)
-      return
-    }
+    if (!teamId) { setLoading(false); return }
     const supabase = createClient()
     supabase
       .from('teams')
       .select('field_length, touchback_yard_line, kickoff_yard_line, quarter_length_minutes')
       .eq('id', teamId)
       .single()
-      .then(({ data, error }) => {
-        console.log('[LeagueRules] fetch result:', { data, error })
+      .then(({ data }) => {
         if (data) {
-          const fl = data.field_length ?? 100, tb = data.touchback_yard_line ?? 20, ko = data.kickoff_yard_line ?? 40, ql = data.quarter_length_minutes ?? 12
-          console.log('[LeagueRules] setting values:', { fl, tb, ko, ql })
+          const fl = data.field_length ?? 100
+          const tb = data.touchback_yard_line ?? 20
+          const ko = data.kickoff_yard_line ?? 40
+          const ql = data.quarter_length_minutes ?? 12
           setFieldLength(fl); setTouchbackYardLine(tb); setKickoffYardLine(ko); setQuarterLength(ql)
           setSavedFl(fl); setSavedTb(tb); setSavedKo(ko); setSavedQl(ql)
+          onValuesLoaded(buildSummary(fl, tb, ko, ql))
         }
         setLoading(false)
       })
-  }, [teamId])
+  }, [teamId, onValuesLoaded, buildSummary])
 
   const hasChanges = fieldLength !== savedFl || touchbackYardLine !== savedTb || kickoffYardLine !== savedKo || quarterLength !== savedQl
 
@@ -96,113 +100,57 @@ function LeagueRulesSection({ teamId }: { teamId: string | null }) {
     setSavedFl(fieldLength); setSavedTb(touchbackYardLine); setSavedKo(kickoffYardLine); setSavedQl(quarterLength)
     setSaving(false)
     setShowSaved(true)
-    setTimeout(() => setShowSaved(false), 1500)
+    onValuesLoaded(buildSummary(fieldLength, touchbackYardLine, kickoffYardLine, quarterLength))
+    setTimeout(() => { setShowSaved(false); onSaved() }, 800)
   }
 
   if (loading) {
     return (
-      <div className="px-4 py-6">
-        <div className="h-4 w-32 bg-[#3a3a3c] rounded animate-pulse mb-4" />
-        <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
-        <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
-        <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse mb-4" />
-        <div className="h-10 bg-[#3a3a3c] rounded-full animate-pulse" />
+      <div className="space-y-3">
+        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
+        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
+        <div className="h-10 bg-gray-100 rounded-full animate-pulse" />
       </div>
     )
   }
 
   return (
     <div>
-      {/* Field Length */}
-      <div className="mb-5">
-        <p className="text-sm font-medium text-white mb-2">Field Length</p>
-        <SegmentedPill
-          options={[50, 80, 100]}
-          value={fieldLength}
-          onChange={setFieldLength}
-          labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }}
-        />
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">Field Length</p>
+        <SegmentedPill options={[50, 80, 100]} value={fieldLength} onChange={setFieldLength}
+          labels={{ '50': '50 yds', '80': '80 yds', '100': '100 yds' }} />
       </div>
-
-      {/* Touchback Yard Line */}
-      <div className="mb-5">
-        <p className="text-sm font-medium text-white mb-2">Touchback Yard Line</p>
-        <SegmentedPill
-          options={[20, 25, 30]}
-          value={touchbackYardLine}
-          onChange={setTouchbackYardLine}
-          labels={{ '20': '20 yd', '25': '25 yd', '30': '30 yd' }}
-        />
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">Touchback</p>
+        <SegmentedPill options={[20, 25, 30]} value={touchbackYardLine} onChange={setTouchbackYardLine}
+          labels={{ '20': '20 yd', '25': '25 yd', '30': '30 yd' }} />
       </div>
-
-      {/* Kickoff Yard Line */}
-      <div className="mb-5">
-        <p className="text-sm font-medium text-white mb-2">Kickoff Yard Line</p>
-        <SegmentedPill
-          options={[30, 35, 40]}
-          value={kickoffYardLine}
-          onChange={setKickoffYardLine}
-          labels={{ '30': '30 yd', '35': '35 yd', '40': '40 yd' }}
-        />
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">Kickoff From</p>
+        <SegmentedPill options={[30, 35, 40]} value={kickoffYardLine} onChange={setKickoffYardLine}
+          labels={{ '30': '30 yd', '35': '35 yd', '40': '40 yd' }} />
       </div>
-
-      {/* Quarter Length */}
-      <div className="mb-5">
-        <p className="text-sm font-medium text-white mb-2">Quarter Length</p>
-        <SegmentedPill
-          options={[8, 10, 12, 15]}
-          value={quarterLength}
-          onChange={setQuarterLength}
-          labels={{ '8': '8 min', '10': '10 min', '12': '12 min', '15': '15 min' }}
-        />
+      <div className="mb-4">
+        <p className="text-sm font-medium text-gray-700 mb-2">Quarter Length</p>
+        <SegmentedPill options={[8, 10, 12, 15]} value={quarterLength} onChange={setQuarterLength}
+          labels={{ '8': '8 min', '10': '10 min', '12': '12 min', '15': '15 min' }} />
       </div>
-
-      {/* Save button */}
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!hasChanges || saving}
-          className={[
-            'rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors min-h-[40px]',
-            hasChanges && !saving
-              ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
-              : 'bg-[#3a3a3c] text-gray-500',
-          ].join(' ')}
-        >
+        <button type="button" onClick={handleSave} disabled={!hasChanges || saving}
+          className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors min-h-[40px] ${
+            hasChanges && !saving ? 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]' : 'bg-gray-200 text-gray-400'
+          }`}>
           {saving ? 'Saving...' : 'Save'}
         </button>
-        {showSaved && <span className="text-xs text-[#B8CA6E] font-medium">Saved</span>}
+        {showSaved && <span className="text-xs text-[#B8CA6E] font-medium">Saved ✓</span>}
       </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Nav Row
-// ---------------------------------------------------------------------------
-
-function NavRow({ label, href, subtitle }: { label: string; href?: string; subtitle?: string }) {
-  const content = (
-    <div className="flex items-center justify-between py-4 px-4 active:bg-[#2c2c2e] transition-colors">
-      <div>
-        <p className="text-sm font-medium text-white">{label}</p>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
-      </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
-        <path d="M9 18l6-6-6-6" />
-      </svg>
-    </div>
-  )
-
-  if (href) {
-    return <a href={href} className="block border-b border-[#3a3a3c]">{content}</a>
-  }
-  return <div className="border-b border-[#3a3a3c] opacity-50">{content}</div>
-}
-
-// ---------------------------------------------------------------------------
-// Game Data Section
+// Game Data Section (light theme)
 // ---------------------------------------------------------------------------
 
 function GameDataSection() {
@@ -210,14 +158,12 @@ function GameDataSection() {
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState<string | null>(null)
 
-  // Check for any queued items (active game or orphaned)
   const orphaned = getAllQueuedGameIds()
   const activeQueueId = activeGameId ?? orphaned[0]?.gameId ?? null
   const activeQueueTeamId = activeGameId ? teamId : orphaned[0]?.teamId ?? null
   const pendingCount = activeQueueId ? getPendingCount(activeQueueId) : 0
   const hasOrphaned = !activeGameId && orphaned.length > 0
 
-  // Check for items older than 24h (for download button)
   const hasOldItems = (() => {
     if (!activeQueueId) return false
     const queue = getQueue(activeQueueId)
@@ -225,7 +171,6 @@ function GameDataSection() {
     return queue.some(e => (e.status === 'pending' || e.status === 'failed') && e.createdAt < dayAgo)
   })()
 
-  // Don't show section if no active game and no orphaned items
   if (!activeGameId && orphaned.length === 0) return null
 
   async function handleSaveNow() {
@@ -263,11 +208,10 @@ function GameDataSection() {
   }
 
   return (
-    <div className="mt-6">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Game Data</p>
-      <div className="bg-[#2c2c2e] rounded-xl mx-4 p-4">
-        {/* Status */}
-        <p className="text-sm text-white font-medium">
+    <div className="mt-5">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Data</p>
+      <div className="bg-white rounded-xl mx-4 p-4">
+        <p className="text-sm text-gray-900 font-medium">
           {pendingCount === 0
             ? 'All game data saved ✓'
             : hasOrphaned
@@ -275,32 +219,18 @@ function GameDataSection() {
               : `${pendingCount} play${pendingCount !== 1 ? 's' : ''} waiting to save`
           }
         </p>
-
-        {saveResult && (
-          <p className="text-xs text-[#B8CA6E] mt-1">{saveResult}</p>
-        )}
-
-        {/* Buttons */}
+        {saveResult && <p className="text-xs text-[#B8CA6E] mt-1">{saveResult}</p>}
         {pendingCount > 0 && (
           <div className="flex gap-2 mt-3">
-            <button
-              type="button"
-              onClick={handleSaveNow}
-              disabled={saving || !isOnline()}
-              className={[
-                'flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors min-h-[40px]',
-                saving ? 'bg-[#3a3a3c] text-gray-500' : 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]',
-              ].join(' ')}
-            >
+            <button type="button" onClick={handleSaveNow} disabled={saving || !isOnline()}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors min-h-[40px] ${
+                saving ? 'bg-gray-100 text-gray-400' : 'bg-[#B8CA6E] text-[#1c1c1e] active:bg-[#a8b85e]'
+              }`}>
               {saving ? 'Saving...' : 'Save Now'}
             </button>
-
             {hasOldItems && (
-              <button
-                type="button"
-                onClick={handleDownloadBackup}
-                className="flex-1 bg-[#3a3a3c] text-white rounded-xl py-2.5 text-sm font-semibold min-h-[40px] active:bg-[#48484a] transition-colors"
-              >
+              <button type="button" onClick={handleDownloadBackup}
+                className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold min-h-[40px] active:bg-gray-200 transition-colors">
                 Download Backup
               </button>
             )}
@@ -312,57 +242,138 @@ function GameDataSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Nav Row (light theme)
+// ---------------------------------------------------------------------------
+
+function NavRow({ label, href, subtitle, disabled, onTap }: {
+  label: string; href?: string; subtitle?: string; disabled?: boolean; onTap?: () => void
+}) {
+  const content = (
+    <div className={`flex items-center justify-between py-3.5 px-4 transition-colors ${disabled ? '' : 'active:bg-gray-50'}`}>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>{label}</p>
+        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={`shrink-0 ${disabled ? 'text-gray-300' : 'text-gray-400'}`}>
+        <path d="M9 18l6-6-6-6" />
+      </svg>
+    </div>
+  )
+
+  if (onTap) {
+    return <button type="button" onClick={onTap} className="w-full text-left border-b border-gray-100 last:border-b-0">{content}</button>
+  }
+  if (href) {
+    return <a href={href} className="block border-b border-gray-100 last:border-b-0">{content}</a>
+  }
+  return <div className="border-b border-gray-100 last:border-b-0">{content}</div>
+}
+
+// ---------------------------------------------------------------------------
 // More Page
 // ---------------------------------------------------------------------------
 
 export default function MobileMorePage() {
   const { teamId, players } = useMobile()
+  const [rulesSummary, setRulesSummary] = useState('Loading...')
+  const [rulesCollapsed, setRulesCollapsed] = useState(false) // triggers auto-collapse after save
+  const [comingSoonMsg, setComingSoonMsg] = useState<string | null>(null)
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
+
+  function handleComingSoon(feature: string) {
+    setComingSoonMsg(`${feature} coming soon`)
+    setTimeout(() => setComingSoonMsg(null), 2000)
+  }
 
   return (
-    <div className="min-h-screen bg-[#1c1c1e] pb-8">
-      {/* Roster */}
-      <div className="mt-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Roster</p>
-        <div className="bg-[#2c2c2e] rounded-xl mx-4 overflow-hidden">
+    <div className="min-h-screen bg-[#f2f2f7] pb-8">
+      {/* Header */}
+      <div className="px-4 pt-12 pb-4">
+        <h1 className="text-2xl font-bold text-gray-900">More</h1>
+      </div>
+
+      {/* Coming soon toast */}
+      {comingSoonMsg && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-full shadow-lg animate-pulse">
+          {comingSoonMsg}
+        </div>
+      )}
+
+      {/* TEAM */}
+      <div>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Team</p>
+        <div className="bg-white rounded-xl mx-4 overflow-hidden">
           <NavRow label="Roster & Depth Chart" subtitle={`${players.length} player${players.length !== 1 ? 's' : ''}`} href="/m/roster" />
+          {/* // TODO: Mobile-specific team settings page */}
+          <NavRow label="Team Settings" subtitle="Name, level, colors" href={teamId ? `/football/teams/${teamId}/settings` : undefined} />
         </div>
       </div>
 
-      {/* League Rules */}
-      <div className="px-4 pt-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">League Rules</p>
-        <div className="bg-[#2c2c2e] rounded-xl p-4">
-          <LeagueRulesSection teamId={teamId} />
-        </div>
+      {/* GAME RULES (collapsible) */}
+      <div className="mt-5">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Game Rules</p>
+        <CollapsibleSection
+          title="Field & Quarter Settings"
+          summary={rulesSummary}
+          defaultExpanded={false}
+          key={rulesCollapsed ? 'collapsed' : 'default'}
+        >
+          <LeagueRulesContent
+            teamId={teamId}
+            onSaved={() => setRulesCollapsed(prev => !prev)}
+            onValuesLoaded={setRulesSummary}
+          />
+        </CollapsibleSection>
       </div>
 
-      {/* Game Data */}
+      {/* DATA */}
       <GameDataSection />
 
-      {/* Team Settings */}
-      <div className="mt-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Team</p>
-        <div className="bg-[#2c2c2e] rounded-xl mx-4 overflow-hidden">
-          <NavRow label="Team Settings" subtitle="Name, level, colors" href={teamId ? `/football/teams/${teamId}/settings` : undefined} />
-          <NavRow label="Schedule" subtitle="Games and events" />
+      {/* ACCOUNT */}
+      <div className="mt-5">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-4 mb-2">Account</p>
+        <div className="bg-white rounded-xl mx-4 overflow-hidden">
+          <NavRow label="Profile" subtitle="Name, email, avatar" onTap={() => handleComingSoon('Profile settings')} disabled />
+          <NavRow label="Notifications" subtitle="Push and email preferences" onTap={() => handleComingSoon('Notification settings')} disabled />
+          <button
+            type="button"
+            onClick={() => setShowSignOutConfirm(true)}
+            className="w-full text-left px-4 py-3.5 active:bg-gray-50 transition-colors"
+          >
+            <p className="text-sm font-medium text-red-500">Sign Out</p>
+          </button>
         </div>
       </div>
 
-      {/* Account */}
-      <div className="mt-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">Account</p>
-        <div className="bg-[#2c2c2e] rounded-xl mx-4 overflow-hidden">
-          <NavRow label="Profile" subtitle="Name, email, avatar" />
-          <NavRow label="Notifications" subtitle="Push and email preferences" />
-          <NavRow label="Sign Out" href="/auth/signout" />
-        </div>
-      </div>
-
-      {/* App Info */}
+      {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-xs text-gray-600">Youth Coach Hub</p>
-        <p className="text-[10px] text-gray-700 mt-0.5">v0.1.0</p>
+        <p className="text-xs text-gray-400">Youth Coach Hub</p>
+        <p className="text-[10px] text-gray-400 mt-0.5">v0.1.0</p>
       </div>
+
+      {/* Sign Out Confirmation */}
+      {showSignOutConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setShowSignOutConfirm(false)} />
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl pb-[env(safe-area-inset-bottom)]">
+            <div className="flex justify-center pt-3 pb-2"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
+            <div className="px-5 pb-6 text-center">
+              <h3 className="text-lg font-bold text-gray-900">Sign Out?</h3>
+              <p className="text-sm text-gray-500 mt-1">You&apos;ll need to sign in again to access your team.</p>
+              <div className="flex gap-3 mt-5">
+                <button type="button" onClick={() => setShowSignOutConfirm(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-3 text-sm font-semibold active:bg-gray-200">
+                  Cancel
+                </button>
+                <a href="/auth/signout"
+                  className="flex-1 bg-red-600 text-white rounded-xl py-3 text-sm font-semibold text-center active:bg-red-700">
+                  Sign Out
+                </a>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
