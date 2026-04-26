@@ -427,7 +427,7 @@ function RecipientPickerSheet({ teamId, conversations, onSelect, onClose }: {
 // ---------------------------------------------------------------------------
 
 export default function ParentMessagesPage() {
-  const { currentTeamId } = useParent()
+  const { currentTeamId, loading: parentLoading } = useParent()
   const searchParams = useSearchParams()
   const [items, setItems] = useState<InboxItem[]>([])
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
@@ -505,6 +505,26 @@ export default function ParentMessagesPage() {
 
   if (selectedThread && currentTeamId) {
     return <ThreadView conversation={selectedThread} teamId={currentTeamId} onBack={() => { setSelectedThread(null); loadInbox() }} />
+  }
+
+  // No-team state — parent has no active team_parent_access yet
+  if (!parentLoading && !currentTeamId) {
+    return (
+      <div className="min-h-full bg-[var(--bg-primary)] pb-4">
+        <div className="px-4 pt-6 pb-2">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Messages</h1>
+        </div>
+        <EmptyState
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+          }
+          title="You're not on a team yet"
+          description="Once your coach adds you, messages and announcements will show up here."
+        />
+      </div>
+    )
   }
 
   return (

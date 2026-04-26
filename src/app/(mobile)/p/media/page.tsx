@@ -374,7 +374,7 @@ function ListSkeleton() {
 // ---------------------------------------------------------------------------
 
 export default function ParentMediaPage() {
-  const { currentTeamId } = useParent()
+  const { currentTeamId, loading: parentLoading } = useParent()
   const { parentHasAccess, parentAccessSource, loading: subscriptionLoading } = useSubscription()
   const [tab, setTab] = useState<Tab>('videos')
   const [videos, setVideos] = useState<SharedVideo[]>([])
@@ -400,6 +400,28 @@ export default function ParentMediaPage() {
       setLoading(false)
     })
   }, [currentTeamId])
+
+  // No-team state — checked first so a parent with no team access doesn't see
+  // a confusing subscription gate before they've even joined a team
+  if (!parentLoading && !currentTeamId) {
+    return (
+      <div className="min-h-full bg-[var(--bg-primary)] pb-4">
+        <div className="px-4 pt-6 pb-2">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Media</h1>
+        </div>
+        <EmptyState
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7" />
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+          }
+          title="You're not on a team yet"
+          description="Once your coach adds you, game videos and reports will appear here."
+        />
+      </div>
+    )
+  }
 
   // Access gate — parent without comm hub access
   if (!subscriptionLoading && !parentHasAccess && parentAccessSource === 'none') {
