@@ -131,6 +131,23 @@ export default function ParentMorePage() {
       <div className="mx-4 mt-3">
         <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden">
           <Link
+            href="/p/directory"
+            className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[var(--border-primary)] active:bg-[var(--bg-card-alt)] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-secondary)]">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                <path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+              <p className="text-sm font-medium text-[var(--text-primary)]">Team Directory</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </Link>
+          <Link
             href="/p/settings"
             className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[var(--bg-card-alt)] transition-colors"
           >

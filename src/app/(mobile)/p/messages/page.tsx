@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useParent } from '../ParentContext'
 import { EmptyState } from '@/app/(mobile)/components/EmptyState'
 
@@ -427,12 +428,15 @@ function RecipientPickerSheet({ teamId, conversations, onSelect, onClose }: {
 
 export default function ParentMessagesPage() {
   const { currentTeamId } = useParent()
+  const searchParams = useSearchParams()
   const [items, setItems] = useState<InboxItem[]>([])
   const [conversations, setConversations] = useState<ConversationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null)
   const [selectedThread, setSelectedThread] = useState<ConversationSummary | null>(null)
   const [showPicker, setShowPicker] = useState(false)
+  // Tracks deep-link param consumption so we don't re-trigger on conversation reloads
+  const consumedDeepLinkRef = useRef(false)
 
   const loadInbox = useCallback(() => {
     if (!currentTeamId) { setLoading(false); return }
@@ -459,6 +463,41 @@ export default function ParentMessagesPage() {
   }, [currentTeamId])
 
   useEffect(() => { loadInbox() }, [loadInbox])
+
+  // Deep-link from Directory: /p/messages?to=<id>&type=coach|parent&name=<encoded>
+  // Opens the matching thread (or stub) once conversations have loaded.
+  useEffect(() => {
+    if (consumedDeepLinkRef.current) return
+    if (loading) return
+    const to = searchParams.get('to')
+    const type = searchParams.get('type')
+    if (!to || (type !== 'coach' && type !== 'parent')) return
+    const name = searchParams.get('name') ?? 'Recipient'
+
+    const existing = conversations.find(c => c.participantId === to)
+    if (existing) {
+      setSelectedThread(existing)
+    } else {
+      setSelectedThread({
+        participantId: to,
+        participantName: name,
+        participantType: type,
+        lastMessage: '',
+        lastMessageAt: new Date().toISOString(),
+        unreadCount: 0,
+      })
+    }
+    consumedDeepLinkRef.current = true
+
+    // Clear params so the back button returns to a clean inbox URL
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('to')
+      url.searchParams.delete('type')
+      url.searchParams.delete('name')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams, conversations, loading])
 
   if (selectedAnnouncement) {
     return <AnnouncementDetail announcement={selectedAnnouncement} onBack={() => setSelectedAnnouncement(null)} />
