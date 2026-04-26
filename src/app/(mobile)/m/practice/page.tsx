@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import type { PracticePlan } from '@/types/football'
+import { DesktopRedirectCard } from '@/app/(mobile)/components/DesktopRedirectCard'
+import { SAMPLE_PRACTICE_PLAN } from './sampleData'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +62,7 @@ function getDaysUntilGame(dateStr: string): number {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function PlanCard({ plan, isToday }: { plan: PracticePlan; isToday: boolean }) {
+function PlanCard({ plan, isToday, isSample }: { plan: PracticePlan; isToday: boolean; isSample?: boolean }) {
   return (
     <Link
       href={`/m/practice/${plan.id}`}
@@ -72,7 +74,12 @@ function PlanCard({ plan, isToday }: { plan: PracticePlan; isToday: boolean }) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
-              {isToday && (
+              {isSample && (
+                <span className="inline-flex items-center bg-[var(--bg-card-alt)] text-[var(--text-tertiary)] text-[10px] font-semibold rounded-full px-2 py-0.5 shrink-0">
+                  SAMPLE
+                </span>
+              )}
+              {isToday && !isSample && (
                 <span className="inline-flex items-center bg-[#B8CA6E] text-[#1c1c1e] text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0">
                   TODAY
                 </span>
@@ -243,28 +250,15 @@ export default function MobilePracticePage() {
         <div className="px-4 pt-12 pb-4">
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Practice</h1>
         </div>
-        {showNextGame && nextGame && (
-          <div className="px-4 mb-4">
-            <NextGameCard game={nextGame} />
-          </div>
-        )}
-        <div className="flex flex-col items-center justify-center py-20 px-6 gap-3">
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-[var(--text-tertiary)]"
-          >
-            <path d="M16 4H8a1 1 0 00-1 1v14a1 1 0 001 1h8a1 1 0 001-1V5a1 1 0 00-1-1z" />
-            <path d="M12 2v2M9 9h6M9 12h6M9 15h3" />
-          </svg>
-          <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No practice plans yet.</p>
-          <p className="text-xs text-[var(--text-tertiary)] text-center">Create one on the desktop app.</p>
+        <div className="px-4 space-y-3">
+          {showNextGame && nextGame && <NextGameCard game={nextGame} />}
+          <DesktopRedirectCard
+            feature="Create Practice Plans"
+            description="Build practice plans on desktop — they sync here automatically."
+            url={teamId ? `/football/teams/${teamId}/practice` : '/dashboard'}
+            actionLabel="Open on desktop"
+          />
+          <PlanCard plan={SAMPLE_PRACTICE_PLAN} isToday={false} isSample />
         </div>
       </div>
     )

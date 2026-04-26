@@ -5,6 +5,8 @@ import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
 import MiniPlayDiagram from '@/components/MiniPlayDiagram'
 import { FORMATION_METADATA } from '@/config/footballConfig'
+import { DesktopRedirectCard } from '@/app/(mobile)/components/DesktopRedirectCard'
+import { SAMPLE_PLAYS } from './sampleData'
 import type { PlayDiagram, PlayAttributes as FullPlayAttributes } from '@/types/football'
 
 // ---------------------------------------------------------------------------
@@ -26,6 +28,7 @@ interface Play {
   attributes: PlayAttributes
   is_archived: boolean
   call_number?: number | null
+  isSample?: boolean
 }
 
 type PhaseFilter = 'all' | 'offense' | 'defense' | 'specialTeams'
@@ -539,6 +542,11 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
           <span className="text-base font-medium text-[var(--text-primary)] leading-snug">
             {play.play_name}
           </span>
+          {play.isSample && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold bg-[var(--bg-card-alt)] text-[var(--text-tertiary)]">
+              SAMPLE
+            </span>
+          )}
           {aiMode && isTopPick && (
             <span className="rounded-full px-2 py-0.5 text-xs font-bold bg-[#B8CA6E] text-[#1c1c1e]">
               TOP PICK
@@ -722,6 +730,8 @@ export default function MobilePlaybookPage() {
     grouped.defensePlays.length > 0 ||
     grouped.specialPlays.length > 0
 
+  const isTrulyEmpty = plays.length === 0
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -829,8 +839,30 @@ export default function MobilePlaybookPage() {
       <div className="mt-3">
         {isLoading ? (
           <LoadingState />
+        ) : isTrulyEmpty ? (
+          <div className="px-4 space-y-3">
+            <DesktopRedirectCard
+              feature="Create Your Playbook"
+              description="Build plays and formations on desktop — they sync here automatically."
+              url={teamId ? `/football/teams/${teamId}/playbook` : '/dashboard'}
+              actionLabel="Open on desktop"
+            />
+            {SAMPLE_PLAYS.map(play => (
+              <PlayRow
+                key={play.id}
+                play={play}
+                aiMode={false}
+                isSuggested={false}
+                isTopPick={false}
+                onTap={() => setSelectedPlay(play)}
+              />
+            ))}
+          </div>
         ) : !hasResults ? (
-          <EmptyState />
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <p className="text-sm font-medium text-[var(--text-secondary)]">No matching plays</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-1">Try adjusting your filters or search.</p>
+          </div>
         ) : (
           <>
             {renderGroup('Offense', grouped.offensePlays)}

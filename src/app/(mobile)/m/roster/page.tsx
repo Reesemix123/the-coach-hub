@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useMobile, type MobilePlayer } from '@/app/(mobile)/MobileContext'
+import { EmptyState } from '@/app/(mobile)/components/EmptyState'
 import RosterListView from './components/RosterListView'
 import DepthChartView from './components/DepthChartView'
 import PlayerEditSheet from './components/PlayerEditSheet'
@@ -60,6 +61,45 @@ export default function MobileRosterPage() {
           playersLoading={playersLoading}
           bumpLineupVersion={bumpLineupVersion}
         />
+      </div>
+    )
+  }
+
+  // Empty roster state
+  if (!playersLoading && players.length === 0) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] pb-8">
+        <div className="px-4 pt-12 pb-2">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Roster</h1>
+        </div>
+        <EmptyState
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87" />
+              <path d="M16 3.13a4 4 0 010 7.75" />
+            </svg>
+          }
+          title="Add your players"
+          description="Build your roster to manage positions, depth charts, and game-day lineups."
+          actionLabel="Add Player"
+          onAction={() => handleAddPlayer()}
+        />
+        {/* Add Player Sheet */}
+        {showAddSheet && teamId && (
+          <PlayerEditSheet
+            player={null}
+            preSelectedPosition={addPrePosition}
+            teamId={teamId}
+            allPlayers={players}
+            onClose={() => {
+              setShowAddSheet(false)
+              setAddPrePosition(undefined)
+            }}
+            onSaved={handleSaved}
+          />
+        )}
       </div>
     )
   }

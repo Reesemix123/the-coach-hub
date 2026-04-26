@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useCommHub, type Announcement, type ConversationSummary } from '../CommHubContext'
+import { EmptyState } from '@/app/(mobile)/components/EmptyState'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -327,23 +328,17 @@ export default function MessageInbox({
             <SkeletonCard />
           </>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <svg
-              width="40"
-              height="40"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              className="text-[var(--text-tertiary)]"
-            >
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-            </svg>
-            <p className="text-sm font-medium text-[var(--text-secondary)] text-center">No messages yet</p>
-            <p className="text-xs text-[var(--text-tertiary)] text-center">
-              Send an announcement or message a parent directly.
-            </p>
-          </div>
+          <EmptyState
+            icon={
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+              </svg>
+            }
+            title="No messages yet"
+            description="Send an announcement or message a parent directly."
+            actionLabel="Send a message"
+            onAction={onCompose}
+          />
         ) : (
           items.map(item =>
             item.type === 'announcement' && item.announcement ? (

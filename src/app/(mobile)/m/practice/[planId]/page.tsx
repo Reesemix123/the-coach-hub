@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { useMobile } from '@/app/(mobile)/MobileContext'
+import { SAMPLE_PRACTICE_PLAN } from '../sampleData'
 import type {
   PracticePlanWithDetails,
   PracticePeriodWithDrills,
@@ -351,8 +352,17 @@ export default function PracticePlanViewerPage() {
   // Load plan (localStorage cache → DB)
   // ------------------------------------------------------------------
 
+  const isSample = planId === 'sample'
+
   useEffect(() => {
     async function loadPlan() {
+      // Sample plan — load from static data, skip DB
+      if (planId === 'sample') {
+        setPlan(SAMPLE_PRACTICE_PLAN)
+        setLoading(false)
+        return
+      }
+
       // Serve from cache immediately for perceived speed
       try {
         const cached = localStorage.getItem(`ych-practice-plan-${planId}`)
@@ -723,7 +733,7 @@ export default function PracticePlanViewerPage() {
 
   const todayString = new Date().toISOString().split('T')[0]
   const isToday = plan?.date ? plan.date === todayString : true
-  const canStart = isToday && !session && !showComplete
+  const canStart = isToday && !session && !showComplete && !isSample
 
   const currentPeriod =
     session && plan && session.status !== 'completed'
@@ -824,7 +834,14 @@ export default function PracticePlanViewerPage() {
           </svg>
           Practice Plans
         </button>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">{plan.title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{plan.title}</h1>
+          {isSample && (
+            <span className="inline-flex items-center bg-[var(--bg-card-alt)] text-[var(--text-tertiary)] text-[10px] font-semibold rounded-full px-2 py-0.5">
+              SAMPLE
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
           {plan.date && (
             <span className="text-sm text-[var(--text-secondary)]">
