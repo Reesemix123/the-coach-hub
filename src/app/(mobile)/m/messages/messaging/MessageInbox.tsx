@@ -288,7 +288,7 @@ export default function MessageInbox({
               onClick={() => setFilter(key)}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
                 filter === key
-                  ? 'bg-[var(--text-primary)] text-[var(--text-inverse)]'
+                  ? 'bg-[var(--bg-pill-active-accent)] text-[var(--accent-text)]'
                   : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
               }`}
             >
