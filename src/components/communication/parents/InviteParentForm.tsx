@@ -208,6 +208,15 @@ export function InviteParentForm({ teamId, onSuccess, onCancel }: InviteParentFo
         </div>
       </div>
 
+      {/* Coach-facing note about the post-signup app prompt */}
+      <div className="flex items-start gap-2 text-xs text-gray-500 pt-1">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-0.5 flex-shrink-0">
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+          <line x1="12" y1="18" x2="12.01" y2="18" />
+        </svg>
+        <span>After accepting, parents will be prompted to download the Youth Coach Hub app.</span>
+      </div>
+
       {/* Actions */}
       <div className="flex items-center gap-3 pt-2">
         <button

@@ -266,8 +266,14 @@ function ParentSignupContent() {
         console.error('Invitation update error:', updateError);
       }
 
-      // Success! Redirect to parent dashboard
-      router.push('/parent');
+      // Success — route through the app-download bridge before dropping the
+      // parent into the web experience. Pass team + athlete context via URL
+      // params so the success page can personalize the headline.
+      const params = new URLSearchParams();
+      if (invitation.team_name) params.set('team', invitation.team_name);
+      if (invitation.player_name) params.set('athlete', invitation.player_name);
+      const qs = params.toString();
+      router.push(`/auth/parent-signup/success${qs ? `?${qs}` : ''}`);
     } catch (err) {
       console.error('Signup error:', err);
       setError('An unexpected error occurred');
