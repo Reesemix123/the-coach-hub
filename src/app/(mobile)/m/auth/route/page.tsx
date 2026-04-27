@@ -25,8 +25,8 @@ export default function PersonaRouterPage() {
       // Parent only → parent experience
       router.replace('/p')
     } else {
-      // New signup: no teams, no parent profile → assume new coach
-      router.replace('/m/auth/create-team')
+      // No roles yet (fresh signup or stuck account) → role-selection onboarding
+      router.replace('/m/auth/role')
     }
   }, [loading, isCoach, isParent, coachTeams, router])
 
