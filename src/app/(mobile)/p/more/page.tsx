@@ -10,7 +10,7 @@ import { useTheme } from '@/app/(mobile)/ThemeContext'
 
 export default function ParentMorePage() {
   const router = useRouter()
-  const { teams, athletes, currentTeam, currentAthlete, setCurrentTeamId, setCurrentAthleteId } = useParent()
+  const { teams, athletes, currentTeam, currentAthlete, currentTeamId, setCurrentTeamId, setCurrentAthleteId } = useParent()
   const { isDualRole, setActiveRole } = useRole()
   const { theme, setThemePreference } = useTheme()
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
@@ -124,6 +124,29 @@ export default function ParentMorePage() {
               <path d="M9 18l6-6-6-6" />
             </svg>
           </button>
+        </div>
+      )}
+
+      {/* Join a Team — recovery path for parents who hit Skip on the join code step */}
+      {!currentTeamId && (
+        <div className="mx-4 mt-3">
+          <div className="bg-[var(--bg-card)] rounded-xl overflow-hidden">
+            <Link
+              href="/m/auth/join-team"
+              className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[var(--bg-card-alt)] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)]">
+                  <path d="M9 11l3 3L22 4" />
+                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                </svg>
+                <p className="text-sm font-medium text-[var(--text-primary)]">Join a Team</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </Link>
+          </div>
         </div>
       )}
 

@@ -4,10 +4,25 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import { useRole } from '@/app/(mobile)/RoleContext'
 
 export default function ParentWelcomePage() {
   const router = useRouter()
+  const { isParent, parentAthleteProfiles } = useRole()
   const [signingOut, setSigningOut] = useState(false)
+
+  // Smart-route the "I have a join code" link to the first step the user
+  // hasn't already completed. Handles users who started on web (already have
+  // parent_profile + maybe athlete_profile) and signed in on mobile.
+  function handleHaveJoinCode() {
+    if (isParent && parentAthleteProfiles.length > 0) {
+      router.replace('/m/auth/join-team')
+    } else if (isParent) {
+      router.replace('/m/auth/athlete-setup')
+    } else {
+      router.replace('/m/auth/parent-setup')
+    }
+  }
 
   async function handleSignInInstead() {
     // The user just created an account on this device. To "sign in instead",
@@ -65,20 +80,36 @@ export default function ParentWelcomePage() {
         </div>
 
         {/* Card B — Haven't been invited yet */}
-        <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow)] mb-6">
+        <div className="bg-[var(--bg-card)] rounded-2xl p-5 shadow-[var(--shadow)] mb-3">
           <p className="text-base font-bold text-[var(--text-primary)] mb-1">
             Haven&apos;t been invited yet?
           </p>
-          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            Ask your coach to add you through Youth Coach Hub. They&apos;ll send you a text with a link to join your athlete&apos;s team.
+          <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
+            Set up your athlete in the app. Then enter the 6-character code your coach gives you to join the team.
           </p>
+          <button
+            type="button"
+            onClick={() => router.replace('/m/auth/parent-setup')}
+            className="w-full py-3 rounded-xl font-semibold text-sm bg-[var(--accent)] text-[var(--accent-text)] active:opacity-80 transition-opacity"
+          >
+            Set Up My Account
+          </button>
         </div>
+
+        {/* Smart-route shortcut for users who started on web */}
+        <button
+          type="button"
+          onClick={handleHaveJoinCode}
+          className="w-full text-center py-2 text-sm text-[var(--text-secondary)] active:text-[var(--text-primary)] transition-colors mb-4"
+        >
+          I already have a join code
+        </button>
 
         {/* Continue to App — drops the parent into /p with empty states */}
         <button
           type="button"
           onClick={() => router.replace('/p')}
-          className="w-full py-3 text-sm text-[var(--text-secondary)] active:text-[var(--text-primary)] transition-colors"
+          className="w-full py-3 text-sm text-[var(--text-tertiary)] active:text-[var(--text-secondary)] transition-colors"
         >
           Continue to App
         </button>
