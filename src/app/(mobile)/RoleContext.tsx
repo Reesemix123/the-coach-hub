@@ -18,6 +18,12 @@ interface ParentAthlete {
   teamName: string
 }
 
+interface ParentAthleteProfile {
+  id: string
+  firstName: string
+  lastName: string
+}
+
 interface RoleContextValue {
   isCoach: boolean
   isParent: boolean
@@ -26,6 +32,7 @@ interface RoleContextValue {
   setActiveRole: (role: 'coach' | 'parent') => void
   coachTeams: CoachTeam[]
   parentAthletes: ParentAthlete[]
+  parentAthleteProfiles: ParentAthleteProfile[]
   loading: boolean
   refetch: () => Promise<void>
 }
@@ -40,6 +47,7 @@ const defaults: RoleContextValue = {
   setActiveRole: () => {},
   coachTeams: [],
   parentAthletes: [],
+  parentAthleteProfiles: [],
   loading: true,
   refetch: async () => {},
 }
@@ -55,6 +63,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [isParent, setIsParent] = useState(false)
   const [coachTeams, setCoachTeams] = useState<CoachTeam[]>([])
   const [parentAthletes, setParentAthletes] = useState<ParentAthlete[]>([])
+  const [parentAthleteProfiles, setParentAthleteProfiles] = useState<ParentAthleteProfile[]>([])
   const [activeRole, setActiveRoleState] = useState<'coach' | 'parent'>('coach')
   const [loading, setLoading] = useState(true)
 
@@ -69,6 +78,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       setIsParent(data.isParent)
       setCoachTeams(data.coachTeams)
       setParentAthletes(data.parentAthletes)
+      setParentAthleteProfiles(data.parentAthleteProfiles ?? [])
 
       // Resolve active role: localStorage → coach default → parent fallback
       const stored = localStorage.getItem(STORAGE_KEY) as 'coach' | 'parent' | null
@@ -103,7 +113,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       value={{
         isCoach, isParent, isDualRole,
         activeRole, setActiveRole,
-        coachTeams, parentAthletes,
+        coachTeams, parentAthletes, parentAthleteProfiles,
         loading, refetch: fetchRole,
       }}
     >
