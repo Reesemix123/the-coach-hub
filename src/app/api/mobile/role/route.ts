@@ -23,6 +23,12 @@ interface ParentAthlete {
   teamName: string
 }
 
+interface ParentAthleteProfile {
+  id: string
+  firstName: string
+  lastName: string
+}
+
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -71,16 +77,24 @@ export async function GET() {
 
   const isParent = !!parentProfile
   const parentAthletes: ParentAthlete[] = []
+  const parentAthleteProfiles: ParentAthleteProfile[] = []
 
   if (parentProfile) {
-    // Get linked athletes via player_parent_links → players → teams
-    const { data: links } = await supabase
-      .from('player_parent_links')
-      .select('player_id, players(id, first_name, last_name, team_id, teams(name))')
-      .eq('parent_id', parentProfile.id)
+    // Get linked athletes via player_parent_links → players → teams (athletes on a roster)
+    // and athlete_profiles owned by this parent (created during onboarding, may not yet be linked)
+    const [linksRes, profilesRes] = await Promise.all([
+      supabase
+        .from('player_parent_links')
+        .select('player_id, players(id, first_name, last_name, team_id, teams(name))')
+        .eq('parent_id', parentProfile.id),
+      supabase
+        .from('athlete_profiles')
+        .select('id, athlete_first_name, athlete_last_name')
+        .eq('created_by_parent_id', parentProfile.id),
+    ])
 
-    if (links) {
-      for (const link of links) {
+    if (linksRes.data) {
+      for (const link of linksRes.data) {
         const p = link.players as unknown as {
           id: string
           first_name: string
@@ -97,6 +111,16 @@ export async function GET() {
         }
       }
     }
+
+    if (profilesRes.data) {
+      for (const ap of profilesRes.data) {
+        parentAthleteProfiles.push({
+          id: ap.id,
+          firstName: ap.athlete_first_name,
+          lastName: ap.athlete_last_name,
+        })
+      }
+    }
   }
 
   return NextResponse.json({
@@ -104,5 +128,6 @@ export async function GET() {
     isParent,
     coachTeams,
     parentAthletes,
+    parentAthleteProfiles,
   })
 }

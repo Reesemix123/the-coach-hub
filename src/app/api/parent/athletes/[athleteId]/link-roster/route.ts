@@ -71,6 +71,101 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Team not found' }, { status: 404 });
     }
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://youthcoachhub.com';
+
+    // Plan-limit check — skip when this parent already has active access on the team
+    // (they're a returning member adding another athlete, not consuming a new slot).
+    const { data: existingAccessForLimit } = await serviceClient
+      .from('team_parent_access')
+      .select('id, status')
+      .eq('team_id', team.id)
+      .eq('parent_id', parent.id)
+      .maybeSingle();
+
+    const isReturningParent = existingAccessForLimit?.status === 'active';
+
+    if (!isReturningParent) {
+      const { data: activePlan } = await serviceClient
+        .from('team_communication_plans')
+        .select('id, plan_tier, max_parents')
+        .eq('team_id', team.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (activePlan && activePlan.max_parents !== null) {
+        const [{ count: activeParentCount }, { count: pendingInviteCount }] = await Promise.all([
+          serviceClient
+            .from('team_parent_access')
+            .select('*', { count: 'exact', head: true })
+            .eq('team_id', team.id)
+            .eq('status', 'active'),
+          serviceClient
+            .from('parent_invitations')
+            .select('*', { count: 'exact', head: true })
+            .eq('team_id', team.id)
+            .eq('status', 'pending'),
+        ]);
+
+        const totalParents = (activeParentCount ?? 0) + (pendingInviteCount ?? 0);
+
+        if (totalParents >= activePlan.max_parents) {
+          // Notify the coach (fire-and-forget) — email only, matches existing pattern
+          const upgradeUrl = `${appUrl}/football/teams/${team.id}/communication/plan`;
+          const athleteName = `${player.first_name} ${player.last_name}`;
+
+          const [parentRes, coachRes] = await Promise.all([
+            serviceClient
+              .from('parent_profiles')
+              .select('first_name, last_name')
+              .eq('id', parent.id)
+              .single(),
+            serviceClient
+              .from('profiles')
+              .select('email')
+              .eq('id', team.user_id)
+              .single(),
+          ]);
+
+          const parentName = parentRes.data
+            ? `${parentRes.data.first_name} ${parentRes.data.last_name}`.trim()
+            : 'A parent';
+
+          sendNotification({
+            teamId: team.id,
+            recipientId: team.user_id,
+            recipientType: 'coach',
+            channel: 'email',
+            notificationType: 'announcement',
+            subject: `${parentName} couldn't join ${team.name} — your plan is full`,
+            body: getCommHubEmailTemplate({
+              title: 'Your Comm Hub plan has reached its parent limit',
+              body: `<p><strong>${parentName}</strong> tried to join <strong>${team.name}</strong> as ${athleteName}'s parent, but couldn't because your current ${activePlan.plan_tier} plan has reached its maximum of ${activePlan.max_parents} parents.</p><p>Upgrade your plan to make room — once you do, ${parentName} will be able to join.</p>`,
+              teamName: team.name,
+              ctaText: 'Upgrade Comm Hub',
+              ctaUrl: upgradeUrl,
+            }),
+            smsBody: '',
+            recipientEmail: coachRes.data?.email ?? undefined,
+          }).catch((err) =>
+            console.error('[link-roster] Limit notification failed:', err),
+          );
+
+          return NextResponse.json(
+            {
+              error: "Your coach's current plan has reached the maximum number of parents.",
+              code: 'PARENT_LIMIT_REACHED',
+              teamName: team.name,
+              planTier: activePlan.plan_tier,
+              maxParents: activePlan.max_parents,
+              currentParentCount: totalParents,
+              upgradeUrl,
+            },
+            { status: 409 },
+          );
+        }
+      }
+    }
+
     // Derive season year: if before August use current year, else current year (fall season)
     const now = new Date();
     const seasonYear = now.getFullYear();
@@ -148,7 +243,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Fire-and-forget notifications — do not block the response
     const athleteName = `${player.first_name} ${player.last_name}`;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://youthcoachhub.com';
 
     const [{ data: parentContact }, { data: coachProfile }] = await Promise.all([
       serviceClient.from('parent_profiles').select('email, phone, notification_preference').eq('id', parent.id).single(),
