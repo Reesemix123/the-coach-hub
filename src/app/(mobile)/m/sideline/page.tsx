@@ -3622,6 +3622,14 @@ function DriveView({ game, loggedPlays, driveNumber, teamId, currentGameId, onDe
 export default function SidelinePage() {
   const { teamId, activeGameId: contextActiveGameId, setActiveGameId: setContextActiveGameId, players, lineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures } = useMobile()
 
+  // Mark this team as "game day tools viewed" for the coach onboarding checklist.
+  useEffect(() => {
+    if (!teamId) return
+    try {
+      localStorage.setItem(`ych-coach-viewed-game-${teamId}`, '1')
+    } catch {}
+  }, [teamId])
+
   // Active game selection
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
   const [opponentName, setOpponentName] = useState('')

@@ -7,6 +7,7 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 import type { PracticePlan } from '@/types/football'
 import { DesktopRedirectCard } from '@/app/(mobile)/components/DesktopRedirectCard'
 import { SAMPLE_PRACTICE_PLAN } from './sampleData'
+import { OnboardingChecklist } from './OnboardingChecklist'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -251,6 +252,7 @@ export default function MobilePracticePage() {
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Practice</h1>
         </div>
         <div className="px-4 space-y-3">
+          <OnboardingChecklist />
           {showNextGame && nextGame && <NextGameCard game={nextGame} />}
           <DesktopRedirectCard
             feature="Create Practice Plans"
@@ -272,6 +274,8 @@ export default function MobilePracticePage() {
       </div>
 
       <div className="px-4 space-y-3">
+        <OnboardingChecklist />
+
         {/* Next Game card */}
         {showNextGame && nextGame && <NextGameCard game={nextGame} />}
 

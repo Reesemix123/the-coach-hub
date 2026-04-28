@@ -581,6 +581,14 @@ function PlayRow({ play, aiMode, isSuggested, isTopPick, onTap }: PlayRowProps) 
 export default function MobilePlaybookPage() {
   const { teamId } = useMobile()
 
+  // Mark this team as "playbook viewed" for the coach onboarding checklist.
+  useEffect(() => {
+    if (!teamId) return
+    try {
+      localStorage.setItem(`ych-coach-viewed-playbook-${teamId}`, '1')
+    } catch {}
+  }, [teamId])
+
   const [plays, setPlays] = useState<Play[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
