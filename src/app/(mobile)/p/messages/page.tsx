@@ -83,7 +83,9 @@ function InboxList({ items, loading, onSelectAnnouncement, onSelectThread }: {
   onSelectAnnouncement: (a: Announcement) => void
   onSelectThread: (c: ConversationSummary) => void
 }) {
-  if (loading) {
+  // Show full skeleton only on initial load (no items yet). Subsequent
+  // refetches keep the inbox visible to avoid a blank-then-repopulate flicker.
+  if (loading && items.length === 0) {
     return (
       <div className="px-4 mt-3 space-y-2">
         {[...Array(4)].map((_, i) => (
@@ -376,8 +378,11 @@ function RecipientPickerSheet({ teamId, conversations, onSelect, onClose }: {
 
   return (
     <>
-      <div className="fixed inset-0 bg-[var(--bg-overlay)] z-50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-sheet)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[70vh] animate-slide-up">
+      <div className="fixed inset-0 bg-[var(--bg-overlay)] z-50" onClick={onClose} data-testid="recipient-picker-backdrop" />
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--bg-sheet)] rounded-t-2xl pb-[env(safe-area-inset-bottom)] max-h-[70vh] animate-slide-up"
+        data-testid="recipient-picker"
+      >
         <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-[var(--border-secondary)]" /></div>
         <div className="px-5 pt-2 pb-4">
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-3">New Message</h3>

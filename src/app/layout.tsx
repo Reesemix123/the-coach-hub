@@ -160,6 +160,23 @@ export default function RootLayout({
         {/* Vercel Analytics */}
         <Analytics />
 
+        {/* Capacitor: redirect to mobile auth router on any non-mobile path.
+            Runs synchronously in the body before children paint significantly. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                if (typeof window === 'undefined' || !window.Capacitor) return;
+                var p = window.location.pathname;
+                if (p.indexOf('/m/') === 0) return;
+                if (p === '/p' || p.indexOf('/p/') === 0) return;
+                if (p.indexOf('/auth/callback') === 0) return;
+                window.location.replace('/m/auth/route');
+              })();
+            `,
+          }}
+        />
+
         {/* PWA Service Worker Registration — skip inside Capacitor native shell */}
         <script
           dangerouslySetInnerHTML={{

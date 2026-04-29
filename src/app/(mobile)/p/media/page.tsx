@@ -469,7 +469,7 @@ export default function ParentMediaPage() {
       {/* Videos tab */}
       {tab === 'videos' && (
         <div className="px-4">
-          {loading ? <VideoSkeleton /> : videos.length === 0 ? (
+          {loading && videos.length === 0 ? <VideoSkeleton /> : videos.length === 0 ? (
             <EmptyState
               icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" /></svg>}
               title="No videos shared yet"
@@ -486,7 +486,7 @@ export default function ParentMediaPage() {
       {/* Reports tab */}
       {tab === 'reports' && (
         <div>
-          {loading ? <ListSkeleton /> : (reports.length === 0 && recaps.length === 0) ? (
+          {loading && reports.length === 0 && recaps.length === 0 ? <ListSkeleton /> : (reports.length === 0 && recaps.length === 0) ? (
             <EmptyState
               icon={<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>}
               title="No reports shared yet"

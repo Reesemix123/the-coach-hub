@@ -1,7 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,8 +42,6 @@ const ParentContext = createContext<ParentContextValue>(defaults)
 // ---------------------------------------------------------------------------
 
 export function ParentProvider({ children }: { children: ReactNode }) {
-  const searchParams = useSearchParams()
-
   const [teams, setTeams] = useState<ParentTeam[]>([])
   const [athletes, setAthletes] = useState<ParentAthlete[]>([])
   const [parentName, setParentName] = useState('')
@@ -73,7 +70,10 @@ export function ParentProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(ATHLETE_KEY, id) } catch {}
   }, [])
 
-  // Fetch context data
+  // Fetch context data — runs once on mount. Deep-link params are resolved
+  // a single time at parent-app entry; subsequent navigation must not refire
+  // this effect (useSearchParams was previously causing phantom re-runs that
+  // recreated the teams/athletes arrays and triggered a flicker downstream).
   useEffect(() => {
     async function load() {
       try {
@@ -86,9 +86,12 @@ export function ParentProvider({ children }: { children: ReactNode }) {
         setParentName(data.parentName)
 
         // Deep-link priority: URL params → localStorage → defaults
-        const urlTeam = searchParams.get('teamId')
-        const urlAthlete = searchParams.get('athleteId')
-        const urlAthleteProfile = searchParams.get('athleteProfileId')
+        const params = typeof window !== 'undefined'
+          ? new URLSearchParams(window.location.search)
+          : new URLSearchParams()
+        const urlTeam = params.get('teamId')
+        const urlAthlete = params.get('athleteId')
+        const urlAthleteProfile = params.get('athleteProfileId')
         const storedTeam = localStorage.getItem(TEAM_KEY)
         const storedAthlete = localStorage.getItem(ATHLETE_KEY)
 
@@ -132,9 +135,11 @@ export function ParentProvider({ children }: { children: ReactNode }) {
       }
     }
     load()
-  }, [searchParams])
+  }, [])
 
-  // Poll unread count every 30s
+  // Poll unread count every 30s. Skip the state update when the value is
+  // unchanged so the context value object stays stable and no consumers
+  // re-render unnecessarily.
   useEffect(() => {
     if (!currentTeamId) return
     async function fetchUnread() {
@@ -142,7 +147,8 @@ export function ParentProvider({ children }: { children: ReactNode }) {
         const res = await fetch(`/api/parent/unread-count?teamId=${currentTeamId}`)
         if (res.ok) {
           const data = await res.json()
-          setUnreadCount(data.total ?? 0)
+          const total = data.total ?? 0
+          setUnreadCount((prev) => (prev === total ? prev : total))
         }
       } catch {}
     }
@@ -151,17 +157,35 @@ export function ParentProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval)
   }, [currentTeamId])
 
-  const currentTeam = teams.find(t => t.id === currentTeamId) ?? null
-  const currentAthlete = athletes.find(a => a.id === currentAthleteId) ?? null
+  const currentTeam = useMemo(
+    () => teams.find(t => t.id === currentTeamId) ?? null,
+    [teams, currentTeamId],
+  )
+  const currentAthlete = useMemo(
+    () => athletes.find(a => a.id === currentAthleteId) ?? null,
+    [athletes, currentAthleteId],
+  )
   const currentAthleteProfileId = currentAthlete?.athleteProfileId ?? null
 
-  return (
-    <ParentContext.Provider value={{
+  // Memoize the context value so consumers only re-render when something
+  // actually changed (not on every parent re-render).
+  const value = useMemo(
+    () => ({
       currentTeamId, currentAthleteId, currentAthleteProfileId,
       setCurrentTeamId, setCurrentAthleteId,
       teams, athletes, currentTeam, currentAthlete,
       parentName, loading, unreadCount,
-    }}>
+    }),
+    [
+      currentTeamId, currentAthleteId, currentAthleteProfileId,
+      setCurrentTeamId, setCurrentAthleteId,
+      teams, athletes, currentTeam, currentAthlete,
+      parentName, loading, unreadCount,
+    ],
+  )
+
+  return (
+    <ParentContext.Provider value={value}>
       {children}
     </ParentContext.Provider>
   )

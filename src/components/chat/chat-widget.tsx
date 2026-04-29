@@ -44,6 +44,15 @@ export function ChatWidget() {
   const hasDraggedRef = useRef(false); // Track if user actually moved during drag
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  // Hide entirely inside the Capacitor native shell — the floating button
+  // overlaps the bottom tab bar and the chat is a web-app feature.
+  const [isInCapacitor, setIsInCapacitor] = useState(false);
+  useEffect(() => {
+    setIsInCapacitor(
+      typeof window !== 'undefined' && !!(window as { Capacitor?: unknown }).Capacitor,
+    );
+  }, []);
+
   // Check authentication status, get userId, and detect role
   useEffect(() => {
     const checkAuth = async () => {
@@ -269,6 +278,9 @@ export function ChatWidget() {
 
   // Don't render for unauthenticated users
   if (!isAuthenticated) return null;
+
+  // Don't render inside the Capacitor native shell.
+  if (isInCapacitor) return null;
 
   const handleViewAllHistory = () => {
     setIsOpen(false);

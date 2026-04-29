@@ -74,26 +74,37 @@ function LoginForm() {
         .eq('user_id', user?.id)
         .limit(1)
 
+      // Inside the Capacitor native shell, never route to web/desktop pages.
+      // The persona router at /m/auth/route picks the right mobile destination
+      // (or /m/auth/role for users with no role yet).
+      const inCapacitor =
+        typeof window !== 'undefined' && !!(window as { Capacitor?: unknown }).Capacitor
+
       if (!teams || teams.length === 0) {
-        // New user without a team - send to plan selection
-        // Check if they already have a tier selected in metadata
-        const selectedTier = user?.user_metadata?.selected_tier
-        if (selectedTier && selectedTier !== 'basic') {
-          // Has paid tier selected - go to checkout
-          router.push(`/checkout?tier=${selectedTier}`)
-        } else if (selectedTier === 'basic') {
-          // Basic tier - go to setup
-          router.push('/setup?tier=basic')
+        if (inCapacitor) {
+          router.push('/m/auth/route')
         } else {
-          // No tier selected - go to plan selection
-          router.push('/select-plan')
+          // New user without a team - send to plan selection
+          // Check if they already have a tier selected in metadata
+          const selectedTier = user?.user_metadata?.selected_tier
+          if (selectedTier && selectedTier !== 'basic') {
+            // Has paid tier selected - go to checkout
+            router.push(`/checkout?tier=${selectedTier}`)
+          } else if (selectedTier === 'basic') {
+            // Basic tier - go to setup
+            router.push('/setup?tier=basic')
+          } else {
+            // No tier selected - go to plan selection
+            router.push('/select-plan')
+          }
         }
         router.refresh()
         return
       }
 
-      // Existing user with team - go to platform dashboard
-      router.push('/dashboard')
+      // Existing user with team - mobile app goes to /m/practice via persona
+      // router; web goes to platform dashboard.
+      router.push(inCapacitor ? '/m/auth/route' : '/dashboard')
       router.refresh()
     }
   }

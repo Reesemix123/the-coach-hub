@@ -585,7 +585,7 @@ function ClipsSectionUI({
         Clips
       </p>
 
-      {loading ? (
+      {loading && clips.length === 0 ? (
         <div className="grid grid-cols-2 gap-2">
           {[0, 1].map((i) => (
             <div
@@ -989,7 +989,7 @@ export default function ParentPlayerPage() {
         selectedId={selectedSeasonId}
         onSelect={setSelectedSeasonId}
       />
-      {reportsLoading ? (
+      {reportsLoading && reports.length === 0 ? (
         <div className="px-4 mb-5">
           <div className="bg-[var(--bg-card)] rounded-xl h-24 animate-pulse" />
         </div>

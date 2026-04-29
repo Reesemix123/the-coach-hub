@@ -54,6 +54,8 @@ function ParentLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-primary)]">
+      {/* Safe-area top spacer — keeps content clear of the iOS Dynamic Island / notch. */}
+      <div className="pt-[env(safe-area-inset-top)] bg-[var(--bg-primary)]" />
       <TeamHeader />
       <main className="flex-1 overflow-y-auto">
         {children}
