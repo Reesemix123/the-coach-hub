@@ -49,7 +49,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Find player by join code (case-insensitive)
     const { data: player } = await serviceClient
       .from('players')
-      .select('id, first_name, last_name, jersey_number, primary_position, team_id')
+      .select('id, first_name, last_name, jersey_number, team_id, position_categories!primary_position_category_id(code)')
       .eq('join_code', code)
       .maybeSingle();
 
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         roster_id: player.id,
         sport: team.sport ?? 'football',
         season_year: seasonYear,
-        position: player.primary_position,
+        position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? null,
         jersey_number: player.jersey_number,
       })
       .select('id')

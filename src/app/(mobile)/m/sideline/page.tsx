@@ -3748,6 +3748,12 @@ export default function SidelinePage() {
         if (cancelled) return
       }
 
+      // TODO: Phase 2 Batch 5 — auto-populate currently reads slot-level depth
+      // data from the legacy position_depths JSONB to seed game_lineups (which
+      // is slot-keyed: LT, MLB, etc.). Migrate to player_scheme_assignments
+      // once the scheme-aware depth chart UI is built. Until then,
+      // position_depths is the only slot-level source — column is nullable but
+      // present so this works.
       // Step 3: Auto-populate from team depth chart
       const activePlayers = players.length > 0
         ? players

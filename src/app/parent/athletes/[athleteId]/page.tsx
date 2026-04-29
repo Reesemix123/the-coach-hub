@@ -184,7 +184,7 @@ export default async function AthleteProfilePage({ params, searchParams }: PageP
   // 5. Fetch player info from roster
   const { data: player } = await serviceClient
     .from('players')
-    .select('first_name, last_name, jersey_number, primary_position, position_group')
+    .select('first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
     .eq('id', selectedSeason.roster_id)
     .single();
 
@@ -276,7 +276,8 @@ export default async function AthleteProfilePage({ params, searchParams }: PageP
 
   const displayName = `${athlete.athlete_first_name} ${athlete.athlete_last_name}`;
   const jerseyNumber = player?.jersey_number ?? selectedSeason.jersey_number;
-  const position = player?.primary_position ?? selectedSeason.position;
+  const playerCategoryCode = (player as unknown as { position_categories?: { code: string | null } | null } | null)?.position_categories?.code ?? null;
+  const position = playerCategoryCode ?? selectedSeason.position;
 
   return (
     <div className="min-h-screen bg-white">
