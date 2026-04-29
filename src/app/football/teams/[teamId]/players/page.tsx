@@ -1,14 +1,12 @@
 // src/app/teams/[teamId]/players/page.tsx
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import type { PlayerRecord, Team, PositionDepthMap } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
 import {
-  playerInPositionGroup,
-  getPlayersAtDepth,
   validatePositionDepths,
   validateDepthChartConflicts,
   createPositionDepthsFromSelections,
@@ -16,6 +14,16 @@ import {
   getDepthLabel
 } from '@/utils/playerHelpers';
 import { POSITION_CATEGORIES } from '@/config/footballPositions';
+import {
+  ensureDefaultSchemes,
+  getTeamSchemes,
+  getSlotAssignments,
+  assignPlayerToSlot,
+  swapDepth,
+  type SchemeUnit,
+  type SchemeWithPositions,
+  type SlotAssignment,
+} from '@/lib/services/scheme.service';
 
 interface Game {
   id: string;
@@ -81,6 +89,10 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<PlayerRecord | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [schemesByUnit, setSchemesByUnit] = useState<Partial<Record<SchemeUnit, SchemeWithPositions>>>({});
+  const [slotAssignmentsByScheme, setSlotAssignmentsByScheme] = useState<Record<string, SlotAssignment[]>>({});
+  const [schemesLoading, setSchemesLoading] = useState(true);
 
   const router = useRouter();
   const supabase = createClient();
@@ -148,6 +160,52 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load default schemes + their slot assignments for the depth chart view
+  useEffect(() => {
+    if (!teamId) return;
+    let cancelled = false;
+
+    async function loadSchemes() {
+      setSchemesLoading(true);
+      const dbClient = createClient();
+      try {
+        const level = team?.level ?? null;
+        await ensureDefaultSchemes(dbClient, teamId, level);
+        const schemes = await getTeamSchemes(dbClient, teamId);
+        if (cancelled) return;
+
+        const byUnit: Partial<Record<SchemeUnit, SchemeWithPositions>> = {};
+        for (const unit of ['offense', 'defense', 'special_teams'] as SchemeUnit[]) {
+          const def = schemes.find(s => s.unit === unit && s.is_default);
+          if (def) byUnit[unit] = def;
+        }
+        setSchemesByUnit(byUnit);
+
+        const assignmentMap: Record<string, SlotAssignment[]> = {};
+        for (const scheme of Object.values(byUnit)) {
+          if (!scheme) continue;
+          const assignments = await getSlotAssignments(dbClient, scheme.id);
+          if (cancelled) return;
+          assignmentMap[scheme.id] = assignments;
+        }
+        setSlotAssignmentsByScheme(assignmentMap);
+      } catch (err) {
+        console.error('[PlayersPage] scheme load failed:', err);
+      } finally {
+        if (!cancelled) setSchemesLoading(false);
+      }
+    }
+
+    loadSchemes();
+    return () => { cancelled = true };
+  }, [teamId, team?.level]);
+
+  async function refreshSlotAssignments(schemeId: string) {
+    const dbClient = createClient();
+    const assignments = await getSlotAssignments(dbClient, schemeId);
+    setSlotAssignmentsByScheme(prev => ({ ...prev, [schemeId]: assignments }));
+  }
 
   const handleSubmit = async (position_depths: PositionDepthMap, otherData: any) => {
     // Validate position_depths structure
@@ -247,48 +305,67 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
     }
   };
 
-  const handleDepthChange = async (playerId: string, position: string, newDepth: number) => {
+  async function handleDepthChange(
+    playerId: string,
+    schemePositionId: string,
+    currentDepth: number,
+    newDepth: number,
+  ) {
+    const scheme = schemesByUnit[depthChartUnit];
+    if (!scheme) return;
+
+    const slotEntry = (slotAssignmentsByScheme[scheme.id] ?? []).find(
+      a => a.scheme_position_id === schemePositionId,
+    );
+    const displaced = slotEntry?.players.find(
+      p => p.depth === newDepth && p.player_id !== playerId,
+    );
+
+    // Optimistic update on the nested players array within the matching slot
+    setSlotAssignmentsByScheme(prev => {
+      const current = prev[scheme.id] ?? [];
+      const updated = current.map(slot => {
+        if (slot.scheme_position_id !== schemePositionId) return slot;
+        const newPlayers = slot.players.map(p => {
+          if (p.player_id === playerId) return { ...p, depth: newDepth };
+          if (displaced && p.player_id === displaced.player_id) return { ...p, depth: currentDepth };
+          return p;
+        });
+        return { ...slot, players: newPlayers };
+      });
+      return { ...prev, [scheme.id]: updated };
+    });
+
+    const dbClient = createClient();
     try {
-      // Find the player
-      const player = players.find(p => p.id === playerId);
-      if (!player) return;
-
-      // Update the specific position's depth in position_depths
-      const updated_position_depths = {
-        ...player.position_depths,
-        [position]: newDepth
-      };
-
-      // Check for conflicts with the new depth assignment
-      const conflictCheck = validateDepthChartConflicts(
-        updated_position_depths,
-        players,
-        playerId
-      );
-
-      if (!conflictCheck.isValid) {
-        const conflict = conflictCheck.conflicts[0]; // Show first conflict
-        const depthLabel = getDepthLabel(conflict.depth);
-        alert(
-          `Cannot move player to ${position} (${depthLabel})\n\n` +
-          `This position is already assigned to:\n` +
-          `#${conflict.conflictingPlayer.jersey_number} ${conflict.conflictingPlayer.first_name} ${conflict.conflictingPlayer.last_name}\n\n` +
-          `Please move that player first or choose a different depth.`
-        );
-        return;
+      if (displaced) {
+        await swapDepth(dbClient, schemePositionId, playerId, currentDepth, displaced.player_id, newDepth);
+      } else {
+        await assignPlayerToSlot(dbClient, playerId, schemePositionId, newDepth);
       }
-
-      const { error } = await supabase
-        .from('players')
-        .update({ position_depths: updated_position_depths })
-        .eq('id', playerId);
-
-      if (error) throw error;
-      await fetchData();
-    } catch (error: any) {
-      alert('Error updating depth: ' + error.message);
+    } catch (err) {
+      console.error('[handleDepthChange] failed:', err);
     }
-  };
+
+    await refreshSlotAssignments(scheme.id);
+  }
+
+  async function handleAssignPlayer(
+    schemeId: string,
+    schemePositionId: string,
+    playerId: string,
+    targetDepth: number,
+  ) {
+    const dbClient = createClient();
+    try {
+      await assignPlayerToSlot(dbClient, playerId, schemePositionId, targetDepth);
+    } catch (err) {
+      console.error('[handleAssignPlayer] failed:', err);
+      alert('Could not assign player. Please try again.');
+      return;
+    }
+    await refreshSlotAssignments(schemeId);
+  }
 
   const openEditModal = (player: PlayerRecord) => {
     setEditingPlayer(player);
@@ -303,8 +380,6 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
   };
 
   // Roster view groups players by their primary position category's unit.
-  // Depth grid below still uses the deprecated playerInPositionGroup helper —
-  // that path is retired in Phase 2 Batch 5 alongside position_depths.
   const inUnit = (p: PlayerRecord, unit: 'offense' | 'defense' | 'special_teams') =>
     p.primary_position_category_unit === unit;
 
@@ -398,10 +473,18 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
         {/* Depth Chart View */}
         {viewMode === 'depth-chart' && (
           <DepthChartView
-            players={players}
             unit={depthChartUnit}
+            scheme={schemesByUnit[depthChartUnit]}
+            slotAssignments={
+              schemesByUnit[depthChartUnit]
+                ? (slotAssignmentsByScheme[schemesByUnit[depthChartUnit]!.id] ?? [])
+                : []
+            }
+            players={players}
+            schemesLoading={schemesLoading}
             onUnitChange={setDepthChartUnit}
             onDepthChange={handleDepthChange}
+            onAssignPlayer={handleAssignPlayer}
             onEdit={openEditModal}
           />
         )}
@@ -577,25 +660,148 @@ function RosterView({
   );
 }
 
+// Inline player picker — opens from "+ Add" affordance on an empty depth row.
+function PlayerPickerPopover({
+  schemeId,
+  schemePositionId,
+  slotCategoryId,
+  targetDepth,
+  players,
+  slotAssignments,
+  onAssign,
+}: {
+  schemeId: string;
+  schemePositionId: string;
+  slotCategoryId: string;
+  targetDepth: number;
+  players: PlayerRecord[];
+  slotAssignments: SlotAssignment[];
+  onAssign: (schemeId: string, schemePositionId: string, playerId: string, targetDepth: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside handler
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
+  const eligible = useMemo(() => {
+    const slot = slotAssignments.find(a => a.scheme_position_id === schemePositionId);
+    const assignedToSlot = new Set(slot?.players.map(p => p.player_id) ?? []);
+
+    const filtered = players.filter(p => !assignedToSlot.has(p.id));
+    const q = search.trim().toLowerCase();
+    const searched = q
+      ? filtered.filter(p =>
+          `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
+          (p.jersey_number ?? '').toString().includes(q),
+        )
+      : filtered;
+
+    // Relevance: matching primary_position_category_id float to top.
+    return [...searched].sort((a, b) => {
+      const aRelevant = a.primary_position_category_id === slotCategoryId ? 0 : 1;
+      const bRelevant = b.primary_position_category_id === slotCategoryId ? 0 : 1;
+      if (aRelevant !== bRelevant) return aRelevant - bRelevant;
+      const aJ = parseInt(a.jersey_number || '999', 10);
+      const bJ = parseInt(b.jersey_number || '999', 10);
+      return aJ - bJ;
+    });
+  }, [players, slotAssignments, schemePositionId, slotCategoryId, search]);
+
+  return (
+    <div className="relative inline-block" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
+      >
+        + Add
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search players..."
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+            />
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {eligible.length === 0 ? (
+              <p className="px-3 py-4 text-xs text-gray-500 text-center">No available players</p>
+            ) : (
+              eligible.map(player => (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => {
+                    onAssign(schemeId, schemePositionId, player.id, targetDepth);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left transition-colors"
+                >
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded bg-gray-100 text-gray-900 text-xs font-bold flex-shrink-0">
+                    {player.jersey_number || '?'}
+                  </span>
+                  <span className="flex-1 min-w-0 text-sm text-gray-900 truncate">
+                    {player.first_name} {player.last_name}
+                  </span>
+                  {player.primary_position_category_code && (
+                    <span className="text-[10px] uppercase tracking-wide bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                      {player.primary_position_category_code}
+                    </span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Depth Chart View Component
 function DepthChartView({
-  players,
   unit,
+  scheme,
+  slotAssignments,
+  players,
+  schemesLoading,
   onUnitChange,
   onDepthChange,
-  onEdit
+  onAssignPlayer,
+  onEdit,
 }: {
-  players: PlayerRecord[];
   unit: DepthChartUnit;
+  scheme: SchemeWithPositions | undefined;
+  slotAssignments: SlotAssignment[];
+  players: PlayerRecord[];
+  schemesLoading: boolean;
   onUnitChange: (u: DepthChartUnit) => void;
-  onDepthChange: (playerId: string, position: string, depth: number) => void;
+  onDepthChange: (playerId: string, schemePositionId: string, currentDepth: number, newDepth: number) => void;
+  onAssignPlayer: (schemeId: string, schemePositionId: string, playerId: string, targetDepth: number) => void;
   onEdit: (p: PlayerRecord) => void;
 }) {
-  const positions = unit === 'offense' ? OFFENSIVE_POSITIONS :
-                   unit === 'defense' ? DEFENSIVE_POSITIONS :
-                   SPECIAL_TEAMS_POSITIONS;
-
-  const unitPlayers = players.filter(p => playerInPositionGroup(p, unit));
+  const sortedSlots = useMemo(() => {
+    if (!scheme) return [];
+    return [...scheme.scheme_positions].sort((a, b) => a.sort_order - b.sort_order);
+  }, [scheme]);
 
   return (
     <>
@@ -633,86 +839,116 @@ function DepthChartView({
         </button>
       </div>
 
-      {/* Depth Chart Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {Object.entries(positions).map(([code, name]) => {
-          return (
-            <div key={code} className="border border-gray-200 rounded-lg overflow-hidden">
-              {/* Position Header */}
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">{code}</h3>
-                <p className="text-xs text-gray-600">{name}</p>
-              </div>
-
-              {/* Depth Slots */}
+      {schemesLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="border border-gray-200 rounded-lg overflow-hidden animate-pulse">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 h-14" />
               <div className="p-4 space-y-3">
-                {[1, 2, 3, 4].map((depth) => {
-                  const playersAtDepth = getPlayersAtDepth(unitPlayers, code, depth);
-                  const player = playersAtDepth[0]; // Take first player at this depth
-
-                  return (
-                    <div key={depth} className="flex items-center gap-3">
-                      <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-xs font-bold ${
-                        depth === 1 ? 'bg-green-100 text-green-700' :
-                        depth === 2 ? 'bg-blue-100 text-blue-700' :
-                        depth === 3 ? 'bg-gray-100 text-gray-700' :
-                        'bg-gray-50 text-gray-600'
-                      }`}>
-                        {getDepthLabel(depth)}
-                      </div>
-
-                      {player ? (
-                        <div className="flex-1 bg-white border border-gray-200 rounded-lg p-3 group hover:border-gray-400 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-gray-900 truncate">
-                                #{player.jersey_number} {player.first_name} {player.last_name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {player.grade_level || 'No grade'}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => onEdit(player)}
-                                className="text-xs text-gray-600 hover:text-gray-900"
-                              >
-                                Edit
-                              </button>
-                              {depth < 4 && (
-                                <button
-                                  onClick={() => onDepthChange(player.id, code, depth + 1)}
-                                  className="text-xs text-gray-600 hover:text-gray-900"
-                                  title="Move down"
-                                >
-                                  ↓
-                                </button>
-                              )}
-                              {depth > 1 && (
-                                <button
-                                  onClick={() => onDepthChange(player.id, code, depth - 1)}
-                                  className="text-xs text-gray-600 hover:text-gray-900"
-                                  title="Move up"
-                                >
-                                  ↑
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex-1 bg-gray-50 border border-dashed border-gray-300 rounded-lg p-3 text-center">
-                          <span className="text-xs text-gray-400">Empty</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {[1, 2, 3, 4].map(d => (
+                  <div key={d} className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-gray-100" />
+                    <div className="flex-1 h-12 bg-gray-50 rounded-lg" />
+                  </div>
+                ))}
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : !scheme ? (
+        <div className="text-center py-16 text-gray-500">No scheme configured for this unit.</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedSlots.map(slot => {
+            const slotEntry = slotAssignments.find(a => a.scheme_position_id === slot.id);
+            return (
+              <div key={slot.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                {/* Position Header */}
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900">{slot.slot_code}</h3>
+                  <p className="text-xs text-gray-600">{slot.display_label}</p>
+                </div>
+
+                {/* Depth Slots */}
+                <div className="p-4 space-y-3">
+                  {[1, 2, 3, 4].map(depth => {
+                    const assignment = slotEntry?.players.find(p => p.depth === depth);
+                    const player = assignment ? players.find(p => p.id === assignment.player_id) : null;
+
+                    return (
+                      <div key={depth} className="flex items-center gap-3">
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center text-xs font-bold ${
+                          depth === 1 ? 'bg-green-100 text-green-700' :
+                          depth === 2 ? 'bg-blue-100 text-blue-700' :
+                          depth === 3 ? 'bg-gray-100 text-gray-700' :
+                          'bg-gray-50 text-gray-600'
+                        }`}>
+                          {getDepthLabel(depth)}
+                        </div>
+
+                        {player ? (
+                          <div className="flex-1 bg-white border border-gray-200 rounded-lg p-3 group hover:border-gray-400 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  #{player.jersey_number} {player.first_name} {player.last_name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {player.grade_level || 'No grade'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => onEdit(player)}
+                                  className="text-xs text-gray-600 hover:text-gray-900"
+                                >
+                                  Edit
+                                </button>
+                                {depth < 4 && (
+                                  <button
+                                    onClick={() => onDepthChange(player.id, slot.id, depth, depth + 1)}
+                                    className="text-xs text-gray-600 hover:text-gray-900"
+                                    title="Move down"
+                                  >
+                                    ↓
+                                  </button>
+                                )}
+                                {depth > 1 && (
+                                  <button
+                                    onClick={() => onDepthChange(player.id, slot.id, depth, depth - 1)}
+                                    className="text-xs text-gray-600 hover:text-gray-900"
+                                    title="Move up"
+                                  >
+                                    ↑
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex-1 bg-gray-50 border border-dashed border-gray-300 rounded-lg p-3 flex items-center justify-center">
+                            {scheme && (
+                              <PlayerPickerPopover
+                                schemeId={scheme.id}
+                                schemePositionId={slot.id}
+                                slotCategoryId={slot.position_category_id}
+                                targetDepth={depth}
+                                players={players}
+                                slotAssignments={slotAssignments}
+                                onAssign={onAssignPlayer}
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </>
   );
 }
