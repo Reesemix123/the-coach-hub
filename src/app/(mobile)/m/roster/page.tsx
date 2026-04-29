@@ -27,7 +27,7 @@ export default function MobileRosterPage() {
   const [highlightPosition, setHighlightPosition] = useState<string | undefined>(undefined)
   const [showAddSheet, setShowAddSheet] = useState(false)
   const [addPrePosition, setAddPrePosition] = useState<string | undefined>(undefined)
-  const [pickerPosition, setPickerPosition] = useState<string | null>(null)
+  const [pickerState, setPickerState] = useState<{ schemePositionId: string; slotLabel: string } | null>(null)
 
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode)
@@ -152,11 +152,12 @@ export default function MobileRosterPage() {
         />
       ) : (
         <DepthChartView
-          players={players}
-          playersLoading={playersLoading}
           teamId={teamId ?? ''}
-          onEditPlayer={handleEditPlayer}
-          onPickPlayer={pos => setPickerPosition(pos)}
+          onEditPlayer={(playerId, slotCode) => {
+            const player = players.find(p => p.id === playerId)
+            if (player) handleEditPlayer(player, slotCode)
+          }}
+          onPickPlayer={(schemePositionId, slotLabel) => setPickerState({ schemePositionId, slotLabel })}
           onPlayersChanged={handleSaved}
         />
       )}
@@ -192,12 +193,13 @@ export default function MobileRosterPage() {
       )}
 
       {/* Player Picker Sheet (for empty depth chart positions) */}
-      {pickerPosition && teamId && (
+      {pickerState && teamId && (
         <PlayerPickerSheet
-          position={pickerPosition}
+          schemePositionId={pickerState.schemePositionId}
+          slotLabel={pickerState.slotLabel}
           allPlayers={players}
           teamId={teamId}
-          onClose={() => setPickerPosition(null)}
+          onClose={() => setPickerState(null)}
           onPlayerAdded={handleSaved}
         />
       )}

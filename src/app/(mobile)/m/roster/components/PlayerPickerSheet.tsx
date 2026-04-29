@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
-import { getDepthLabel } from '@/utils/playerHelpers'
+import { assignPlayerToSlot } from '@/lib/services/scheme.service'
 
 interface PlayerPickerSheetProps {
-  position: string
+  schemePositionId: string
+  slotLabel: string
   allPlayers: MobilePlayer[]
   teamId: string
   onClose: () => void
@@ -14,18 +15,45 @@ interface PlayerPickerSheetProps {
 }
 
 export default function PlayerPickerSheet({
-  position,
+  schemePositionId,
+  slotLabel,
   allPlayers,
   onClose,
   onPlayerAdded,
 }: PlayerPickerSheetProps) {
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState<string | null>(null)
+  const [assignedPlayerIds, setAssignedPlayerIds] = useState<Set<string>>(new Set())
+  const [takenDepths, setTakenDepths] = useState<Set<number>>(new Set())
+  const [loaded, setLoaded] = useState(false)
 
-  // Players not already assigned to this position
+  // Load existing assignments at this slot — drives both the "available" filter
+  // and the next-available-depth calculation.
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('player_scheme_assignments')
+      .select('player_id, depth')
+      .eq('scheme_position_id', schemePositionId)
+      .then(({ data }) => {
+        if (cancelled) return
+        const ids = new Set<string>()
+        const depths = new Set<number>()
+        for (const row of data ?? []) {
+          ids.add(row.player_id as string)
+          depths.add(row.depth as number)
+        }
+        setAssignedPlayerIds(ids)
+        setTakenDepths(depths)
+        setLoaded(true)
+      })
+    return () => { cancelled = true }
+  }, [schemePositionId])
+
   const available = useMemo(() => {
     return allPlayers
-      .filter(p => p.position_depths[position] === undefined)
+      .filter(p => !assignedPlayerIds.has(p.id))
       .filter(p => {
         if (!search) return true
         const q = search.toLowerCase()
@@ -34,33 +62,30 @@ export default function PlayerPickerSheet({
           p.jersey_number.includes(q)
         )
       })
-  }, [allPlayers, position, search])
+  }, [allPlayers, assignedPlayerIds, search])
 
   async function handleSelect(player: MobilePlayer) {
-    setAdding(player.id)
-
-    // Find the next available depth for this position
-    const takenDepths = new Set(
-      allPlayers
-        .filter(p => p.position_depths[position] !== undefined)
-        .map(p => p.position_depths[position])
-    )
+    // Find first gap in depth 1-4
     let depth = 1
     while (takenDepths.has(depth) && depth <= 4) depth++
 
-    const newDepths = { ...player.position_depths, [position]: depth }
-    const supabase = createClient()
-    await supabase.from('players').update({ position_depths: newDepths }).eq('id', player.id)
-    setAdding(null)
-    onPlayerAdded()
-    onClose()
-  }
+    if (depth > 4) {
+      alert('All depth slots full — remove a player first.')
+      return
+    }
 
-  /** Formats a player's current position assignments as a readable string. */
-  function formatPositions(player: MobilePlayer): string {
-    const entries = Object.entries(player.position_depths)
-    if (entries.length === 0) return 'No positions'
-    return entries.map(([pos, d]) => `${pos} ${getDepthLabel(d)}`).join(', ')
+    setAdding(player.id)
+    const supabase = createClient()
+    try {
+      await assignPlayerToSlot(supabase, player.id, schemePositionId, depth)
+      onPlayerAdded()
+      onClose()
+    } catch (err) {
+      console.error('[PlayerPickerSheet] assign failed:', err)
+      alert('Could not add player. Please try again.')
+    } finally {
+      setAdding(null)
+    }
   }
 
   return (
@@ -71,7 +96,7 @@ export default function PlayerPickerSheet({
           <div className="w-10 h-1 rounded-full bg-[var(--bg-pill-inactive)]" />
         </div>
         <div className="px-5 pb-2 shrink-0">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Player to {position}</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Player to {slotLabel}</h3>
           <input
             type="text"
             value={search}
@@ -81,7 +106,9 @@ export default function PlayerPickerSheet({
           />
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-4">
-          {available.length === 0 ? (
+          {!loaded ? (
+            <p className="text-sm text-[var(--text-tertiary)] text-center py-8">Loading…</p>
+          ) : available.length === 0 ? (
             <p className="text-sm text-[var(--text-tertiary)] text-center py-8">No available players</p>
           ) : (
             available.map(player => (
@@ -99,7 +126,9 @@ export default function PlayerPickerSheet({
                   <p className="text-sm font-medium text-[var(--text-primary)] truncate">
                     {player.first_name} {player.last_name}
                   </p>
-                  <p className="text-xs text-[var(--text-secondary)] truncate">{formatPositions(player)}</p>
+                  <p className="text-xs text-[var(--text-secondary)] truncate">
+                    {player.grade_level || 'No grade'}
+                  </p>
                 </div>
                 {adding === player.id && (
                   <span className="text-xs text-[var(--text-tertiary)]">Adding...</span>

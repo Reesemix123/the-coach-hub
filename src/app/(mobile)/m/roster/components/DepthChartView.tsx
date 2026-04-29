@@ -1,185 +1,181 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
+import { useMobile } from '@/app/(mobile)/MobileContext'
+import {
+  ensureDefaultSchemes,
+  getTeamSchemes,
+  getSlotAssignments,
+  swapDepth,
+  type SchemeUnit,
+  type SchemeWithPositions,
+  type SlotAssignment,
+} from '@/lib/services/scheme.service'
 import { getDepthLabel } from '@/utils/playerHelpers'
 import { SkeletonRow, ChevronIcon, ArrowUpIcon, ArrowDownIcon } from './shared'
 
-// TODO: Phase 2 Batch 5 — replace this legacy slot-code grid with a
-// scheme_positions-driven depth chart that reads from team_schemes /
-// scheme_positions / player_scheme_assignments.
-type PositionGroup = 'Offense' | 'Defense' | 'Special Teams'
-
-const UNIT_SECTIONS: { label: PositionGroup; positions: { label: string; codes: string[] }[] }[] = [
-  {
-    label: 'Offense',
-    positions: [
-      { label: 'QB', codes: ['QB'] },
-      { label: 'RB', codes: ['RB', 'TB', 'SB', 'WB'] },
-      { label: 'FB', codes: ['FB'] },
-      { label: 'WR', codes: ['WR', 'X', 'Y', 'Z', 'SL', 'SR', 'SE', 'FL'] },
-      { label: 'TE', codes: ['TE'] },
-      { label: 'LT', codes: ['LT'] },
-      { label: 'LG', codes: ['LG'] },
-      { label: 'C', codes: ['C'] },
-      { label: 'RG', codes: ['RG'] },
-      { label: 'RT', codes: ['RT'] },
-    ],
-  },
-  {
-    label: 'Defense',
-    positions: [
-      { label: 'DE', codes: ['DE'] },
-      { label: 'DT', codes: ['DT', 'DT1', 'DT2'] },
-      { label: 'NT', codes: ['NT'] },
-      { label: 'MLB', codes: ['MLB', 'ILB'] },
-      { label: 'OLB', codes: ['OLB', 'SAM', 'WILL', 'SLB', 'WLB'] },
-      { label: 'LB', codes: ['LB'] },
-      { label: 'CB', codes: ['CB', 'LCB', 'RCB'] },
-      { label: 'FS', codes: ['FS'] },
-      { label: 'SS', codes: ['SS'] },
-      { label: 'S', codes: ['S', 'NB', 'DB'] },
-    ],
-  },
-  {
-    label: 'Special Teams',
-    positions: [
-      { label: 'K', codes: ['K'] },
-      { label: 'P', codes: ['P'] },
-      { label: 'LS', codes: ['LS'] },
-      { label: 'H', codes: ['H'] },
-      { label: 'KR', codes: ['KR'] },
-      { label: 'PR', codes: ['PR'] },
-    ],
-  },
-]
-const CORE_POSITIONS = new Set([
-  'QB', 'RB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT',
-  'DE', 'DT', 'LB', 'CB', 'S', 'K', 'P',
-])
-
-// TODO: drag-to-reorder for depth chart
+const UNIT_ORDER: SchemeUnit[] = ['offense', 'defense', 'special_teams']
+const UNIT_LABELS: Record<SchemeUnit, string> = {
+  offense: 'Offense',
+  defense: 'Defense',
+  special_teams: 'Special Teams',
+}
 
 interface DepthChartViewProps {
-  players: MobilePlayer[]
-  playersLoading: boolean
   teamId: string
-  onEditPlayer: (player: MobilePlayer, position?: string) => void
-  onPickPlayer: (position: string) => void
+  onEditPlayer: (playerId: string, slotCode?: string) => void
+  onPickPlayer: (schemePositionId: string, slotLabel: string) => void
   onPlayersChanged: () => void
 }
 
 export default function DepthChartView({
-  players,
-  playersLoading,
+  teamId,
   onEditPlayer,
   onPickPlayer,
   onPlayersChanged,
 }: DepthChartViewProps) {
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    Offense: true,
-    Defense: true,
-    'Special Teams': true,
+  const { teams } = useMobile()
+  const teamLevel = useMemo(
+    () => teams.find(t => t.id === teamId)?.level ?? null,
+    [teams, teamId],
+  )
+
+  const [loading, setLoading] = useState(true)
+  const [defaultSchemeByUnit, setDefaultSchemeByUnit] = useState<Partial<Record<SchemeUnit, SchemeWithPositions>>>({})
+  const [slotsByUnit, setSlotsByUnit] = useState<Partial<Record<SchemeUnit, SlotAssignment[]>>>({})
+  const [expandedSections, setExpandedSections] = useState<Record<SchemeUnit, boolean>>({
+    offense: true,
+    defense: true,
+    special_teams: true,
   })
 
-  const playerMap = useMemo(() => {
-    const map = new Map<string, MobilePlayer>()
-    for (const p of players) map.set(p.id, p)
-    return map
-  }, [players])
-
-  const handleSwapDepth = useCallback(async (
-    playerId: string,
-    position: string,
-    currentDepth: number,
-    targetDepth: number,
-  ) => {
-    // Find the other player at the target depth for this position
-    const otherPlayer = players.find(p =>
-      p.id !== playerId && p.position_depths[position] === targetDepth
-    )
-
+  const refreshUnit = useCallback(async (unit: SchemeUnit, schemeId: string) => {
     const supabase = createClient()
+    const slots = await getSlotAssignments(supabase, schemeId)
+    setSlotsByUnit(prev => ({ ...prev, [unit]: slots }))
+  }, [])
 
-    // Update current player
-    const player = playerMap.get(playerId)
-    if (!player) return
-    const newDepths = { ...player.position_depths, [position]: targetDepth }
-    await supabase.from('players').update({ position_depths: newDepths }).eq('id', playerId)
+  // Initial load — ensure schemes exist, fetch defaults + slot assignments
+  useEffect(() => {
+    if (!teamId) return
+    let cancelled = false
+    setLoading(true)
 
-    // Swap other player if exists
-    if (otherPlayer) {
-      const otherNewDepths = { ...otherPlayer.position_depths, [position]: currentDepth }
-      await supabase.from('players').update({ position_depths: otherNewDepths }).eq('id', otherPlayer.id)
+    async function load() {
+      const supabase = createClient()
+      try {
+        await ensureDefaultSchemes(supabase, teamId, teamLevel)
+        const allSchemes = await getTeamSchemes(supabase, teamId)
+        if (cancelled) return
+
+        const byUnit: Partial<Record<SchemeUnit, SchemeWithPositions>> = {}
+        for (const unit of UNIT_ORDER) {
+          const def = allSchemes.find(s => s.unit === unit && s.is_default)
+          if (def) byUnit[unit] = def
+        }
+        setDefaultSchemeByUnit(byUnit)
+
+        // Fetch slot assignments per unit (parallel)
+        const slotPromises = UNIT_ORDER
+          .filter(u => byUnit[u])
+          .map(async u => {
+            const slots = await getSlotAssignments(supabase, byUnit[u]!.id)
+            return [u, slots] as const
+          })
+        const results = await Promise.all(slotPromises)
+        if (cancelled) return
+
+        const slotsMap: Partial<Record<SchemeUnit, SlotAssignment[]>> = {}
+        for (const [unit, slots] of results) slotsMap[unit] = slots
+        setSlotsByUnit(slotsMap)
+      } catch (err) {
+        console.error('[DepthChartView] load failed:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
-    onPlayersChanged()
-  }, [players, playerMap, onPlayersChanged])
+    load()
+    return () => { cancelled = true }
+  }, [teamId, teamLevel])
 
-  if (playersLoading) {
+  const handleSwapDepth = useCallback(async (
+    schemePositionId: string,
+    playerAId: string,
+    depthA: number,
+    playerBId: string,
+    depthB: number,
+    unit: SchemeUnit,
+  ) => {
+    const supabase = createClient()
+    try {
+      await swapDepth(supabase, schemePositionId, playerAId, depthA, playerBId, depthB)
+      const schemeId = defaultSchemeByUnit[unit]?.id
+      if (schemeId) await refreshUnit(unit, schemeId)
+      onPlayersChanged()
+    } catch (err) {
+      console.error('[DepthChartView] swap failed:', err)
+    }
+  }, [defaultSchemeByUnit, refreshUnit, onPlayersChanged])
+
+  if (loading) {
     return <div>{[...Array(8)].map((_, i) => <SkeletonRow key={i} />)}</div>
   }
 
   return (
     <div>
-      {UNIT_SECTIONS.map(({ label: unitLabel, positions }) => {
-        const expanded = expandedSections[unitLabel] !== false
+      {UNIT_ORDER.map(unit => {
+        const scheme = defaultSchemeByUnit[unit]
+        if (!scheme) return null
+        const slots = slotsByUnit[unit] ?? []
+        const expanded = expandedSections[unit] !== false
 
         return (
-          <div key={unitLabel}>
+          <div key={unit}>
             <button
               type="button"
-              onClick={() => setExpandedSections(prev => ({ ...prev, [unitLabel]: !prev[unitLabel] }))}
+              onClick={() => setExpandedSections(prev => ({ ...prev, [unit]: !prev[unit] }))}
               className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
-              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">{unitLabel}</span>
+              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">
+                {UNIT_LABELS[unit]}
+              </span>
               <ChevronIcon expanded={expanded} />
             </button>
 
-            {expanded && positions.map(({ label: posLabel, codes }) => {
-              // Find players at this position, sorted by depth
-              const posPlayers = players
-                .filter(p => codes.some(code => p.position_depths[code] !== undefined))
-                .map(p => {
-                  const matchingCode = codes.find(c => p.position_depths[c] !== undefined)!
-                  return { player: p, position: matchingCode, depth: p.position_depths[matchingCode] }
-                })
-                .sort((a, b) => a.depth - b.depth)
-
-              // Skip non-core positions with no players
-              if (posPlayers.length === 0 && !CORE_POSITIONS.has(posLabel)) return null
+            {expanded && slots.map(slot => {
+              const sortedPlayers = [...slot.players].sort((a, b) => a.depth - b.depth)
 
               return (
-                <div key={posLabel}>
-                  {/* Position header — no + button */}
+                <div key={slot.scheme_position_id}>
                   <div className="px-4 pt-3 pb-1 flex items-center">
-                    <span className="text-xs font-bold text-[var(--text-section-header)] uppercase">{posLabel}</span>
+                    <span className="text-xs font-bold text-[var(--text-section-header)] uppercase">{slot.slot_code}</span>
+                    <span className="text-xs text-[var(--text-tertiary)] ml-2">{slot.display_label}</span>
                   </div>
 
-                  {posPlayers.length === 0 ? (
+                  {sortedPlayers.length === 0 ? (
                     <button
                       type="button"
-                      onClick={() => onPickPlayer(codes[0])}
+                      onClick={() => onPickPlayer(slot.scheme_position_id, slot.display_label)}
                       className="w-full px-4 py-3 border-b border-[var(--border-primary)] text-left"
                     >
                       <p className="text-xs text-[var(--text-tertiary)] italic">Tap to add player</p>
                     </button>
                   ) : (
-                    posPlayers.map(({ player, position, depth }, index) => {
+                    sortedPlayers.map((player, index) => {
                       const isFirst = index === 0
-                      const isLast = index === posPlayers.length - 1
-                      const isStarter = depth === 1
+                      const isLast = index === sortedPlayers.length - 1
+                      const isStarter = player.depth === 1
 
                       return (
                         <div
-                          key={`${player.id}-${position}`}
+                          key={`${player.player_id}-${slot.scheme_position_id}`}
                           className="bg-[var(--bg-card)] border-b border-[var(--border-primary)] px-4 flex items-center gap-3 min-h-[56px]"
                         >
-                          {/* Tap area — opens edit sheet with position context */}
                           <button
                             type="button"
-                            onClick={() => onEditPlayer(player, position)}
+                            onClick={() => onEditPlayer(player.player_id, slot.slot_code)}
                             className="flex items-center gap-3 flex-1 min-w-0 active:opacity-70 transition-opacity text-left"
                           >
                             <div className="w-10 h-10 rounded-full bg-[var(--bg-card-alt)] text-[var(--text-primary)] font-bold text-sm flex items-center justify-center flex-shrink-0">
@@ -197,15 +193,18 @@ export default function DepthChartView({
                                   : 'bg-[var(--bg-pill-inactive)] text-[var(--text-secondary)]'
                               }`}
                             >
-                              {getDepthLabel(depth)}
+                              {getDepthLabel(player.depth)}
                             </span>
                           </button>
 
-                          {/* Reorder buttons — enlarged touch targets */}
                           <div className="flex flex-col gap-0.5 shrink-0">
                             <button
                               type="button"
-                              onClick={() => !isFirst && handleSwapDepth(player.id, position, depth, posPlayers[index - 1].depth)}
+                              onClick={() => {
+                                if (isFirst) return
+                                const above = sortedPlayers[index - 1]
+                                handleSwapDepth(slot.scheme_position_id, player.player_id, player.depth, above.player_id, above.depth, unit)
+                              }}
                               disabled={isFirst}
                               className={`p-2 rounded ${isFirst ? 'text-gray-200' : 'text-[var(--text-tertiary)] active:text-[var(--text-primary)]'}`}
                             >
@@ -213,7 +212,11 @@ export default function DepthChartView({
                             </button>
                             <button
                               type="button"
-                              onClick={() => !isLast && handleSwapDepth(player.id, position, depth, posPlayers[index + 1].depth)}
+                              onClick={() => {
+                                if (isLast) return
+                                const below = sortedPlayers[index + 1]
+                                handleSwapDepth(slot.scheme_position_id, player.player_id, player.depth, below.player_id, below.depth, unit)
+                              }}
                               disabled={isLast}
                               className={`p-2 rounded ${isLast ? 'text-gray-200' : 'text-[var(--text-tertiary)] active:text-[var(--text-primary)]'}`}
                             >
