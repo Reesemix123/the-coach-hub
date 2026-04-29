@@ -82,11 +82,12 @@ export default function SelectPlanPage() {
         return;
       }
 
-      // Check if user already has a team
+      // Check if user already has an active team
       const { data: teams } = await supabase
         .from('teams')
         .select('id')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .limit(1);
 
       if (teams && teams.length > 0) {

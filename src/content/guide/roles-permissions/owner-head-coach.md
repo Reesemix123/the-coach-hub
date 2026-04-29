@@ -30,7 +30,7 @@ Only the owner can:
 | **Invite Coaches** | Add new team members via the Console |
 | **Change Roles** | Promote or demote team members |
 | **Remove Members** | Deactivate team member access |
-| **Delete Team** | Permanently remove the team |
+| **Archive Team** | Hide the team and all its data. Contact support within 30 days to restore. |
 | **Transfer Ownership** | Assign owner role to another person |
 
 ## Accessing Owner Features

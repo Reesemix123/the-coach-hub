@@ -77,6 +77,29 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
   const [primaryColor, setPrimaryColor] = useState('#000000');
   const [secondaryColor, setSecondaryColor] = useState('#FFFFFF');
   const [savingColors, setSavingColors] = useState(false);
+
+  // Archive (soft-delete) team
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  async function handleArchiveTeam() {
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/archive`, { method: 'PATCH' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Failed (${res.status})`);
+      }
+      // Hard-redirect so the dashboard's server component refetches the team list
+      // without the just-archived team.
+      window.location.href = '/dashboard';
+    } catch (err) {
+      setArchiveError(err instanceof Error ? err.message : 'Failed to archive team');
+      setArchiving(false);
+    }
+  }
   const [teamLevel, setTeamLevel] = useState('');
   const [savingLevel, setSavingLevel] = useState(false);
   const onboarding = useGlobalOnboardingSafe();
@@ -711,9 +734,71 @@ export default function TeamSettingsPage({ params }: { params: Promise<{ teamId:
                 <ChevronRight className="h-4 w-4 text-gray-400" />
               </Link>
             </div>
+
+            {/* Danger Zone — owner only */}
+            {userRole === 'owner' && (
+              <div className="mt-12">
+                <h3 className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-3">
+                  Danger Zone
+                </h3>
+                <div className="bg-white rounded-lg border border-red-200 p-5">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">Archive this team</p>
+                  <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                    Hides {team?.name ?? 'the team'} and all its data — players, games,
+                    film, messages, and analytics. Contact support within 30 days to restore.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowArchiveConfirm(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    Archive Team
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Archive confirmation modal */}
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              Archive {team?.name ?? 'this team'}?
+            </h3>
+            <p className="text-sm text-gray-600 leading-relaxed mb-5">
+              This will hide the team and all its data including players, games, film, and
+              messages. You can contact support to restore it within 30 days.
+            </p>
+            {archiveError && (
+              <p className="text-sm text-red-600 mb-3">{archiveError}</p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchiveConfirm(false);
+                  setArchiveError(null);
+                }}
+                disabled={archiving}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleArchiveTeam}
+                disabled={archiving}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {archiving ? 'Archiving…' : 'Archive Team'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

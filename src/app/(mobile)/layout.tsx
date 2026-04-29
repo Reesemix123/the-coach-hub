@@ -261,11 +261,12 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
         setAvatarInitial(emailPrefix ? emailPrefix.charAt(0).toUpperCase() : '?')
       }
 
-      // Fetch ALL teams for this user (owned + memberships)
+      // Fetch ALL teams for this user (owned + memberships) — archived teams hidden
       const { data: ownedTeams, error: teamsError } = await supabase
         .from('teams')
         .select('id, name, level')
         .eq('user_id', user.id)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
 
       console.log('[MobileLayout] owned teams query:', { ownedTeams, teamsError, userId: user.id })

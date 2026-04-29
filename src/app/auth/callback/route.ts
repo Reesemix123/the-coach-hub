@@ -328,6 +328,7 @@ export async function GET(request: Request) {
           .from('teams')
           .select('id')
           .eq('user_id', user.id)
+          .is('deleted_at', null)
           .limit(1);
 
         const { data: existingMemberships } = await serviceClient

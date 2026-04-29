@@ -37,16 +37,17 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // --- Coach: check teams (ownership + memberships) ---
+  // --- Coach: check teams (ownership + memberships) — archived teams excluded ---
   const [{ data: ownedTeams }, { data: memberships }] = await Promise.all([
     supabase
       .from('teams')
       .select('id, name, level')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase
       .from('team_memberships')
-      .select('team_id, teams(id, name, level)')
+      .select('team_id, teams(id, name, level, deleted_at)')
       .eq('user_id', user.id)
       .eq('is_active', true),
   ])
@@ -59,8 +60,10 @@ export async function GET() {
 
   if (memberships) {
     for (const m of memberships) {
-      const t = m.teams as unknown as { id: string; name: string; level: string } | null
-      if (t && !coachTeams.some(existing => existing.id === t.id)) {
+      const t = m.teams as unknown as { id: string; name: string; level: string; deleted_at: string | null } | null
+      // Skip archived teams that come back via the membership join (RLS on
+      // teams will null them out, but defending in depth).
+      if (t && !t.deleted_at && !coachTeams.some(existing => existing.id === t.id)) {
         coachTeams.push({ id: t.id, name: t.name, level: t.level ?? '' })
       }
     }

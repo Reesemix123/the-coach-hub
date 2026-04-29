@@ -98,7 +98,7 @@ function SetupForm() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
+        const { data } = await supabase.from('teams').select('*').is('deleted_at', null).order('created_at', { ascending: false });
         setTeams(data || []);
       }
       setLoading(false);
@@ -247,7 +247,7 @@ function SetupForm() {
           setCreating(false);
 
           // Refresh teams list
-          const { data: updatedTeams } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
+          const { data: updatedTeams } = await supabase.from('teams').select('*').is('deleted_at', null).order('created_at', { ascending: false });
           setTeams(updatedTeams || []);
           setShowForm(false);
           setTeamName('');
@@ -260,7 +260,7 @@ function SetupForm() {
         setCreating(false);
 
         // Refresh teams list
-        const { data: updatedTeams } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
+        const { data: updatedTeams } = await supabase.from('teams').select('*').is('deleted_at', null).order('created_at', { ascending: false });
         setTeams(updatedTeams || []);
         setShowForm(false);
         setTeamName('');
@@ -286,7 +286,7 @@ function SetupForm() {
     if (error) {
       alert('Error deleting team: ' + error.message);
     } else {
-      const { data: updatedTeams } = await supabase.from('teams').select('*').order('created_at', { ascending: false });
+      const { data: updatedTeams } = await supabase.from('teams').select('*').is('deleted_at', null).order('created_at', { ascending: false });
       setTeams(updatedTeams || []);
     }
   }

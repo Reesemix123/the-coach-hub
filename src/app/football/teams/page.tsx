@@ -41,11 +41,12 @@ export default function TeamsPage() {
     // Get all teams user has access to (owned or invited)
     const teams = await membershipService.getUserTeams(user.id);
 
-    // Also check for teams where user is the owner
+    // Also check for teams where user is the owner (exclude archived)
     const { data: ownedTeams } = await supabase
       .from('teams')
       .select('id, name, level')
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .is('deleted_at', null);
 
     // Combine owned teams with membership teams
     const allTeams = [

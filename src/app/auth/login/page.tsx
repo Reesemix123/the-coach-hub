@@ -67,11 +67,12 @@ function LoginForm() {
         // Non-critical — fall through to coach flow
       }
 
-      // Check if user has a team (coach/owner flow)
+      // Check if user has an active (non-archived) team
       const { data: teams } = await supabase
         .from('teams')
         .select('id')
         .eq('user_id', user?.id)
+        .is('deleted_at', null)
         .limit(1)
 
       // Inside the Capacitor native shell, never route to web/desktop pages.
