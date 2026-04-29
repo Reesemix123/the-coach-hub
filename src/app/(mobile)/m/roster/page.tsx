@@ -58,7 +58,6 @@ export default function MobileRosterPage() {
           activeGameId={activeGameId}
           teamId={teamId}
           players={players}
-          playersLoading={playersLoading}
           bumpLineupVersion={bumpLineupVersion}
         />
       </div>

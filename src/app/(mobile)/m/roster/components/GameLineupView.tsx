@@ -2,57 +2,23 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
+import { useMobile, type MobilePlayer } from '@/app/(mobile)/MobileContext'
+import {
+  ensureDefaultSchemes,
+  getTeamSchemes,
+  getTeamLineupTriples,
+  type SchemeUnit,
+  type SchemeWithPositions,
+} from '@/lib/services/scheme.service'
 import { getDepthLabel } from '@/utils/playerHelpers'
 import { SkeletonRow, ChevronIcon } from './shared'
 
-// TODO: Phase 2 Batch 5 — replace with scheme_positions-driven game lineup
-// once the new depth chart UI is built.
-type PositionGroup = 'Offense' | 'Defense' | 'Special Teams'
-
-const UNIT_SECTIONS: { label: PositionGroup; positions: { label: string; codes: string[] }[] }[] = [
-  {
-    label: 'Offense',
-    positions: [
-      { label: 'QB', codes: ['QB'] },
-      { label: 'RB', codes: ['RB', 'TB', 'SB', 'WB'] },
-      { label: 'FB', codes: ['FB'] },
-      { label: 'WR', codes: ['WR', 'X', 'Y', 'Z', 'SL', 'SR', 'SE', 'FL'] },
-      { label: 'TE', codes: ['TE'] },
-      { label: 'LT', codes: ['LT'] },
-      { label: 'LG', codes: ['LG'] },
-      { label: 'C', codes: ['C'] },
-      { label: 'RG', codes: ['RG'] },
-      { label: 'RT', codes: ['RT'] },
-    ],
-  },
-  {
-    label: 'Defense',
-    positions: [
-      { label: 'DE', codes: ['DE'] },
-      { label: 'DT', codes: ['DT', 'DT1', 'DT2'] },
-      { label: 'NT', codes: ['NT'] },
-      { label: 'MLB', codes: ['MLB', 'ILB'] },
-      { label: 'OLB', codes: ['OLB', 'SAM', 'WILL', 'SLB', 'WLB'] },
-      { label: 'LB', codes: ['LB'] },
-      { label: 'CB', codes: ['CB', 'LCB', 'RCB'] },
-      { label: 'FS', codes: ['FS'] },
-      { label: 'SS', codes: ['SS'] },
-      { label: 'S', codes: ['S', 'NB', 'DB'] },
-    ],
-  },
-  {
-    label: 'Special Teams',
-    positions: [
-      { label: 'K', codes: ['K'] },
-      { label: 'P', codes: ['P'] },
-      { label: 'LS', codes: ['LS'] },
-      { label: 'H', codes: ['H'] },
-      { label: 'KR', codes: ['KR'] },
-      { label: 'PR', codes: ['PR'] },
-    ],
-  },
-]
+const UNIT_ORDER: SchemeUnit[] = ['offense', 'defense', 'special_teams']
+const UNIT_LABELS: Record<SchemeUnit, string> = {
+  offense: 'Offense',
+  defense: 'Defense',
+  special_teams: 'Special Teams',
+}
 
 interface LineupEntry {
   player_id: string
@@ -64,7 +30,6 @@ interface GameLineupViewProps {
   activeGameId: string
   teamId: string
   players: MobilePlayer[]
-  playersLoading: boolean
   bumpLineupVersion: () => void
 }
 
@@ -72,15 +37,22 @@ export default function GameLineupView({
   activeGameId,
   teamId,
   players,
-  playersLoading,
   bumpLineupVersion,
 }: GameLineupViewProps) {
+  const { teams } = useMobile()
+  const teamLevel = useMemo(
+    () => teams.find(t => t.id === teamId)?.level ?? null,
+    [teams, teamId],
+  )
+
   const [gameLineup, setGameLineup] = useState<LineupEntry[]>([])
   const [lineupLoading, setLineupLoading] = useState(true)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    Offense: true,
-    Defense: true,
-    'Special Teams': true,
+  const [schemesByUnit, setSchemesByUnit] = useState<Partial<Record<SchemeUnit, SchemeWithPositions>>>({})
+  const [schemesLoading, setSchemesLoading] = useState(true)
+  const [expandedSections, setExpandedSections] = useState<Record<SchemeUnit, boolean>>({
+    offense: true,
+    defense: true,
+    special_teams: true,
   })
   const [activePlayerForDepth, setActivePlayerForDepth] = useState<{
     playerId: string
@@ -88,29 +60,52 @@ export default function GameLineupView({
     currentDepth: number
   } | null>(null)
 
-  const playerMap = useMemo(() => {
-    const map = new Map<string, MobilePlayer>()
-    for (const p of players) map.set(p.id, p)
-    return map
-  }, [players])
-
+  // Schemes load — ensures default schemes exist, then fetches them by unit
   useEffect(() => {
-    if (!activeGameId || !teamId || playersLoading) return
+    if (!teamId) return
+    let cancelled = false
+    setSchemesLoading(true)
 
+    async function loadSchemes() {
+      const supabase = createClient()
+      try {
+        await ensureDefaultSchemes(supabase, teamId, teamLevel)
+        const schemes = await getTeamSchemes(supabase, teamId)
+        if (cancelled) return
+        const byUnit: Partial<Record<SchemeUnit, SchemeWithPositions>> = {}
+        for (const unit of UNIT_ORDER) {
+          const def = schemes.find(s => s.unit === unit && s.is_default)
+          if (def) byUnit[unit] = def
+        }
+        setSchemesByUnit(byUnit)
+      } catch (err) {
+        console.error('[GameLineupView] schemes load failed:', err)
+      } finally {
+        if (!cancelled) setSchemesLoading(false)
+      }
+    }
+
+    loadSchemes()
+    return () => { cancelled = true }
+  }, [teamId, teamLevel])
+
+  // Lineup load + auto-populate from PSA via getTeamLineupTriples
+  useEffect(() => {
+    if (!activeGameId || !teamId) return
     let cancelled = false
     setLineupLoading(true)
 
-    async function loadLineup() {
+    async function loadOrCreateLineup() {
       const supabase = createClient()
 
-      const { data, error } = await supabase.rpc('latest_game_lineup', {
+      // Step 1: Check DB via RPC
+      const { data } = await supabase.rpc('latest_game_lineup', {
         game_id_param: activeGameId,
         team_id_param: teamId,
       })
-
       if (cancelled) return
 
-      if (!error && data && data.length > 0) {
+      if (data && data.length > 0) {
         setGameLineup(
           data.map((r: { player_id: string; position: string; depth: number }) => ({
             player_id: r.player_id,
@@ -122,56 +117,61 @@ export default function GameLineupView({
         return
       }
 
-      // No lineup yet — auto-populate from team depth chart
-      if (players.length > 0) {
-        const rows: {
-          game_id: string
-          team_id: string
-          player_id: string
-          position: string
-          depth: number
-        }[] = []
+      // Step 2: Auto-populate from PSA
+      const triples = await getTeamLineupTriples(supabase, teamId)
+      if (cancelled) return
 
-        for (const player of players) {
-          for (const [pos, depth] of Object.entries(player.position_depths)) {
-            rows.push({
-              game_id: activeGameId,
-              team_id: teamId,
-              player_id: player.id,
-              position: pos,
-              depth,
-            })
-          }
-        }
-
-        if (rows.length > 0) {
-          await supabase.from('game_lineups').insert(rows)
-
-          const { data: fresh } = await supabase.rpc('latest_game_lineup', {
-            game_id_param: activeGameId,
-            team_id_param: teamId,
-          })
-
-          if (!cancelled && fresh) {
-            setGameLineup(
-              fresh.map((r: { player_id: string; position: string; depth: number }) => ({
-                player_id: r.player_id,
-                position: r.position,
-                depth: r.depth,
-              }))
-            )
-            bumpLineupVersion()
-          }
-        }
+      if (triples.length === 0) {
+        setGameLineup([])
+        setLineupLoading(false)
+        return
       }
 
-      if (!cancelled) setLineupLoading(false)
+      const rows = triples.map(t => ({
+        game_id: activeGameId,
+        team_id: teamId,
+        player_id: t.player_id,
+        position: t.slot_code,
+        depth: t.depth,
+      }))
+      await supabase.from('game_lineups').insert(rows)
+
+      // Re-fetch via RPC
+      const { data: fresh } = await supabase.rpc('latest_game_lineup', {
+        game_id_param: activeGameId,
+        team_id_param: teamId,
+      })
+      if (cancelled) return
+
+      if (fresh && fresh.length > 0) {
+        setGameLineup(
+          fresh.map((r: { player_id: string; position: string; depth: number }) => ({
+            player_id: r.player_id,
+            position: r.position,
+            depth: r.depth,
+          }))
+        )
+      } else {
+        setGameLineup([])
+      }
+      bumpLineupVersion()
+      setLineupLoading(false)
     }
 
-    loadLineup()
+    loadOrCreateLineup()
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGameId, teamId, players, playersLoading])
+    // bumpLineupVersion intentionally excluded: this view writes the bump,
+    // including it would create an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGameId, teamId])
+
+  // Persist to localStorage on change
+  useEffect(() => {
+    if (!activeGameId || gameLineup.length === 0) return
+    try {
+      localStorage.setItem(`ych-lineup-${activeGameId}`, JSON.stringify(gameLineup))
+    } catch {}
+  }, [activeGameId, gameLineup])
 
   async function handleDepthChange(playerId: string, position: string, newDepth: number) {
     if (!activeGameId || !teamId) return
@@ -200,6 +200,7 @@ export default function GameLineupView({
     )
     setActivePlayerForDepth(null)
 
+    // Append-only writes to game_lineups
     const supabase = createClient()
     const inserts: {
       game_id: string
@@ -223,18 +224,7 @@ export default function GameLineupView({
     bumpLineupVersion()
   }
 
-  useEffect(() => {
-    if (!activeGameId || gameLineup.length === 0) return
-    try {
-      localStorage.setItem(`ych-lineup-${activeGameId}`, JSON.stringify(gameLineup))
-    } catch {}
-  }, [activeGameId, gameLineup])
-
-  function toggleSection(label: string) {
-    setExpandedSections(prev => ({ ...prev, [label]: !prev[label] }))
-  }
-
-  if (lineupLoading || playersLoading) {
+  if (lineupLoading || schemesLoading) {
     return (
       <>
         <div className="px-4 pt-12 pb-4">
@@ -255,45 +245,44 @@ export default function GameLineupView({
         <p className="text-sm text-[var(--text-secondary)] mt-1">Tap a player to change depth</p>
       </div>
 
-      {UNIT_SECTIONS.map(({ label: unitLabel, positions }) => {
-        const expanded = expandedSections[unitLabel] !== false
+      {UNIT_ORDER.map(unit => {
+        const scheme = schemesByUnit[unit]
+        if (!scheme) return null
+        const expanded = expandedSections[unit] !== false
 
         return (
-          <div key={unitLabel}>
+          <div key={unit}>
             <button
               type="button"
-              onClick={() => toggleSection(unitLabel)}
+              onClick={() => setExpandedSections(prev => ({ ...prev, [unit]: !prev[unit] }))}
               className="sticky top-0 z-10 w-full px-4 py-2.5 bg-[#f2f2f7] flex items-center justify-between active:bg-[var(--bg-pill-inactive)] transition-colors"
             >
               <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">
-                {unitLabel}
+                {UNIT_LABELS[unit]}
               </span>
               <ChevronIcon expanded={expanded} />
             </button>
 
-            {expanded && positions.map(({ label: posLabel, codes }) => {
-              const posEntries = gameLineup
-                .filter(e => codes.includes(e.position))
+            {expanded && scheme.scheme_positions.map(slot => {
+              const slotEntries = gameLineup
+                .filter(e => e.position === slot.slot_code)
                 .sort((a, b) => a.depth - b.depth)
 
-              const posPlayers = posEntries
-                .map(e => ({ entry: e, player: playerMap.get(e.player_id) }))
-                .filter(
-                  (p): p is { entry: LineupEntry; player: MobilePlayer } => p.player != null
-                )
-
               return (
-                <div key={posLabel}>
-                  <div className="px-4 pt-3 pb-1">
-                    <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase">{posLabel}</span>
+                <div key={slot.id}>
+                  <div className="px-4 pt-3 pb-1 flex items-center">
+                    <span className="text-xs font-bold text-[var(--text-section-header)] uppercase">{slot.slot_code}</span>
+                    <span className="text-xs text-[var(--text-tertiary)] ml-2">{slot.display_label}</span>
                   </div>
 
-                  {posPlayers.length === 0 ? (
+                  {slotEntries.length === 0 ? (
                     <div className="px-4 py-3 border-b border-[var(--border-primary)]">
                       <p className="text-xs text-[var(--text-tertiary)] italic">No player assigned</p>
                     </div>
                   ) : (
-                    posPlayers.map(({ entry, player }) => {
+                    slotEntries.map(entry => {
+                      const player = players.find(p => p.id === entry.player_id)
+                      if (!player) return null
                       const isActive =
                         activePlayerForDepth?.playerId === player.id &&
                         activePlayerForDepth?.position === entry.position
