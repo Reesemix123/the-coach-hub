@@ -15,6 +15,9 @@ const BLOCK_RESULTS = [
 ];
 
 export function OLPerformanceSection({ register, players }: OLPerformanceSectionProps) {
+  // TODO: Phase 2 Batch 5 — migrate slot-level filtering (LT/LG/C/RG/RT) to
+  // player_scheme_assignments once scheme-aware UI lands. Filters below still
+  // read the legacy position_depths JSONB; the column is nullable but present.
   return (
     <CollapsibleSection
       title="Offensive Line Performance"

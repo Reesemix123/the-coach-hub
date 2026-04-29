@@ -352,6 +352,10 @@ export interface PlayerRecord {
    */
   position_depths: PositionDepthMap;
 
+  primary_position_category_id?: string | null;
+  primary_position_category_code?: string | null;
+  primary_position_category_unit?: string | null;
+
   is_active: boolean;
   grade_level?: string;
   weight?: number;

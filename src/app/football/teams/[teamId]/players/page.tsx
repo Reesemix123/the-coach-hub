@@ -8,10 +8,6 @@ import type { PlayerRecord, Team, PositionDepthMap } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
 import {
   playerInPositionGroup,
-  playerHasPosition,
-  getPositionDisplay,
-  getPlayerPositions,
-  getPositionDepth,
   getPlayersAtDepth,
   validatePositionDepths,
   validateDepthChartConflicts,
@@ -112,15 +108,23 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
 
       setGames(gamesData || []);
 
-      // Fetch players
+      // Fetch players (with position_categories JOIN, flattened to category fields)
       const { data: playersData } = await supabase
         .from('players')
-        .select('*')
+        .select('*, position_categories!primary_position_category_id(code, unit)')
         .eq('team_id', teamId)
         .eq('is_active', true)
         .order('created_at');
 
-      setPlayers(playersData || []);
+      const flat = (playersData ?? []).map((p) => {
+        const cat = (p as unknown as { position_categories?: { code: string | null; unit: string | null } | null }).position_categories;
+        return {
+          ...p,
+          primary_position_category_code: cat?.code ?? null,
+          primary_position_category_unit: cat?.unit ?? null,
+        } as PlayerRecord;
+      });
+      setPlayers(flat);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -298,14 +302,20 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
     return { wins, losses, ties };
   };
 
+  // Roster view groups players by their primary position category's unit.
+  // Depth grid below still uses the deprecated playerInPositionGroup helper —
+  // that path is retired in Phase 2 Batch 5 alongside position_depths.
+  const inUnit = (p: PlayerRecord, unit: 'offense' | 'defense' | 'special_teams') =>
+    p.primary_position_category_unit === unit;
+
   const filteredPlayers = filter === 'all'
     ? players
-    : players.filter(p => playerInPositionGroup(p, filter as 'offense' | 'defense' | 'special_teams'));
+    : players.filter(p => inUnit(p, filter as 'offense' | 'defense' | 'special_teams'));
 
   const groupedPlayers = {
-    offense: players.filter(p => playerInPositionGroup(p, 'offense')),
-    defense: players.filter(p => playerInPositionGroup(p, 'defense')),
-    special_teams: players.filter(p => playerInPositionGroup(p, 'special_teams'))
+    offense: players.filter(p => inUnit(p, 'offense')),
+    defense: players.filter(p => inUnit(p, 'defense')),
+    special_teams: players.filter(p => inUnit(p, 'special_teams'))
   };
 
   if (loading) {
@@ -529,7 +539,7 @@ function RosterView({
                     </button>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {getPositionDisplay(player, 3, true)}
+                    {player.primary_position_category_code ?? '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {player.grade_level || '-'}

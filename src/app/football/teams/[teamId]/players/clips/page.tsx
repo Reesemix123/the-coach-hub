@@ -54,17 +54,24 @@ export default async function ClipReviewPage({ params }: PageProps) {
   // 4. Player info for those roster IDs
   const playersMap = new Map<
     string,
-    { id: string; first_name: string; last_name: string; jersey_number: string | null; primary_position: string | null }
+    { id: string; first_name: string; last_name: string; jersey_number: string | null; primary_position_category_code: string | null }
   >();
 
   if (rosterIds.length > 0) {
     const { data: playersData } = await serviceClient
       .from('players')
-      .select('id, first_name, last_name, jersey_number, primary_position')
+      .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .in('id', rosterIds);
 
     for (const p of playersData ?? []) {
-      playersMap.set(p.id, p);
+      const cat = (p as unknown as { position_categories?: { code: string | null } | null }).position_categories;
+      playersMap.set(p.id, {
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        jersey_number: p.jersey_number,
+        primary_position_category_code: cat?.code ?? null,
+      });
     }
   }
 
@@ -203,7 +210,7 @@ export default async function ClipReviewPage({ params }: PageProps) {
         firstName: player?.first_name ?? 'Unknown',
         lastName: player?.last_name ?? 'Player',
         jerseyNumber: player?.jersey_number ?? null,
-        position: player?.primary_position ?? null,
+        position: player?.primary_position_category_code ?? null,
         clips,
       };
     })

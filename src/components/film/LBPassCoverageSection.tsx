@@ -35,9 +35,7 @@ interface PlayerCoverageData {
 
 export function LBPassCoverageSection({ register, watch, setValue, players }: LBPassCoverageSectionProps) {
   // Filter to LB players only
-  const lbPlayers = players.filter(p =>
-    p.position_depths && ['MLB', 'ILB', 'OLB', 'WILL', 'MIKE', 'SAM'].some(pos => pos in p.position_depths)
-  );
+  const lbPlayers = players.filter(p => p.primary_position_category_code === 'LB');
 
   // Track which LB players are selected for coverage
   const selectedPlayerIds = watch('lb_pass_coverage_players')?.split(',').filter(Boolean) || [];

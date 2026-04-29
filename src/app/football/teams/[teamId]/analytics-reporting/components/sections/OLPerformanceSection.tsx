@@ -4,6 +4,13 @@
  * Shows offensive line statistics from player_participation table.
  * Requires Comprehensive tagging tier for OL block tracking.
  * Fetches data for all OL positions and displays block win rates.
+ *
+ * TODO: Phase 2 Batch 5 — this component reads dropped columns
+ * (players.primary_position) and depends on slot-level position data
+ * (LT/LG/C/RG/RT) that lives in player_scheme_assignments under the new
+ * position architecture. Migration deferred until scheme-aware UI lands.
+ * Until then, the .in('primary_position', [...]) query at L51 returns no
+ * rows and the section renders empty.
  */
 
 'use client';

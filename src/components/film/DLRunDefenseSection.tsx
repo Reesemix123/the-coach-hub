@@ -33,9 +33,7 @@ interface PlayerRunDefenseData {
 
 export function DLRunDefenseSection({ register, watch, setValue, players }: DLRunDefenseSectionProps) {
   // Filter to DL players only
-  const dlPlayers = players.filter(p =>
-    p.position_depths && ['DE', 'DT', 'DT1', 'DT2', 'NT'].some(pos => pos in p.position_depths)
-  );
+  const dlPlayers = players.filter(p => p.primary_position_category_code === 'DL');
 
   // Track which DL players are selected for run defense
   const selectedPlayerIds = watch('dl_run_defense_players')?.split(',').filter(Boolean) || [];

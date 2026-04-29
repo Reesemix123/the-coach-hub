@@ -44,9 +44,7 @@ interface PlayerCoverageData {
 
 export function DBPassCoverageSection({ register, watch, setValue, players }: DBPassCoverageSectionProps) {
   // Filter to DB players only
-  const dbPlayers = players.filter(p =>
-    p.position_depths && ['CB', 'FS', 'SS', 'S', 'NB'].some(pos => pos in p.position_depths)
-  );
+  const dbPlayers = players.filter(p => p.primary_position_category_code === 'DB');
 
   // Track which DB players are selected for coverage
   const selectedPlayerIds = watch('db_pass_coverage_players')?.split(',').filter(Boolean) || [];

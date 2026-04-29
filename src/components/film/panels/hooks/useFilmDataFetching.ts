@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/client';
 import { DriveService } from '@/lib/services/drive.service';
 import { gameScoreService, type ScoreMismatchResult } from '@/lib/services/game-score.service';
 import { filmSessionService } from '@/lib/services/film-session.service';
-import type { TaggingTier, GameScoreBreakdown, FilmAnalysisStatus, PlayInstance } from '@/types/football';
+import type { TaggingTier, GameScoreBreakdown, FilmAnalysisStatus, PlayInstance, PlayerRecord } from '@/types/football';
 import type { useFilmStateBridge } from '@/components/film/context';
 
 // ============================================
@@ -134,13 +134,22 @@ export function useFilmDataFetching({
 
     const { data, error } = await supabase
       .from('players')
-      .select('*')
+      .select('*, position_categories!primary_position_category_id(code, unit)')
       .eq('team_id', game.team_id)
       .eq('is_active', true)
       .order('jersey_number', { ascending: true });
 
     if (!error && data) {
-      bridge.setPlayers(data);
+      // Flatten the JOIN so downstream consumers read p.primary_position_category_code directly
+      const flat = data.map(p => {
+        const cat = (p as { position_categories?: { code: string | null; unit: string | null } | null }).position_categories;
+        return {
+          ...p,
+          primary_position_category_code: cat?.code ?? null,
+          primary_position_category_unit: cat?.unit ?? null,
+        };
+      });
+      bridge.setPlayers(flat as unknown as PlayerRecord[]);
     }
   }
 

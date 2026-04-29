@@ -353,10 +353,10 @@ export function DefenseFields({
                   <select {...register('forced_fumble_player_id')} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md text-gray-900">
                     <option value="">Select player...</option>
                     {players
-                      .filter(p => ['DL', 'LB', 'DB', 'S', 'CB'].some(pos => p.primary_position?.includes(pos)))
+                      .filter(p => p.primary_position_category_code && ['DL', 'LB', 'DB'].includes(p.primary_position_category_code))
                       .map(player => (
                         <option key={player.id} value={player.id}>
-                          #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position})
+                          #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position_category_code})
                         </option>
                       ))}
                   </select>
@@ -393,10 +393,10 @@ export function DefenseFields({
           <select {...register('interception_player_id')} className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900">
             <option value="">Select player...</option>
             {players
-              .filter(p => ['DL', 'LB', 'DB', 'S', 'CB'].some(pos => p.primary_position?.includes(pos)))
+              .filter(p => p.primary_position_category_code && ['DL', 'LB', 'DB'].includes(p.primary_position_category_code))
               .map(player => (
                 <option key={player.id} value={player.id}>
-                  #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position})
+                  #{player.jersey_number} {player.first_name} {player.last_name} ({player.primary_position_category_code})
                 </option>
               ))}
           </select>

@@ -315,11 +315,20 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
 
       const { data: playerData } = await supabase
         .from('players')
-        .select('*')
+        .select('*, position_categories!primary_position_category_id(code, unit)')
         .eq('id', filters.playerId)
         .single();
 
-      setPlayer(playerData);
+      if (playerData) {
+        const cat = (playerData as unknown as { position_categories?: { code: string | null; unit: string | null } | null }).position_categories;
+        setPlayer({
+          ...playerData,
+          primary_position_category_code: cat?.code ?? null,
+          primary_position_category_unit: cat?.unit ?? null,
+        });
+      } else {
+        setPlayer(null);
+      }
 
       try {
         const analyticsService = new AnalyticsService();
@@ -370,15 +379,15 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
   const hasSpecialTeamsStats = stats && stats.specialTeamsSnaps > 0;
   const hasAnyStats = hasOffensiveStats || hasDefensiveStats || hasSpecialTeamsStats;
 
-  // Position detection for context
-  const pos = player.primary_position?.toUpperCase() || '';
-  const isQB = pos === 'QB';
-  const isRB = ['RB', 'HB', 'FB', 'TB'].includes(pos);
-  const isWR = ['WR', 'SE', 'FL', 'X', 'Y', 'Z', 'SLOT'].includes(pos);
-  const isTE = ['TE', 'TE1', 'TE2'].includes(pos);
-  const isDL = ['DL', 'DE', 'DT', 'NT', 'EDGE'].includes(pos);
-  const isLB = ['LB', 'ILB', 'OLB', 'MLB', 'MIKE', 'WILL', 'SAM'].includes(pos);
-  const isDB = ['CB', 'S', 'FS', 'SS', 'DB'].includes(pos);
+  // Position detection via primary position category
+  const cat = player.primary_position_category_code ?? '';
+  const isQB = cat === 'QB';
+  const isRB = cat === 'RB';
+  const isWR = cat === 'WR';
+  const isTE = cat === 'TE';
+  const isDL = cat === 'DL';
+  const isLB = cat === 'LB';
+  const isDB = cat === 'DB';
 
   // ============================================================================
   // Calculated metrics
@@ -433,7 +442,7 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
                 <h3 className="text-2xl font-semibold text-gray-900">
                   {player.first_name} {player.last_name}
                 </h3>
-                <p className="text-lg text-gray-600">{player.primary_position}</p>
+                <p className="text-lg text-gray-600">{player.primary_position_category_code}</p>
               </div>
             </div>
 
@@ -444,11 +453,11 @@ export default function PlayerReport({ teamId, gameId, filters }: ReportProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Position</p>
-                <p className="text-lg font-semibold text-gray-900">{player.primary_position || 'N/A'}</p>
+                <p className="text-lg font-semibold text-gray-900">{player.primary_position_category_code || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Position Group</p>
-                <p className="text-lg font-semibold text-gray-900 capitalize">{player.position_group || 'N/A'}</p>
+                <p className="text-lg font-semibold text-gray-900 capitalize">{player.primary_position_category_unit || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Phases Played</p>

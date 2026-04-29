@@ -32,9 +32,7 @@ interface PlayerRunStopData {
 
 export function LBRunStopSection({ register, watch, setValue, players }: LBRunStopSectionProps) {
   // Filter to LB players only
-  const lbPlayers = players.filter(p =>
-    p.position_depths && ['MLB', 'ILB', 'OLB', 'WILL', 'MIKE', 'SAM'].some(pos => pos in p.position_depths)
-  );
+  const lbPlayers = players.filter(p => p.primary_position_category_code === 'LB');
 
   // Track which LB players are selected for run stop
   const selectedPlayerIds = watch('lb_run_stop_players')?.split(',').filter(Boolean) || [];

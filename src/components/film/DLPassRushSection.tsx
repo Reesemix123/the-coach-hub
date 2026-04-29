@@ -35,9 +35,7 @@ interface PlayerPassRushData {
 
 export function DLPassRushSection({ register, watch, setValue, players }: DLPassRushSectionProps) {
   // Filter to DL players only
-  const dlPlayers = players.filter(p =>
-    p.position_depths && ['DE', 'DT', 'DT1', 'DT2', 'NT'].some(pos => pos in p.position_depths)
-  );
+  const dlPlayers = players.filter(p => p.primary_position_category_code === 'DL');
 
   // Get pressure players from global pressure section
   const pressurePlayerIds = watch('pressure_player_ids')?.split(',').filter(Boolean) || [];

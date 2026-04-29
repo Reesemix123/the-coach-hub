@@ -25,9 +25,7 @@ interface PlayerRunSupportData {
 
 export function DBRunSupportSection({ register, watch, setValue, players }: DBRunSupportSectionProps) {
   // Filter to DB players only
-  const dbPlayers = players.filter(p =>
-    p.position_depths && ['CB', 'FS', 'SS', 'S', 'NB'].some(pos => pos in p.position_depths)
-  );
+  const dbPlayers = players.filter(p => p.primary_position_category_code === 'DB');
 
   // Track which DB players are selected for run support
   const selectedPlayerIds = watch('db_run_support_players')?.split(',').filter(Boolean) || [];
