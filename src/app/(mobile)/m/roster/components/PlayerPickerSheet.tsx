@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
-import { getDepthLabel } from '../constants/positions'
+import { getDepthLabel } from '@/utils/playerHelpers'
 
 interface PlayerPickerSheetProps {
   position: string

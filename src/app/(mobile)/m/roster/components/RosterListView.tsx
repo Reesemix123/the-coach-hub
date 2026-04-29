@@ -1,12 +1,8 @@
 'use client'
 
+import { useMobile } from '@/app/(mobile)/MobileContext'
 import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
-import {
-  type PositionGroup,
-  GROUP_ORDER,
-  getPrimaryPosition,
-  getPositionGroup,
-} from '../constants/positions'
+import { getPrimaryPosition, getPlayerPositionGroups } from '@/utils/playerHelpers'
 import { SkeletonRow, UsersEmptyIcon } from './shared'
 
 interface RosterListViewProps {
@@ -15,21 +11,33 @@ interface RosterListViewProps {
   onEditPlayer: (player: MobilePlayer) => void
 }
 
+type Unit = 'offense' | 'defense' | 'special_teams'
+const UNIT_ORDER: Unit[] = ['offense', 'defense', 'special_teams']
+const UNIT_LABELS: Record<Unit, string> = {
+  offense: 'Offense',
+  defense: 'Defense',
+  special_teams: 'Special Teams',
+}
+
 export default function RosterListView({
   players,
   playersLoading,
   onEditPlayer,
 }: RosterListViewProps) {
-  const grouped: Record<PositionGroup, MobilePlayer[]> = {
-    Offense: [],
-    Defense: [],
-    'Special Teams': [],
+  const { positionCategories } = useMobile()
+
+  const grouped: Record<Unit, MobilePlayer[]> = {
+    offense: [],
+    defense: [],
+    special_teams: [],
   }
 
   for (const player of players) {
-    const primaryPos = getPrimaryPosition(player.position_depths)
-    const group = getPositionGroup(primaryPos)
-    grouped[group].push(player)
+    const groups = getPlayerPositionGroups(player, positionCategories)
+    // Players with no resolvable group (e.g. ATH/flex) fall into the first
+    // unit they touch — default to offense to match prior behavior.
+    const primaryGroup: Unit = groups[0] ?? 'offense'
+    grouped[primaryGroup].push(player)
   }
 
   if (playersLoading) {
@@ -47,18 +55,18 @@ export default function RosterListView({
 
   return (
     <div>
-      {GROUP_ORDER.map(group => {
-        const groupPlayers = grouped[group]
+      {UNIT_ORDER.map(unit => {
+        const groupPlayers = grouped[unit]
         if (groupPlayers.length === 0) return null
 
         return (
-          <div key={group}>
+          <div key={unit}>
             <div className="sticky top-0 z-10 px-4 py-2 bg-[var(--bg-primary)]">
-              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">{group}</span>
+              <span className="text-xs font-semibold text-[var(--text-section-header)] uppercase tracking-wider">{UNIT_LABELS[unit]}</span>
             </div>
             <div>
               {groupPlayers.map(player => {
-                const primaryPos = getPrimaryPosition(player.position_depths)
+                const primaryPos = getPrimaryPosition(player, positionCategories)
                 return (
                   <button
                     key={player.id}

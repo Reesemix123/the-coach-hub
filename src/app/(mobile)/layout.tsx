@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
-import { MobileProvider, type TeamInfo, type MobilePlayer } from './MobileContext'
+import { MobileProvider, type TeamInfo, type MobilePlayer, type PositionCategoryRow } from './MobileContext'
 import { ThemeProvider } from './ThemeContext'
 import { SubscriptionProvider } from './SubscriptionContext'
 import { RoleProvider } from './RoleContext'
@@ -180,6 +180,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
   const [players, setPlayers] = useState<MobilePlayer[]>([])
   const [playersLoading, setPlayersLoading] = useState(false)
+  const [positionCategories, setPositionCategories] = useState<PositionCategoryRow[]>([])
   const [lineupVersion, setLineupVersion] = useState(0)
   const bumpLineupVersion = useCallback(() => setLineupVersion(v => v + 1), [])
   const [consecutiveSyncFailures, setConsecutiveSyncFailures] = useState(0)
@@ -332,7 +333,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     const supabase = createClient()
     supabase
       .from('players')
-      .select('id, jersey_number, first_name, last_name, position_depths, grade_level')
+      .select('id, jersey_number, first_name, last_name, position_depths, primary_position_category_id, grade_level')
       .eq('team_id', teamId)
       .eq('is_active', true)
       .order('jersey_number')
@@ -345,6 +346,24 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
   }, [teamId])
 
   useEffect(() => { fetchPlayers() }, [fetchPlayers])
+
+  // One-shot fetch of the 12 position categories (shared across all roster /
+  // depth-chart / sideline screens via MobileContext).
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('position_categories')
+      .select('id, code, name, unit, sort_order')
+      .eq('sport', 'football')
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[MobileLayout] Failed to load position_categories:', error)
+          return
+        }
+        setPositionCategories((data ?? []) as PositionCategoryRow[])
+      })
+  }, [])
 
   // Refresh players on app focus (visibility change) — debounced to 30s
   const lastRefreshRef = useRef(Date.now())
@@ -382,7 +401,7 @@ export default function MobileLayout({ children }: { children: React.ReactNode }
     <ThemeProvider>
     <RoleProvider>
     <MobileAuthGuard>
-    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
+    <MobileProvider value={{ teamId, coachName, isCapacitor, teams, switchTeam, activeGameId, setActiveGameId, players, playersLoading, positionCategories, lineupVersion, bumpLineupVersion, consecutiveSyncFailures, setConsecutiveSyncFailures, refreshPlayers: fetchPlayers, messagesUnreadCount, setMessagesUnreadCount }}>
     <SubscriptionProvider>
       {/* FOWT prevention: inline script sets data-theme before first paint */}
       <script dangerouslySetInnerHTML={{ __html: `

@@ -438,8 +438,10 @@ export class AdvancedAnalyticsService {
         playerId: player.id,
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
+        // TODO: Phase 2 Batch 2 — replace primary_position (dropped column)
+        // and position_depths (legacy) with primary_position_category_id JOIN.
         position: player.primary_position,
-        position_depths: player.position_depths || {}, // Include all positions for multi-position filtering
+        position_depths: player.position_depths || {},
 
         carries,
         rushYards,
@@ -501,6 +503,8 @@ export class AdvancedAnalyticsService {
 
     if (!allPlayers || allPlayers.length === 0) return [];
 
+    // TODO: Phase 2 Batch 2 — convert this to a position_categories JOIN
+    // matching the pattern used by calculateDefensivePlayerStats above.
     // Filter to players who have ANY OL position in their position_depths
     const OL_POSITIONS = ['LT', 'LG', 'C', 'RG', 'RT'];
     const olPlayers = allPlayers.filter(player => {
@@ -565,6 +569,7 @@ export class AdvancedAnalyticsService {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
+          // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
           position: player.primary_position,
           position_depths: player.position_depths || {},
           totalAssignments,
@@ -611,20 +616,30 @@ export class AdvancedAnalyticsService {
 
     console.log('🛡️ Fetching defensive stats from player_participation table...');
 
-    // Get all active defensive players
+    // Get all active players for the team. Join position_categories so we can
+    // filter by the category's `unit` field directly — no need to maintain a
+    // hard-coded slot-code list. Phase 2 Batch 1 of the position architecture
+    // redesign.
     const { data: allPlayers } = await this.supabase
       .from('players')
-      .select('*')
+      .select('*, primary_position_category:position_categories!primary_position_category_id(code, unit)')
       .eq('team_id', teamId)
       .eq('is_active', true);
 
     if (!allPlayers || allPlayers.length === 0) return [];
 
-    // Filter to defensive players
-    const DEFENSIVE_POSITIONS = ['DE', 'DT', 'DT1', 'DT2', 'NT', 'LB', 'MLB', 'SAM', 'WILL', 'OLB', 'ILB', 'CB', 'LCB', 'RCB', 'S', 'FS', 'SS'];
-    const defPlayers = allPlayers.filter(player => {
+    // Filter to defensive players via the joined category. Falls back to the
+    // legacy position_depths keys for any player whose category isn't set yet.
+    const defPlayers = allPlayers.filter((player: typeof allPlayers[number] & {
+      primary_position_category?: { code: string; unit: string } | null
+    }) => {
+      const cat = player.primary_position_category;
+      if (cat && cat.unit === 'defense') return true;
+      // Legacy fallback — TODO: Phase 2 Batch 2 remove once all rosters have
+      // primary_position_category_id populated.
       const positions = Object.keys(player.position_depths || {});
-      return positions.some(pos => DEFENSIVE_POSITIONS.includes(pos));
+      const LEGACY_DEFENSE = ['DE', 'DT', 'DT1', 'DT2', 'NT', 'LB', 'MLB', 'SAM', 'WILL', 'OLB', 'ILB', 'CB', 'LCB', 'RCB', 'S', 'FS', 'SS'];
+      return positions.some(pos => LEGACY_DEFENSE.includes(pos));
     });
 
     if (defPlayers.length === 0) return [];
@@ -712,6 +727,7 @@ export class AdvancedAnalyticsService {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
+          // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
           position: player.primary_position,
           position_depths: player.position_depths || {},
 
@@ -886,6 +902,7 @@ export class AdvancedAnalyticsService {
         playerId: player.id,
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
+        // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
         positions: Object.keys(player.position_depths || {}),
         primaryPosition: player.primary_position,
 

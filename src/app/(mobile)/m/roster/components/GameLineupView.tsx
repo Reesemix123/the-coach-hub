@@ -3,8 +3,56 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
-import { UNIT_SECTIONS, getDepthLabel } from '../constants/positions'
+import { getDepthLabel } from '@/utils/playerHelpers'
 import { SkeletonRow, ChevronIcon } from './shared'
+
+// TODO: Phase 2 Batch 5 — replace with scheme_positions-driven game lineup
+// once the new depth chart UI is built.
+type PositionGroup = 'Offense' | 'Defense' | 'Special Teams'
+
+const UNIT_SECTIONS: { label: PositionGroup; positions: { label: string; codes: string[] }[] }[] = [
+  {
+    label: 'Offense',
+    positions: [
+      { label: 'QB', codes: ['QB'] },
+      { label: 'RB', codes: ['RB', 'TB', 'SB', 'WB'] },
+      { label: 'FB', codes: ['FB'] },
+      { label: 'WR', codes: ['WR', 'X', 'Y', 'Z', 'SL', 'SR', 'SE', 'FL'] },
+      { label: 'TE', codes: ['TE'] },
+      { label: 'LT', codes: ['LT'] },
+      { label: 'LG', codes: ['LG'] },
+      { label: 'C', codes: ['C'] },
+      { label: 'RG', codes: ['RG'] },
+      { label: 'RT', codes: ['RT'] },
+    ],
+  },
+  {
+    label: 'Defense',
+    positions: [
+      { label: 'DE', codes: ['DE'] },
+      { label: 'DT', codes: ['DT', 'DT1', 'DT2'] },
+      { label: 'NT', codes: ['NT'] },
+      { label: 'MLB', codes: ['MLB', 'ILB'] },
+      { label: 'OLB', codes: ['OLB', 'SAM', 'WILL', 'SLB', 'WLB'] },
+      { label: 'LB', codes: ['LB'] },
+      { label: 'CB', codes: ['CB', 'LCB', 'RCB'] },
+      { label: 'FS', codes: ['FS'] },
+      { label: 'SS', codes: ['SS'] },
+      { label: 'S', codes: ['S', 'NB', 'DB'] },
+    ],
+  },
+  {
+    label: 'Special Teams',
+    positions: [
+      { label: 'K', codes: ['K'] },
+      { label: 'P', codes: ['P'] },
+      { label: 'LS', codes: ['LS'] },
+      { label: 'H', codes: ['H'] },
+      { label: 'KR', codes: ['KR'] },
+      { label: 'PR', codes: ['PR'] },
+    ],
+  },
+]
 
 interface LineupEntry {
   player_id: string

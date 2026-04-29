@@ -13,8 +13,20 @@ export interface MobilePlayer {
   jersey_number: string
   first_name: string
   last_name: string
+  // Legacy depth assignments — preserved for read-only fallback during the
+  // Phase 2 consumer migration. New writes target player_scheme_assignments.
   position_depths: Record<string, number>
+  // New canonical position identity (Phase 1 of position architecture).
+  primary_position_category_id: string | null
   grade_level?: string | null
+}
+
+export interface PositionCategoryRow {
+  id: string
+  code: string
+  name: string
+  unit: string                  // 'offense' | 'defense' | 'special_teams' | 'flex'
+  sort_order: number
 }
 
 interface MobileContextType {
@@ -29,6 +41,8 @@ interface MobileContextType {
   // Shared roster (fetched once, used by roster tab + sideline tracker)
   players: MobilePlayer[]
   playersLoading: boolean
+  // 12 position categories — fetched once on app boot, shared everywhere
+  positionCategories: PositionCategoryRow[]
   // Lineup version counter — bumped by Roster tab on depth changes
   lineupVersion: number
   bumpLineupVersion: () => void
@@ -49,6 +63,7 @@ const MobileContext = createContext<MobileContextType>({
   setActiveGameId: () => {},
   players: [],
   playersLoading: false,
+  positionCategories: [],
   lineupVersion: 0,
   bumpLineupVersion: () => {},
   consecutiveSyncFailures: 0,

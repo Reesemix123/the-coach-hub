@@ -1,391 +1,340 @@
 /**
  * Player Helper Utilities
- * Functions to handle multi-position players with per-position depth tracking
+ *
+ * Phase 2 Batch 1 of the position architecture redesign:
+ *   - Helpers now resolve position via `primary_position_category_id` joined
+ *     with the position_categories list passed in by the caller.
+ *   - position_depths reads remain as a fallback for legacy data; new writes
+ *     should target player_scheme_assignments.
+ *
+ * Six helpers tied to the desktop legacy depth grid (`getPositionDepth`,
+ * `getPlayersAtDepth`, `validatePositionDepths`, `validateDepthChartConflicts`,
+ * `createPositionDepthsFromSelections`, `convertDepthMapToSelections`) are
+ * marked @deprecated below and will be removed in Phase 2 Batch 5 when the
+ * legacy desktop depth grid is retired.
  */
 
-import type { PlayerRecord, PositionDepthMap } from '@/types/football';
+import type { PlayerRecord, PositionDepthMap } from '@/types/football'
 
-export type PositionGroup = 'offense' | 'defense' | 'special_teams';
+export type PositionGroup = 'offense' | 'defense' | 'special_teams'
 
-// Position to group mapping
-const POSITION_TO_GROUP: Record<string, PositionGroup> = {
-  // Offense
-  QB: 'offense', RB: 'offense', FB: 'offense', TE: 'offense',
-  X: 'offense', Y: 'offense', Z: 'offense',
-  LT: 'offense', LG: 'offense', C: 'offense', RG: 'offense', RT: 'offense',
-  // Defense
-  DE: 'defense', DT1: 'defense', DT2: 'defense', NT: 'defense', LB: 'defense', MLB: 'defense',
-  SAM: 'defense', WILL: 'defense',
-  LCB: 'defense', RCB: 'defense',
-  S: 'defense', FS: 'defense', SS: 'defense',
-  // Special Teams
-  K: 'special_teams', P: 'special_teams', LS: 'special_teams',
-  H: 'special_teams', KR: 'special_teams', PR: 'special_teams',
-};
+/** Subset of position_categories shape that helpers need. Pre-fetched once
+ *  per app boot (via MobileContext on mobile, or a per-route fetch on desktop)
+ *  and threaded through here. Avoids per-call DB lookups. */
+export interface PositionCategoryRow {
+  id: string
+  code: string
+  name: string
+  unit: string                       // 'offense' | 'defense' | 'special_teams' | 'flex'
+}
+
+// ---------------------------------------------------------------------------
+// Category resolution
+// ---------------------------------------------------------------------------
+
+/** Resolve a category UUID to its short code (e.g. "QB"). */
+export function getCategoryLabel(
+  categoryId: string | null | undefined,
+  categories: PositionCategoryRow[] = [],
+): string | null {
+  if (!categoryId) return null
+  return categories.find((c) => c.id === categoryId)?.code ?? null
+}
+
+/** Resolve a category UUID to its display name (e.g. "Quarterback"). */
+export function getCategoryName(
+  categoryId: string | null | undefined,
+  categories: PositionCategoryRow[] = [],
+): string | null {
+  if (!categoryId) return null
+  return categories.find((c) => c.id === categoryId)?.name ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Position queries — category-first with position_depths fallback
+// ---------------------------------------------------------------------------
 
 /**
- * Get all positions a player plays
+ * Returns the player's primary position code (e.g. "QB", "DL").
+ * Resolution order:
+ *   1. primary_position_category_id → category.code
+ *   2. position_depths lowest-depth key (legacy)
+ *   3. 'ATH' fallback (matches the prior mobile constants behavior)
  */
-export function getPlayerPositions(player: PlayerRecord): string[] {
-  return Object.keys(player.position_depths || {});
+export function getPrimaryPosition(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): string {
+  if (player.primary_position_category_id) {
+    const code = getCategoryLabel(player.primary_position_category_id, categories)
+    if (code) return code
+  }
+
+  const depths = player.position_depths ?? {}
+  const entries = Object.entries(depths)
+  if (entries.length > 0) {
+    const [position] = entries.reduce((min, curr) => (curr[1] < min[1] ? curr : min))
+    return position
+  }
+
+  return 'ATH'
 }
 
 /**
- * Get all position groups a player plays in
+ * Returns every position code the player is associated with. With the new
+ * data model a player has a single primary category; that's a single-element
+ * array. Falls back to legacy position_depths keys when no category is set.
  */
-export function getPlayerPositionGroups(player: PlayerRecord): PositionGroup[] {
-  const positions = getPlayerPositions(player);
-  const groups = new Set<PositionGroup>();
+export function getPlayerPositions(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): string[] {
+  if (player.primary_position_category_id) {
+    const code = getCategoryLabel(player.primary_position_category_id, categories)
+    if (code) return [code]
+  }
+  return Object.keys(player.position_depths ?? {})
+}
 
-  positions.forEach(pos => {
-    const group = POSITION_TO_GROUP[pos];
-    if (group) {
-      groups.add(group);
+/** Returns every unit the player participates in (offense / defense / special_teams). */
+export function getPlayerPositionGroups(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): PositionGroup[] {
+  // Category path
+  if (player.primary_position_category_id) {
+    const cat = categories.find((c) => c.id === player.primary_position_category_id)
+    if (cat) {
+      if (cat.unit === 'offense' || cat.unit === 'defense' || cat.unit === 'special_teams') {
+        return [cat.unit]
+      }
+      // 'flex' (ATH) — return all three since athlete can play anywhere
+      if (cat.unit === 'flex') {
+        return ['offense', 'defense', 'special_teams']
+      }
     }
-  });
+  }
 
-  return Array.from(groups);
+  // Legacy fallback — derive group from depths keys via category lookup by code
+  const groups = new Set<PositionGroup>()
+  for (const code of Object.keys(player.position_depths ?? {})) {
+    const cat = categories.find((c) => c.code === code)
+    if (cat) {
+      if (cat.unit === 'offense' || cat.unit === 'defense' || cat.unit === 'special_teams') {
+        groups.add(cat.unit)
+      }
+    }
+  }
+  return Array.from(groups)
 }
 
-/**
- * Check if player plays a specific position or any position in a list
- */
+/** Does the player play this code (or any of these codes)? */
 export function playerHasPosition(
-  player: PlayerRecord,
-  position: string | string[]
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  position: string | string[],
+  categories: PositionCategoryRow[] = [],
 ): boolean {
-  const positions = Array.isArray(position) ? position : [position];
-  const playerPositions = getPlayerPositions(player);
-  return positions.some(pos => playerPositions.includes(pos));
+  const targets = (Array.isArray(position) ? position : [position]).map((p) => p.toUpperCase())
+  const playerCodes = getPlayerPositions(player, categories).map((p) => p.toUpperCase())
+  return targets.some((t) => playerCodes.includes(t))
 }
 
-/**
- * Check if player is in a specific position group
- */
 export function playerInPositionGroup(
-  player: PlayerRecord,
-  group: PositionGroup
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  group: PositionGroup,
+  categories: PositionCategoryRow[] = [],
 ): boolean {
-  const playerGroups = getPlayerPositionGroups(player);
-  return playerGroups.includes(group);
+  return getPlayerPositionGroups(player, categories).includes(group)
 }
 
 /**
- * Get depth order for a specific position
- * Returns null if player doesn't play that position
- */
-export function getPositionDepth(
-  player: PlayerRecord,
-  position: string
-): number | null {
-  return player.position_depths?.[position] ?? null;
-}
-
-/**
- * Get primary (highest priority) position
- * Returns position with lowest depth order
- */
-export function getPrimaryPosition(player: PlayerRecord): string | null {
-  const depths = player.position_depths || {};
-  const entries = Object.entries(depths);
-
-  if (entries.length === 0) return null;
-
-  // Find position with lowest depth order
-  const [position] = entries.reduce((min, curr) =>
-    curr[1] < min[1] ? curr : min
-  );
-
-  return position;
-}
-
-/**
- * Get display string for player positions with depth
+ * Returns a display string for the player's positions.
  * Examples:
- *   - "QB (1st)"
- *   - "QB (1st), RB (2nd)"
- *   - "QB (1st), RB (2nd), S (3rd) +2"
- * @param player Player record
- * @param maxShow Maximum number of positions to show before truncating
- * @param showDepth Whether to show depth labels
+ *   "QB"               (category-only)
+ *   "QB (1st), RB (2nd)"  (legacy depths fallback)
  */
 export function getPositionDisplay(
-  player: PlayerRecord,
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
   maxShow: number = 3,
-  showDepth: boolean = true
+  showDepth: boolean = true,
+  categories: PositionCategoryRow[] = [],
 ): string {
-  const depths = player.position_depths || {};
-  const entries = Object.entries(depths).sort((a, b) => a[1] - b[1]); // Sort by depth
-
-  if (entries.length === 0) return '-';
-
-  const formatted = entries.map(([pos, depth]) => {
-    if (showDepth) {
-      return `${pos} (${getDepthLabel(depth)})`;
-    }
-    return pos;
-  });
-
-  if (formatted.length <= maxShow) {
-    return formatted.join(', ');
+  // Category-first display
+  if (player.primary_position_category_id) {
+    const code = getCategoryLabel(player.primary_position_category_id, categories)
+    if (code) return code
   }
 
-  return `${formatted.slice(0, maxShow).join(', ')} +${formatted.length - maxShow}`;
+  // Legacy fallback — old "QB (1st), RB (2nd)" string
+  const depths = player.position_depths ?? {}
+  const entries = Object.entries(depths).sort((a, b) => a[1] - b[1])
+  if (entries.length === 0) return '-'
+
+  const formatted = entries.map(([pos, depth]) =>
+    showDepth ? `${pos} (${getDepthLabel(depth)})` : pos,
+  )
+  if (formatted.length <= maxShow) return formatted.join(', ')
+  return `${formatted.slice(0, maxShow).join(', ')} +${formatted.length - maxShow}`
 }
 
-/**
- * Get depth label (1st, 2nd, 3rd, 4th)
- */
+// ---------------------------------------------------------------------------
+// Convenience predicates
+// ---------------------------------------------------------------------------
+
+export function playsOffense(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): boolean {
+  return playerInPositionGroup(player, 'offense', categories)
+}
+
+export function playsDefense(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): boolean {
+  return playerInPositionGroup(player, 'defense', categories)
+}
+
+export function playsSpecialTeams(
+  player: Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null },
+  categories: PositionCategoryRow[] = [],
+): boolean {
+  return playerInPositionGroup(player, 'special_teams', categories)
+}
+
+// ---------------------------------------------------------------------------
+// Filtering
+// ---------------------------------------------------------------------------
+
+/** Filter players by their primary category code (e.g. 'DL'). */
+export function filterPlayersByCategory<
+  T extends Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null }
+>(players: T[], categoryCode: string, categories: PositionCategoryRow[]): T[] {
+  const target = categoryCode.toUpperCase()
+  return players.filter((p) => playerHasPosition(p, target, categories))
+}
+
+/** Filter players by unit (offense / defense / special_teams). */
+export function filterPlayersByUnit<
+  T extends Pick<PlayerRecord, 'position_depths'> & { primary_position_category_id?: string | null }
+>(players: T[], unit: PositionGroup, categories: PositionCategoryRow[]): T[] {
+  return players.filter((p) => playerInPositionGroup(p, unit, categories))
+}
+
+// ---------------------------------------------------------------------------
+// Display helpers (position-agnostic)
+// ---------------------------------------------------------------------------
+
 export function getDepthLabel(depth: number): string {
   switch (depth) {
-    case 1: return '1st';
-    case 2: return '2nd';
-    case 3: return '3rd';
-    case 4: return '4th';
-    default: return `${depth}th`;
+    case 1: return '1st'
+    case 2: return '2nd'
+    case 3: return '3rd'
+    case 4: return '4th'
+    default: return `${depth}th`
   }
 }
 
-/**
- * Get ordinal suffix (st, nd, rd, th)
- */
 export function getOrdinalSuffix(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return s[(v - 20) % 10] || s[v] || s[0];
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return s[(v - 20) % 10] || s[v] || s[0]
 }
 
-/**
- * Filter players by position
- * Optionally filter by depth order as well
- */
-export function filterPlayersByPosition(
-  players: PlayerRecord[],
-  position: string | string[],
-  depth?: number
-): PlayerRecord[] {
-  const positions = Array.isArray(position) ? position : [position];
-
-  return players.filter(player => {
-    const hasPosition = playerHasPosition(player, positions);
-    if (!hasPosition) return false;
-
-    if (depth !== undefined) {
-      // Check if player plays any of the positions at the specified depth
-      return positions.some(pos => getPositionDepth(player, pos) === depth);
-    }
-
-    return true;
-  });
-}
-
-/**
- * Filter players by position group
- */
-export function filterPlayersByGroup(
-  players: PlayerRecord[],
-  group: PositionGroup
-): PlayerRecord[] {
-  return players.filter(p => playerInPositionGroup(p, group));
-}
-
-/**
- * Get players at a specific depth for a position
- * Used for building depth charts
- */
-export function getPlayersAtDepth(
-  players: PlayerRecord[],
-  position: string,
-  depth: number
-): PlayerRecord[] {
-  return players.filter(player =>
-    getPositionDepth(player, position) === depth
-  );
-}
-
-/**
- * Sort players by depth order for a specific position
- */
-export function sortPlayersByDepthForPosition(
-  players: PlayerRecord[],
-  position: string
-): PlayerRecord[] {
-  return [...players]
-    .filter(p => playerHasPosition(p, position))
-    .sort((a, b) => {
-      const depthA = getPositionDepth(a, position) ?? 99;
-      const depthB = getPositionDepth(b, position) ?? 99;
-      return depthA - depthB;
-    });
-}
-
-/**
- * Get full player display name with jersey and positions
- */
+/** Display name with optional positions appended.
+ *  Categories must be passed because internally calls getPositionDisplay. */
 export function getPlayerDisplayName(
-  player: PlayerRecord,
+  player: Pick<PlayerRecord, 'jersey_number' | 'first_name' | 'last_name' | 'position_depths'> & { primary_position_category_id?: string | null },
   showPositions: boolean = true,
-  showDepth: boolean = false
+  showDepth: boolean = false,
+  categories: PositionCategoryRow[] = [],
 ): string {
-  const name = `#${player.jersey_number || '?'} ${player.first_name || ''} ${player.last_name || ''}`.trim();
-
-  if (!showPositions) {
-    return name;
-  }
-
-  const positions = getPositionDisplay(player, 2, showDepth);
-  return positions !== '-' ? `${name} (${positions})` : name;
+  const name = `#${player.jersey_number || '?'} ${player.first_name || ''} ${player.last_name || ''}`.trim()
+  if (!showPositions) return name
+  const positions = getPositionDisplay(player, 2, showDepth, categories)
+  return positions !== '-' ? `${name} (${positions})` : name
 }
 
-/**
- * Check convenience functions
- */
-export function playsOffense(player: PlayerRecord): boolean {
-  return playerInPositionGroup(player, 'offense');
+// ---------------------------------------------------------------------------
+// @deprecated — retained for the desktop legacy depth grid. Phase 2 Batch 5
+// retires the depth grid and removes these.
+// ---------------------------------------------------------------------------
+
+/** @deprecated Phase 2 Batch 5 — depth concept moves to player_scheme_assignments. */
+export function getPositionDepth(
+  player: Pick<PlayerRecord, 'position_depths'>,
+  position: string,
+): number | null {
+  return player.position_depths?.[position] ?? null
 }
 
-export function playsDefense(player: PlayerRecord): boolean {
-  return playerInPositionGroup(player, 'defense');
+/** @deprecated Phase 2 Batch 5 — depth concept moves to player_scheme_assignments. */
+export function getPlayersAtDepth<T extends Pick<PlayerRecord, 'position_depths'>>(
+  players: T[],
+  position: string,
+  depth: number,
+): T[] {
+  return players.filter((p) => p.position_depths?.[position] === depth)
 }
 
-export function playsSpecialTeams(player: PlayerRecord): boolean {
-  return playerInPositionGroup(player, 'special_teams');
-}
-
-/**
- * Normalize a roster position code to the canonical attribution code.
- * Roster coaches may use DT, OLB, WLB, ILB, CB, DB, WR, etc.
- * The playbook/attribution system uses DT1/DT2, SAM, WILL, LCB/RCB, etc.
- * This maps loosely-entered codes to canonical ones for consistent attribution.
- */
-const POSITION_NORMALIZATION: Record<string, string> = {
-  // Defensive line
-  DT: 'DT1',        // Generic DT → DT1 (can be refined per-player)
-  // Linebackers
-  OLB: 'SAM',       // Outside LB → SAM (can be refined)
-  WLB: 'WILL',
-  SLB: 'SAM',
-  ILB: 'MLB',
-  // Secondary
-  CB: 'LCB',        // Generic CB → LCB (can be refined)
-  DB: 'S',           // Generic DB → Safety
-  NB: 'S',           // Nickelback → Safety group
-  // Receivers (letter-based)
-  WR: 'X',           // Generic WR → X receiver
-  SE: 'X',           // Split end
-  FL: 'Z',           // Flanker
-  SL: 'X',           // Slot left
-  SR: 'Z',           // Slot right
-  // Backs
-  TB: 'RB',          // Tailback → RB
-  SB: 'RB',          // Slotback → RB
-  WB: 'RB',          // Wingback → RB
-}
-
-export function normalizePositionCode(position: string): string {
-  const upper = position.toUpperCase()
-  return POSITION_NORMALIZATION[upper] ?? upper
-}
-
-/**
- * Validate position_depths object
- */
+/** @deprecated Phase 2 Batch 5 — validation moves to scheme-aware UI. */
 export function validatePositionDepths(depths: PositionDepthMap): {
-  isValid: boolean;
-  errors: string[];
+  isValid: boolean
+  errors: string[]
 } {
-  const errors: string[] = [];
-
+  const errors: string[] = []
   if (!depths || typeof depths !== 'object') {
-    errors.push('Position depths must be an object');
-    return { isValid: false, errors };
+    errors.push('Position depths must be an object')
+    return { isValid: false, errors }
   }
-
-  const entries = Object.entries(depths);
-
+  const entries = Object.entries(depths)
   if (entries.length === 0) {
-    errors.push('Player must have at least one position');
+    errors.push('Player must have at least one position')
   }
-
   entries.forEach(([pos, depth]) => {
     if (typeof depth !== 'number' || depth < 1 || depth > 4) {
-      errors.push(`Depth for ${pos} must be between 1-4, got: ${depth}`);
+      errors.push(`Depth for ${pos} must be between 1-4, got: ${depth}`)
     }
-  });
-
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
+  })
+  return { isValid: errors.length === 0, errors }
 }
 
-/**
- * Validate that position/depth assignments don't conflict with existing players
- * @param depths Position depths for the player being saved
- * @param allPlayers All players in the roster
- * @param editingPlayerId ID of player being edited (null if adding new)
- */
+/** @deprecated Phase 2 Batch 5. */
 export function validateDepthChartConflicts(
   depths: PositionDepthMap,
   allPlayers: PlayerRecord[],
-  editingPlayerId: string | null
+  editingPlayerId: string | null,
 ): {
-  isValid: boolean;
-  conflicts: Array<{ position: string; depth: number; conflictingPlayer: PlayerRecord }>;
+  isValid: boolean
+  conflicts: Array<{ position: string; depth: number; conflictingPlayer: PlayerRecord }>
 } {
-  const conflicts: Array<{ position: string; depth: number; conflictingPlayer: PlayerRecord }> = [];
-
-  // Check each position/depth combination
+  const conflicts: Array<{ position: string; depth: number; conflictingPlayer: PlayerRecord }> = []
   Object.entries(depths).forEach(([position, depth]) => {
-    // Find any other player with this position at this depth
-    const conflictingPlayer = allPlayers.find(player => {
-      // Skip if this is the same player being edited
-      if (editingPlayerId && player.id === editingPlayerId) {
-        return false;
-      }
-
-      // Check if this player has the same position at the same depth
-      return getPositionDepth(player, position) === depth;
-    });
-
+    const conflictingPlayer = allPlayers.find((player) => {
+      if (editingPlayerId && player.id === editingPlayerId) return false
+      return player.position_depths?.[position] === depth
+    })
     if (conflictingPlayer) {
-      conflicts.push({
-        position,
-        depth,
-        conflictingPlayer
-      });
+      conflicts.push({ position, depth, conflictingPlayer })
     }
-  });
-
-  return {
-    isValid: conflicts.length === 0,
-    conflicts
-  };
+  })
+  return { isValid: conflicts.length === 0, conflicts }
 }
 
-/**
- * Create position depths from form selections
- */
+/** @deprecated Phase 2 Batch 5. */
 export function createPositionDepthsFromSelections(
-  selections: Array<{ position: string; depth: number }>
+  selections: Array<{ position: string; depth: number }>,
 ): PositionDepthMap {
-  const depths: PositionDepthMap = {};
-
+  const depths: PositionDepthMap = {}
   selections.forEach(({ position, depth }) => {
-    depths[position] = depth;
-  });
-
-  return depths;
+    depths[position] = depth
+  })
+  return depths
 }
 
-/**
- * Convert position_depths object to selection array for form editing
- */
+/** @deprecated Phase 2 Batch 5. */
 export function convertDepthMapToSelections(
-  depths: PositionDepthMap
+  depths: PositionDepthMap,
 ): Array<{ position: string; depth: number }> {
-  return Object.entries(depths || {}).map(([position, depth]) => ({
-    position,
-    depth
-  }));
+  return Object.entries(depths || {}).map(([position, depth]) => ({ position, depth }))
 }
