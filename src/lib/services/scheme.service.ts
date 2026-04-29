@@ -175,6 +175,41 @@ export async function getPlayerAssignments(
   })
 }
 
+/**
+ * Returns one row per (player, slot, depth) triple across all of the team's
+ * default schemes (offense + defense + special_teams). Used by sideline
+ * auto-populate to seed game_lineups in the exact shape it needs.
+ *
+ * Filters depth to 1-4 to match game_lineups.depth CHECK constraint
+ * (PSA allows 1-5; the 5th-team depth never makes it onto game day).
+ */
+export async function getTeamLineupTriples(
+  db: DB,
+  teamId: string,
+): Promise<Array<{ player_id: string; slot_code: string; depth: number }>> {
+  const { data, error } = await db
+    .from('player_scheme_assignments')
+    .select(`
+      player_id, depth,
+      scheme_positions!inner (
+        slot_code,
+        team_schemes!inner ( team_id, is_default )
+      )
+    `)
+    .eq('scheme_positions.team_schemes.team_id', teamId)
+    .eq('scheme_positions.team_schemes.is_default', true)
+    .lte('depth', 4)
+
+  if (error) throw new Error(`getTeamLineupTriples failed: ${error.message}`)
+
+  return (data ?? []).map((row) => {
+    const sp = (row as unknown as {
+      scheme_positions: { slot_code: string }
+    }).scheme_positions
+    return { player_id: row.player_id, slot_code: sp.slot_code, depth: row.depth }
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Write helpers
 // ---------------------------------------------------------------------------

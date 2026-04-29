@@ -6,6 +6,7 @@ import { useMobile } from '@/app/(mobile)/MobileContext'
 import { calculateBallPlacement, toAbsolute, toRelative } from '@/lib/football/fieldPosition'
 import { getSuggestions, getCachedSuggestions, setCachedSuggestions, type SituationalSuggestionMap, type GameStateForSuggestions, type LoggedPlayForSuggestions, type GamePlanPlayForSuggestions, type SuggestedPlay } from '@/lib/football/sidelineiq'
 import { DriveService } from '@/lib/services/drive.service'
+import { getTeamLineupTriples } from '@/lib/services/scheme.service'
 import { saveGameState, loadGameState, clearGameState } from '@/lib/utils/gameStatePersistence'
 import { pushToQueue, getPendingCount, clearQueue, isOnline, isPlaySynced, type PlayInsertEntry, type PlayUpdateEntry } from '@/lib/utils/playQueue'
 import { processQueue } from '@/lib/utils/syncEngine'
@@ -3748,37 +3749,17 @@ export default function SidelinePage() {
         if (cancelled) return
       }
 
-      // TODO: Phase 2 Batch 5 — auto-populate currently reads slot-level depth
-      // data from the legacy position_depths JSONB to seed game_lineups (which
-      // is slot-keyed: LT, MLB, etc.). Migrate to player_scheme_assignments
-      // once the scheme-aware depth chart UI is built. Until then,
-      // position_depths is the only slot-level source — column is nullable but
-      // present so this works.
-      // Step 3: Auto-populate from team depth chart
-      const activePlayers = players.length > 0
-        ? players
-        : await (async () => {
-            const { data: fetched } = await supabase
-              .from('players')
-              .select('id, position_depths')
-              .eq('team_id', teamId!)
-              .eq('is_active', true)
-            return (fetched ?? []) as { id: string; position_depths: Record<string, number> }[]
-          })()
+      // Step 3: Auto-populate from team depth chart (player_scheme_assignments)
+      const triples = await getTeamLineupTriples(supabase, teamId!)
+      if (cancelled || triples.length === 0) return
 
-      if (cancelled || activePlayers.length === 0) return
-
-      const rows: { game_id: string; team_id: string; player_id: string; position: string; depth: number }[] = []
-      for (const player of activePlayers) {
-        const depths = player.position_depths ?? {}
-        for (const [position, depth] of Object.entries(depths)) {
-          if (typeof depth === 'number' && depth >= 1 && depth <= 4) {
-            rows.push({ game_id: activeGameId!, team_id: teamId!, player_id: player.id, position, depth })
-          }
-        }
-      }
-
-      if (rows.length === 0) return
+      const rows = triples.map(t => ({
+        game_id: activeGameId!,
+        team_id: teamId!,
+        player_id: t.player_id,
+        position: t.slot_code,
+        depth: t.depth,
+      }))
 
       await supabase.from('game_lineups').insert(rows)
 
@@ -3795,7 +3776,7 @@ export default function SidelinePage() {
 
     loadOrCreateLineup()
     return () => { cancelled = true }
-  }, [activeGameId, teamId, lineupVersion, players])
+  }, [activeGameId, teamId, lineupVersion])
 
   // -------------------------------------------------------------------------
   // Offline sync triggers

@@ -3,14 +3,9 @@
  *
  * Shows offensive line statistics from player_participation table.
  * Requires Comprehensive tagging tier for OL block tracking.
- * Fetches data for all OL positions and displays block win rates.
- *
- * TODO: Phase 2 Batch 5 — this component reads dropped columns
- * (players.primary_position) and depends on slot-level position data
- * (LT/LG/C/RG/RT) that lives in player_scheme_assignments under the new
- * position architecture. Migration deferred until scheme-aware UI lands.
- * Until then, the .in('primary_position', [...]) query at L51 returns no
- * rows and the section renders empty.
+ * Resolves each OL player's primary slot (LT/LG/C/RG/RT) from
+ * player_scheme_assignments against the team's default offense scheme.
+ * Lowest depth wins; ties broken by slot order (LT < LG < C < RG < RT).
  */
 
 'use client';
@@ -19,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TierUpgradeMessage, TierRequirementBadge } from '@/components/TierUpgradeMessage';
+import { getDefaultScheme } from '@/lib/services/scheme.service';
 import type { TaggingTier } from '@/types/football';
 
 interface OLPlayerStats {
@@ -50,21 +46,57 @@ export default function OLPerformanceSection({ teamId, gameId, currentTier }: OL
       setLoading(true);
 
       try {
-        // First, get OL players from the roster
-        const { data: olPlayers, error: playersError } = await supabase
-          .from('players')
-          .select('id, first_name, last_name, jersey_number, primary_position')
-          .eq('team_id', teamId)
-          .in('primary_position', ['LT', 'LG', 'C', 'RG', 'RT']);
+        const offenseScheme = await getDefaultScheme(supabase, teamId, 'offense');
+        if (!offenseScheme) { setStats([]); setLoading(false); return; }
 
-        if (playersError || !olPlayers || olPlayers.length === 0) {
-          setStats([]);
-          setLoading(false);
-          return;
+        const SLOT_ORDER: Record<string, number> = { LT: 0, LG: 1, C: 2, RG: 3, RT: 4 };
+
+        const olSlotIds = offenseScheme.scheme_positions
+          .filter(p => p.slot_code in SLOT_ORDER)
+          .map(p => p.id);
+
+        if (olSlotIds.length === 0) { setStats([]); setLoading(false); return; }
+
+        // Fetch all OL slot assignments for the team
+        const { data: assignments } = await supabase
+          .from('player_scheme_assignments')
+          .select(`
+            player_id, depth,
+            scheme_positions!inner (slot_code),
+            players!inner (id, first_name, last_name, jersey_number)
+          `)
+          .in('scheme_position_id', olSlotIds);
+
+        if (!assignments || assignments.length === 0) { setStats([]); setLoading(false); return; }
+
+        // Resolve each player's primary slot — lowest depth wins, ties by slot order
+        type Candidate = { slot: string; depth: number; jersey: string; name: string };
+        const candidatesByPlayer = new Map<string, Candidate[]>();
+        for (const a of assignments) {
+          const sp = (a as unknown as { scheme_positions: { slot_code: string } }).scheme_positions;
+          const player = (a as unknown as {
+            players: { id: string; first_name: string; last_name: string; jersey_number: string }
+          }).players;
+          const list = candidatesByPlayer.get(player.id) ?? [];
+          list.push({
+            slot: sp.slot_code,
+            depth: a.depth,
+            jersey: player.jersey_number || '',
+            name: `${player.first_name} ${player.last_name}`,
+          });
+          candidatesByPlayer.set(player.id, list);
         }
 
-        // Get participation records for these players
-        const playerIds = olPlayers.map(p => p.id);
+        const primarySlotByPlayer = new Map<string, { slot: string; jersey: string; name: string }>();
+        for (const [playerId, candidates] of candidatesByPlayer) {
+          candidates.sort((a, b) => a.depth - b.depth || SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]);
+          const winner = candidates[0];
+          primarySlotByPlayer.set(playerId, { slot: winner.slot, jersey: winner.jersey, name: winner.name });
+        }
+
+        const playerIds = Array.from(primarySlotByPlayer.keys());
+
+        // Fetch participation records for these players
         const { data: participations, error: partError } = await supabase
           .from('player_participation')
           .select('player_id, participation_type, result, play_instance_id')
@@ -95,64 +127,43 @@ export default function OLPerformanceSection({ teamId, gameId, currentTier }: OL
           validPlayIds = new Set(plays?.map(p => p.id) || []);
         }
 
-        // Create a map of player info
-        const playerInfoMap = new Map(olPlayers.map(p => [p.id, p]));
-
-        // Group by player and calculate stats
+        // Aggregate stats per player
         const playerStatsMap = new Map<string, OLPlayerStats>();
 
-        participations.forEach((record: any) => {
-          // Filter by game if needed
+        participations.forEach((record: { player_id: string; result: string | null; play_instance_id: string }) => {
           if (validPlayIds && !validPlayIds.has(record.play_instance_id)) return;
+          const info = primarySlotByPlayer.get(record.player_id);
+          if (!info) return;
 
-          const playerId = record.player_id;
-          const playerInfo = playerInfoMap.get(playerId);
-          if (!playerInfo) return;
+          const position = info.slot as 'LT' | 'LG' | 'C' | 'RG' | 'RT';
 
-          const playerName = `${playerInfo.first_name} ${playerInfo.last_name}`;
-          const jerseyNumber = playerInfo.jersey_number || '';
-          const blockResult = record.result;
-
-          // Use player's primary position
-          const position = playerInfo.primary_position as 'LT' | 'LG' | 'C' | 'RG' | 'RT';
-          if (!position) return;
-
-          // Get or create player stats
-          let playerStats = playerStatsMap.get(playerId);
-          if (!playerStats) {
-            playerStats = {
-              playerId,
-              playerName,
-              jerseyNumber,
+          let stats = playerStatsMap.get(record.player_id);
+          if (!stats) {
+            stats = {
+              playerId: record.player_id,
+              playerName: info.name,
+              jerseyNumber: info.jersey,
               position,
               totalAssignments: 0,
               blockWins: 0,
               blockLosses: 0,
-              blockWinRate: 0
+              blockWinRate: 0,
             };
-            playerStatsMap.set(playerId, playerStats);
+            playerStatsMap.set(record.player_id, stats);
           }
-
-          // Count assignments and results
-          playerStats.totalAssignments++;
-          if (blockResult === 'win') {
-            playerStats.blockWins++;
-          } else if (blockResult === 'loss') {
-            playerStats.blockLosses++;
-          }
+          stats.totalAssignments++;
+          if (record.result === 'win') stats.blockWins++;
+          else if (record.result === 'loss') stats.blockLosses++;
         });
 
-        // Calculate block win rates
+        // Calculate block win rates and sort by slot order
         const playerStatsArray: OLPlayerStats[] = Array.from(playerStatsMap.values()).map(stats => ({
           ...stats,
           blockWinRate: stats.totalAssignments > 0
             ? (stats.blockWins / stats.totalAssignments) * 100
-            : 0
+            : 0,
         }));
-
-        // Sort by position order: LT, LG, C, RG, RT
-        const positionOrder = { 'LT': 0, 'LG': 1, 'C': 2, 'RG': 3, 'RT': 4 };
-        playerStatsArray.sort((a, b) => positionOrder[a.position] - positionOrder[b.position]);
+        playerStatsArray.sort((a, b) => SLOT_ORDER[a.position] - SLOT_ORDER[b.position]);
 
         setStats(playerStatsArray);
       } catch (error) {
@@ -163,7 +174,7 @@ export default function OLPerformanceSection({ teamId, gameId, currentTier }: OL
     }
 
     fetchOLStats();
-  }, [teamId, gameId]);
+  }, [teamId, gameId, supabase]);
 
   if (loading) {
     return (

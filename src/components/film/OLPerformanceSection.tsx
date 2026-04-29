@@ -15,9 +15,11 @@ const BLOCK_RESULTS = [
 ];
 
 export function OLPerformanceSection({ register, players }: OLPerformanceSectionProps) {
-  // TODO: Phase 2 Batch 5 — migrate slot-level filtering (LT/LG/C/RG/RT) to
-  // player_scheme_assignments once scheme-aware UI lands. Filters below still
-  // read the legacy position_depths JSONB; the column is nullable but present.
+  // All 8 OL selectors filter by category code. Slot-level filtering would
+  // require depth-chart context, but the depth chart reflects intended
+  // assignments — coaches need to tag whoever actually played each slot on
+  // a given play. Filtering by OL category lets them pick freely.
+  const olPlayers = players.filter(p => p.primary_position_category_code === 'OL')
   return (
     <CollapsibleSection
       title="Offensive Line Performance"
@@ -41,9 +43,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['LT', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -76,9 +76,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['LG', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -111,9 +109,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['C', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -146,9 +142,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['RG', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -181,9 +175,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['RT', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -216,9 +208,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['LT', 'LG', 'C', 'RG', 'RT', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -234,9 +224,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['LT', 'LG', 'C', 'RG', 'RT', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
@@ -252,9 +240,7 @@ export function OLPerformanceSection({ register, players }: OLPerformanceSection
                 className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-gray-900"
               >
                 <option value="">-</option>
-                {players
-                  .filter(p => p.position_depths && ['LT', 'LG', 'C', 'RG', 'RT', 'OL'].some(pos => pos in p.position_depths))
-                  .map(player => (
+                {olPlayers.map(player => (
                     <option key={player.id} value={player.id}>
                       #{player.jersey_number} {player.first_name} {player.last_name}
                     </option>
