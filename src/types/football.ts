@@ -345,12 +345,11 @@ export interface PlayerRecord {
   last_name: string;
 
   /**
-   * Position-to-depth mapping
-   * Example: { "QB": 1, "RB": 2, "S": 3 }
-   * - Key: Position code (QB, RB, WR, etc.)
-   * - Value: Depth order (1=1st team, 2=2nd team, 3=3rd team, 4=4th team)
+   * Position-to-depth mapping (LEGACY — being retired in Phase 2 final cleanup).
+   * Optional because new code paths no longer write it; the depth chart UI
+   * uses player_scheme_assignments instead.
    */
-  position_depths: PositionDepthMap;
+  position_depths?: PositionDepthMap;
 
   primary_position_category_id?: string | null;
   primary_position_category_code?: string | null;
@@ -373,10 +372,10 @@ export interface PlayerFormData {
   jersey_number: string;
   first_name: string;
   last_name: string;
-  position_depths: PositionDepthMap;
+  primary_category_code: string;
   grade_level?: string;
-  weight?: number;
-  height?: number;
+  weight?: string;
+  height?: string;
   notes?: string;
 }
 

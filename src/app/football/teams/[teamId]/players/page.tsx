@@ -4,15 +4,9 @@
 import { useEffect, useState, use, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import type { PlayerRecord, Team, PositionDepthMap } from '@/types/football';
+import type { PlayerRecord, Team, PlayerFormData } from '@/types/football';
 import TeamNavigation from '@/components/TeamNavigation';
-import {
-  validatePositionDepths,
-  validateDepthChartConflicts,
-  createPositionDepthsFromSelections,
-  convertDepthMapToSelections,
-  getDepthLabel
-} from '@/utils/playerHelpers';
+import { getDepthLabel } from '@/utils/playerHelpers';
 import { POSITION_CATEGORIES } from '@/config/footballPositions';
 import {
   ensureDefaultSchemes,
@@ -32,46 +26,6 @@ interface Game {
 
 type ViewMode = 'roster' | 'depth-chart';
 type DepthChartUnit = 'offense' | 'defense' | 'special_teams';
-
-const OFFENSIVE_POSITIONS = {
-  'QB': 'Quarterback',
-  'RB': 'Running Back',
-  'FB': 'Fullback',
-  'X': 'Split End (X)',
-  'Y': 'Slot/TE (Y)',
-  'Z': 'Flanker (Z)',
-  'TE': 'Tight End',
-  'LT': 'Left Tackle',
-  'LG': 'Left Guard',
-  'C': 'Center',
-  'RG': 'Right Guard',
-  'RT': 'Right Tackle'
-};
-
-const DEFENSIVE_POSITIONS = {
-  'DE': 'Defensive End',
-  'DT1': 'Defensive Tackle 1',
-  'DT2': 'Defensive Tackle 2',
-  'NT': 'Nose Tackle',
-  'LB': 'Linebacker',
-  'MLB': 'Middle Linebacker',
-  'SAM': 'Strong Side LB (SAM)',
-  'WILL': 'Weak Side LB (WILL)',
-  'LCB': 'Left Cornerback',
-  'RCB': 'Right Cornerback',
-  'S': 'Safety',
-  'FS': 'Free Safety',
-  'SS': 'Strong Safety'
-};
-
-const SPECIAL_TEAMS_POSITIONS = {
-  'K': 'Kicker',
-  'P': 'Punter',
-  'LS': 'Long Snapper',
-  'H': 'Holder',
-  'KR': 'Kick Returner',
-  'PR': 'Punt Returner'
-};
 
 const GRADE_LEVELS = [
   '6th Grade', '7th Grade', '8th Grade',
@@ -207,49 +161,20 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
     setSlotAssignmentsByScheme(prev => ({ ...prev, [schemeId]: assignments }));
   }
 
-  const handleSubmit = async (position_depths: PositionDepthMap, otherData: any) => {
-    // Validate position_depths structure
-    const validation = validatePositionDepths(position_depths);
-    if (!validation.isValid) {
-      alert(validation.errors.join('\n'));
-      return;
-    }
-
-    // Check for depth chart conflicts with other players
-    const conflictCheck = validateDepthChartConflicts(
-      position_depths,
-      players,
-      editingPlayer?.id || null
-    );
-
-    if (!conflictCheck.isValid) {
-      const conflictMessages = conflictCheck.conflicts.map(conflict => {
-        const depthLabel = getDepthLabel(conflict.depth);
-        return `${conflict.position} (${depthLabel}) is already assigned to #${conflict.conflictingPlayer.jersey_number} ${conflict.conflictingPlayer.first_name} ${conflict.conflictingPlayer.last_name}`;
-      });
-
-      alert(
-        'Depth chart conflicts detected:\n\n' +
-        conflictMessages.join('\n') +
-        '\n\nEach position can only have one player at each depth level (1st, 2nd, 3rd, 4th string).'
-      );
-      return;
-    }
-
-    const primaryCategoryId = otherData.primary_category_code
-      ? categoryByCode.get(otherData.primary_category_code) ?? null
+  const handleSubmit = async (data: PlayerFormData) => {
+    const primaryCategoryId = data.primary_category_code
+      ? categoryByCode.get(data.primary_category_code) ?? null
       : null;
 
     const playerData: Partial<PlayerRecord> & { primary_position_category_id?: string | null } = {
-      jersey_number: otherData.jersey_number,
-      first_name: otherData.first_name,
-      last_name: otherData.last_name,
-      position_depths: position_depths,
+      jersey_number: data.jersey_number,
+      first_name: data.first_name,
+      last_name: data.last_name,
       primary_position_category_id: primaryCategoryId,
-      grade_level: otherData.grade_level || undefined,
-      weight: otherData.weight ? parseInt(otherData.weight) : undefined,
-      height: otherData.height ? parseInt(otherData.height) : undefined,
-      notes: otherData.notes || undefined
+      grade_level: data.grade_level || undefined,
+      weight: data.weight ? parseInt(data.weight) : undefined,
+      height: data.height ? parseInt(data.height) : undefined,
+      notes: data.notes || undefined,
     };
 
     try {
@@ -258,17 +183,11 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
           .from('players')
           .update(playerData)
           .eq('id', editingPlayer.id);
-
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('players')
-          .insert([{
-            ...playerData,
-            team_id: teamId,
-            is_active: true
-          }]);
-
+          .insert([{ ...playerData, team_id: teamId, is_active: true }]);
         if (error) throw error;
       }
 
@@ -276,13 +195,9 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
       setEditingPlayer(null);
       await fetchData();
     } catch (error: any) {
-      // Check for duplicate jersey number
       if (error.message?.includes('idx_players_team_jersey_unique') ||
           error.message?.includes('duplicate key')) {
-        alert(
-          `Jersey number ${otherData.jersey_number} is already taken.\n\n` +
-          'Please choose a different jersey number.'
-        );
+        alert(`Jersey number ${data.jersey_number} is already taken.\n\nPlease choose a different jersey number.`);
       } else {
         alert('Error saving player: ' + error.message);
       }
@@ -957,71 +872,30 @@ function DepthChartView({
 function PlayerModal({
   player,
   onClose,
-  onSubmit
+  onSubmit,
 }: {
   player: PlayerRecord | null;
   onClose: () => void;
-  onSubmit: (position_depths: PositionDepthMap, otherData: any) => void;
+  onSubmit: (data: PlayerFormData) => void;
 }) {
-  // Convert player's position_depths to selections array for state
-  const initialSelections = player ? convertDepthMapToSelections(player.position_depths) : [];
-
-  // State for position-depth selections
-  const [selections, setSelections] = useState<Array<{ position: string; depth: number }>>(initialSelections);
-
-  // Toggle position on/off
-  const handlePositionToggle = (position: string, checked: boolean) => {
-    if (checked) {
-      // Add position with default depth of 1
-      setSelections([...selections, { position, depth: 1 }]);
-    } else {
-      // Remove position
-      setSelections(selections.filter(s => s.position !== position));
-    }
-  };
-
-  // Change depth for a position
-  const handleDepthChange = (position: string, newDepth: number) => {
-    setSelections(selections.map(s =>
-      s.position === position ? { ...s, depth: newDepth } : s
-    ));
-  };
-
-  // Check if position is selected
-  const isPositionSelected = (position: string) => {
-    return selections.some(s => s.position === position);
-  };
-
-  // Get depth for a position
-  const getSelectedDepth = (position: string) => {
-    return selections.find(s => s.position === position)?.depth || 1;
-  };
-
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-
-    // Build position_depths from selections
-    const position_depths = createPositionDepthsFromSelections(selections);
-
-    // Gather other form data
-    const otherData = {
+    onSubmit({
       jersey_number: formData.get('jersey_number') as string,
       first_name: formData.get('first_name') as string,
       last_name: formData.get('last_name') as string,
       primary_category_code: formData.get('primary_category_code') as string,
-      grade_level: formData.get('grade_level') as string,
-      weight: formData.get('weight') as string,
-      height: formData.get('height') as string,
-      notes: formData.get('notes') as string
-    };
-
-    onSubmit(position_depths, otherData);
+      grade_level: (formData.get('grade_level') as string) || undefined,
+      weight: (formData.get('weight') as string) || undefined,
+      height: (formData.get('height') as string) || undefined,
+      notes: (formData.get('notes') as string) || undefined,
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <h3 className="text-2xl font-semibold text-gray-900 mb-6">
           {player ? 'Edit Player' : 'Add Player'}
         </h3>
@@ -1030,9 +904,7 @@ function PlayerModal({
           {/* Basic Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Jersey #
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Jersey #</label>
               <input
                 name="jersey_number"
                 type="text"
@@ -1043,9 +915,7 @@ function PlayerModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                First Name *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
               <input
                 name="first_name"
                 type="text"
@@ -1056,9 +926,7 @@ function PlayerModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Last Name *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
               <input
                 name="last_name"
                 type="text"
@@ -1071,9 +939,7 @@ function PlayerModal({
 
           {/* Primary Position Category — drives stats and reports */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Primary Position *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Primary Position *</label>
             <select
               name="primary_category_code"
               defaultValue={
@@ -1095,124 +961,10 @@ function PlayerModal({
             </p>
           </div>
 
-          {/* Positions with Per-Position Depth */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Positions & Depth <span className="text-xs text-gray-500">(legacy depth chart — Phase 2 replaces this)</span>
-            </label>
-
-            {/* Offensive Positions */}
-            <div className="mb-4">
-              <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Offense</div>
-              <div className="space-y-2">
-                {Object.entries(OFFENSIVE_POSITIONS).map(([code, name]) => (
-                  <div key={code} className="flex items-center space-x-3">
-                    <label className="flex items-center space-x-2 cursor-pointer min-w-[120px]">
-                      <input
-                        type="checkbox"
-                        checked={isPositionSelected(code)}
-                        onChange={(e) => handlePositionToggle(code, e.target.checked)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                      />
-                      <span className="text-sm text-gray-700 font-medium">{code}</span>
-                      <span className="text-xs text-gray-500">({name})</span>
-                    </label>
-                    {isPositionSelected(code) && (
-                      <select
-                        value={getSelectedDepth(code)}
-                        onChange={(e) => handleDepthChange(code, parseInt(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm"
-                      >
-                        <option value="1">1st String</option>
-                        <option value="2">2nd String</option>
-                        <option value="3">3rd String</option>
-                        <option value="4">4th String</option>
-                      </select>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Defensive Positions */}
-            <div className="mb-4">
-              <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Defense</div>
-              <div className="space-y-2">
-                {Object.entries(DEFENSIVE_POSITIONS).map(([code, name]) => (
-                  <div key={code} className="flex items-center space-x-3">
-                    <label className="flex items-center space-x-2 cursor-pointer min-w-[120px]">
-                      <input
-                        type="checkbox"
-                        checked={isPositionSelected(code)}
-                        onChange={(e) => handlePositionToggle(code, e.target.checked)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                      />
-                      <span className="text-sm text-gray-700 font-medium">{code}</span>
-                      <span className="text-xs text-gray-500">({name})</span>
-                    </label>
-                    {isPositionSelected(code) && (
-                      <select
-                        value={getSelectedDepth(code)}
-                        onChange={(e) => handleDepthChange(code, parseInt(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm"
-                      >
-                        <option value="1">1st String</option>
-                        <option value="2">2nd String</option>
-                        <option value="3">3rd String</option>
-                        <option value="4">4th String</option>
-                      </select>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Special Teams Positions */}
-            <div className="mb-4">
-              <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Special Teams</div>
-              <div className="space-y-2">
-                {Object.entries(SPECIAL_TEAMS_POSITIONS).map(([code, name]) => (
-                  <div key={code} className="flex items-center space-x-3">
-                    <label className="flex items-center space-x-2 cursor-pointer min-w-[120px]">
-                      <input
-                        type="checkbox"
-                        checked={isPositionSelected(code)}
-                        onChange={(e) => handlePositionToggle(code, e.target.checked)}
-                        className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900"
-                      />
-                      <span className="text-sm text-gray-700 font-medium">{code}</span>
-                      <span className="text-xs text-gray-500">({name})</span>
-                    </label>
-                    {isPositionSelected(code) && (
-                      <select
-                        value={getSelectedDepth(code)}
-                        onChange={(e) => handleDepthChange(code, parseInt(e.target.value))}
-                        className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm"
-                      >
-                        <option value="1">1st String</option>
-                        <option value="2">2nd String</option>
-                        <option value="3">3rd String</option>
-                        <option value="4">4th String</option>
-                      </select>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {selections.length === 0 && (
-              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                ⚠️ Please select at least one position
-              </div>
-            )}
-          </div>
-
           {/* Additional Info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Grade Level
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Grade Level</label>
               <select
                 name="grade_level"
                 defaultValue={player?.grade_level || ''}
@@ -1226,9 +978,7 @@ function PlayerModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Weight (lbs)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Weight (lbs)</label>
               <input
                 name="weight"
                 type="number"
@@ -1239,9 +989,7 @@ function PlayerModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Height (in)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Height (in)</label>
               <input
                 name="height"
                 type="number"
@@ -1254,9 +1002,7 @@ function PlayerModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
             <textarea
               name="notes"
               rows={3}
