@@ -9,6 +9,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import {
+  SCHEME_TEMPLATES,
+  defaultSchemeKey,
+  ageGroupFromLevel,
+  type SchemeUnit,
+} from '@/config/footballPositions';
 
 // Tier priority for determining effective tier (highest wins)
 const TIER_PRIORITY: Record<string, number> = {
@@ -161,6 +167,82 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create team: ' + insertError.message },
         { status: 500 }
       );
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Auto-create default schemes (offense, defense, special teams)
+    //    Best-effort: failures here are logged but don't block team creation.
+    //    A coach can recreate defaults later from the schemes UI.
+    // -------------------------------------------------------------------------
+
+    try {
+      const ageGroup = ageGroupFromLevel(team.level);
+
+      // Fetch the 12 position categories once so we can map slot.category → UUID
+      const { data: categories } = await supabase
+        .from('position_categories')
+        .select('id, code')
+        .eq('sport', 'football');
+
+      const categoryByCode = new Map(
+        (categories ?? []).map((c) => [c.code as string, c.id as string]),
+      );
+
+      const units: SchemeUnit[] = ['offense', 'defense', 'special_teams'];
+      for (const unit of units) {
+        const templateKey = defaultSchemeKey(unit, ageGroup);
+        const template = SCHEME_TEMPLATES.find((t) => t.key === templateKey);
+        if (!template) continue;
+
+        const { data: scheme, error: schemeErr } = await supabase
+          .from('team_schemes')
+          .insert({
+            team_id: team.id,
+            sport: 'football',
+            template_key: template.key,
+            name: template.name,
+            unit,
+            is_default: true,
+            is_active: true,
+            sort_order: 0,
+          })
+          .select('id')
+          .single();
+
+        if (schemeErr || !scheme) {
+          console.error(`[teams/create] Default ${unit} scheme failed:`, schemeErr);
+          continue;
+        }
+
+        const slotRows = template.slots
+          .map((slot, idx) => {
+            const categoryId = categoryByCode.get(slot.category);
+            if (!categoryId) return null;
+            return {
+              scheme_id: scheme.id,
+              position_category_id: categoryId,
+              slot_code: slot.slotCode,
+              display_label: slot.label,
+              diagram_x: slot.diagramX ?? null,
+              diagram_y: slot.diagramY ?? null,
+              sort_order: idx,
+              is_optional: slot.optional ?? false,
+            };
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (slotRows.length > 0) {
+          const { error: posErr } = await supabase
+            .from('scheme_positions')
+            .insert(slotRows);
+          if (posErr) {
+            console.error(`[teams/create] Default ${unit} positions failed:`, posErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[teams/create] Default scheme creation failed:', err);
+      // Non-blocking — team is created, schemes can be added later
     }
 
     return NextResponse.json({ team }, { status: 201 });

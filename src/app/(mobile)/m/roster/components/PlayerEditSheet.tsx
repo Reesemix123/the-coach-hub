@@ -1,26 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+// Phase 1 of the position architecture redesign.
+// The chip-based depth grid is removed. Coaches now pick a single primary
+// position CATEGORY (12 options) when creating/editing a player. Depth
+// assignments move to the scheme-aware depth chart in Phase 2.
+
+import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { MobilePlayer } from '@/app/(mobile)/MobileContext'
-import { POSITION_OPTIONS, getDepthLabel } from '../constants/positions'
+import { POSITION_CATEGORIES } from '@/config/footballPositions'
 
 interface PlayerEditSheetProps {
   player: MobilePlayer | null
-  preSelectedPosition?: string
-  highlightPosition?: string
+  preSelectedPosition?: string  // accepted but ignored — Phase 1 doesn't pre-fill from a depth slot
+  highlightPosition?: string    // accepted but ignored
   teamId: string
-  allPlayers: MobilePlayer[]
+  allPlayers: MobilePlayer[]    // accepted but unused — Phase 1 has no depth conflicts
   onClose: () => void
   onSaved: () => void
 }
 
+interface PositionCategoryRow {
+  id: string
+  code: string
+}
+
 export default function PlayerEditSheet({
   player,
-  preSelectedPosition,
-  highlightPosition,
   teamId,
-  allPlayers,
   onClose,
   onSaved,
 }: PlayerEditSheetProps) {
@@ -30,118 +37,50 @@ export default function PlayerEditSheet({
   const [jersey, setJersey] = useState(player?.jersey_number ?? '')
   const [gradeLevel, setGradeLevel] = useState(player?.grade_level ?? '')
 
-  // Position chip grid state
-  const [positions, setPositions] = useState<Record<string, number>>(
-    player?.position_depths ?? (preSelectedPosition ? { [preSelectedPosition]: 1 } : {})
-  )
-  const [activeChip, setActiveChip] = useState<string | null>(null)
-  const [conflict, setConflict] = useState<{
-    position: string
-    depth: number
-    otherPlayer: MobilePlayer
-  } | null>(null)
-  const [pendingSwap, setPendingSwap] = useState<{
-    playerId: string
-    position: string
-    oldDepth: number
-    newDepth: number
-  } | null>(null)
+  // Primary position category — the only position field collected in Phase 1
+  const [categoryRows, setCategoryRows] = useState<PositionCategoryRow[]>([])
+  const [primaryCategoryId, setPrimaryCategoryId] = useState<string>('')
 
   const [saving, setSaving] = useState(false)
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
 
-  /** Returns the next depth slot not occupied by another player at this position. */
-  function getNextAvailableDepth(pos: string): number {
-    const taken = new Set<number>()
-    // Current player's depth at this position (if any)
-    if (positions[pos]) taken.add(positions[pos])
-    // Other players' depths
-    for (const p of allPlayers) {
-      if (p.id === player?.id) continue
-      if (p.position_depths[pos] !== undefined) taken.add(p.position_depths[pos])
-    }
-    for (let d = 1; d <= 4; d++) {
-      if (!taken.has(d)) return d
-    }
-    return 1 // fallback
-  }
-
-  /** Adds a position chip at the next available depth. */
-  function handleAddPosition(pos: string) {
-    const depth = getNextAvailableDepth(pos)
-    setPositions(prev => ({ ...prev, [pos]: depth }))
-    setActiveChip(pos)
-    setConflict(null)
-  }
-
-  /** Changes depth for an active position chip; detects and surfaces conflicts. */
-  function handleDepthChange(pos: string, newDepth: number) {
-    const other = allPlayers.find(p =>
-      p.id !== player?.id && p.position_depths[pos] === newDepth
-    )
-    if (other) {
-      setConflict({ position: pos, depth: newDepth, otherPlayer: other })
-      setPendingSwap({
-        playerId: other.id,
-        position: pos,
-        oldDepth: newDepth,
-        newDepth: positions[pos],
+  // Load category UUIDs on mount, then set the player's existing primary category if editing.
+  useEffect(() => {
+    let cancelled = false
+    const supabase = createClient()
+    supabase
+      .from('position_categories')
+      .select('id, code')
+      .eq('sport', 'football')
+      .order('sort_order', { ascending: true })
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setCategoryRows(data as PositionCategoryRow[])
       })
-      return
+    return () => {
+      cancelled = true
     }
-    setPositions(prev => ({ ...prev, [pos]: newDepth }))
-    setConflict(null)
-    setPendingSwap(null)
-  }
+  }, [])
 
-  /** Confirms the depth swap with the conflicting player. */
-  function handleSwap() {
-    if (!conflict || !pendingSwap) return
-    setPositions(prev => ({ ...prev, [conflict.position]: conflict.depth }))
-    setConflict(null)
-    // pendingSwap is intentionally left set — applied at save time
-  }
+  // When editing, hydrate the dropdown from the player's existing category id (if any)
+  useEffect(() => {
+    if (!isEdit || !player) return
+    const existing = (player as unknown as { primary_position_category_id?: string | null })
+      .primary_position_category_id
+    if (existing) setPrimaryCategoryId(existing)
+  }, [isEdit, player])
 
-  /** Removes a position from this player's chip grid. */
-  function handleRemovePosition(pos: string) {
-    setPositions(prev => {
-      const next = { ...prev }
-      delete next[pos]
-      return next
-    })
-    setActiveChip(null)
-    setConflict(null)
-    setPendingSwap(null)
-  }
-
-  /** Persists player data; applies pending swap to the other player first if needed. */
   async function handleSave() {
-    if (!firstName.trim() || !lastName.trim() || !jersey.trim()) return
-    if (Object.keys(positions).length === 0) return
+    if (!firstName.trim() || !lastName.trim() || !jersey.trim() || !primaryCategoryId) return
     setSaving(true)
     const supabase = createClient()
-
-    // Apply swap to the other player before saving this player
-    if (pendingSwap) {
-      const otherPlayer = allPlayers.find(p => p.id === pendingSwap.playerId)
-      if (otherPlayer) {
-        const otherNewDepths = {
-          ...otherPlayer.position_depths,
-          [pendingSwap.position]: pendingSwap.newDepth,
-        }
-        await supabase
-          .from('players')
-          .update({ position_depths: otherNewDepths })
-          .eq('id', pendingSwap.playerId)
-      }
-    }
 
     if (isEdit && player) {
       await supabase.from('players').update({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         jersey_number: jersey.trim(),
-        position_depths: positions,
+        primary_position_category_id: primaryCategoryId,
         grade_level: gradeLevel || null,
       }).eq('id', player.id)
     } else {
@@ -150,7 +89,7 @@ export default function PlayerEditSheet({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         jersey_number: jersey.trim(),
-        position_depths: positions,
+        primary_position_category_id: primaryCategoryId,
         is_active: true,
         grade_level: gradeLevel || null,
       })
@@ -221,100 +160,29 @@ export default function PlayerEditSheet({
             />
           </div>
 
-          {/* Position Chip Grid */}
-          {/* // TODO: MULTI-SPORT — other sports have different position sets */}
+          {/* Primary position category */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">
-              Positions
+            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">
+              Primary Position
             </label>
-            {POSITION_OPTIONS.map(({ group, positions: posCodes }) => (
-              <div key={group} className="mb-3">
-                <p className="text-[10px] font-bold text-[var(--text-section-header)] uppercase tracking-wider mb-1.5">{group}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {posCodes.map(pos => {
-                    const isActive = positions[pos] !== undefined
-                    const depth = positions[pos]
-                    const isHighlighted = pos === highlightPosition
-                    return (
-                      <button
-                        key={pos}
-                        type="button"
-                        onClick={() =>
-                          isActive
-                            ? setActiveChip(activeChip === pos ? null : pos)
-                            : handleAddPosition(pos)
-                        }
-                        className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
-                          isActive
-                            ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                            : 'bg-[var(--bg-card-alt)] text-[var(--text-secondary)] active:bg-[var(--bg-pill-inactive)]'
-                        } ${isHighlighted ? 'ring-2 ring-gray-900' : ''}`}
-                      >
-                        {pos}{isActive ? ` ${getDepthLabel(depth)}` : ''}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Inline controls for active chip in this group */}
-                {activeChip && posCodes.includes(activeChip) && positions[activeChip] !== undefined && (
-                  <div className="mt-2 bg-[var(--bg-card-alt)] rounded-lg p-2.5 flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-[var(--text-secondary)]">Depth:</span>
-                    {[1, 2, 3, 4].map(d => (
-                      <button
-                        key={d}
-                        type="button"
-                        onClick={() => handleDepthChange(activeChip, d)}
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold min-w-[40px] transition-colors ${
-                          positions[activeChip] === d
-                            ? 'bg-[#B8CA6E] text-[#1c1c1e]'
-                            : 'bg-[var(--bg-card)] border border-[var(--border-primary)] text-[var(--text-secondary)] active:bg-[var(--bg-card-alt)]'
-                        }`}
-                      >
-                        {getDepthLabel(d)}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePosition(activeChip)}
-                      className="text-xs text-red-500 font-medium ml-auto active:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-
-                {/* Conflict warning */}
-                {conflict && posCodes.includes(conflict.position) && (
-                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                    <p className="text-xs text-amber-800">
-                      #{conflict.otherPlayer.jersey_number} {conflict.otherPlayer.first_name}{' '}
-                      {conflict.otherPlayer.last_name} is {conflict.position}{' '}
-                      {getDepthLabel(conflict.depth)}. Swap?
-                    </p>
-                    <div className="flex gap-2 mt-1.5">
-                      <button
-                        type="button"
-                        onClick={handleSwap}
-                        className="bg-amber-600 text-white rounded-lg px-3 py-1 text-xs font-semibold"
-                      >
-                        Swap
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setConflict(null); setPendingSwap(null) }}
-                        className="bg-[var(--bg-card)] border border-[var(--border-primary)] text-[var(--text-secondary)] rounded-lg px-3 py-1 text-xs font-semibold"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {Object.keys(positions).length === 0 && (
-              <p className="text-xs text-red-500 mt-1">Select at least one position</p>
+            <select
+              value={primaryCategoryId}
+              onChange={e => setPrimaryCategoryId(e.target.value)}
+              className="w-full mt-1 px-3 py-2.5 border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-[var(--bg-card)]"
+            >
+              <option value="">Select position...</option>
+              {POSITION_CATEGORIES.map(cat => {
+                const row = categoryRows.find(r => r.code === cat.code)
+                if (!row) return null
+                return (
+                  <option key={row.id} value={row.id}>
+                    {cat.code} — {cat.name}
+                  </option>
+                )
+              })}
+            </select>
+            {!primaryCategoryId && (
+              <p className="text-xs text-red-500 mt-1">Required</p>
             )}
           </div>
 
@@ -342,7 +210,7 @@ export default function PlayerEditSheet({
               !firstName.trim() ||
               !lastName.trim() ||
               !jersey.trim() ||
-              Object.keys(positions).length === 0
+              !primaryCategoryId
             }
             className="w-full bg-[var(--text-primary)] text-[var(--text-inverse)] rounded-xl py-3 text-sm font-semibold min-h-[48px] active:bg-[var(--bg-card-alt)] transition-colors disabled:bg-[var(--bg-card-alt)]"
           >

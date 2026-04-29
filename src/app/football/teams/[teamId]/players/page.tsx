@@ -19,6 +19,7 @@ import {
   convertDepthMapToSelections,
   getDepthLabel
 } from '@/utils/playerHelpers';
+import { POSITION_CATEGORIES } from '@/config/footballPositions';
 
 interface Game {
   id: string;
@@ -127,6 +128,23 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
     }
   };
 
+  // State for the position-category UUID lookup (loaded once on mount)
+  const [categoryByCode, setCategoryByCode] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    // Load position_categories once so we can write primary_position_category_id by code lookup
+    supabase
+      .from('position_categories')
+      .select('id, code')
+      .eq('sport', 'football')
+      .then(({ data }) => {
+        if (data) {
+          setCategoryByCode(new Map(data.map((r) => [r.code as string, r.id as string])));
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubmit = async (position_depths: PositionDepthMap, otherData: any) => {
     // Validate position_depths structure
     const validation = validatePositionDepths(position_depths);
@@ -156,11 +174,16 @@ export default function PlayersPage({ params }: { params: Promise<{ teamId: stri
       return;
     }
 
-    const playerData: Partial<PlayerRecord> = {
+    const primaryCategoryId = otherData.primary_category_code
+      ? categoryByCode.get(otherData.primary_category_code) ?? null
+      : null;
+
+    const playerData: Partial<PlayerRecord> & { primary_position_category_id?: string | null } = {
       jersey_number: otherData.jersey_number,
       first_name: otherData.first_name,
       last_name: otherData.last_name,
       position_depths: position_depths,
+      primary_position_category_id: primaryCategoryId,
       grade_level: otherData.grade_level || undefined,
       weight: otherData.weight ? parseInt(otherData.weight) : undefined,
       height: otherData.height ? parseInt(otherData.height) : undefined,
@@ -740,6 +763,7 @@ function PlayerModal({
       jersey_number: formData.get('jersey_number') as string,
       first_name: formData.get('first_name') as string,
       last_name: formData.get('last_name') as string,
+      primary_category_code: formData.get('primary_category_code') as string,
       grade_level: formData.get('grade_level') as string,
       weight: formData.get('weight') as string,
       height: formData.get('height') as string,
@@ -799,10 +823,36 @@ function PlayerModal({
             </div>
           </div>
 
+          {/* Primary Position Category — drives stats and reports */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Primary Position *
+            </label>
+            <select
+              name="primary_category_code"
+              defaultValue={
+                (player as unknown as { primary_position_category_code?: string })
+                  ?.primary_position_category_code ?? ''
+              }
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 text-gray-900"
+            >
+              <option value="">Select position...</option>
+              {POSITION_CATEGORIES.map((cat) => (
+                <option key={cat.code} value={cat.code}>
+                  {cat.code} — {cat.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Used for stats grouping. Specific scheme positions (LDE, MIKE, etc.) are assigned in the depth chart.
+            </p>
+          </div>
+
           {/* Positions with Per-Position Depth */}
           <div className="border border-gray-200 rounded-lg p-4">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Positions & Depth * <span className="text-xs text-gray-500">(Select positions and set depth for each)</span>
+              Positions & Depth <span className="text-xs text-gray-500">(legacy depth chart — Phase 2 replaces this)</span>
             </label>
 
             {/* Offensive Positions */}
