@@ -366,7 +366,7 @@ export class AnalyticsService {
     // Fetch player info
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -721,7 +721,7 @@ export class AnalyticsService {
         first_name: player.first_name,
         last_name: player.last_name,
         jersey_number: player.jersey_number || '',
-        position: player.primary_position || player.position || ''
+        position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? ''
       },
       totalPlays,
       successRate,
@@ -788,7 +788,7 @@ export class AnalyticsService {
         first_name: player.first_name,
         last_name: player.last_name,
         jersey_number: player.jersey_number || '',
-        position: player.primary_position || player.position || ''
+        position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? ''
       },
       totalPlays: 0,
       successRate: 0,

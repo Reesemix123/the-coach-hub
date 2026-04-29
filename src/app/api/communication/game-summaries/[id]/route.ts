@@ -50,7 +50,7 @@ interface PlayerParticipationRow {
     first_name: string;
     last_name: string;
     jersey_number: number | null;
-    primary_position: string | null;
+    position_categories: { code: string | null } | null;
   } | null;
 }
 
@@ -228,7 +228,7 @@ async function computeGameStats(gameId: string): Promise<{
     .select(
       'player_id, participation_type, yards_gained, is_touchdown, result, ' +
         'play_instances!inner(id, yards_gained, is_touchdown, scoring_type, result, is_opponent_play), ' +
-        'players(id, first_name, last_name, jersey_number, primary_position)'
+        'players(id, first_name, last_name, jersey_number, position_categories:position_categories!primary_position_category_id(code))'
     )
     .in('play_instances.video_id', videoIds)
     .eq('play_instances.is_opponent_play', false);
@@ -295,7 +295,7 @@ async function computeGameStats(gameId: string): Promise<{
         playerId: pid,
         name: `${row.players.first_name} ${row.players.last_name}`,
         jerseyNumber: row.players.jersey_number ?? null,
-        position: row.players.primary_position ?? null,
+        position: row.players.position_categories?.code ?? null,
         rushAttempts: 0, rushYards: 0, rushTDs: 0,
         passAttempts: 0, completions: 0, passYards: 0, passTDs: 0, passInts: 0,
         targets: 0, receptions: 0, recYards: 0, recTDs: 0,

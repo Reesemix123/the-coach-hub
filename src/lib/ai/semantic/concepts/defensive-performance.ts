@@ -78,22 +78,10 @@ function getTeamGradeString(havocRate: number): string {
 }
 
 function getPositionGroup(player: PlayerData): DefensivePlayerStats['positionGroup'] {
-  const positions = player.position_depths || {};
-  const positionKeys = Object.keys(positions);
-
-  // Check for DL positions
-  if (positionKeys.some(p => ['DT', 'DE', 'NT', 'DL'].includes(p.toUpperCase()))) {
-    return 'DL';
-  }
-  // Check for LB positions
-  if (positionKeys.some(p => ['MLB', 'ILB', 'OLB', 'WLB', 'SLB', 'LB'].includes(p.toUpperCase()))) {
-    return 'LB';
-  }
-  // Check for DB positions
-  if (positionKeys.some(p => ['CB', 'FS', 'SS', 'S', 'DB', 'NB'].includes(p.toUpperCase()))) {
-    return 'DB';
-  }
-
+  const code = player.primary_position_category_code;
+  if (code === 'DL') return 'DL';
+  if (code === 'LB') return 'LB';
+  if (code === 'DB') return 'DB';
   return 'Unknown';
 }
 

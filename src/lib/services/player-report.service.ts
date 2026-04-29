@@ -345,7 +345,7 @@ export async function generatePlayerReport(
   const seasonId  = seasonRow.id as string;
 
   const { data: player, error: playerErr } = await supabase
-    .from('players').select('first_name, last_name, jersey_number, primary_position')
+    .from('players').select('first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
     .eq('id', rosterId).single();
   if (playerErr) throw new Error(`[player-report] players lookup failed: ${playerErr.message}`);
   console.log('[player-report] Player resolved', { name:`${player.first_name} ${player.last_name}` });
@@ -418,7 +418,7 @@ export async function generatePlayerReport(
     ? `${game.team_score}-${game.opponent_score}` : 'Score not recorded';
   const prompt = [
     `Generate two performance narratives for this player's game performance.\n`,
-    `PLAYER: ${player.first_name} ${player.last_name} ${player.jersey_number != null ? `#${player.jersey_number}` : ''} (${player.primary_position ?? 'Unknown'})`,
+    `PLAYER: ${player.first_name} ${player.last_name} ${player.jersey_number != null ? `#${player.jersey_number}` : ''} (${(player as unknown as { position_categories?: { code?: string } | null }).position_categories?.code ?? 'Unknown'})`,
     `GAME: vs ${game.opponent ?? 'Unknown'} on ${game.date ?? 'unknown date'} — Final: ${scoreStr}`,
     `UNIT: ${UNIT_LABELS[unit]}\n`,
     `PERFORMANCE DATA:\n${statsToText(statsSnapshot)}\n`,

@@ -472,11 +472,13 @@ export async function buildPlayerSummaryData(
 
   const { data: player } = await supabase
     .from('players')
-    .select('id, first_name, last_name, jersey_number, primary_position, position_group')
+    .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code, unit)')
     .eq('id', playerId)
     .single();
 
   if (!player) throw new Error('Player not found');
+
+  const category = (player as unknown as { position_categories?: { code: string | null; unit: string | null } | null }).position_categories ?? null;
 
   const { data: playInstances } = await supabase
     .from('play_instances')
@@ -496,7 +498,7 @@ export async function buildPlayerSummaryData(
   const totalYards = (playInstances || []).reduce((sum, p) => sum + (p.yards_gained || 0), 0);
   const yardsPerPlay = totalPlays > 0 ? Math.round((totalYards / totalPlays) * 10) / 10 : 0;
 
-  const positions = [player.primary_position, player.position_group].filter(Boolean) as string[];
+  const positions = [category?.code, category?.unit].filter(Boolean) as string[];
   const gamesPlayed = games?.length || 0;
 
   const { highlights, growthAreas } = framePositively({
@@ -510,7 +512,7 @@ export async function buildPlayerSummaryData(
   return {
     playerName: `${player.first_name} ${player.last_name}`,
     jerseyNumber: player.jersey_number,
-    position: player.primary_position,
+    position: category?.code ?? null,
     gamesPlayed,
     totalPlays,
     positionsPlayed: positions,

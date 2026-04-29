@@ -10,6 +10,32 @@ import type { PlayData, DriveData, PlayerData, GameData, PlaybookPlayData, Pract
 
 type QueryBuilder = ReturnType<RealSupabaseClient['from']>;
 
+type PlayerRowWithCategory = {
+  id: string;
+  team_id: string;
+  jersey_number: string;
+  first_name: string | null;
+  last_name: string | null;
+  primary_position_category_id: string | null;
+  position_categories: { code: string | null; unit: string | null } | null;
+  is_active: boolean;
+};
+
+function flattenPlayerCategory(row: unknown): PlayerData {
+  const r = row as PlayerRowWithCategory;
+  return {
+    id: r.id,
+    team_id: r.team_id,
+    jersey_number: r.jersey_number,
+    first_name: r.first_name,
+    last_name: r.last_name,
+    primary_position_category_id: r.primary_position_category_id,
+    primary_position_category_code: r.position_categories?.code ?? null,
+    primary_position_category_unit: r.position_categories?.unit ?? null,
+    is_active: r.is_active,
+  };
+}
+
 /**
  * Fetch play instances for a team with optional filters
  */
@@ -355,7 +381,7 @@ export async function fetchPlayers(
 ): Promise<PlayerData[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('id, team_id, jersey_number, first_name, last_name, position_depths, is_active')
+    .select('id, team_id, jersey_number, first_name, last_name, primary_position_category_id, position_categories!primary_position_category_id(code, unit), is_active')
     .eq('team_id', teamId)
     .eq('is_active', true);
 
@@ -364,7 +390,7 @@ export async function fetchPlayers(
     return [];
   }
 
-  return (data || []) as PlayerData[];
+  return (data || []).map(flattenPlayerCategory) as PlayerData[];
 }
 
 /**
@@ -377,7 +403,7 @@ export async function findPlayerByNumber(
 ): Promise<PlayerData | null> {
   const { data, error } = await supabase
     .from('players')
-    .select('id, team_id, jersey_number, first_name, last_name, position_depths, is_active')
+    .select('id, team_id, jersey_number, first_name, last_name, primary_position_category_id, position_categories!primary_position_category_id(code, unit), is_active')
     .eq('team_id', teamId)
     .eq('jersey_number', jerseyNumber)
     .maybeSingle();
@@ -387,7 +413,7 @@ export async function findPlayerByNumber(
     return null;
   }
 
-  return data as PlayerData | null;
+  return data ? (flattenPlayerCategory(data) as PlayerData) : null;
 }
 
 /**

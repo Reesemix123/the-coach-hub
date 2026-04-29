@@ -47,7 +47,7 @@ interface PlayerParticipationRow {
     first_name: string;
     last_name: string;
     jersey_number: number | null;
-    primary_position: string | null;
+    position_categories: { code: string | null } | null;
   } | null;
 }
 
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           'player_id, participation_type, yards_gained, is_touchdown, is_turnover, result, ' +
           'play_instances!inner(id, down, distance, yards_gained, resulted_in_first_down, ' +
           'is_turnover, is_touchdown, scoring_type, result, yard_line, play_code, is_opponent_play), ' +
-          'players(id, first_name, last_name, jersey_number, primary_position)'
+          'players(id, first_name, last_name, jersey_number, position_categories:position_categories!primary_position_category_id(code))'
         )
         .eq('play_instances.game_id', summary.game_id)
         .eq('play_instances.is_opponent_play', false);
@@ -343,7 +343,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
               playerId,
               name: `${row.players.first_name} ${row.players.last_name}`,
               jerseyNumber: row.players.jersey_number ?? null,
-              position: row.players.primary_position ?? null,
+              position: row.players.position_categories?.code ?? null,
               rushAttempts: 0, rushYards: 0, rushTDs: 0,
               passAttempts: 0, completions: 0, passYards: 0, passTDs: 0, passInts: 0,
               targets: 0, receptions: 0, recYards: 0, recTDs: 0,

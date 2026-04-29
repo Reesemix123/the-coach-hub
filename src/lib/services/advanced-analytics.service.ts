@@ -393,7 +393,7 @@ export class AdvancedAnalyticsService {
     // Fetch player details
     const { data: players } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code, unit)')
       .in('id', Array.from(playerIds));
 
     if (!players) return [];
@@ -438,10 +438,7 @@ export class AdvancedAnalyticsService {
         playerId: player.id,
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
-        // TODO: Phase 2 Batch 2 — replace primary_position (dropped column)
-        // and position_depths (legacy) with primary_position_category_id JOIN.
-        position: player.primary_position,
-        position_depths: player.position_depths || {},
+        position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
         carries,
         rushYards,
@@ -494,22 +491,18 @@ export class AdvancedAnalyticsService {
 
     console.log('🏈 Fetching OL stats from player_participation table...');
 
-    // Get all active players for the team
+    // Get all active OL players via position_categories JOIN
     const { data: allPlayers } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code, unit)')
       .eq('team_id', teamId)
       .eq('is_active', true);
 
     if (!allPlayers || allPlayers.length === 0) return [];
 
-    // TODO: Phase 2 Batch 2 — convert this to a position_categories JOIN
-    // matching the pattern used by calculateDefensivePlayerStats above.
-    // Filter to players who have ANY OL position in their position_depths
-    const OL_POSITIONS = ['LT', 'LG', 'C', 'RG', 'RT'];
     const olPlayers = allPlayers.filter(player => {
-      const positions = Object.keys(player.position_depths || {});
-      return positions.some(pos => OL_POSITIONS.includes(pos));
+      const cat = (player as unknown as { position_categories?: { code: string | null } | null }).position_categories;
+      return cat?.code === 'OL';
     });
 
     if (olPlayers.length === 0) return [];
@@ -569,9 +562,7 @@ export class AdvancedAnalyticsService {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
-          // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
-          position: player.primary_position,
-          position_depths: player.position_depths || {},
+          position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
           totalAssignments,
           blockWins,
           blockLosses,
@@ -616,30 +607,19 @@ export class AdvancedAnalyticsService {
 
     console.log('🛡️ Fetching defensive stats from player_participation table...');
 
-    // Get all active players for the team. Join position_categories so we can
-    // filter by the category's `unit` field directly — no need to maintain a
-    // hard-coded slot-code list. Phase 2 Batch 1 of the position architecture
-    // redesign.
+    // Get all active defensive players via position_categories JOIN. Filter by
+    // the category's `unit` field — no hard-coded slot list.
     const { data: allPlayers } = await this.supabase
       .from('players')
-      .select('*, primary_position_category:position_categories!primary_position_category_id(code, unit)')
+      .select('id, first_name, last_name, jersey_number, primary_position_category:position_categories!primary_position_category_id(code, unit)')
       .eq('team_id', teamId)
       .eq('is_active', true);
 
     if (!allPlayers || allPlayers.length === 0) return [];
 
-    // Filter to defensive players via the joined category. Falls back to the
-    // legacy position_depths keys for any player whose category isn't set yet.
-    const defPlayers = allPlayers.filter((player: typeof allPlayers[number] & {
-      primary_position_category?: { code: string; unit: string } | null
-    }) => {
-      const cat = player.primary_position_category;
-      if (cat && cat.unit === 'defense') return true;
-      // Legacy fallback — TODO: Phase 2 Batch 2 remove once all rosters have
-      // primary_position_category_id populated.
-      const positions = Object.keys(player.position_depths || {});
-      const LEGACY_DEFENSE = ['DE', 'DT', 'DT1', 'DT2', 'NT', 'LB', 'MLB', 'SAM', 'WILL', 'OLB', 'ILB', 'CB', 'LCB', 'RCB', 'S', 'FS', 'SS'];
-      return positions.some(pos => LEGACY_DEFENSE.includes(pos));
+    const defPlayers = allPlayers.filter(player => {
+      const cat = (player as unknown as { primary_position_category?: { code: string; unit: string } | null }).primary_position_category;
+      return cat?.unit === 'defense';
     });
 
     if (defPlayers.length === 0) return [];
@@ -727,9 +707,7 @@ export class AdvancedAnalyticsService {
           playerId: player.id,
           playerName: `${player.first_name} ${player.last_name}`,
           jerseyNumber: player.jersey_number,
-          // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
-          position: player.primary_position,
-          position_depths: player.position_depths || {},
+          position: (player as unknown as { primary_position_category?: { code: string | null } | null }).primary_position_category?.code ?? '',
 
           defensiveSnaps,
           primaryTackles,
@@ -871,7 +849,7 @@ export class AdvancedAnalyticsService {
     // 3. Fetch player details for all players with stats
     const { data: players } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code, unit)')
       .in('id', Array.from(playerIdSet));
 
     if (!players) {
@@ -898,13 +876,15 @@ export class AdvancedAnalyticsService {
         (offStats?.recTouchdowns || 0) +
         (defStat?.interceptions || 0); // Defensive TDs
 
+      const cat = (player as unknown as { position_categories?: { code: string | null } | null }).position_categories;
+      const primaryCode = cat?.code ?? '';
+
       return {
         playerId: player.id,
         playerName: `${player.first_name} ${player.last_name}`,
         jerseyNumber: player.jersey_number,
-        // TODO: Phase 2 Batch 2 — replace with primary_position_category_id JOIN.
-        positions: Object.keys(player.position_depths || {}),
-        primaryPosition: player.primary_position,
+        positions: primaryCode ? [primaryCode] : [],
+        primaryPosition: primaryCode,
 
         // Offensive stats (null if no offensive stats)
         offense: offStats ? {
@@ -1068,7 +1048,7 @@ export class AdvancedAnalyticsService {
   async getQBStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1126,7 +1106,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Passing
       dropbacks: passPlays.length,
@@ -1167,7 +1147,7 @@ export class AdvancedAnalyticsService {
   async getRBStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1218,7 +1198,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Rushing
       carries: rushPlays.length,
@@ -1258,7 +1238,7 @@ export class AdvancedAnalyticsService {
   async getWRTEStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1317,7 +1297,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Receiving
       targets: plays.length,
@@ -1351,7 +1331,7 @@ export class AdvancedAnalyticsService {
   async getDLStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1434,7 +1414,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Tackles
       defensiveSnaps,
@@ -1474,7 +1454,7 @@ export class AdvancedAnalyticsService {
   async getLBStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1549,7 +1529,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Tackles
       defensiveSnaps,
@@ -1587,7 +1567,7 @@ export class AdvancedAnalyticsService {
   async getDBStats(playerId: string, gameId?: string) {
     const { data: player } = await this.supabase
       .from('players')
-      .select('*')
+      .select('id, team_id, first_name, last_name, jersey_number, position_categories!primary_position_category_id(code)')
       .eq('id', playerId)
       .single();
 
@@ -1669,7 +1649,7 @@ export class AdvancedAnalyticsService {
     return {
       playerName: `${player.first_name} ${player.last_name}`,
       jerseyNumber: player.jersey_number,
-      position: player.primary_position,
+      position: (player as unknown as { position_categories?: { code: string | null } | null }).position_categories?.code ?? '',
 
       // Coverage
       defensiveSnaps,
