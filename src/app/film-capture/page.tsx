@@ -9,7 +9,8 @@ import {
 import { createClient } from '@/utils/supabase/client';
 import type { FilmCaptureWithSport, ShareableUser } from '@/types/film-capture';
 import { AGE_GROUPS } from '@/types/film-capture';
-import { uploadFile as resumableUpload, formatBytes, formatTime, type UploadProgress } from '@/lib/utils/resumable-upload';
+import { useBulkUpload, type UploadItem } from '@/hooks/useBulkUpload';
+import { BulkUploadQueue } from '@/components/film-capture/BulkUploadQueue';
 
 type Tab = 'mine' | 'shared' | 'all';
 type GameMode = 'existing' | 'new';
@@ -36,10 +37,6 @@ interface UserGameOption {
 export default function FilmCapturePage() {
   const [loading, setLoading] = useState(true);
   const [sports, setSports] = useState<Array<{ id: string; name: string; icon: string | null }>>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgressText, setUploadProgressText] = useState<string | null>(null);
-  const [uploadPercent, setUploadPercent] = useState<number>(0);
-  const [uploadDetails, setUploadDetails] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -48,12 +45,10 @@ export default function FilmCapturePage() {
   // Upload form state
   const [gameMode, setGameMode] = useState<GameMode>('new');
   const [selectedGameId, setSelectedGameId] = useState('');
-  const [clipLabel, setClipLabel] = useState('');
   const [sportId, setSportId] = useState('');
   const [gameDate, setGameDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [opponent, setOpponent] = useState('');
   const [ageGroup, setAgeGroup] = useState('');
-  const [file, setFile] = useState<File | null>(null);
 
   // User's own games for "existing game" dropdown
   const [userGames, setUserGames] = useState<UserGameOption[]>([]);
@@ -106,6 +101,25 @@ export default function FilmCapturePage() {
   const [vimeoTitle, setVimeoTitle] = useState('');
   const [vimeoDescription, setVimeoDescription] = useState('');
   const [vimeoPrivacy, setVimeoPrivacy] = useState<'unlisted' | 'public' | 'private'>('unlisted');
+
+  // Bulk upload queue — sequential drain loop, picks up files appended mid-batch
+  const bulk = useBulkUpload({
+    bucketName: 'film_captures',
+    metadataEndpoint: '/api/film-capture/upload',
+    buildMetadataPayload: (item: UploadItem, gameId: string, storagePath: string, clipOrder: number) => ({
+      sport_id: sportId || sports[0]?.id || '',
+      game_date: gameMode === 'new' ? gameDate : new Date().toISOString().split('T')[0],
+      opponent: gameMode === 'new' ? (opponent.trim() || null) : null,
+      age_group: gameMode === 'new' ? (ageGroup || null) : null,
+      storage_path: storagePath,
+      file_name: item.file.name,
+      file_size_bytes: item.file.size,
+      mime_type: item.file.type,
+      game_id: gameId,
+      clip_label: item.clipLabel.trim() || null,
+      clip_order: clipOrder,
+    }),
+  });
 
   // Persist view mode
   useEffect(() => {
@@ -305,22 +319,21 @@ export default function FilmCapturePage() {
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
 
-    const uploadFile = file ?? (document.getElementById('film-file-input') as HTMLInputElement)?.files?.[0] ?? null;
-    if (!uploadFile) {
-      setError('Please select a video file.');
+    if (bulk.queue.length === 0 || bulk.queue.every(q => q.status === 'done')) {
+      setError('Please select at least one video file.');
       return;
     }
 
     let effectiveGameId = '';
 
     if (gameMode === 'existing') {
-      effectiveGameId = selectedGameId;
-      if (!effectiveGameId) {
+      if (!selectedGameId) {
         setError('Please select a game.');
         return;
       }
+      effectiveGameId = selectedGameId;
     } else {
-      // Create new game first
+      // Create new game once for the whole batch
       const effectiveSportId = sportId || (document.getElementById('film-sport-select') as HTMLSelectElement)?.value || '';
       const effectiveGameDate = gameDate || (document.getElementById('film-game-date') as HTMLInputElement)?.value || '';
 
@@ -329,10 +342,8 @@ export default function FilmCapturePage() {
         return;
       }
 
-      setUploading(true);
       setError(null);
       setSuccess(null);
-      setUploadProgressText('Creating game...');
 
       try {
         const gameRes = await fetch('/api/film-capture/games', {
@@ -353,99 +364,19 @@ export default function FilmCapturePage() {
         effectiveGameId = gameData.game.id;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create game');
-        setUploading(false);
-        setUploadProgressText(null);
         return;
       }
     }
 
-    // Upload the file
-    setUploading(true);
     setError(null);
     setSuccess(null);
-    setUploadProgressText('Preparing upload...');
-    setUploadPercent(0);
-    setUploadDetails(null);
 
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+    const result = await bulk.startBatch(effectiveGameId);
 
-      const timestamp = Date.now();
-      const sanitizedName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${user.id}/${timestamp}_${sanitizedName}`;
+    if (result.allDone) {
+      setSuccess(`Uploaded ${result.queueLength} clip${result.queueLength > 1 ? 's' : ''} successfully`);
+      bulk.resetQueue();
 
-      // Use resumable upload with progress tracking (tus protocol for files > 100MB)
-      const uploadResult = await resumableUpload(
-        supabase,
-        'film_captures',
-        storagePath,
-        uploadFile,
-        {
-          onProgress: (progress: UploadProgress) => {
-            setUploadPercent(progress.percentage);
-            setUploadProgressText(`Uploading — ${progress.percentage}%`);
-            setUploadDetails(
-              `${formatBytes(progress.bytesUploaded)} of ${formatBytes(progress.bytesTotal)}` +
-              (progress.remainingTime > 0 ? ` — ${formatTime(progress.remainingTime)} remaining` : '')
-            );
-          },
-          onError: (err: Error) => {
-            console.error('Upload error:', err);
-          },
-        }
-      );
-
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Storage upload failed');
-      }
-
-      setUploadProgressText('Saving metadata...');
-      setUploadPercent(100);
-
-      // When using an existing game we still need sport_id and game_date for the
-      // upload route's validation. Derive them from the selected game in userGames.
-      let sportIdForUpload = sportId;
-      let gameDateForUpload = gameDate;
-      if (gameMode === 'existing') {
-        // The upload route accepts game_id and can derive metadata server-side,
-        // but the current route still validates sport_id + game_date.
-        // Use a safe fallback: first sport and today if nothing is set.
-        sportIdForUpload = sports[0]?.id || '';
-        gameDateForUpload = new Date().toISOString().split('T')[0];
-      }
-
-      const res = await fetch('/api/film-capture/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sport_id: sportIdForUpload,
-          game_date: gameDateForUpload,
-          opponent: gameMode === 'new' ? (opponent.trim() || null) : null,
-          age_group: gameMode === 'new' ? (ageGroup || null) : null,
-          storage_path: storagePath,
-          file_name: uploadFile.name,
-          file_size_bytes: uploadFile.size,
-          mime_type: uploadFile.type,
-          game_id: effectiveGameId,
-          clip_label: clipLabel.trim() || null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        await supabase.storage.from('film_captures').remove([storagePath]);
-        throw new Error((data as { error?: string }).error || 'Failed to save clip record');
-      }
-
-      setSuccess('Film uploaded successfully');
-      setFile(null);
-      setClipLabel('');
-      const fileInput = document.getElementById('film-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-
-      // Reset new-game fields after a successful "new game" upload
       if (gameMode === 'new') {
         setSportId('');
         setGameDate(new Date().toISOString().split('T')[0]);
@@ -456,7 +387,7 @@ export default function FilmCapturePage() {
       setActiveTab('mine');
       await Promise.all([fetchGames(), refreshUserGames()]);
 
-      // If we just added a clip to an already-expanded game, refresh its clips
+      // If we just added clips to an already-expanded game, refresh its clips
       if (expandedGameId === effectiveGameId) {
         const clipsRes = await fetch(`/api/film-capture/games/${effectiveGameId}/clips`);
         if (clipsRes.ok) {
@@ -464,13 +395,8 @@ export default function FilmCapturePage() {
           setGameClips(clipsData.clips ?? []);
         }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-      setUploadProgressText(null);
-      setUploadPercent(0);
-      setUploadDetails(null);
+    } else {
+      setError('Some uploads failed. Click Retry on each to try again.');
     }
   }
 
@@ -780,7 +706,8 @@ export default function FilmCapturePage() {
                     <select
                       value={selectedGameId}
                       onChange={e => setSelectedGameId(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                      disabled={bulk.isProcessing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     >
                       <option value="">Select a game...</option>
                       {userGames.map(g => (
@@ -798,7 +725,8 @@ export default function FilmCapturePage() {
                       id="film-sport-select"
                       value={sportId}
                       onChange={e => setSportId(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                      disabled={bulk.isProcessing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     >
                       <option value="">Select sport...</option>
                       {sports.map(s => (
@@ -814,7 +742,8 @@ export default function FilmCapturePage() {
                       type="date"
                       value={gameDate}
                       onChange={e => setGameDate(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                      disabled={bulk.isProcessing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
 
@@ -825,7 +754,8 @@ export default function FilmCapturePage() {
                       value={opponent}
                       onChange={e => setOpponent(e.target.value)}
                       placeholder="e.g. Riverside Eagles"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                      disabled={bulk.isProcessing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     />
                   </div>
 
@@ -834,7 +764,8 @@ export default function FilmCapturePage() {
                     <select
                       value={ageGroup}
                       onChange={e => setAgeGroup(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                      disabled={bulk.isProcessing}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                     >
                       <option value="">Select...</option>
                       {AGE_GROUPS.map(ag => (
@@ -846,61 +777,55 @@ export default function FilmCapturePage() {
               )}
             </div>
 
-            {/* Step 2: Clip details + file */}
+            {/* Step 2: File picker + queue */}
             <div className="space-y-4 pt-1 border-t border-gray-100">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Clip Label <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={clipLabel}
-                  onChange={e => setClipLabel(e.target.value)}
-                  placeholder="e.g. Q1, Sideline, Full Game"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Video File *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Video Files *</label>
                 <input
                   id="film-file-input"
                   type="file"
+                  multiple
                   accept="video/mp4,video/quicktime,video/webm,video/x-msvideo,video/x-m4v,video/mpeg,.mp4,.mov,.webm,.avi,.m4v,.mpeg,.mpg"
                   onChange={e => {
-                    const selected = e.target.files?.[0] ?? null;
-                    setFile(selected);
-                    if (selected) setError(null);
+                    const selected = Array.from(e.target.files ?? []);
+                    if (selected.length > 0) {
+                      bulk.appendFiles(selected);
+                      setError(null);
+                    }
+                    e.target.value = '';
                   }}
                   className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                 />
-                <p className="text-xs text-gray-400 mt-1">Max 5GB. Supported: MP4, MOV, WebM, AVI, M4V, MPEG</p>
+                <p className="text-xs text-gray-400 mt-1">Max 5GB per file. Supported: MP4, MOV, WebM, AVI, M4V, MPEG. Select multiple files to upload as a batch.</p>
               </div>
+
+              <BulkUploadQueue
+                queue={bulk.queue}
+                onRemove={bulk.removeItem}
+                onLabelChange={bulk.updateClipLabel}
+                onRetry={bulk.retryItem}
+              />
             </div>
 
             <button
               type="submit"
-              disabled={uploading}
+              disabled={bulk.isProcessing || bulk.queue.length === 0}
               className="flex items-center gap-2 px-5 py-2.5 bg-black text-white rounded-lg hover:bg-gray-800 font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-              {uploadProgressText || 'Upload Film'}
+              {bulk.isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+              {(() => {
+                if (bulk.isProcessing) {
+                  const inFlight = bulk.queue.filter(q => q.status === 'done' || q.status === 'uploading').length;
+                  return `Uploading ${inFlight} of ${bulk.queue.length}...`;
+                }
+                if (bulk.queue.some(q => q.status === 'error')) {
+                  return 'Retry failed';
+                }
+                const count = bulk.queue.length;
+                if (count === 0) return 'Upload Film';
+                return `Upload ${count} ${count === 1 ? 'file' : 'files'}`;
+              })()}
             </button>
-
-            {/* Upload progress bar */}
-            {uploading && uploadPercent > 0 && (
-              <div className="mt-4">
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-black rounded-full transition-all duration-300"
-                    style={{ width: `${uploadPercent}%` }}
-                  />
-                </div>
-                {uploadDetails && (
-                  <p className="text-xs text-gray-500 mt-1.5">{uploadDetails}</p>
-                )}
-              </div>
-            )}
           </form>
         </div>
 
